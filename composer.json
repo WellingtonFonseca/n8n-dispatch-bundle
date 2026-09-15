@@ -1,0 +1,20 @@
+{
+    "name": "wellingtonfonseca/n8n-dispatch-bundle",
+    "description": "Syncs Mautic Email templates to Mirror on save, and (later) dispatches Email/SMS/HSM sends via n8n instead of Mautic's native senders.",
+    "type": "mautic-plugin",
+    "keywords": [
+        "mautic",
+        "plugin",
+        "n8n",
+        "mirror"
+    ],
+    "extra": {
+        "install-directory-name": "N8nDispatchBundle",
+        "display-name": "N8n Dispatch"
+    },
+    "license": "proprietary",
+    "require": {
+        "php": ">=8.1",
+        "mautic/core-lib": "^5.0"
+    }
+}
