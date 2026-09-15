@@ -6,6 +6,7 @@ namespace MauticPlugin\N8nDispatchBundle\EventListener;
 
 use Mautic\EmailBundle\EmailEvents;
 use Mautic\EmailBundle\Event\EmailEvent;
+use Mautic\EmailBundle\EventListener\EmailSubscriber as CoreEmailSubscriber;
 use Mautic\PluginBundle\Helper\IntegrationHelper;
 use MauticPlugin\N8nDispatchBundle\Integration\N8nDispatchIntegration;
 use Psr\Log\LoggerInterface;
@@ -31,6 +32,15 @@ use Symfony\Contracts\HttpClient\HttpClientInterface;
  * send time if a template doesn't set its own, but that fallback isn't
  * resolved here, so a null in this payload means "uses the system
  * default", not "no sender".
+ *
+ * The preheader is NOT stored as part of customHtml — Mautic keeps it in
+ * its own preheaderText column and only splices it into the HTML at
+ * actual send/preview time (EmailBundle\EventListener\EmailSubscriber::
+ * onEmailSendAddPreheaderText, which runs on a send-time event, not on
+ * save). Since Mirror doesn't do that injection itself, this listener
+ * reproduces the same injection here — using the core subscriber's own
+ * public constants/patterns, not a reimplementation — so the html sent
+ * out matches what Mautic would actually send.
  */
 class EmailMirrorSyncSubscriber implements EventSubscriberInterface
 {
@@ -69,7 +79,7 @@ class EmailMirrorSyncSubscriber implements EventSubscriberInterface
         }
 
         $email       = $event->getEmail();
-        $html        = (string) $email->getCustomHtml();
+        $html        = $this->injectPreheader((string) $email->getCustomHtml(), $email->getPreheaderText());
         $hash        = hash('sha256', $html);
         $fromName    = $email->getFromName();
         $fromAddress = $email->getFromAddress();
@@ -109,5 +119,29 @@ class EmailMirrorSyncSubscriber implements EventSubscriberInterface
             // a sync failure here must not surface as a save error to the user.
             $this->logger->error('N8nDispatch: failed to sync email '.$email->getId().' to the configured webhook: '.$e->getMessage());
         }
+    }
+
+    /**
+     * Mirrors EmailBundle\EventListener\EmailSubscriber::onEmailSendAddPreheaderText
+     * exactly (same constants, same replace-or-insert logic) so the HTML sent
+     * out here matches what Mautic itself would produce at send time.
+     */
+    private function injectPreheader(string $html, ?string $preheaderText): string
+    {
+        if (!$preheaderText) {
+            return $html;
+        }
+
+        $preheaderElement = CoreEmailSubscriber::PREHEADER_HTML_ELEMENT_BEFORE.$preheaderText.CoreEmailSubscriber::PREHEADER_HTML_ELEMENT_AFTER;
+
+        if (preg_match(CoreEmailSubscriber::PREHEADER_HTML_SEARCH_PATTERN, $html)) {
+            return preg_replace(CoreEmailSubscriber::PREHEADER_HTML_REPLACE_PATTERN, $preheaderElement, $html);
+        }
+
+        if (preg_match('/(<body[^>]*>)/i', $html, $bodyMatch)) {
+            return str_ireplace($bodyMatch[0], $bodyMatch[0]."\n".$preheaderElement, $html);
+        }
+
+        return $html;
     }
 }
