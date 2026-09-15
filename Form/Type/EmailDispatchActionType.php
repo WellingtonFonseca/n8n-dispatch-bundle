@@ -19,9 +19,23 @@ use Symfony\Component\Validator\Constraints\NotBlank;
  *   Mautic.n8nDispatchInitVariables) so it can re-fetch that template's
  *   {{variable}} names, live.
  * - variablesJson: a single hidden field holding a JSON object of
- *   {variableName: value}, kept in sync by that same JS as the visible,
- *   dynamically-rendered variable inputs change. A single mapped field
- *   was used instead of one Symfony form field per variable because the
+ *   {variableName: {source, value, field, customObject, customObjectField}}
+ *   — every key always present, only the ones matching `source` are
+ *   meaningful:
+ *     - {source: 'static', value: '...'} — a fixed value typed in.
+ *     - {source: 'field', field: 'firstname'} — a Mautic contact field,
+ *       resolved per-contact at dispatch time.
+ *     - {source: 'custom_object', customObject: 'disciplines',
+ *       customObjectField: 'discname'} — resolved at dispatch time by
+ *       finding this Custom Object's condition in the campaign's source
+ *       Segment filter, reapplying it against just this contact's linked
+ *       Custom Items, and joining every matching item's field value with
+ *       "<br>" (see EventListener/CampaignTriggerSubscriber.php for the
+ *       resolution logic — Mirror inserts this value raw into the HTML,
+ *       not escaped, so "<br>" renders as real line breaks).
+ *   Kept in sync by that same JS as the visible, dynamically-rendered
+ *   variable rows change. A single mapped field was used instead of one
+ *   Symfony form field per variable because the
  *   variable count/names differ per Email and change live as the user
  *   picks a different one — Symfony's own dynamic-field-rebuilding
  *   (PRE_SET_DATA/PRE_SUBMIT) only works cleanly when the field being

@@ -11,12 +11,13 @@ use MauticPlugin\N8nDispatchBundle\N8nDispatchEvents;
 use Symfony\Component\EventDispatcher\EventSubscriberInterface;
 
 /**
- * Registers the "Send via n8n (Email)" Campaign Action. Only the action
- * itself is registered here — no listener exists yet for
- * N8nDispatchEvents::ON_CAMPAIGN_TRIGGER_EMAIL_SEND, so a contact reaching
- * this step in a live campaign does nothing today. This increment is
- * scoped to the action's own form (email picker + per-template variable
- * inputs), not the dispatch itself.
+ * Registers the "Send via n8n (Email)" Campaign Action. The actual
+ * trigger logic lives in CampaignTriggerSubscriber, listening on
+ * N8nDispatchEvents::ON_CAMPAIGN_TRIGGER_EMAIL_SEND (registered here as
+ * 'batchEventName' — Mautic's current, non-deprecated execution API,
+ * dispatched once per batch of contacts as a Mautic\CampaignBundle\
+ * Event\PendingEvent; the older 'eventName'/CampaignExecutionEvent path
+ * is legacy BC code, deprecated since 2.13).
  */
 class CampaignSubscriber implements EventSubscriberInterface
 {
@@ -34,7 +35,7 @@ class CampaignSubscriber implements EventSubscriberInterface
             [
                 'label'           => 'mautic.n8ndispatch.campaign.event.email.send',
                 'description'     => 'mautic.n8ndispatch.campaign.event.email.send_descr',
-                'eventName'       => N8nDispatchEvents::ON_CAMPAIGN_TRIGGER_EMAIL_SEND,
+                'batchEventName'  => N8nDispatchEvents::ON_CAMPAIGN_TRIGGER_EMAIL_SEND,
                 'formType'        => EmailDispatchActionType::class,
                 'channel'         => 'email',
                 'channelIdField'  => 'email',

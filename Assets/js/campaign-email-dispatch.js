@@ -5,6 +5,10 @@
 
     var CONTAINER_ID = 'n8ndispatch-variables-container';
 
+    function escapeHtml(str) {
+        return mQuery('<div>').text(str == null ? '' : str).html();
+    }
+
     // Mautic's own form_row block wraps every field as
     // <div class="row"><div class="form-group col-xs-12">...</div></div> —
     // the col-xs-12 is what gives a row its left/right gutter. A container
@@ -29,8 +33,77 @@
         return $emailField.closest('form').find('.n8ndispatch-variables-json');
     }
 
+    function selectOptionsHtml(choices, selectedKey) {
+        var html = '';
+
+        mQuery.each(choices || {}, function (key, label) {
+            var selected = key === selectedKey ? ' selected' : '';
+            html += '<option value="' + escapeHtml(key) + '"' + selected + '>' + escapeHtml(label) + '</option>';
+        });
+
+        return html;
+    }
+
+    function customObjectOptionsHtml(customObjects, selectedAlias) {
+        var choices = {};
+
+        mQuery.each(customObjects || {}, function (alias, def) {
+            choices[alias] = def.label;
+        });
+
+        return selectOptionsHtml(choices, selectedAlias);
+    }
+
+    function customObjectFieldOptionsHtml(customObjects, selectedObject, selectedField) {
+        var def = (customObjects || {})[selectedObject];
+
+        return selectOptionsHtml(def ? def.fields : {}, selectedField);
+    }
+
+    var DEFAULT_ENTRY = {source: 'static', value: '', field: '', customObject: '', customObjectField: ''};
+
+    function variableRowHtml(name, existingEntry, fields, customObjects) {
+        var entry  = mQuery.extend({}, DEFAULT_ENTRY, existingEntry || {});
+        var source = entry.source || 'static';
+
+        var display = {
+            static:       'static' === source ? '' : ' style="display:none"',
+            field:        'field' === source ? '' : ' style="display:none"',
+            customObject: 'custom_object' === source ? '' : ' style="display:none"',
+        };
+
+        return '<div class="form-group n8ndispatch-var-row" data-var-name="' + escapeHtml(name) + '">'
+            + '<label class="control-label">{{' + escapeHtml(name) + '}}</label>'
+            + '<div class="row">'
+            + '<div class="col-xs-4">'
+            + '<select class="form-control n8ndispatch-var-source">'
+            + '<option value="static"' + ('static' === source ? ' selected' : '') + '>Static value</option>'
+            + '<option value="field"' + ('field' === source ? ' selected' : '') + '>Contact field</option>'
+            + '<option value="custom_object"' + ('custom_object' === source ? ' selected' : '') + '>Custom Object field</option>'
+            + '</select>'
+            + '</div>'
+            + '<div class="col-xs-8">'
+            + '<input type="text" class="form-control n8ndispatch-var-value" value="' + escapeHtml(entry.value) + '"' + display.static + '>'
+            + '<select class="form-control n8ndispatch-var-field"' + display.field + '>'
+            + selectOptionsHtml(fields, entry.field)
+            + '</select>'
+            + '<div class="n8ndispatch-var-custom-object"' + display.customObject + '>'
+            + '<select class="form-control n8ndispatch-var-custom-object-select mb-xs">'
+            + '<option value="">Select a Custom Object</option>'
+            + customObjectOptionsHtml(customObjects, entry.customObject)
+            + '</select>'
+            + '<select class="form-control n8ndispatch-var-custom-object-field">'
+            + '<option value="">Select a field</option>'
+            + customObjectFieldOptionsHtml(customObjects, entry.customObject, entry.customObjectField)
+            + '</select>'
+            + '</div>'
+            + '</div>'
+            + '</div>'
+            + '</div>';
+    }
+
     function renderVariableInputs($emailField) {
-        var emailId  = $emailField.val();
+        var emailId    = $emailField.val();
         var $container = getContainer($emailField);
         var $hidden     = getHiddenField($emailField);
 
@@ -55,28 +128,64 @@
 
             var html = '';
             mQuery.each(response.variables || [], function (i, name) {
-                var value = existing[name] || '';
-                html += '<div class="form-group">'
-                    + '<label class="control-label">{{' + name + '}}</label>'
-                    + '<input type="text" class="form-control n8ndispatch-var-input" data-var-name="' + name + '" value="' + value + '">'
-                    + '</div>';
+                html += variableRowHtml(name, existing[name], response.fields, response.customObjects);
             });
 
             $container.html(html);
             syncHiddenField($container, $hidden);
+            wireVariableRowEvents($container, $hidden, response.customObjects);
+        });
+    }
 
-            $container.find('.n8ndispatch-var-input').on('keyup change', function () {
-                syncHiddenField($container, $hidden);
-            });
+    function wireVariableRowEvents($container, $hidden, customObjects) {
+        $container.find('.n8ndispatch-var-source').on('change', function () {
+            var $row   = mQuery(this).closest('.n8ndispatch-var-row');
+            var source = mQuery(this).val();
+
+            $row.find('.n8ndispatch-var-value').toggle('static' === source);
+            $row.find('.n8ndispatch-var-field').toggle('field' === source);
+            $row.find('.n8ndispatch-var-custom-object').toggle('custom_object' === source);
+
+            syncHiddenField($container, $hidden);
+        });
+
+        $container.find('.n8ndispatch-var-custom-object-select').on('change', function () {
+            var $row          = mQuery(this).closest('.n8ndispatch-var-row');
+            var selectedAlias = mQuery(this).val();
+
+            $row.find('.n8ndispatch-var-custom-object-field').html(
+                '<option value="">Select a field</option>' + customObjectFieldOptionsHtml(customObjects, selectedAlias, '')
+            );
+
+            syncHiddenField($container, $hidden);
+        });
+
+        $container.find(
+            '.n8ndispatch-var-value, .n8ndispatch-var-field, .n8ndispatch-var-custom-object-field'
+        ).on('keyup change', function () {
+            syncHiddenField($container, $hidden);
         });
     }
 
     function syncHiddenField($container, $hidden) {
         var values = {};
 
-        $container.find('.n8ndispatch-var-input').each(function () {
-            var $input = mQuery(this);
-            values[$input.data('var-name')] = $input.val();
+        $container.find('.n8ndispatch-var-row').each(function () {
+            var $row   = mQuery(this);
+            var name   = $row.data('var-name');
+            var source = $row.find('.n8ndispatch-var-source').val();
+            var entry  = mQuery.extend({}, DEFAULT_ENTRY, {source: source});
+
+            if ('field' === source) {
+                entry.field = $row.find('.n8ndispatch-var-field').val();
+            } else if ('custom_object' === source) {
+                entry.customObject      = $row.find('.n8ndispatch-var-custom-object-select').val();
+                entry.customObjectField = $row.find('.n8ndispatch-var-custom-object-field').val();
+            } else {
+                entry.value = $row.find('.n8ndispatch-var-value').val();
+            }
+
+            values[name] = entry;
         });
 
         $hidden.val(JSON.stringify(values));
