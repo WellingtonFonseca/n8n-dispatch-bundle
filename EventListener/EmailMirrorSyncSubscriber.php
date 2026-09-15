@@ -44,6 +44,16 @@ use Symfony\Contracts\HttpClient\HttpClientInterface;
  */
 class EmailMirrorSyncSubscriber implements EventSubscriberInterface
 {
+    /**
+     * Sent as the X-N8n-Dispatch-Action header on every call, since this
+     * sync call and the future dispatch call (Campaign Action, not
+     * implemented yet — see Form/Type/EmailDispatchActionType.php) share
+     * the same configured webhook_url. Without this, n8n would have no
+     * reliable way to tell the two apart other than guessing from the
+     * request body's shape.
+     */
+    private const ACTION = 'template.sync';
+
     public function __construct(
         private IntegrationHelper $integrationHelper,
         private HttpClientInterface $httpClient,
@@ -84,7 +94,10 @@ class EmailMirrorSyncSubscriber implements EventSubscriberInterface
         $fromName    = $email->getFromName();
         $fromAddress = $email->getFromAddress();
 
-        $headers = ['Content-Type' => 'application/json'];
+        $headers = [
+            'Content-Type'          => 'application/json',
+            'X-N8n-Dispatch-Action' => self::ACTION,
+        ];
         $token   = trim((string) ($keys['webhook_token'] ?? ''));
         if ('' !== $token) {
             // Plain custom header, no "Bearer " prefix — matches n8n's Header
