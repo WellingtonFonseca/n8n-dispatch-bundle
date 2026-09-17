@@ -6,13 +6,21 @@ namespace MauticPlugin\N8nDispatchBundle\Form\Type;
 
 use Mautic\EmailBundle\Form\Type\EmailListType;
 use Symfony\Component\Form\AbstractType;
+use Symfony\Component\Form\Extension\Core\Type\ChoiceType;
 use Symfony\Component\Form\Extension\Core\Type\HiddenType;
 use Symfony\Component\Form\FormBuilderInterface;
 use Symfony\Component\Validator\Constraints\NotBlank;
 
 /**
- * Campaign Action form for "Send via n8n (Email)". Two fields:
+ * Campaign Action form for "Send via n8n (Email)". Three fields, in this
+ * display order:
  *
+ * - status: a 'teste'/'producao'/'pausado' dropdown, shown first. Stored on
+ *   the event's properties but not read by CampaignTriggerSubscriber yet —
+ *   this field only exists so campaign builders can set it ahead of the
+ *   trigger logic that will branch on it. Defaults to 'teste' so a newly
+ *   added step never fires production traffic by accident before someone
+ *   deliberately flips it.
  * - email: the usual Mautic Email entity picker (same EmailListType core's
  *   own "Send Email" action uses), wired to
  *   Assets/js/campaign-email-dispatch.js (Mautic.n8nDispatchOnEmailChange /
@@ -49,6 +57,25 @@ class EmailDispatchActionType extends AbstractType
 {
     public function buildForm(FormBuilderInterface $builder, array $options): void
     {
+        $builder->add(
+            'status',
+            ChoiceType::class,
+            [
+                'label'      => 'mautic.n8ndispatch.campaign.event.status',
+                'label_attr' => ['class' => 'control-label'],
+                'choices'    => [
+                    'mautic.n8ndispatch.campaign.event.status.test'       => 'teste',
+                    'mautic.n8ndispatch.campaign.event.status.production' => 'producao',
+                    'mautic.n8ndispatch.campaign.event.status.paused'     => 'pausado',
+                ],
+                'required' => true,
+                'data'     => 'teste',
+                'attr'     => [
+                    'class' => 'form-control',
+                ],
+            ]
+        );
+
         $builder->add(
             'email',
             EmailListType::class,
