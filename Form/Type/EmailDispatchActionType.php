@@ -15,12 +15,15 @@ use Symfony\Component\Validator\Constraints\NotBlank;
  * Campaign Action form for "Send via n8n (Email)". Three fields, in this
  * display order:
  *
- * - status: a 'teste'/'producao'/'pausado' dropdown, shown first. Stored on
- *   the event's properties but not read by CampaignTriggerSubscriber yet —
- *   this field only exists so campaign builders can set it ahead of the
- *   trigger logic that will branch on it. Defaults to 'teste' so a newly
- *   added step never fires production traffic by accident before someone
- *   deliberately flips it.
+ * - status: a 'test'/'production'/'paused' dropdown, shown first. Stored on
+ *   the event's properties and read by CampaignTriggerSubscriber: 'paused'
+ *   skips dispatch (contact rescheduled, not failed), 'test'/'production'
+ *   both dispatch and are passed through as the payload's own 'status'
+ *   field. Defaults to 'test' so a newly added step never fires production
+ *   traffic by accident before someone deliberately flips it. Values are
+ *   plain English on purpose — same strings shown in the dropdown label,
+ *   not a separate internal vocabulary, since this value is also sent
+ *   straight through to the n8n endpoint.
  * - email: the usual Mautic Email entity picker (same EmailListType core's
  *   own "Send Email" action uses), wired to
  *   Assets/js/campaign-email-dispatch.js (Mautic.n8nDispatchOnEmailChange /
@@ -64,12 +67,12 @@ class EmailDispatchActionType extends AbstractType
                 'label'      => 'mautic.n8ndispatch.campaign.event.status',
                 'label_attr' => ['class' => 'control-label'],
                 'choices'    => [
-                    'mautic.n8ndispatch.campaign.event.status.test'       => 'teste',
-                    'mautic.n8ndispatch.campaign.event.status.production' => 'producao',
-                    'mautic.n8ndispatch.campaign.event.status.paused'     => 'pausado',
+                    'mautic.n8ndispatch.campaign.event.status.test'       => 'test',
+                    'mautic.n8ndispatch.campaign.event.status.production' => 'production',
+                    'mautic.n8ndispatch.campaign.event.status.paused'     => 'paused',
                 ],
                 'required' => true,
-                'data'     => 'teste',
+                'data'     => 'test',
                 'attr'     => [
                     'class' => 'form-control',
                 ],

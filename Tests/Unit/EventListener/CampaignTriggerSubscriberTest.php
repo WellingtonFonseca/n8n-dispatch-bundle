@@ -93,7 +93,7 @@ class CampaignTriggerSubscriberTest extends TestCase
 
     public function testPausedStatusSkipsDispatchAndFailsAllPending(): void
     {
-        $pendingEvent = $this->buildPendingEvent(['email' => 1, 'status' => 'pausado']);
+        $pendingEvent = $this->buildPendingEvent(['email' => 1, 'status' => 'paused']);
 
         $this->httpClient->expects($this->never())->method('request');
         $this->emailModel->expects($this->never())->method('getEntity');
@@ -144,12 +144,12 @@ class CampaignTriggerSubscriberTest extends TestCase
     public static function provideNonPausedStatuses(): array
     {
         return [
-            'teste'    => ['teste'],
-            'producao' => ['producao'],
+            'test'       => ['test'],
+            'production' => ['production'],
         ];
     }
 
-    public function testMissingStatusDefaultsToTesteAndStillDispatches(): void
+    public function testMissingStatusDefaultsToTestAndStillDispatches(): void
     {
         $pendingEvent = $this->buildPendingEvent(['email' => 1]);
 
@@ -165,7 +165,7 @@ class CampaignTriggerSubscriberTest extends TestCase
                 $this->anything(),
                 $this->anything(),
                 $this->callback(function (array $options): bool {
-                    $this->assertSame('teste', $options['json']['status']);
+                    $this->assertSame('test', $options['json']['status']);
 
                     return true;
                 })
