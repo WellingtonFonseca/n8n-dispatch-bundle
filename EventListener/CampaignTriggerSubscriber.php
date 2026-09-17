@@ -53,17 +53,17 @@ class CampaignTriggerSubscriber implements EventSubscriberInterface
         $config          = $event->getEvent()->getProperties();
         $campaign        = $event->getEvent()->getCampaign();
         $emailId         = (int) ($config['email'] ?? 0);
-        $status          = (string) ($config['status'] ?? 'teste');
+        $status          = (string) ($config['status'] ?? 'test');
         $variablesConfig = json_decode((string) ($config['variablesJson'] ?? '{}'), true);
         $variablesConfig = is_array($variablesConfig) ? $variablesConfig : [];
 
-        if ('pausado' === $status) {
+        if ('paused' === $status) {
             // Same "can't process right now" pattern as the checks below
             // (missing Email/integration) — Mautic reschedules a failed
-            // contact automatically, so flipping the step off 'pausado'
+            // contact automatically, so flipping the step off 'paused'
             // later picks these back up on the next campaign run, no
             // manual rebuild needed.
-            $event->failAll('N8nDispatch: campaign step status is "pausado", dispatch skipped.');
+            $event->failAll('N8nDispatch: campaign step status is "paused", dispatch skipped.');
 
             return;
         }

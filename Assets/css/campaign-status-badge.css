@@ -21,14 +21,14 @@
     box-shadow: rgba(0, 0, 0, 0.2) 0px 1px 4px 0px;
 }
 
-.n8ndispatch-status-badge--teste {
+.n8ndispatch-status-badge--test {
     background-color: #b39ddb;
 }
 
-.n8ndispatch-status-badge--producao {
+.n8ndispatch-status-badge--production {
     background-color: #43a047;
 }
 
-.n8ndispatch-status-badge--pausado {
+.n8ndispatch-status-badge--paused {
     background-color: #fb8c00;
 }

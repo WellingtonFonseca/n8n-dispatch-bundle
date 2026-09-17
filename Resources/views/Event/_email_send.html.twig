@@ -11,16 +11,16 @@
     - campaignId
 #}
 {% set route = route|default('mautic_campaignevent_action') %}
-{% set status = event['properties']['status']|default('teste') %}
+{% set status = event['properties']['status']|default('test') %}
 {% set statusIcon = {
-    'teste':    'ri-bug-line',
-    'producao': 'ri-play-fill',
-    'pausado':  'ri-pause-fill',
+    'test':       'ri-bug-line',
+    'production': 'ri-play-fill',
+    'paused':     'ri-pause-fill',
 }[status]|default('ri-bug-line') %}
 {% set statusLabelKey = {
-    'teste':    'mautic.n8ndispatch.campaign.event.status.test',
-    'producao': 'mautic.n8ndispatch.campaign.event.status.production',
-    'pausado':  'mautic.n8ndispatch.campaign.event.status.paused',
+    'test':       'mautic.n8ndispatch.campaign.event.status.test',
+    'production': 'mautic.n8ndispatch.campaign.event.status.production',
+    'paused':     'mautic.n8ndispatch.campaign.event.status.paused',
 }[status]|default('mautic.n8ndispatch.campaign.event.status.test') %}
 {% if update is not defined %}
   <div id="CampaignEvent_{{ event['id'] }}"
