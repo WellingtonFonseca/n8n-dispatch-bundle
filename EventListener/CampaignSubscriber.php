@@ -39,6 +39,7 @@ class CampaignSubscriber implements EventSubscriberInterface
                 'formType'        => EmailDispatchActionType::class,
                 'channel'         => 'email',
                 'channelIdField'  => 'email',
+                'template'        => '@N8nDispatch/Event/_email_send.html.twig',
             ]
         );
     }

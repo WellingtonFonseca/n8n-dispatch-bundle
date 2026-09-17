@@ -1,0 +1,112 @@
+{#
+  Custom canvas box for the "Send via n8n (Email)" campaign action, replacing
+  @MauticCampaign/Event/_generic.html.twig's 'action' branch just for this
+  event type — same structure and buttons, plus a status badge in the
+  top-left corner (top-right is already used by Mautic's own hover
+  clone/edit/delete buttons, see .campaign-event-buttons in
+  Assets/css/campaign-status-badge.css).
+
+  Variables
+    - event
+    - campaignId
+#}
+{% set route = route|default('mautic_campaignevent_action') %}
+{% set status = event['properties']['status']|default('teste') %}
+{% set statusIcon = {
+    'teste':    'ri-bug-line',
+    'producao': 'ri-play-fill',
+    'pausado':  'ri-pause-fill',
+}[status]|default('ri-bug-line') %}
+{% set statusLabelKey = {
+    'teste':    'mautic.n8ndispatch.campaign.event.status.test',
+    'producao': 'mautic.n8ndispatch.campaign.event.status.production',
+    'pausado':  'mautic.n8ndispatch.campaign.event.status.paused',
+}[status]|default('mautic.n8ndispatch.campaign.event.status.test') %}
+{% if update is not defined %}
+  <div id="CampaignEvent_{{ event['id'] }}"
+       data-type="{{ event['eventType'] }}"
+       class="draggable list-campaign-event list-campaign-{{ event['eventType'] }}"
+       data-event="{{ event['type'] }}"
+       data-event-id="{{ event['id'] }}">
+{% endif %}
+    <span class="n8ndispatch-status-badge n8ndispatch-status-badge--{{ status }}" title="{{ statusLabelKey|trans }}">
+        <i class="{{ statusIcon }}"></i>
+    </span>
+    <div class="campaign-event-type">
+        <div class="campaign-event-content d-flex fw-nowrap ai-center gap-sm">
+            <div class="campaign-event-icon pa-sm mr-5"><i class="{{ getCampaignEventIcon(event['type']) }}"></i></div>
+            <div class="d-flex fd-column ai-start">
+                <span class="fs-18 fw-l">{{ ('mautic.campaign.'~event['type'])|trans }}</span>
+                <span class="campaign-event-name ellipsis">{% if ('dev' == constant('MAUTIC_ENV')) %}<small>{{ event['id'] }}</small> {% endif %}{{ event['name'] }}</span>
+            </div>
+        </div>
+    </div>
+
+{% if update is not defined %}
+    <div class="campaign-event-buttons hide">
+        {% include '@MauticCore/Helper/button.html.twig' with {
+            buttons: [
+                {
+                    href: path(route, {
+                        'objectAction': 'clone',
+                        'objectId': event['id'],
+                        'campaignId': campaignId
+                    }),
+                    variant: 'secondary',
+                    icon: 'ri-file-copy-line',
+                    size: 'xs',
+                    icon_only: true,
+                    label: 'mautic.campaign.event.clone.btn.tooltip'|trans,
+                    attributes: {
+                        'data-toggle': 'ajax',
+                        'data-target': 'CampaignEvent_' ~ event['id'],
+                        'data-ignore-formexit': 'true',
+                        'data-method': 'POST',
+                        'data-hide-loadingbar': 'true',
+                        'class': 'btn-clone'
+                    }
+                },
+                {
+                    href: path(route, {
+                        'objectAction': 'edit',
+                        'objectId': event['id'],
+                        'campaignId': campaignId
+                    }),
+                    variant: 'secondary',
+                    icon: 'ri-pencil-line',
+                    size: 'xs',
+                    icon_only: true,
+                    label: 'mautic.campaign.event.edit.btn.tooltip'|trans,
+                    attributes: {
+                        'data-toggle': 'ajaxmodal',
+                        'data-prevent-dismiss': 'true',
+                        'data-target': '#CampaignEventModal',
+                        'class': 'btn-edit'
+                    }
+                },
+                {
+                    href: path(route, {
+                        'objectAction': 'delete',
+                        'objectId': event['id'],
+                        'campaignId': campaignId
+                    }),
+                    variant: 'primary',
+                    icon: 'ri-delete-bin-line',
+                    size: 'xs',
+                    danger: true,
+                    icon_only: true,
+                    label: 'mautic.campaign.event.remove.btn.tooltip'|trans,
+                    attributes: {
+                        'data-toggle': 'ajax',
+                        'data-target': 'CampaignEvent_' ~ event['id'],
+                        'data-ignore-formexit': 'true',
+                        'data-method': 'POST',
+                        'data-hide-loadingbar': 'true',
+                        'class': 'btn-delete'
+                    }
+                }
+            ]
+        } %}
+    </div>
+</div>
+{% endif %}
