@@ -53,8 +53,20 @@ class CampaignTriggerSubscriber implements EventSubscriberInterface
         $config          = $event->getEvent()->getProperties();
         $campaign        = $event->getEvent()->getCampaign();
         $emailId         = (int) ($config['email'] ?? 0);
+        $status          = (string) ($config['status'] ?? 'teste');
         $variablesConfig = json_decode((string) ($config['variablesJson'] ?? '{}'), true);
         $variablesConfig = is_array($variablesConfig) ? $variablesConfig : [];
+
+        if ('pausado' === $status) {
+            // Same "can't process right now" pattern as the checks below
+            // (missing Email/integration) — Mautic reschedules a failed
+            // contact automatically, so flipping the step off 'pausado'
+            // later picks these back up on the next campaign run, no
+            // manual rebuild needed.
+            $event->failAll('N8nDispatch: campaign step status is "pausado", dispatch skipped.');
+
+            return;
+        }
 
         $email = $emailId > 0 ? $this->emailModel->getEntity($emailId) : null;
 
@@ -95,7 +107,7 @@ class CampaignTriggerSubscriber implements EventSubscriberInterface
             /** @var LeadEventLog $log */
             $log = $event->getPending()->get($logId);
 
-            $this->dispatchToContact($event, $log, $contact, $campaign, $emailId, $variablesConfig, $webhookUrl, $headers);
+            $this->dispatchToContact($event, $log, $contact, $campaign, $emailId, $status, $variablesConfig, $webhookUrl, $headers);
         }
     }
 
@@ -109,6 +121,7 @@ class CampaignTriggerSubscriber implements EventSubscriberInterface
         Lead $contact,
         Campaign $campaign,
         int $emailId,
+        string $status,
         array $variablesConfig,
         string $webhookUrl,
         array $headers,
@@ -122,6 +135,7 @@ class CampaignTriggerSubscriber implements EventSubscriberInterface
                     'mautic_template_id' => $emailId,
                     'contact_id'         => $contact->getId(),
                     'contact_email'      => $contact->getEmail(),
+                    'status'             => $status,
                     'variables'          => $variables,
                 ],
             ]);
