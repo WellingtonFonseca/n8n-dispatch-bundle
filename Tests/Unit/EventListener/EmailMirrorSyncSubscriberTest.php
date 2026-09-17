@@ -4,10 +4,12 @@ declare(strict_types=1);
 
 namespace MauticPlugin\N8nDispatchBundle\Tests\Unit\EventListener;
 
+use Mautic\CoreBundle\Helper\UserHelper;
 use Mautic\EmailBundle\Entity\Email;
 use Mautic\EmailBundle\Event\EmailEvent;
 use Mautic\PluginBundle\Entity\Integration as IntegrationSettings;
 use Mautic\PluginBundle\Helper\IntegrationHelper;
+use Mautic\UserBundle\Entity\User;
 use MauticPlugin\N8nDispatchBundle\EventListener\EmailMirrorSyncSubscriber;
 use MauticPlugin\N8nDispatchBundle\Integration\N8nDispatchIntegration;
 use PHPUnit\Framework\TestCase;
@@ -23,6 +25,8 @@ class EmailMirrorSyncSubscriberTest extends TestCase
 
     private LoggerInterface $logger;
 
+    private UserHelper $userHelper;
+
     private EmailMirrorSyncSubscriber $subscriber;
 
     protected function setUp(): void
@@ -30,11 +34,13 @@ class EmailMirrorSyncSubscriberTest extends TestCase
         $this->integrationHelper = $this->createMock(IntegrationHelper::class);
         $this->httpClient        = $this->createMock(HttpClientInterface::class);
         $this->logger            = $this->createMock(LoggerInterface::class);
+        $this->userHelper        = $this->createMock(UserHelper::class);
 
         $this->subscriber = new EmailMirrorSyncSubscriber(
             $this->integrationHelper,
             $this->httpClient,
             $this->logger,
+            $this->userHelper,
         );
     }
 
@@ -209,5 +215,58 @@ class EmailMirrorSyncSubscriberTest extends TestCase
             ->willReturn($response);
 
         $this->dispatch($email);
+    }
+
+    public function testPayloadIncludesModifiedByEmailWhenUserIsPresent(): void
+    {
+        $this->mockIntegration(true, ['webhook_url' => 'https://n8n.example.test/webhook/mirror']);
+
+        $user = $this->createMock(User::class);
+        $user->method('getEmail')->willReturn('editor@example.test');
+        $this->userHelper->method('getUser')->with(true)->willReturn($user);
+
+        $response = $this->createMock(ResponseInterface::class);
+        $response->method('getStatusCode')->willReturn(200);
+
+        $this->httpClient->expects($this->once())
+            ->method('request')
+            ->with(
+                $this->anything(),
+                $this->anything(),
+                $this->callback(function (array $options): bool {
+                    $this->assertSame('editor@example.test', $options['json']['modified_by_email']);
+
+                    return true;
+                })
+            )
+            ->willReturn($response);
+
+        $this->dispatch($this->buildEmail());
+    }
+
+    public function testPayloadIncludesNullModifiedByEmailWhenNoUserIsPresent(): void
+    {
+        $this->mockIntegration(true, ['webhook_url' => 'https://n8n.example.test/webhook/mirror']);
+
+        $this->userHelper->method('getUser')->with(true)->willReturn(null);
+
+        $response = $this->createMock(ResponseInterface::class);
+        $response->method('getStatusCode')->willReturn(200);
+
+        $this->httpClient->expects($this->once())
+            ->method('request')
+            ->with(
+                $this->anything(),
+                $this->anything(),
+                $this->callback(function (array $options): bool {
+                    $this->assertArrayHasKey('modified_by_email', $options['json']);
+                    $this->assertNull($options['json']['modified_by_email']);
+
+                    return true;
+                })
+            )
+            ->willReturn($response);
+
+        $this->dispatch($this->buildEmail());
     }
 }
