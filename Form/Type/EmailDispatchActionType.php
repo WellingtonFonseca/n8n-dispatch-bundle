@@ -19,11 +19,17 @@ use Symfony\Component\Validator\Constraints\NotBlank;
  *   the event's properties and read by CampaignTriggerSubscriber: 'paused'
  *   skips dispatch (contact rescheduled, not failed), 'test'/'production'
  *   both dispatch and are passed through as the payload's own 'status'
- *   field. Defaults to 'test' so a newly added step never fires production
- *   traffic by accident before someone deliberately flips it. Values are
- *   plain English on purpose — same strings shown in the dropdown label,
- *   not a separate internal vocabulary, since this value is also sent
- *   straight through to the n8n endpoint.
+ *   field. Values are plain English on purpose — same strings shown in the
+ *   dropdown label, not a separate internal vocabulary, since this value
+ *   is also sent straight through to the n8n endpoint.
+ *   Deliberately does NOT set a 'data' option here: Symfony's 'data' pins
+ *   a field to that value permanently, ignoring whatever is actually bound
+ *   from the event's own properties — which is exactly the bug this
+ *   comment used to describe as a "default" (the field looked stuck on
+ *   'test' no matter what was saved, because it was). 'test' being listed
+ *   first in 'choices' is what makes a genuinely new, never-saved event
+ *   default to it — a required ChoiceType with no bound value and no
+ *   placeholder selects its first choice.
  * - email: the usual Mautic Email entity picker (same EmailListType core's
  *   own "Send Email" action uses), wired to
  *   Assets/js/campaign-email-dispatch.js (Mautic.n8nDispatchOnEmailChange /
@@ -72,7 +78,6 @@ class EmailDispatchActionType extends AbstractType
                     'mautic.n8ndispatch.campaign.event.status.paused'     => 'paused',
                 ],
                 'required' => true,
-                'data'     => 'test',
                 'attr'     => [
                     'class' => 'form-control',
                 ],
