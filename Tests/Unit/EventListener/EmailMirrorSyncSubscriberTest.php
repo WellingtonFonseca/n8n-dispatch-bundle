@@ -117,7 +117,7 @@ class EmailMirrorSyncSubscriberTest extends TestCase
                 'POST',
                 'https://n8n.example.test/webhook/mirror',
                 $this->callback(function (array $options): bool {
-                    $this->assertSame('template.sync', $options['headers']['X-N8n-Dispatch-Action']);
+                    $this->assertSame('email.save', $options['headers']['X-N8n-Dispatch-Action']);
                     $this->assertSame('super-secret-token', $options['headers']['X-N8n-Dispatch-Token']);
 
                     $payload = $options['json'];
