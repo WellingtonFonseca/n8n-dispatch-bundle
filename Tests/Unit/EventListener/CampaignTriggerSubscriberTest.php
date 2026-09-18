@@ -175,6 +175,78 @@ class CampaignTriggerSubscriberTest extends TestCase
         $this->subscriber->onEmailSend($pendingEvent);
     }
 
+    public function testSuccessAttachesLogSendEmailIdToTheLogMetadataFromFlatBody(): void
+    {
+        $pendingEvent = $this->buildPendingEvent(['email' => 1, 'status' => 'production']);
+
+        $this->emailModel->method('getEntity')->with(1)->willReturn(new Email());
+        $this->mockIntegration(true, ['webhook_url' => 'https://n8n.example.test/webhook/dispatch']);
+
+        $response = $this->createMock(ResponseInterface::class);
+        $response->method('getStatusCode')->willReturn(200);
+        $response->method('getContent')->with(false)->willReturn('{"logSendEmailId":6334025}');
+        $this->httpClient->method('request')->willReturn($response);
+
+        $this->subscriber->onEmailSend($pendingEvent);
+
+        $successful = $pendingEvent->getSuccessful();
+        $this->assertCount(1, $successful);
+        /** @var LeadEventLog $passedLog */
+        $passedLog = $successful->first();
+        $metadata  = $passedLog->getMetadata();
+        $this->assertSame(6334025, $metadata['logSendEmailId']);
+        $this->assertSame('N8nDispatch: sent via n8n/Mirror (log id: 6334025).', $metadata['timeline']);
+    }
+
+    public function testSuccessAttachesLogSendEmailIdToTheLogMetadataFromNestedBody(): void
+    {
+        // The real shape n8n's "Respond to Webhook" sends today — it
+        // forwards the Mirror HTTP node's raw output as-is, which nests
+        // the actual payload one level under 'body'.
+        $pendingEvent = $this->buildPendingEvent(['email' => 1, 'status' => 'production']);
+
+        $this->emailModel->method('getEntity')->with(1)->willReturn(new Email());
+        $this->mockIntegration(true, ['webhook_url' => 'https://n8n.example.test/webhook/dispatch']);
+
+        $response = $this->createMock(ResponseInterface::class);
+        $response->method('getStatusCode')->willReturn(200);
+        $response->method('getContent')->with(false)->willReturn(
+            '{"body":{"logSendEmailId":6334029},"statusCode":200,"statusMessage":"OK"}'
+        );
+        $this->httpClient->method('request')->willReturn($response);
+
+        $this->subscriber->onEmailSend($pendingEvent);
+
+        $successful = $pendingEvent->getSuccessful();
+        $this->assertCount(1, $successful);
+        /** @var LeadEventLog $passedLog */
+        $passedLog = $successful->first();
+        $metadata  = $passedLog->getMetadata();
+        $this->assertSame(6334029, $metadata['logSendEmailId']);
+        $this->assertSame('N8nDispatch: sent via n8n/Mirror (log id: 6334029).', $metadata['timeline']);
+    }
+
+    public function testSuccessWithoutLogSendEmailIdInBodyStillPasses(): void
+    {
+        $pendingEvent = $this->buildPendingEvent(['email' => 1, 'status' => 'production']);
+
+        $this->emailModel->method('getEntity')->with(1)->willReturn(new Email());
+        $this->mockIntegration(true, ['webhook_url' => 'https://n8n.example.test/webhook/dispatch']);
+
+        $response = $this->createMock(ResponseInterface::class);
+        $response->method('getStatusCode')->willReturn(200);
+        $response->method('getContent')->with(false)->willReturn('not valid json');
+        $this->httpClient->method('request')->willReturn($response);
+
+        $this->subscriber->onEmailSend($pendingEvent);
+
+        $successful = $pendingEvent->getSuccessful();
+        $this->assertCount(1, $successful);
+        /** @var LeadEventLog $passedLog */
+        $passedLog = $successful->first();
+        $this->assertArrayNotHasKey('logSendEmailId', $passedLog->getMetadata());
+    }
+
     public function testFailureReasonUsesTheErrorMessageFromTheResponseBody(): void
     {
         $pendingEvent = $this->buildPendingEvent(['email' => 1, 'status' => 'production']);

@@ -151,6 +151,7 @@ class CampaignTriggerSubscriber implements EventSubscriberInterface
                 return;
             }
 
+            $this->attachSendLogId($log, $response);
             $event->pass($log);
         } catch (\Throwable $e) {
             $this->logger->error('N8nDispatch: dispatch failed for contact '.$contact->getId().': '.$e->getMessage());
@@ -175,5 +176,50 @@ class CampaignTriggerSubscriber implements EventSubscriberInterface
         }
 
         return 'webhook returned HTTP '.$statusCode.'.';
+    }
+
+    /**
+     * n8n's workflow returns the id of the send record it created in Mirror
+     * as 'logSendEmailId' on a successful dispatch — 'logSendEmailId'
+     * because this listener only ever handles the Email channel; a future
+     * SMS/HSM trigger listener would read its own 'logSendSmsId'/
+     * 'logSendHsmId' sibling instead. Checked at both the top level and
+     * one level under 'body' — n8n's "Respond to Webhook" node here
+     * forwards the Mirror HTTP node's own raw output as-is, which nests
+     * the actual payload one level down (e.g. {body: {logSendEmailId},
+     * headers, statusCode, statusMessage}); the flat top-level check is
+     * kept too in case that wiring changes later. Stored on the
+     * LeadEventLog's own metadata (survives PendingEvent::pass(), which
+     * only strips its own 'errors'/'failed'/'reason' keys) purely for
+     * traceability back to the matching record in Mirror — never
+     * required, missing/malformed just means no id gets attached, the
+     * dispatch is still a pass either way.
+     *
+     * Also mirrors it into metadata['timeline'] — the one metadata key
+     * Mautic core's own Timeline template (CampaignBundle/Resources/
+     * views/SubscribedEvents/Timeline/index.html.twig) renders as a
+     * plain message regardless of pass/fail, so a non-technical user
+     * checking the contact's Timeline sees the same id without needing
+     * to query campaign_lead_event_log.metadata directly. The raw
+     * 'logSendEmailId' key is kept too, deliberately, for exactly that
+     * kind of direct query/lookup later.
+     */
+    private function attachSendLogId(LeadEventLog $log, ResponseInterface $response): void
+    {
+        $body = json_decode($response->getContent(false), true);
+
+        if (!is_array($body)) {
+            return;
+        }
+
+        $nestedBody = is_array($body['body'] ?? null) ? $body['body'] : [];
+        $logId      = $body['logSendEmailId'] ?? $nestedBody['logSendEmailId'] ?? null;
+
+        if (!empty($logId)) {
+            $log->appendToMetadata([
+                'logSendEmailId' => $logId,
+                'timeline'       => 'N8nDispatch: sent via n8n/Mirror (log id: '.$logId.').',
+            ]);
+        }
     }
 }
