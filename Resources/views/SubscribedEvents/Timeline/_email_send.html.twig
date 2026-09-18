@@ -40,11 +40,18 @@
                 {{ ('mautic.n8ndispatch.campaign.event.status.' ~ n8n.status)|trans }}
             </span>
 
-            {% if n8n.templateCopyHash is defined and n8n.templateCopyHash %}
-            <a class="n8ndispatch-timeline-badge n8ndispatch-timeline-badge--view" href="{{ path('mautic_core_ajax', {action: 'plugin:N8nDispatch:getTemplateCopy', hash: n8n.templateCopyHash}) }}" target="_blank" rel="noopener">
-                <i class="ri-eye-line"></i>
-                {{ 'mautic.n8ndispatch.timeline.view_template'|trans }}
-            </a>
+            {% if n8n.response is defined and n8n.response.statusCode is defined %}
+                {% if n8n.response.statusCode < 300 %}
+                <span class="n8ndispatch-timeline-badge n8ndispatch-timeline-badge--success">
+                    <i class="ri-checkbox-circle-fill"></i>
+                    {{ 'mautic.n8ndispatch.timeline.status.success'|trans }}
+                </span>
+                {% else %}
+                <span class="n8ndispatch-timeline-badge n8ndispatch-timeline-badge--failed">
+                    <i class="ri-close-circle-fill"></i>
+                    {{ 'mautic.n8ndispatch.timeline.status.failed'|trans }}
+                </span>
+                {% endif %}
             {% endif %}
         </div>
 

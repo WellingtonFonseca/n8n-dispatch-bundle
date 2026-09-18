@@ -4,9 +4,11 @@ declare(strict_types=1);
 
 namespace MauticPlugin\N8nDispatchBundle\EventListener;
 
+use Doctrine\ORM\EntityManagerInterface;
 use Mautic\CampaignBundle\Entity\Campaign;
 use Mautic\CampaignBundle\Entity\LeadEventLog;
 use Mautic\CampaignBundle\Event\PendingEvent;
+use Mautic\EmailBundle\Entity\Copy;
 use Mautic\EmailBundle\Entity\Email;
 use Mautic\EmailBundle\Entity\Stat;
 use Mautic\EmailBundle\Helper\MailHashHelper;
@@ -16,6 +18,7 @@ use Mautic\PluginBundle\Helper\IntegrationHelper;
 use MauticPlugin\N8nDispatchBundle\Integration\N8nDispatchIntegration;
 use MauticPlugin\N8nDispatchBundle\N8nDispatchEvents;
 use MauticPlugin\N8nDispatchBundle\Resolver\VariableResolver;
+use MauticPlugin\N8nDispatchBundle\TrackingPixelVariable;
 use MauticPlugin\N8nDispatchBundle\UnsubscribeVariable;
 use Psr\Log\LoggerInterface;
 use Symfony\Component\EventDispatcher\EventSubscriberInterface;
@@ -49,6 +52,7 @@ class CampaignTriggerSubscriber implements EventSubscriberInterface
         private EmailModel $emailModel,
         private VariableResolver $variableResolver,
         private MailHashHelper $mailHashHelper,
+        private EntityManagerInterface $entityManager,
     ) {
     }
 
@@ -152,9 +156,9 @@ class CampaignTriggerSubscriber implements EventSubscriberInterface
         array $headers,
         ?string $templateCopyHash,
     ): void {
-        $variables                            = $this->variableResolver->resolveAll($variablesConfig, $contact, $campaign);
-        $variables[UnsubscribeVariable::KEY] = $this->buildUnsubscribeUrl($email, $contact);
-        $payload                              = $this->buildPayload($emailId, $contact, $status, $variables);
+        $variables = $this->variableResolver->resolveAll($variablesConfig, $contact, $campaign);
+        $variables = array_replace($variables, $this->createStatAndBuildTrackingVariables($email, $contact, $templateCopyHash));
+        $payload   = $this->buildPayload($emailId, $contact, $status, $variables);
 
         try {
             $response = $this->httpClient->request('POST', $webhookUrl, [
@@ -200,9 +204,10 @@ class CampaignTriggerSubscriber implements EventSubscriberInterface
         string $status,
         array $variablesConfig,
     ): void {
-        $variables                            = $this->variableResolver->resolveAll($variablesConfig, $contact, $campaign);
-        $variables[UnsubscribeVariable::KEY] = '(not generated — no real dispatch)';
-        $payload                              = $this->buildPayload($emailId, $contact, $status, $variables);
+        $variables                              = $this->variableResolver->resolveAll($variablesConfig, $contact, $campaign);
+        $variables[UnsubscribeVariable::KEY]   = '(not generated — no real dispatch)';
+        $variables[TrackingPixelVariable::KEY] = '(not generated — no real dispatch)';
+        $payload                                = $this->buildPayload($emailId, $contact, $status, $variables);
 
         $log->appendToMetadata(['n8ndispatch' => $payload]);
 
@@ -220,13 +225,33 @@ class CampaignTriggerSubscriber implements EventSubscriberInterface
      * is enough to make that entire existing, unmodified route work for a
      * contact who got here through n8n instead.
      *
-     * The resulting URL is resolved by CampaignTriggerSubscriber only as
-     * far as 'variables' — EmailMirrorSyncSubscriber is the one that
-     * already baked a {{...}} placeholder for UnsubscribeVariable::KEY
-     * into the template's footer at save time, so it just has to be a
-     * value in this map, not spliced into any HTML here.
+     * Both resulting URLs (unsubscribe + open-tracking pixel, see
+     * TrackingPixelVariable) are resolved by CampaignTriggerSubscriber only
+     * as far as 'variables' — EmailMirrorSyncSubscriber is the one that
+     * already baked a {{...}} placeholder for each KEY into the template at
+     * save time (footer / invisible <img> respectively), so this just has
+     * to return values for that map, not splice anything into HTML here.
+     * They deliberately share one Stat/idHash — both are "the same contact
+     * looking at the same send", not two separate events.
+     *
+     * Also links the Stat to the same Copy row saveTemplateCopy() already
+     * snapshotted for this batch, via setStoredCopy() — the same field
+     * core's own MailHelper::createEmailStat() populates on a real send.
+     * Without it, core's native "Sent Email" Timeline entry (which now
+     * exists precisely because this Stat gets created) links to
+     * mautic_email_webview/PublicController::indexAction, which reads
+     * $stat->getStoredCopy() to render anything at all — empty otherwise,
+     * so the contact's "view in browser" link opened a blank page.
+     * getReference() (a Doctrine proxy by id, no extra query — the exact
+     * pattern MailHelper itself uses for this same field) needs a plain
+     * EntityManagerInterface: CopyRepository::getEntityManager() exists
+     * but is protected (Doctrine's own base EntityRepository), so this
+     * plugin injects EntityManagerInterface directly instead, same as any
+     * other Symfony service.
+     *
+     * @return array<string, string>
      */
-    private function buildUnsubscribeUrl(Email $email, Lead $contact): string
+    private function createStatAndBuildTrackingVariables(Email $email, Lead $contact, ?string $templateCopyHash): array
     {
         $contactEmail = (string) $contact->getEmail();
         $idHash       = str_replace('.', '', uniqid('', true));
@@ -237,13 +262,23 @@ class CampaignTriggerSubscriber implements EventSubscriberInterface
         $stat->setEmailAddress($contactEmail);
         $stat->setTrackingHash($idHash);
         $stat->setDateSent(new \DateTime());
+
+        if (null !== $templateCopyHash) {
+            $stat->setStoredCopy($this->entityManager->getReference(Copy::class, $templateCopyHash));
+        }
+
         $this->emailModel->saveEmailStat($stat);
 
-        return (string) $this->emailModel->buildUrl('mautic_email_unsubscribe', [
-            'idHash'     => $idHash,
-            'urlEmail'   => $contactEmail,
-            'secretHash' => $this->mailHashHelper->getEmailHash($contactEmail),
-        ]);
+        return [
+            UnsubscribeVariable::KEY => (string) $this->emailModel->buildUrl('mautic_email_unsubscribe', [
+                'idHash'     => $idHash,
+                'urlEmail'   => $contactEmail,
+                'secretHash' => $this->mailHashHelper->getEmailHash($contactEmail),
+            ]),
+            TrackingPixelVariable::KEY => (string) $this->emailModel->buildUrl('mautic_email_tracker', [
+                'idHash' => $idHash,
+            ]),
+        ];
     }
 
     /**

@@ -8,6 +8,7 @@ use Mautic\CoreBundle\Controller\AjaxController as CommonAjaxController;
 use Mautic\EmailBundle\Model\EmailModel;
 use Mautic\LeadBundle\Model\FieldModel;
 use MauticPlugin\CustomObjectsBundle\Model\CustomObjectModel;
+use MauticPlugin\N8nDispatchBundle\TrackingPixelVariable;
 use MauticPlugin\N8nDispatchBundle\UnsubscribeVariable;
 use Symfony\Component\HttpFoundation\JsonResponse;
 use Symfony\Component\HttpFoundation\Request;
@@ -59,10 +60,11 @@ class AjaxController extends CommonAjaxController
      * the rest of that action's Symfony container dependency (sendJsonResponse()
      * needs a container, this doesn't).
      *
-     * UnsubscribeVariable::KEY is always present in a saved template's
-     * footer (EmailMirrorSyncSubscriber injects it there), but it's
-     * resolved automatically by CampaignTriggerSubscriber on every
-     * dispatch — never something a user maps by hand here, so it's
+     * UnsubscribeVariable::KEY and TrackingPixelVariable::KEY are always
+     * present in a saved template (EmailMirrorSyncSubscriber injects both —
+     * the unsubscribe footer and the invisible tracking <img>), but both
+     * are resolved automatically by CampaignTriggerSubscriber on every
+     * dispatch — never something a user maps by hand here, so both are
      * filtered out of the list the campaign builder shows.
      *
      * @return list<string>
@@ -71,7 +73,7 @@ class AjaxController extends CommonAjaxController
     {
         preg_match_all(self::VARIABLE_PATTERN, $html, $matches);
 
-        return array_values(array_diff(array_unique($matches[1]), [UnsubscribeVariable::KEY]));
+        return array_values(array_diff(array_unique($matches[1]), [UnsubscribeVariable::KEY, TrackingPixelVariable::KEY]));
     }
 
     /**

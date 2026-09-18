@@ -97,19 +97,17 @@
     flex-wrap: wrap;
 }
 
-/* Same pill as the status badges (.n8ndispatch-timeline-badge), just in
-   Mautic's brand blue instead of a status color, and clickable. */
-.n8ndispatch-timeline-badge--view {
-    background-color: #268bd2;
-    text-decoration: none;
-    cursor: pointer;
+/* Dispatch outcome, read off the nested statusCode n8n/Mirror actually
+   returned in the response body (metadata.n8ndispatch.response.statusCode)
+   — only rendered when that field exists, i.e. only for a 'production'
+   dispatch that got a parseable response back. White text already comes
+   from the shared .n8ndispatch-timeline-badge base class above. */
+.n8ndispatch-timeline-badge--success {
+    background-color: #43a047;
 }
 
-.n8ndispatch-timeline-badge--view:hover,
-.n8ndispatch-timeline-badge--view:focus {
-    background-color: #1c6ea4;
-    color: #fff;
-    text-decoration: none;
+.n8ndispatch-timeline-badge--failed {
+    background-color: #e53935;
 }
 
 .n8ndispatch-timeline-label {
