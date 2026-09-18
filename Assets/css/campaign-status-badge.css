@@ -57,3 +57,56 @@
 .n8ndispatch-status-badge--paused {
     background-color: #fb8c00;
 }
+
+/*
+ * Timeline card for the "Send via n8n (Email)" campaign action, rendered
+ * by Resources/views/SubscribedEvents/Timeline/_email_send.html.twig on
+ * the contact's Timeline. Reuses the same test/production color coding as
+ * the canvas badge above, in a flat pill instead of the hover-expanding
+ * circle (there's no hover affordance to protect here).
+ */
+.n8ndispatch-timeline-badge {
+    display: inline-flex;
+    align-items: center;
+    gap: 4px;
+    padding: 2px 10px;
+    border-radius: 11px;
+    color: #fff;
+    font-size: 11px;
+    font-weight: 600;
+    text-transform: uppercase;
+    letter-spacing: 0.02em;
+}
+
+.n8ndispatch-timeline-badge--test {
+    background-color: #b39ddb;
+}
+
+.n8ndispatch-timeline-badge--production {
+    background-color: #43a047;
+}
+
+.n8ndispatch-timeline-note {
+    margin: 6px 0 0;
+    font-size: 12px;
+    color: #6c757d;
+}
+
+.n8ndispatch-timeline-label {
+    margin: 8px 0 0;
+    font-size: 13px;
+    font-weight: 600;
+}
+
+.n8ndispatch-timeline-json {
+    margin: 8px 0 0;
+    padding: 10px 12px;
+    background-color: #f5f5f5;
+    border: 1px solid #e0e0e0;
+    border-radius: 4px;
+    font-family: 'SFMono-Regular', Consolas, 'Liberation Mono', Menlo, monospace;
+    font-size: 12px;
+    line-height: 1.5;
+    white-space: pre;
+    overflow-x: auto;
+}

@@ -174,8 +174,9 @@ class CampaignTriggerSubscriber implements EventSubscriberInterface
     /**
      * 'test' status never reaches dispatchToContact() — this mirrors just
      * the payload-building half of it, so what a non-technical user sees on
-     * the contact's Timeline is exactly the body that would be POSTed to
-     * n8n in 'production', minus the actual HTTP call.
+     * the contact's Timeline (rendered by Resources/views/SubscribedEvents/
+     * Timeline/_email_send.html.twig) is built from exactly the same fields
+     * 'production' would have sent, minus the actual HTTP call.
      *
      * @param array<string, array<string, mixed>> $variablesConfig
      */
@@ -191,9 +192,7 @@ class CampaignTriggerSubscriber implements EventSubscriberInterface
         $variables = $this->variableResolver->resolveAll($variablesConfig, $contact, $campaign);
         $payload   = $this->buildPayload($emailId, $contact, $status, $variables);
 
-        $log->appendToMetadata([
-            'timeline' => 'N8nDispatch: status is "test", no call was made to n8n. Payload that would be sent: '.$this->describePayload($payload),
-        ]);
+        $log->appendToMetadata(['n8ndispatch' => $payload]);
 
         $event->pass($log);
     }
@@ -212,14 +211,6 @@ class CampaignTriggerSubscriber implements EventSubscriberInterface
             'status'             => $status,
             'variables'          => $variables,
         ];
-    }
-
-    /**
-     * @param array<string, mixed> $payload
-     */
-    private function describePayload(array $payload): string
-    {
-        return json_encode($payload, JSON_UNESCAPED_SLASHES | JSON_UNESCAPED_UNICODE) ?: '{}';
     }
 
     /**
@@ -258,26 +249,29 @@ class CampaignTriggerSubscriber implements EventSubscriberInterface
      * required, missing/malformed just means no id gets attached, the
      * dispatch is still a pass either way.
      *
-     * Also writes metadata['timeline'] — the one metadata key Mautic
-     * core's own Timeline template (CampaignBundle/Resources/views/
-     * SubscribedEvents/Timeline/index.html.twig) renders as a plain
-     * message regardless of pass/fail — with the id (when present) plus
-     * the same payload shape 'test' status shows via recordTestOnly(),
-     * so a non-technical user can confirm on the contact's Timeline
-     * exactly what was sent, not just that something was sent.
+     * Also writes metadata['n8ndispatch'] — the same payload shape 'test'
+     * status shows via recordTestOnly(), plus the raw response body — so
+     * Resources/views/SubscribedEvents/Timeline/_email_send.html.twig (this
+     * event type's registered 'timelineTemplate', see CampaignSubscriber)
+     * can render a card on the contact's Timeline showing exactly what was
+     * sent and what came back, not just that something was sent.
      *
      * @param array<string, mixed> $payload
      */
     private function recordDispatchOutcome(LeadEventLog $log, ResponseInterface $response, array $payload): void
     {
-        $body       = json_decode($response->getContent(false), true);
+        $rawBody    = $response->getContent(false);
+        $body       = json_decode($rawBody, true);
         $nestedBody = is_array($body['body'] ?? null) ? $body['body'] : [];
         $logId      = is_array($body) ? ($body['logSendEmailId'] ?? $nestedBody['logSendEmailId'] ?? null) : null;
 
         $metadata = [
-            'timeline' => empty($logId)
-                ? 'N8nDispatch: sent via n8n/Mirror. Payload sent: '.$this->describePayload($payload)
-                : 'N8nDispatch: sent via n8n/Mirror (log id: '.$logId.'). Payload sent: '.$this->describePayload($payload),
+            // 'response' is the raw decoded body (falling back to the raw
+            // string when it isn't valid JSON) — the Timeline card just
+            // dumps it as-is, so if Mirror's response shape grows new
+            // fields later, they show up there automatically, no template
+            // change needed.
+            'n8ndispatch' => $payload + ['response' => is_array($body) ? $body : $rawBody],
         ];
 
         if (!empty($logId)) {
