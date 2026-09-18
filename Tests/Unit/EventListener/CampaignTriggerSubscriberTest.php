@@ -174,4 +174,54 @@ class CampaignTriggerSubscriberTest extends TestCase
 
         $this->subscriber->onEmailSend($pendingEvent);
     }
+
+    public function testFailureReasonUsesTheErrorMessageFromTheResponseBody(): void
+    {
+        $pendingEvent = $this->buildPendingEvent(['email' => 1, 'status' => 'production']);
+
+        $this->emailModel->method('getEntity')->with(1)->willReturn(new Email());
+        $this->mockIntegration(true, ['webhook_url' => 'https://n8n.example.test/webhook/dispatch']);
+
+        $response = $this->createMock(ResponseInterface::class);
+        $response->method('getStatusCode')->willReturn(404);
+        $response->method('getContent')->with(false)->willReturn(
+            '{"statusCode":404,"statusMessage":"Not Found","error":"code 404, Entity not found - contact"}'
+        );
+        $this->httpClient->method('request')->willReturn($response);
+
+        $this->subscriber->onEmailSend($pendingEvent);
+
+        $failures = $pendingEvent->getFailures();
+        $this->assertCount(1, $failures);
+        /** @var LeadEventLog $failedLog */
+        $failedLog = $failures->first();
+        $this->assertSame(
+            'N8nDispatch: code 404, Entity not found - contact',
+            $failedLog->getFailedLog()->getReason()
+        );
+    }
+
+    public function testFailureReasonFallsBackToHttpCodeWhenResponseBodyHasNoErrorField(): void
+    {
+        $pendingEvent = $this->buildPendingEvent(['email' => 1, 'status' => 'production']);
+
+        $this->emailModel->method('getEntity')->with(1)->willReturn(new Email());
+        $this->mockIntegration(true, ['webhook_url' => 'https://n8n.example.test/webhook/dispatch']);
+
+        $response = $this->createMock(ResponseInterface::class);
+        $response->method('getStatusCode')->willReturn(500);
+        $response->method('getContent')->with(false)->willReturn('not valid json');
+        $this->httpClient->method('request')->willReturn($response);
+
+        $this->subscriber->onEmailSend($pendingEvent);
+
+        $failures = $pendingEvent->getFailures();
+        $this->assertCount(1, $failures);
+        /** @var LeadEventLog $failedLog */
+        $failedLog = $failures->first();
+        $this->assertSame(
+            'N8nDispatch: webhook returned HTTP 500.',
+            $failedLog->getFailedLog()->getReason()
+        );
+    }
 }
