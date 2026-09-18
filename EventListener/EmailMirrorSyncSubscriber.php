@@ -52,13 +52,19 @@ class EmailMirrorSyncSubscriber implements EventSubscriberInterface
 {
     /**
      * Sent as the X-N8n-Dispatch-Action header on every call, since this
-     * sync call and the future dispatch call (Campaign Action, not
-     * implemented yet — see Form/Type/EmailDispatchActionType.php) share
-     * the same configured webhook_url. Without this, n8n would have no
-     * reliable way to tell the two apart other than guessing from the
-     * request body's shape.
+     * sync call and the real dispatch call (CampaignTriggerSubscriber,
+     * X-N8n-Dispatch-Action: email.send) share the same configured
+     * webhook_url. Without this, n8n would have no reliable way to tell
+     * them apart other than guessing from the request body's shape.
+     *
+     * Named 'email.save' (channel.verb), not the channel-agnostic
+     * 'template.sync' it started as, so that SMS/HSM template saves can
+     * later get their own 'sms.save'/'hsm.save' siblings without
+     * colliding on one shared, ambiguous name — same pattern already used
+     * on the dispatch side ('email.send', with 'sms.send'/'hsm.send' as
+     * the equivalent future siblings there).
      */
-    private const ACTION = 'template.sync';
+    private const ACTION = 'email.save';
 
     public function __construct(
         private IntegrationHelper $integrationHelper,
