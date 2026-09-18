@@ -28,15 +28,16 @@
 
 {% set n8n = item.metadata.n8ndispatch is defined ? item.metadata.n8ndispatch : null %}
 {% if n8n %}
+    {% set statusIcon = {
+        'test':       'ri-bug-line',
+        'production': 'ri-play-fill',
+        'paused':     'ri-pause-fill',
+    }[n8n.status]|default('ri-bug-line') %}
     <div class="n8ndispatch-timeline">
         <span class="n8ndispatch-timeline-badge n8ndispatch-timeline-badge--{{ n8n.status }}">
-            <i class="{{ 'production' == n8n.status ? 'ri-play-fill' : 'ri-bug-line' }}"></i>
+            <i class="{{ statusIcon }}"></i>
             {{ ('mautic.n8ndispatch.campaign.event.status.' ~ n8n.status)|trans }}
         </span>
-
-        {% if 'test' == n8n.status %}
-            <p class="n8ndispatch-timeline-note">{{ 'mautic.n8ndispatch.timeline.test_note'|trans }}</p>
-        {% endif %}
 
         {% set jsonOptions = constant('JSON_PRETTY_PRINT') b-or constant('JSON_UNESCAPED_UNICODE') b-or constant('JSON_UNESCAPED_SLASHES') %}
         {% set requestBody = {

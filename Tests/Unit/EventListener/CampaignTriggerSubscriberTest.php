@@ -91,7 +91,7 @@ class CampaignTriggerSubscriberTest extends TestCase
         return new PendingEvent(new ActionAccessor([]), $event, new ArrayCollection([$log]));
     }
 
-    public function testPausedStatusSkipsDispatchAndFailsAllPending(): void
+    public function testPausedStatusRecordsPayloadOnTimelineWithoutDispatching(): void
     {
         $pendingEvent = $this->buildPendingEvent(['email' => 1, 'status' => 'paused']);
 
@@ -100,8 +100,13 @@ class CampaignTriggerSubscriberTest extends TestCase
 
         $this->subscriber->onEmailSend($pendingEvent);
 
-        $this->assertCount(1, $pendingEvent->getFailures());
-        $this->assertCount(0, $pendingEvent->getSuccessful());
+        $this->assertCount(0, $pendingEvent->getFailures());
+        $successful = $pendingEvent->getSuccessful();
+        $this->assertCount(1, $successful);
+
+        /** @var LeadEventLog $passedLog */
+        $passedLog = $successful->first();
+        $this->assertSame('paused', $passedLog->getMetadata()['n8ndispatch']['status']);
     }
 
     public function testProductionStatusDispatchesAndIncludesStatusInPayload(): void
