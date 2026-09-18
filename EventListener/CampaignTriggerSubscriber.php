@@ -194,18 +194,27 @@ class CampaignTriggerSubscriber implements EventSubscriberInterface
             $this->recordDispatchOutcome($log, $response, $payload, $templateCopyHash, $statusCode);
 
             if ($statusCode >= 300) {
+                // Still registered — as a *failed* Stat, not skipped
+                // entirely (see createStat()'s own docblock for why a
+                // silent no-Stat wasn't the whole answer: core's Timeline
+                // has its own native "Email failed" state, distinct from
+                // "Email sent", and it's a better fit than the contact's
+                // history staying blank for an attempt that did happen.
+                $this->createStat($email, $contact, $contactEmail, $idHash, $templateCopyHash, true);
                 $event->fail($log, 'N8nDispatch: '.$this->extractFailureReason($response, $statusCode));
 
                 return;
             }
 
-            // Only now, on Mirror's own confirmed success, register the
-            // Stat that backs core's native Sent-Email Timeline entry and
-            // the DNC/unsubscribe route — see createStat()'s own docblock.
-            $this->createStat($email, $contact, $contactEmail, $idHash, $templateCopyHash);
+            $this->createStat($email, $contact, $contactEmail, $idHash, $templateCopyHash, false);
 
             $event->pass($log);
         } catch (\Throwable $e) {
+            // A transport-level failure (connection refused, DNS, timeout)
+            // never got as far as a $response at all, but it's the same
+            // "this attempt did not reach the contact" case as a 404/500
+            // above — same treatment.
+            $this->createStat($email, $contact, $contactEmail, $idHash, $templateCopyHash, true);
             $this->logger->error('N8nDispatch: dispatch failed for contact '.$contact->getId().': '.$e->getMessage());
             $event->fail($log, 'N8nDispatch: '.$e->getMessage());
         }
@@ -267,17 +276,24 @@ class CampaignTriggerSubscriber implements EventSubscriberInterface
      * is enough to make that entire existing, unmodified route work for a
      * contact who got here through n8n instead.
      *
-     * Only called from dispatchToContact() after a confirmed 2xx from
-     * Mirror/n8n — a Stat is also exactly what makes core's native
+     * Called from dispatchToContact() after every outcome — success,
+     * 4xx/5xx from Mirror/n8n, and a transport-level exception alike —
+     * never skipped. A Stat is also exactly what makes core's native
      * Sent-Email Timeline entry appear for a contact (EmailBundle's
      * LeadSubscriber reads the same email_stats table this dispatch path
-     * otherwise never touches), so creating one on a failed dispatch would
-     * make a contact's history show "email sent" for an email that never
-     * actually went out. The idHash used here is the exact one already
-     * embedded in the unsubscribe URL sent in this same request's payload
-     * (see buildUnsubscribeUrl()) — generated before the HTTP call (so it
-     * could be included in it), but only turned into a real, persisted Stat
-     * once we know Mirror actually accepted the send.
+     * otherwise never touches), and core already has its own first-class
+     * distinction for this: Stat::isFailed(), read by that same
+     * LeadSubscriber as a separate "Email failed" Timeline state, not just
+     * "Email sent". $isFailed is passed straight through to
+     * $stat->setIsFailed() so a failed dispatch shows as failed in the
+     * contact's native history, rather than the history staying blank for
+     * an attempt that did happen (the original, simpler alternative — skip
+     * the Stat entirely on failure — was tried first and rejected once
+     * this native failed-state distinction was noticed). The idHash used
+     * here is the exact one already embedded in the unsubscribe URL sent
+     * in this same request's payload (see buildUnsubscribeUrl()) —
+     * generated before the HTTP call (so it could be included in it), the
+     * Stat itself only created once the outcome is known.
      *
      * Also links the Stat to the same Copy row saveTemplateCopy() already
      * snapshotted for this batch, via setStoredCopy() — the same field
@@ -293,7 +309,7 @@ class CampaignTriggerSubscriber implements EventSubscriberInterface
      * plugin injects EntityManagerInterface directly instead, same as any
      * other Symfony service.
      */
-    private function createStat(Email $email, Lead $contact, string $contactEmail, string $idHash, ?string $templateCopyHash): void
+    private function createStat(Email $email, Lead $contact, string $contactEmail, string $idHash, ?string $templateCopyHash, bool $isFailed): void
     {
         $stat = new Stat();
         $stat->setEmail($email);
@@ -301,6 +317,7 @@ class CampaignTriggerSubscriber implements EventSubscriberInterface
         $stat->setEmailAddress($contactEmail);
         $stat->setTrackingHash($idHash);
         $stat->setDateSent(new \DateTime());
+        $stat->setIsFailed($isFailed);
 
         if (null !== $templateCopyHash) {
             $stat->setStoredCopy($this->entityManager->getReference(Copy::class, $templateCopyHash));
