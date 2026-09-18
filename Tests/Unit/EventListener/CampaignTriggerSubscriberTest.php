@@ -6,6 +6,7 @@ namespace MauticPlugin\N8nDispatchBundle\Tests\Unit\EventListener;
 
 use Doctrine\Common\Collections\ArrayCollection;
 use Mautic\CampaignBundle\Entity\Campaign;
+use Mautic\CoreBundle\Helper\CoreParametersHelper;
 use Mautic\CampaignBundle\Entity\Event;
 use Mautic\CampaignBundle\Entity\LeadEventLog;
 use Mautic\CampaignBundle\Event\PendingEvent;
@@ -13,6 +14,8 @@ use Mautic\CampaignBundle\EventCollector\Accessor\Event\ActionAccessor;
 use Mautic\EmailBundle\Entity\Copy;
 use Mautic\EmailBundle\Entity\CopyRepository;
 use Mautic\EmailBundle\Entity\Email;
+use Mautic\EmailBundle\Entity\Stat;
+use Mautic\EmailBundle\Helper\MailHashHelper;
 use Mautic\EmailBundle\Model\EmailModel;
 use Mautic\LeadBundle\Entity\Lead;
 use Mautic\PluginBundle\Entity\Integration as IntegrationSettings;
@@ -20,6 +23,7 @@ use Mautic\PluginBundle\Helper\IntegrationHelper;
 use MauticPlugin\N8nDispatchBundle\EventListener\CampaignTriggerSubscriber;
 use MauticPlugin\N8nDispatchBundle\Integration\N8nDispatchIntegration;
 use MauticPlugin\N8nDispatchBundle\Resolver\VariableResolver;
+use MauticPlugin\N8nDispatchBundle\UnsubscribeVariable;
 use PHPUnit\Framework\TestCase;
 use Psr\Log\LoggerInterface;
 use Symfony\Contracts\HttpClient\HttpClientInterface;
@@ -39,6 +43,8 @@ class CampaignTriggerSubscriberTest extends TestCase
 
     private CopyRepository $copyRepository;
 
+    private MailHashHelper $mailHashHelper;
+
     private CampaignTriggerSubscriber $subscriber;
 
     protected function setUp(): void
@@ -49,6 +55,12 @@ class CampaignTriggerSubscriberTest extends TestCase
         $this->emailModel        = $this->createMock(EmailModel::class);
         $this->variableResolver  = $this->createMock(VariableResolver::class);
         $this->copyRepository    = $this->createMock(CopyRepository::class);
+        // MailHashHelper is final, so it can't be doubled — build a real
+        // instance off a mocked CoreParametersHelper instead, giving a
+        // deterministic, real hash_hmac() result tests can still assert on.
+        $coreParametersHelper = $this->createMock(CoreParametersHelper::class);
+        $coreParametersHelper->method('get')->with('secret_key')->willReturn('test-secret-key');
+        $this->mailHashHelper = new MailHashHelper($coreParametersHelper);
 
         $this->subscriber = new CampaignTriggerSubscriber(
             $this->integrationHelper,
@@ -56,6 +68,7 @@ class CampaignTriggerSubscriberTest extends TestCase
             $this->logger,
             $this->emailModel,
             $this->variableResolver,
+            $this->mailHashHelper,
         );
 
         $this->variableResolver->method('resolveAll')->willReturn(['foo' => 'bar']);
@@ -66,6 +79,12 @@ class CampaignTriggerSubscriberTest extends TestCase
         // fine". Tests specifically about the snapshot configure their own
         // expectations on $this->copyRepository.
         $this->emailModel->method('getCopyRepository')->willReturn($this->copyRepository);
+        // Every 'production' test also goes through buildUnsubscribeUrl(),
+        // which calls EmailModel::buildUrl() and casts the result to
+        // string — so an unconfigured call (PHPUnit stubs return null)
+        // degrades to '' rather than a TypeError, and tests that need a
+        // specific URL can configure their own expectation without
+        // fighting a blanket default registered here first.
     }
 
     private function mockIntegration(bool $isPublished, array $keys): void
@@ -201,6 +220,57 @@ class CampaignTriggerSubscriberTest extends TestCase
         $this->assertArrayHasKey('templateCopyHash', $passedLog->getMetadata()['n8ndispatch']);
     }
 
+    public function testProductionStatusCreatesAStatAndIncludesTheUnsubscribeUrlInVariables(): void
+    {
+        $pendingEvent = $this->buildPendingEvent(['email' => 1, 'status' => 'production']);
+
+        $email = new Email();
+        $this->emailModel->method('getEntity')->with(1)->willReturn($email);
+        $this->mockIntegration(true, ['webhook_url' => 'https://n8n.example.test/webhook/dispatch']);
+
+        $this->emailModel->expects($this->once())->method('saveEmailStat')
+            ->with($this->callback(function (Stat $stat) use ($email): bool {
+                $this->assertSame($email, $stat->getEmail());
+                $this->assertSame('contact@example.test', $stat->getEmailAddress());
+                $this->assertNotEmpty($stat->getTrackingHash());
+
+                return true;
+            }));
+
+        $this->emailModel->expects($this->once())->method('buildUrl')
+            ->with('mautic_email_unsubscribe', $this->callback(function (array $params) {
+                $this->assertSame('contact@example.test', $params['urlEmail']);
+                $this->assertSame($this->mailHashHelper->getEmailHash('contact@example.test'), $params['secretHash']);
+                $this->assertNotEmpty($params['idHash']);
+
+                return true;
+            }))
+            ->willReturn('https://mautic.example.test/email/unsubscribe/xyz');
+
+        $response = $this->createMock(ResponseInterface::class);
+        $response->method('getStatusCode')->willReturn(200);
+
+        $this->httpClient->expects($this->once())
+            ->method('request')
+            ->with(
+                $this->anything(),
+                $this->anything(),
+                $this->callback(function (array $options): bool {
+                    $this->assertSame(
+                        'https://mautic.example.test/email/unsubscribe/xyz',
+                        $options['json']['variables'][UnsubscribeVariable::KEY]
+                    );
+
+                    return true;
+                })
+            )
+            ->willReturn($response);
+
+        $this->subscriber->onEmailSend($pendingEvent);
+
+        $this->assertCount(1, $pendingEvent->getSuccessful());
+    }
+
     public function testTestStatusRecordsPayloadOnTimelineWithoutDispatching(): void
     {
         $pendingEvent = $this->buildPendingEvent(['email' => 1, 'status' => 'test']);
@@ -222,7 +292,10 @@ class CampaignTriggerSubscriberTest extends TestCase
                 'contact_id'         => 0,
                 'contact_email'      => 'contact@example.test',
                 'status'             => 'test',
-                'variables'          => ['foo' => 'bar'],
+                'variables'          => [
+                    'foo'                          => 'bar',
+                    UnsubscribeVariable::KEY => '(not generated — no real dispatch)',
+                ],
             ],
             $passedLog->getMetadata()['n8ndispatch']
         );

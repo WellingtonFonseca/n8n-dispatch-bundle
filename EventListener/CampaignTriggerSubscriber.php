@@ -8,12 +8,15 @@ use Mautic\CampaignBundle\Entity\Campaign;
 use Mautic\CampaignBundle\Entity\LeadEventLog;
 use Mautic\CampaignBundle\Event\PendingEvent;
 use Mautic\EmailBundle\Entity\Email;
+use Mautic\EmailBundle\Entity\Stat;
+use Mautic\EmailBundle\Helper\MailHashHelper;
 use Mautic\EmailBundle\Model\EmailModel;
 use Mautic\LeadBundle\Entity\Lead;
 use Mautic\PluginBundle\Helper\IntegrationHelper;
 use MauticPlugin\N8nDispatchBundle\Integration\N8nDispatchIntegration;
 use MauticPlugin\N8nDispatchBundle\N8nDispatchEvents;
 use MauticPlugin\N8nDispatchBundle\Resolver\VariableResolver;
+use MauticPlugin\N8nDispatchBundle\UnsubscribeVariable;
 use Psr\Log\LoggerInterface;
 use Symfony\Component\EventDispatcher\EventSubscriberInterface;
 use Symfony\Contracts\HttpClient\HttpClientInterface;
@@ -45,6 +48,7 @@ class CampaignTriggerSubscriber implements EventSubscriberInterface
         private LoggerInterface $logger,
         private EmailModel $emailModel,
         private VariableResolver $variableResolver,
+        private MailHashHelper $mailHashHelper,
     ) {
     }
 
@@ -127,7 +131,7 @@ class CampaignTriggerSubscriber implements EventSubscriberInterface
             /** @var LeadEventLog $log */
             $log = $event->getPending()->get($logId);
 
-            $this->dispatchToContact($event, $log, $contact, $campaign, $emailId, $status, $variablesConfig, $webhookUrl, $headers, $templateCopyHash);
+            $this->dispatchToContact($event, $log, $contact, $campaign, $emailId, $email, $status, $variablesConfig, $webhookUrl, $headers, $templateCopyHash);
         }
     }
 
@@ -141,14 +145,16 @@ class CampaignTriggerSubscriber implements EventSubscriberInterface
         Lead $contact,
         Campaign $campaign,
         int $emailId,
+        Email $email,
         string $status,
         array $variablesConfig,
         string $webhookUrl,
         array $headers,
         ?string $templateCopyHash,
     ): void {
-        $variables = $this->variableResolver->resolveAll($variablesConfig, $contact, $campaign);
-        $payload   = $this->buildPayload($emailId, $contact, $status, $variables);
+        $variables                            = $this->variableResolver->resolveAll($variablesConfig, $contact, $campaign);
+        $variables[UnsubscribeVariable::KEY] = $this->buildUnsubscribeUrl($email, $contact);
+        $payload                              = $this->buildPayload($emailId, $contact, $status, $variables);
 
         try {
             $response = $this->httpClient->request('POST', $webhookUrl, [
@@ -194,12 +200,50 @@ class CampaignTriggerSubscriber implements EventSubscriberInterface
         string $status,
         array $variablesConfig,
     ): void {
-        $variables = $this->variableResolver->resolveAll($variablesConfig, $contact, $campaign);
-        $payload   = $this->buildPayload($emailId, $contact, $status, $variables);
+        $variables                            = $this->variableResolver->resolveAll($variablesConfig, $contact, $campaign);
+        $variables[UnsubscribeVariable::KEY] = '(not generated — no real dispatch)';
+        $payload                              = $this->buildPayload($emailId, $contact, $status, $variables);
 
         $log->appendToMetadata(['n8ndispatch' => $payload]);
 
         $event->pass($log);
+    }
+
+    /**
+     * Closes the DNC/unsubscribe compliance gap this whole dispatch path
+     * otherwise has: since we never go through Mautic's own mailer, none
+     * of the Stat rows core's native "Send Email" relies on ever get
+     * created, so its /email/unsubscribe/... link — and RFC 8058 One-Click
+     * Unsubscribe support behind it (PublicController::unsubscribeAction) —
+     * never has anything to resolve. Creating that one Stat row ourselves,
+     * via the same public EmailModel::saveEmailStat() core itself calls,
+     * is enough to make that entire existing, unmodified route work for a
+     * contact who got here through n8n instead.
+     *
+     * The resulting URL is resolved by CampaignTriggerSubscriber only as
+     * far as 'variables' — EmailMirrorSyncSubscriber is the one that
+     * already baked a {{...}} placeholder for UnsubscribeVariable::KEY
+     * into the template's footer at save time, so it just has to be a
+     * value in this map, not spliced into any HTML here.
+     */
+    private function buildUnsubscribeUrl(Email $email, Lead $contact): string
+    {
+        $contactEmail = (string) $contact->getEmail();
+        $idHash       = str_replace('.', '', uniqid('', true));
+
+        $stat = new Stat();
+        $stat->setEmail($email);
+        $stat->setLead($contact);
+        $stat->setEmailAddress($contactEmail);
+        $stat->setTrackingHash($idHash);
+        $stat->setDateSent(new \DateTime());
+        $this->emailModel->saveEmailStat($stat);
+
+        return (string) $this->emailModel->buildUrl('mautic_email_unsubscribe', [
+            'idHash'     => $idHash,
+            'urlEmail'   => $contactEmail,
+            'secretHash' => $this->mailHashHelper->getEmailHash($contactEmail),
+        ]);
     }
 
     /**

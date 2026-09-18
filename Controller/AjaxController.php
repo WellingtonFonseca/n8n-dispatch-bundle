@@ -8,6 +8,7 @@ use Mautic\CoreBundle\Controller\AjaxController as CommonAjaxController;
 use Mautic\EmailBundle\Model\EmailModel;
 use Mautic\LeadBundle\Model\FieldModel;
 use MauticPlugin\CustomObjectsBundle\Model\CustomObjectModel;
+use MauticPlugin\N8nDispatchBundle\UnsubscribeVariable;
 use Symfony\Component\HttpFoundation\JsonResponse;
 use Symfony\Component\HttpFoundation\Request;
 use Symfony\Component\HttpFoundation\Response;
@@ -48,10 +49,29 @@ class AjaxController extends CommonAjaxController
             return $this->sendJsonResponse(['success' => 0, 'variables' => [], 'fields' => $fields, 'customObjects' => $customObjects]);
         }
 
-        preg_match_all(self::VARIABLE_PATTERN, (string) $email->getCustomHtml(), $matches);
-        $variables = array_values(array_unique($matches[1]));
+        $variables = $this->extractMappableVariables((string) $email->getCustomHtml());
 
         return $this->sendJsonResponse(['success' => 1, 'variables' => $variables, 'fields' => $fields, 'customObjects' => $customObjects]);
+    }
+
+    /**
+     * Split out of getEmailVariablesAction() so it's unit-testable without
+     * the rest of that action's Symfony container dependency (sendJsonResponse()
+     * needs a container, this doesn't).
+     *
+     * UnsubscribeVariable::KEY is always present in a saved template's
+     * footer (EmailMirrorSyncSubscriber injects it there), but it's
+     * resolved automatically by CampaignTriggerSubscriber on every
+     * dispatch — never something a user maps by hand here, so it's
+     * filtered out of the list the campaign builder shows.
+     *
+     * @return list<string>
+     */
+    private function extractMappableVariables(string $html): array
+    {
+        preg_match_all(self::VARIABLE_PATTERN, $html, $matches);
+
+        return array_values(array_diff(array_unique($matches[1]), [UnsubscribeVariable::KEY]));
     }
 
     /**
