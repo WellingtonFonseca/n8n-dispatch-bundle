@@ -12,7 +12,6 @@ use Mautic\EmailBundle\Event\EmailEvent;
 use Mautic\EmailBundle\EventListener\EmailSubscriber as CoreEmailSubscriber;
 use Mautic\PluginBundle\Helper\IntegrationHelper;
 use MauticPlugin\N8nDispatchBundle\Integration\N8nDispatchIntegration;
-use MauticPlugin\N8nDispatchBundle\TrackingPixelVariable;
 use MauticPlugin\N8nDispatchBundle\UnsubscribeVariable;
 use Psr\Log\LoggerInterface;
 use Symfony\Component\EventDispatcher\EventSubscriberInterface;
@@ -79,13 +78,6 @@ class EmailMirrorSyncSubscriber implements EventSubscriberInterface
     private const UNSUBSCRIBE_FOOTER_START = '<!-- n8ndispatch:unsubscribe-footer:start -->';
     private const UNSUBSCRIBE_FOOTER_END   = '<!-- n8ndispatch:unsubscribe-footer:end -->';
 
-    /**
-     * Same idempotency approach as the unsubscribe footer, for the open-
-     * tracking pixel (see ensureTrackingPixel()).
-     */
-    private const TRACKING_PIXEL_START = '<!-- n8ndispatch:tracking-pixel:start -->';
-    private const TRACKING_PIXEL_END   = '<!-- n8ndispatch:tracking-pixel:end -->';
-
     public function __construct(
         private IntegrationHelper $integrationHelper,
         private HttpClientInterface $httpClient,
@@ -124,7 +116,6 @@ class EmailMirrorSyncSubscriber implements EventSubscriberInterface
 
         $email = $event->getEmail();
         $this->ensureUnsubscribeFooter($email);
-        $this->ensureTrackingPixel($email);
         $html            = $this->injectPreheader((string) $email->getCustomHtml(), $email->getPreheaderText());
         $hash            = hash('sha256', $html);
         $fromName        = $email->getFromName();
@@ -211,51 +202,6 @@ class EmailMirrorSyncSubscriber implements EventSubscriberInterface
             $updatedHtml = str_ireplace($bodyMatch[0], $footer."\n".$bodyMatch[0], $html);
         } else {
             $updatedHtml = rtrim($html)."\n".$footer;
-        }
-
-        if ($updatedHtml === $html) {
-            return;
-        }
-
-        $email->setCustomHtml($updatedHtml);
-        $this->entityManager->flush();
-    }
-
-    /**
-     * Persists an invisible 1x1 open-tracking pixel into the template's
-     * customHtml, same idempotent replace-the-marked-block approach as
-     * ensureUnsubscribeFooter() above (and for the same reason: it has to
-     * survive into CampaignTriggerSubscriber::saveTemplateCopy()'s snapshot
-     * and Mirror's own copy of the HTML, not just live in memory for one
-     * outgoing sync payload).
-     *
-     * The <img> itself resolves via TrackingPixelVariable::TOKEN, filled in
-     * per contact by CampaignTriggerSubscriber with a URL to Mautic core's
-     * own mautic_email_tracker route (PublicController::trackingImageAction)
-     * — the same 1x1 transparent GIF and EmailModel::hitEmail() call core's
-     * own native "Send Email" already relies on for open tracking. width/
-     * height=1 plus display:none is redundant on purpose: most email
-     * clients honor CSS, some strip <style>/inline CSS but still respect
-     * the width/height attributes — this needs to render as zero-footprint
-     * in as many clients as realistically possible, not just the common
-     * ones.
-     */
-    private function ensureTrackingPixel(Email $email): void
-    {
-        $html = (string) $email->getCustomHtml();
-
-        $pixel = self::TRACKING_PIXEL_START
-            .'<img src="'.TrackingPixelVariable::TOKEN.'" width="1" height="1" alt="" style="display:none;width:1px;height:1px;border:0;" />'
-            .self::TRACKING_PIXEL_END;
-
-        $blockPattern = '/'.preg_quote(self::TRACKING_PIXEL_START, '/').'.*?'.preg_quote(self::TRACKING_PIXEL_END, '/').'/s';
-
-        if (preg_match($blockPattern, $html)) {
-            $updatedHtml = preg_replace($blockPattern, $pixel, $html);
-        } elseif (preg_match('/(<\/body>)/i', $html, $bodyMatch)) {
-            $updatedHtml = str_ireplace($bodyMatch[0], $pixel."\n".$bodyMatch[0], $html);
-        } else {
-            $updatedHtml = rtrim($html)."\n".$pixel;
         }
 
         if ($updatedHtml === $html) {
