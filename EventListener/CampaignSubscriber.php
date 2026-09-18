@@ -33,13 +33,14 @@ class CampaignSubscriber implements EventSubscriberInterface
         $event->addAction(
             'n8ndispatch.email.send',
             [
-                'label'           => 'mautic.n8ndispatch.campaign.event.email.send',
-                'description'     => 'mautic.n8ndispatch.campaign.event.email.send_descr',
-                'batchEventName'  => N8nDispatchEvents::ON_CAMPAIGN_TRIGGER_EMAIL_SEND,
-                'formType'        => EmailDispatchActionType::class,
-                'channel'         => 'email',
-                'channelIdField'  => 'email',
-                'template'        => '@N8nDispatch/Event/_email_send.html.twig',
+                'label'            => 'mautic.n8ndispatch.campaign.event.email.send',
+                'description'      => 'mautic.n8ndispatch.campaign.event.email.send_descr',
+                'batchEventName'   => N8nDispatchEvents::ON_CAMPAIGN_TRIGGER_EMAIL_SEND,
+                'formType'         => EmailDispatchActionType::class,
+                'channel'          => 'email',
+                'channelIdField'   => 'email',
+                'template'         => '@N8nDispatch/Event/_email_send.html.twig',
+                'timelineTemplate' => '@N8nDispatch/SubscribedEvents/Timeline/_email_send.html.twig',
             ]
         );
     }

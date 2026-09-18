@@ -1,0 +1,58 @@
+{#
+  Timeline card for the "Send via n8n (Email)" Campaign Action, registered
+  as this event type's 'timelineTemplate' in CampaignSubscriber.php —
+  replaces @MauticCampaign/SubscribedEvents/Timeline/index.html.twig just
+  for this event type. The error-handling block below is copied from that
+  core template (same condition, same 'errors' variable) since overriding
+  the whole content template means Mautic core's own error rendering no
+  longer runs for us; everything under the n8ndispatch block is ours.
+
+  Variables
+    - event (event.extra.log is the LeadEventLog row, as an array)
+#}
+{% set item = event.extra.log %}
+{% set errors = false %}
+{% if (item.metadata.errors is defined and item.metadata.errors is not empty) %}
+    {% set errors = (item.metadata.errors is iterable) ? item.metadata.errors|join('<br />') : item.metadata.errors %}
+{% elseif (item.metadata.failed is defined and item.metadata.failed is not empty) %}
+    {% set errors = (item.metadata.reason is not empty) ? item.metadata.reason : 'mautic.campaign.event.failed.timeline' %}
+    {% set errors = errors|trans %}
+{% elseif (item.fail_reason is defined and item.fail_reason is not empty) %}
+    {% set errors = item.fail_reason %}
+{% endif %}
+
+<div class="mt-10">
+{% if (errors) %}
+    <p class="text-danger mt-0 mb-10"><i class="ri-alert-line"></i> {{ 'mautic.campaign.event.last_error'|trans }}:<br/>{{ errors|purify }}</p>
+{% endif %}
+
+{% set n8n = item.metadata.n8ndispatch is defined ? item.metadata.n8ndispatch : null %}
+{% if n8n %}
+    <div class="n8ndispatch-timeline">
+        <span class="n8ndispatch-timeline-badge n8ndispatch-timeline-badge--{{ n8n.status }}">
+            <i class="{{ 'production' == n8n.status ? 'ri-play-fill' : 'ri-bug-line' }}"></i>
+            {{ ('mautic.n8ndispatch.campaign.event.status.' ~ n8n.status)|trans }}
+        </span>
+
+        {% if 'test' == n8n.status %}
+            <p class="n8ndispatch-timeline-note">{{ 'mautic.n8ndispatch.timeline.test_note'|trans }}</p>
+        {% endif %}
+
+        {% set jsonOptions = constant('JSON_PRETTY_PRINT') b-or constant('JSON_UNESCAPED_UNICODE') b-or constant('JSON_UNESCAPED_SLASHES') %}
+        {% set requestBody = {
+            'mautic_template_id': n8n.mautic_template_id,
+            'contact_id': n8n.contact_id,
+            'contact_email': n8n.contact_email,
+            'status': n8n.status,
+            'variables': n8n.variables,
+        } %}
+        <p class="n8ndispatch-timeline-label">{{ 'mautic.n8ndispatch.timeline.body'|trans }}:</p>
+        <pre class="n8ndispatch-timeline-json">{{ requestBody|json_encode(jsonOptions) }}</pre>
+
+        {% if n8n.response is defined %}
+        <p class="n8ndispatch-timeline-label">{{ 'mautic.n8ndispatch.timeline.response'|trans }}:</p>
+        <pre class="n8ndispatch-timeline-json">{{ n8n.response is iterable ? n8n.response|json_encode(jsonOptions) : n8n.response }}</pre>
+        {% endif %}
+    </div>
+{% endif %}
+</div>

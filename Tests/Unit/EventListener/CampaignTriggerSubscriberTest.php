@@ -149,17 +149,16 @@ class CampaignTriggerSubscriberTest extends TestCase
         $this->assertCount(0, $pendingEvent->getFailures());
 
         /** @var LeadEventLog $passedLog */
-        $passedLog       = $successful->first();
-        $expectedPayload = json_encode([
-            'mautic_template_id' => 1,
-            'contact_id'         => 0,
-            'contact_email'      => 'contact@example.test',
-            'status'             => 'test',
-            'variables'          => ['foo' => 'bar'],
-        ]);
+        $passedLog = $successful->first();
         $this->assertSame(
-            'N8nDispatch: status is "test", no call was made to n8n. Payload that would be sent: '.$expectedPayload,
-            $passedLog->getMetadata()['timeline']
+            [
+                'mautic_template_id' => 1,
+                'contact_id'         => 0,
+                'contact_email'      => 'contact@example.test',
+                'status'             => 'test',
+                'variables'          => ['foo' => 'bar'],
+            ],
+            $passedLog->getMetadata()['n8ndispatch']
         );
     }
 
@@ -176,7 +175,7 @@ class CampaignTriggerSubscriberTest extends TestCase
         $this->assertCount(1, $successful);
         /** @var LeadEventLog $passedLog */
         $passedLog = $successful->first();
-        $this->assertStringContainsString('"status":"test"', $passedLog->getMetadata()['timeline']);
+        $this->assertSame('test', $passedLog->getMetadata()['n8ndispatch']['status']);
     }
 
     public function testSuccessAttachesLogSendEmailIdToTheLogMetadataFromFlatBody(): void
@@ -199,8 +198,8 @@ class CampaignTriggerSubscriberTest extends TestCase
         $passedLog = $successful->first();
         $metadata  = $passedLog->getMetadata();
         $this->assertSame(6334025, $metadata['logSendEmailId']);
-        $this->assertStringStartsWith('N8nDispatch: sent via n8n/Mirror (log id: 6334025). Payload sent: ', $metadata['timeline']);
-        $this->assertStringContainsString('"status":"production"', $metadata['timeline']);
+        $this->assertSame('production', $metadata['n8ndispatch']['status']);
+        $this->assertSame(['logSendEmailId' => 6334025], $metadata['n8ndispatch']['response']);
     }
 
     public function testSuccessAttachesLogSendEmailIdToTheLogMetadataFromNestedBody(): void
@@ -228,8 +227,13 @@ class CampaignTriggerSubscriberTest extends TestCase
         $passedLog = $successful->first();
         $metadata  = $passedLog->getMetadata();
         $this->assertSame(6334029, $metadata['logSendEmailId']);
-        $this->assertStringStartsWith('N8nDispatch: sent via n8n/Mirror (log id: 6334029). Payload sent: ', $metadata['timeline']);
-        $this->assertStringContainsString('"status":"production"', $metadata['timeline']);
+        $this->assertSame('production', $metadata['n8ndispatch']['status']);
+        // The full raw response is kept as-is, nested 'body' included — the
+        // Timeline card dumps it verbatim, it doesn't re-shape it.
+        $this->assertSame(
+            ['body' => ['logSendEmailId' => 6334029], 'statusCode' => 200, 'statusMessage' => 'OK'],
+            $metadata['n8ndispatch']['response']
+        );
     }
 
     public function testSuccessWithoutLogSendEmailIdInBodyStillPasses(): void
@@ -251,6 +255,9 @@ class CampaignTriggerSubscriberTest extends TestCase
         /** @var LeadEventLog $passedLog */
         $passedLog = $successful->first();
         $this->assertArrayNotHasKey('logSendEmailId', $passedLog->getMetadata());
+        // Falls back to the raw string when the response isn't valid JSON,
+        // so the Timeline card still has something to show.
+        $this->assertSame('not valid json', $passedLog->getMetadata()['n8ndispatch']['response']);
     }
 
     public function testFailureReasonUsesTheErrorMessageFromTheResponseBody(): void
