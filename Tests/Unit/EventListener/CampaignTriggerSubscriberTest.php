@@ -5,6 +5,7 @@ declare(strict_types=1);
 namespace MauticPlugin\N8nDispatchBundle\Tests\Unit\EventListener;
 
 use Doctrine\Common\Collections\ArrayCollection;
+use Doctrine\ORM\EntityManagerInterface;
 use Mautic\CampaignBundle\Entity\Campaign;
 use Mautic\CoreBundle\Helper\CoreParametersHelper;
 use Mautic\CampaignBundle\Entity\Event;
@@ -23,6 +24,7 @@ use Mautic\PluginBundle\Helper\IntegrationHelper;
 use MauticPlugin\N8nDispatchBundle\EventListener\CampaignTriggerSubscriber;
 use MauticPlugin\N8nDispatchBundle\Integration\N8nDispatchIntegration;
 use MauticPlugin\N8nDispatchBundle\Resolver\VariableResolver;
+use MauticPlugin\N8nDispatchBundle\TrackingPixelVariable;
 use MauticPlugin\N8nDispatchBundle\UnsubscribeVariable;
 use PHPUnit\Framework\TestCase;
 use Psr\Log\LoggerInterface;
@@ -45,6 +47,8 @@ class CampaignTriggerSubscriberTest extends TestCase
 
     private MailHashHelper $mailHashHelper;
 
+    private EntityManagerInterface $entityManager;
+
     private CampaignTriggerSubscriber $subscriber;
 
     protected function setUp(): void
@@ -61,6 +65,7 @@ class CampaignTriggerSubscriberTest extends TestCase
         $coreParametersHelper = $this->createMock(CoreParametersHelper::class);
         $coreParametersHelper->method('get')->with('secret_key')->willReturn('test-secret-key');
         $this->mailHashHelper = new MailHashHelper($coreParametersHelper);
+        $this->entityManager  = $this->createMock(EntityManagerInterface::class);
 
         $this->subscriber = new CampaignTriggerSubscriber(
             $this->integrationHelper,
@@ -69,6 +74,7 @@ class CampaignTriggerSubscriberTest extends TestCase
             $this->emailModel,
             $this->variableResolver,
             $this->mailHashHelper,
+            $this->entityManager,
         );
 
         $this->variableResolver->method('resolveAll')->willReturn(['foo' => 'bar']);
@@ -79,6 +85,13 @@ class CampaignTriggerSubscriberTest extends TestCase
         // fine". Tests specifically about the snapshot configure their own
         // expectations on $this->copyRepository.
         $this->emailModel->method('getCopyRepository')->willReturn($this->copyRepository);
+        // Whenever saveTemplateCopy() did resolve a hash, buildUnsubscribeUrl()
+        // calls getReference() to link the Stat to it. Left unconfigured here
+        // deliberately — a stub added in setUp() would be matched ahead of a
+        // more specific with()-constrained one added later in an individual
+        // test (PHPUnit checks configured behaviors in registration order),
+        // which would make that test's own assertion moot. Tests that reach
+        // this call configure their own expectation instead.
         // Every 'production' test also goes through buildUnsubscribeUrl(),
         // which calls EmailModel::buildUrl() and casts the result to
         // string — so an unconfigured call (PHPUnit stubs return null)
@@ -187,6 +200,7 @@ class CampaignTriggerSubscriberTest extends TestCase
         $this->copyRepository->expects($this->once())->method('saveCopy')
             ->with($expectedHash, 'Welcome', '<html><body>Hi {{aluno_nome}}</body></html>', '')
             ->willReturn(true);
+        $this->entityManager->method('getReference')->willReturn(new Copy());
 
         $response = $this->createMock(ResponseInterface::class);
         $response->method('getStatusCode')->willReturn(200);
@@ -208,6 +222,7 @@ class CampaignTriggerSubscriberTest extends TestCase
 
         $this->copyRepository->method('findByHash')->willReturn(new Copy());
         $this->copyRepository->expects($this->never())->method('saveCopy');
+        $this->entityManager->method('getReference')->willReturn(new Copy());
 
         $response = $this->createMock(ResponseInterface::class);
         $response->method('getStatusCode')->willReturn(200);
@@ -237,15 +252,23 @@ class CampaignTriggerSubscriberTest extends TestCase
                 return true;
             }));
 
-        $this->emailModel->expects($this->once())->method('buildUrl')
-            ->with('mautic_email_unsubscribe', $this->callback(function (array $params) {
-                $this->assertSame('contact@example.test', $params['urlEmail']);
-                $this->assertSame($this->mailHashHelper->getEmailHash('contact@example.test'), $params['secretHash']);
+        // buildUrl() is called twice now — once per reserved variable, both
+        // sharing the same Stat/idHash (see createStatAndBuildTrackingVariables()).
+        $this->emailModel->expects($this->exactly(2))->method('buildUrl')
+            ->willReturnCallback(function (string $route, array $params) {
+                if ('mautic_email_unsubscribe' === $route) {
+                    $this->assertSame('contact@example.test', $params['urlEmail']);
+                    $this->assertSame($this->mailHashHelper->getEmailHash('contact@example.test'), $params['secretHash']);
+                    $this->assertNotEmpty($params['idHash']);
+
+                    return 'https://mautic.example.test/email/unsubscribe/xyz';
+                }
+
+                $this->assertSame('mautic_email_tracker', $route);
                 $this->assertNotEmpty($params['idHash']);
 
-                return true;
-            }))
-            ->willReturn('https://mautic.example.test/email/unsubscribe/xyz');
+                return 'https://mautic.example.test/email/xyz.gif';
+            });
 
         $response = $this->createMock(ResponseInterface::class);
         $response->method('getStatusCode')->willReturn(200);
@@ -260,11 +283,50 @@ class CampaignTriggerSubscriberTest extends TestCase
                         'https://mautic.example.test/email/unsubscribe/xyz',
                         $options['json']['variables'][UnsubscribeVariable::KEY]
                     );
+                    $this->assertSame(
+                        'https://mautic.example.test/email/xyz.gif',
+                        $options['json']['variables'][TrackingPixelVariable::KEY]
+                    );
 
                     return true;
                 })
             )
             ->willReturn($response);
+
+        $this->subscriber->onEmailSend($pendingEvent);
+
+        $this->assertCount(1, $pendingEvent->getSuccessful());
+    }
+
+    public function testProductionStatusLinksTheCreatedStatToTheTemplateCopySoTheNativeViewLinkWorks(): void
+    {
+        $pendingEvent = $this->buildPendingEvent(['email' => 1, 'status' => 'production']);
+
+        $email = new Email();
+        $email->setSubject('Welcome');
+        $email->setCustomHtml('<html><body>Hi</body></html>');
+        $this->emailModel->method('getEntity')->with(1)->willReturn($email);
+        $this->mockIntegration(true, ['webhook_url' => 'https://n8n.example.test/webhook/dispatch']);
+
+        $expectedHash = md5('Welcome<html><body>Hi</body></html>');
+        $this->copyRepository->method('findByHash')->with($expectedHash)->willReturn(null);
+        $this->copyRepository->method('saveCopy')->willReturn(true);
+
+        $copyReference = new Copy();
+        $this->entityManager->expects($this->once())->method('getReference')
+            ->with(Copy::class, $expectedHash)
+            ->willReturn($copyReference);
+
+        $this->emailModel->expects($this->once())->method('saveEmailStat')
+            ->with($this->callback(function (Stat $stat) use ($copyReference): bool {
+                $this->assertSame($copyReference, $stat->getStoredCopy());
+
+                return true;
+            }));
+
+        $response = $this->createMock(ResponseInterface::class);
+        $response->method('getStatusCode')->willReturn(200);
+        $this->httpClient->method('request')->willReturn($response);
 
         $this->subscriber->onEmailSend($pendingEvent);
 
@@ -293,8 +355,9 @@ class CampaignTriggerSubscriberTest extends TestCase
                 'contact_email'      => 'contact@example.test',
                 'status'             => 'test',
                 'variables'          => [
-                    'foo'                          => 'bar',
-                    UnsubscribeVariable::KEY => '(not generated — no real dispatch)',
+                    'foo'                            => 'bar',
+                    UnsubscribeVariable::KEY          => '(not generated — no real dispatch)',
+                    TrackingPixelVariable::KEY        => '(not generated — no real dispatch)',
                 ],
             ],
             $passedLog->getMetadata()['n8ndispatch']
