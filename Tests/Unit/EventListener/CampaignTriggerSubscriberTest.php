@@ -511,4 +511,34 @@ class CampaignTriggerSubscriberTest extends TestCase
             $failedLog->getFailedLog()->getReason()
         );
     }
+
+    public function testFailedDispatchStillRecordsTheFullResponseOnTheTimeline(): void
+    {
+        $pendingEvent = $this->buildPendingEvent(['email' => 1, 'status' => 'production']);
+
+        $this->emailModel->method('getEntity')->with(1)->willReturn(new Email());
+        $this->mockIntegration(true, ['webhook_url' => 'https://n8n.example.test/webhook/dispatch']);
+
+        $response = $this->createMock(ResponseInterface::class);
+        $response->method('getStatusCode')->willReturn(404);
+        $response->method('getContent')->with(false)->willReturn(
+            '{"statusCode":404,"statusMessage":"Not Found","error":"code 404, Entity not found - contact"}'
+        );
+        $this->httpClient->method('request')->willReturn($response);
+
+        $this->subscriber->onEmailSend($pendingEvent);
+
+        $failures = $pendingEvent->getFailures();
+        $this->assertCount(1, $failures);
+        /** @var LeadEventLog $failedLog */
+        $failedLog = $failures->first();
+        $metadata  = $failedLog->getMetadata();
+
+        // Not just present — the Timeline card's outcome badge and
+        // Body/Response JSON blocks both key off exactly this.
+        $this->assertSame(404, $metadata['n8ndispatch']['response']['statusCode']);
+        $this->assertSame('Not Found', $metadata['n8ndispatch']['response']['statusMessage']);
+        // PendingEvent::fail()'s own array_merge() must not have clobbered it.
+        $this->assertSame(1, $metadata['failed']);
+    }
 }

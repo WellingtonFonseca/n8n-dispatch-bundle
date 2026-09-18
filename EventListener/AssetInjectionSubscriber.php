@@ -33,9 +33,32 @@ class AssetInjectionSubscriber implements EventSubscriberInterface
             return;
         }
 
+        $jsRelativePath  = 'Assets/js/campaign-email-dispatch.js';
+        $cssRelativePath = 'Assets/css/campaign-status-badge.css';
+
         $customContentEvent->addContent(
-            '<script src="/plugins/N8nDispatchBundle/Assets/js/campaign-email-dispatch.js"></script>'
-            .'<link rel="stylesheet" href="/plugins/N8nDispatchBundle/Assets/css/campaign-status-badge.css">'
+            '<script src="/plugins/N8nDispatchBundle/'.$jsRelativePath.'?v='.$this->assetVersion($jsRelativePath).'"></script>'
+            .'<link rel="stylesheet" href="/plugins/N8nDispatchBundle/'.$cssRelativePath.'?v='.$this->assetVersion($cssRelativePath).'">'
         );
+    }
+
+    /**
+     * Both assets are served with no Cache-Control/Expires header of their
+     * own (plain static files under docroot), which leaves a browser free
+     * to keep a heuristically-cached copy indefinitely once it's loaded one
+     * — confirmed live: an edit to campaign-status-badge.css (the Timeline
+     * outcome badge colors) didn't show up in an already-open browser
+     * session even after the server-side file, and a full page reload,
+     * both had the new content; only a hard refresh picked it up. A
+     * filemtime()-based ?v= query string changes the URL itself whenever
+     * either file changes, which busts that cache automatically — same
+     * effect as Mautic core's own asset versioning, without needing to
+     * hook into it for a two-file plugin asset list.
+     */
+    private function assetVersion(string $relativePath): int
+    {
+        $absolutePath = dirname(__DIR__).'/'.$relativePath;
+
+        return (false !== ($mtime = @filemtime($absolutePath))) ? $mtime : time();
     }
 }

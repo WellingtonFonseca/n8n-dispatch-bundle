@@ -170,13 +170,28 @@ class CampaignTriggerSubscriber implements EventSubscriberInterface
             // for the same getStatusCode()-inside-try requirement.
             $statusCode = $response->getStatusCode();
 
+            // Recorded before the pass/fail branch below, and on every
+            // outcome — not just success: PendingEvent::fail() only
+            // array_merge()s 'failed'/'reason' on top of the log's existing
+            // metadata (confirmed by reading its source), it never clears
+            // what's already there, so the full n8ndispatch response
+            // (headers/body/statusCode — see recordDispatchOutcome() below)
+            // survives into a failed log's metadata too. A single bare HTTP
+            // status code or the trimmed extractFailureReason() string
+            // wasn't enough to diagnose a real failure (a 404 alone doesn't
+            // say whether it's a missing template, missing contact, or bad
+            // variables) — Resources/views/SubscribedEvents/Timeline/
+            // _email_send.html.twig already renders the same Body/Response
+            // JSON blocks and outcome badge regardless of pass/fail, once
+            // this metadata exists.
+            $this->recordDispatchOutcome($log, $response, $payload, $templateCopyHash);
+
             if ($statusCode >= 300) {
                 $event->fail($log, 'N8nDispatch: '.$this->extractFailureReason($response, $statusCode));
 
                 return;
             }
 
-            $this->recordDispatchOutcome($log, $response, $payload, $templateCopyHash);
             $event->pass($log);
         } catch (\Throwable $e) {
             $this->logger->error('N8nDispatch: dispatch failed for contact '.$contact->getId().': '.$e->getMessage());
@@ -346,6 +361,26 @@ class CampaignTriggerSubscriber implements EventSubscriberInterface
     }
 
     /**
+     * Called on every outcome (success or failure — see dispatchToContact(),
+     * this runs before the statusCode >= 300 branch decides pass()/fail()),
+     * not just a successful dispatch. A bare HTTP status code or the
+     * trimmed extractFailureReason() string isn't enough to actually
+     * diagnose a real failure — a 404 alone doesn't say whether it's a
+     * missing template, a missing contact, or bad variables — so the full
+     * response (headers/body/statusCode) needs to reach the Timeline
+     * either way, not just on a pass.
+     *
+     * Writes metadata['n8ndispatch'] — the same payload shape
+     * recordWithoutDispatch() shows for 'test'/'paused', plus the raw
+     * response body — so
+     * Resources/views/SubscribedEvents/Timeline/_email_send.html.twig (this
+     * event type's registered 'timelineTemplate', see CampaignSubscriber)
+     * can render a card on the contact's Timeline showing exactly what was
+     * sent and what came back, not just that something was sent, and pick
+     * its outcome badge off the real response.statusCode. Safe to call
+     * regardless of status: $response->getContent(false) never throws on a
+     * non-2xx status, unlike the argument-less getContent().
+     *
      * n8n's workflow returns the id of the send record it created in Mirror
      * as 'logSendEmailId' on a successful dispatch — 'logSendEmailId'
      * because this listener only ever handles the Email channel; a future
@@ -357,18 +392,11 @@ class CampaignTriggerSubscriber implements EventSubscriberInterface
      * headers, statusCode, statusMessage}); the flat top-level check is
      * kept too in case that wiring changes later. Stored on the
      * LeadEventLog's own metadata (survives PendingEvent::pass(), which
-     * only strips its own 'errors'/'failed'/'reason' keys) purely for
-     * traceability back to the matching record in Mirror — never
-     * required, missing/malformed just means no id gets attached, the
-     * dispatch is still a pass either way.
-     *
-     * Also writes metadata['n8ndispatch'] — the same payload shape
-     * recordWithoutDispatch() shows for 'test'/'paused', plus the raw
-     * response body — so
-     * Resources/views/SubscribedEvents/Timeline/_email_send.html.twig (this
-     * event type's registered 'timelineTemplate', see CampaignSubscriber)
-     * can render a card on the contact's Timeline showing exactly what was
-     * sent and what came back, not just that something was sent.
+     * only strips its own 'errors'/'failed'/'reason' keys, and
+     * PendingEvent::fail(), which only array_merge()s 'failed'/'reason' on
+     * top — confirmed by reading both) purely for traceability back to the
+     * matching record in Mirror — never required, a failed dispatch simply
+     * won't have one, since nothing actually got sent.
      *
      * @param array<string, mixed> $payload
      */
