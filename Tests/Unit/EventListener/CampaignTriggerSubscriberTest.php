@@ -512,6 +512,12 @@ class CampaignTriggerSubscriberTest extends TestCase
         );
         $this->httpClient->method('request')->willReturn($response);
 
+        // A failed dispatch never actually reached the contact — it must
+        // not create the Stat that backs core's native Sent-Email Timeline
+        // entry, or the contact's history would show "email sent" for an
+        // email that never went out.
+        $this->emailModel->expects($this->never())->method('saveEmailStat');
+
         $this->subscriber->onEmailSend($pendingEvent);
 
         $failures = $pendingEvent->getFailures();
@@ -520,11 +526,89 @@ class CampaignTriggerSubscriberTest extends TestCase
         $failedLog = $failures->first();
         $metadata  = $failedLog->getMetadata();
 
-        // Not just present — the Timeline card's outcome badge and
-        // Body/Response JSON blocks both key off exactly this.
+        // Not just present — the Body/Response JSON block dumps this as-is.
         $this->assertSame(404, $metadata['n8ndispatch']['response']['statusCode']);
         $this->assertSame('Not Found', $metadata['n8ndispatch']['response']['statusMessage']);
+        // The Timeline card's outcome badge keys off this instead — the
+        // real HTTP transport status, not the response body's own nested
+        // field (see testHttpStatusCodeDrivesTheOutcomeBadgeEvenWhenTheResponseBodyDisagrees).
+        $this->assertSame(404, $metadata['n8ndispatch']['httpStatusCode']);
         // PendingEvent::fail()'s own array_merge() must not have clobbered it.
         $this->assertSame(1, $metadata['failed']);
+    }
+
+    public function testHttpStatusCodeDrivesTheOutcomeBadgeEvenWhenTheResponseBodyDisagrees(): void
+    {
+        $pendingEvent = $this->buildPendingEvent(['email' => 1, 'status' => 'production']);
+
+        $this->emailModel->method('getEntity')->with(1)->willReturn(new Email());
+        $this->mockIntegration(true, ['webhook_url' => 'https://n8n.example.test/webhook/dispatch']);
+
+        // Real transport status is 2xx (this listener's own pass/fail
+        // decision treats this as a success), but the mocked response
+        // body's own nested 'statusCode' field is stale/out of sync — a
+        // real scenario hit live: an n8n test workflow had its outer HTTP
+        // status updated to 2xx without updating the mocked body to match.
+        $response = $this->createMock(ResponseInterface::class);
+        $response->method('getStatusCode')->willReturn(200);
+        $response->method('getContent')->with(false)->willReturn(
+            '{"statusCode":404,"statusMessage":"Not Found"}'
+        );
+        $this->httpClient->method('request')->willReturn($response);
+
+        $this->subscriber->onEmailSend($pendingEvent);
+
+        $this->assertCount(1, $pendingEvent->getSuccessful());
+        /** @var LeadEventLog $passedLog */
+        $passedLog = $pendingEvent->getSuccessful()->first();
+        $metadata  = $passedLog->getMetadata();
+
+        // The outcome badge's field reflects reality (a pass) ...
+        $this->assertSame(200, $metadata['n8ndispatch']['httpStatusCode']);
+        // ... even though the raw response dump still shows the
+        // disagreeing body field, unmodified, for debugging.
+        $this->assertSame(404, $metadata['n8ndispatch']['response']['statusCode']);
+    }
+
+    public function testFailedDispatchStillSendsAnUnsubscribeUrlButNeverPersistsItsStat(): void
+    {
+        $pendingEvent = $this->buildPendingEvent(['email' => 1, 'status' => 'production']);
+
+        $this->emailModel->method('getEntity')->with(1)->willReturn(new Email());
+        $this->mockIntegration(true, ['webhook_url' => 'https://n8n.example.test/webhook/dispatch']);
+
+        // buildUrl() only generates a route string — it never touches the
+        // database — so the unsubscribe URL still goes out in the payload
+        // even for a dispatch that turns out to fail, same as a successful
+        // one. Only saveEmailStat() (asserted never-called below) is what
+        // would actually persist anything, and that's gated on success.
+        $this->emailModel->expects($this->once())->method('buildUrl')
+            ->with('mautic_email_unsubscribe', $this->anything())
+            ->willReturn('https://mautic.example.test/email/unsubscribe/xyz');
+        $this->emailModel->expects($this->never())->method('saveEmailStat');
+
+        $response = $this->createMock(ResponseInterface::class);
+        $response->method('getStatusCode')->willReturn(500);
+        $response->method('getContent')->with(false)->willReturn('not valid json');
+
+        $this->httpClient->expects($this->once())
+            ->method('request')
+            ->with(
+                $this->anything(),
+                $this->anything(),
+                $this->callback(function (array $options): bool {
+                    $this->assertSame(
+                        'https://mautic.example.test/email/unsubscribe/xyz',
+                        $options['json']['variables'][UnsubscribeVariable::KEY]
+                    );
+
+                    return true;
+                })
+            )
+            ->willReturn($response);
+
+        $this->subscriber->onEmailSend($pendingEvent);
+
+        $this->assertCount(1, $pendingEvent->getFailures());
     }
 }
