@@ -43,12 +43,12 @@
             {% if n8n.response is defined and n8n.response.statusCode is defined %}
                 {% if n8n.response.statusCode < 300 %}
                 <span class="n8ndispatch-timeline-badge n8ndispatch-timeline-badge--success">
-                    <i class="ri-checkbox-circle-fill"></i>
+                    <i class="ri-check-line"></i>
                     {{ 'mautic.n8ndispatch.timeline.status.success'|trans }}
                 </span>
                 {% else %}
                 <span class="n8ndispatch-timeline-badge n8ndispatch-timeline-badge--failed">
-                    <i class="ri-close-circle-fill"></i>
+                    <i class="ri-close-line"></i>
                     {{ 'mautic.n8ndispatch.timeline.status.failed'|trans }}
                 </span>
                 {% endif %}
