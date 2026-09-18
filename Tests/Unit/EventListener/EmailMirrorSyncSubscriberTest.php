@@ -5,6 +5,7 @@ declare(strict_types=1);
 namespace MauticPlugin\N8nDispatchBundle\Tests\Unit\EventListener;
 
 use Doctrine\ORM\EntityManagerInterface;
+use Doctrine\ORM\UnitOfWork;
 use Mautic\CoreBundle\Helper\UserHelper;
 use Mautic\EmailBundle\Entity\Email;
 use Mautic\EmailBundle\Event\EmailEvent;
@@ -30,6 +31,8 @@ class EmailMirrorSyncSubscriberTest extends TestCase
 
     private EntityManagerInterface $entityManager;
 
+    private UnitOfWork $unitOfWork;
+
     private EmailMirrorSyncSubscriber $subscriber;
 
     protected function setUp(): void
@@ -39,6 +42,13 @@ class EmailMirrorSyncSubscriberTest extends TestCase
         $this->logger            = $this->createMock(LoggerInterface::class);
         $this->userHelper        = $this->createMock(UserHelper::class);
         $this->entityManager     = $this->createMock(EntityManagerInterface::class);
+        // Mautic's entities use Doctrine's DEFERRED_EXPLICIT change tracking
+        // policy — flush() alone never persists an in-place mutation on an
+        // already-managed entity, it also needs scheduleForDirtyCheck()
+        // first (see ensureUnsubscribeFooter()). Confirmed live: without
+        // this call, flush() silently issues no SQL at all for the change.
+        $this->unitOfWork = $this->createMock(UnitOfWork::class);
+        $this->entityManager->method('getUnitOfWork')->willReturn($this->unitOfWork);
 
         $this->subscriber = new EmailMirrorSyncSubscriber(
             $this->integrationHelper,
@@ -285,6 +295,7 @@ class EmailMirrorSyncSubscriberTest extends TestCase
         $email = $this->buildEmail();
         $email->setCustomHtml('<html><body><p>content</p></body></html>');
 
+        $this->unitOfWork->expects($this->once())->method('scheduleForDirtyCheck')->with($email);
         $this->entityManager->expects($this->once())->method('flush');
         $this->dispatch($email);
 
@@ -323,6 +334,7 @@ class EmailMirrorSyncSubscriberTest extends TestCase
             .'</body></html>'
         );
 
+        $this->unitOfWork->expects($this->once())->method('scheduleForDirtyCheck')->with($email);
         $this->entityManager->expects($this->once())->method('flush');
         $this->dispatch($email);
 

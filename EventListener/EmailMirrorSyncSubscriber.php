@@ -209,6 +209,23 @@ class EmailMirrorSyncSubscriber implements EventSubscriberInterface
         }
 
         $email->setCustomHtml($updatedHtml);
+
+        // Mautic's own entities use Doctrine's DEFERRED_EXPLICIT change
+        // tracking policy (Mautic\CoreBundle\Doctrine\Mapping\
+        // ClassMetadataBuilder::setChangeTrackingPolicyDeferredExplicit()),
+        // not the ORM default (DEFERRED_IMPLICIT). Under EXPLICIT tracking,
+        // flush() does NOT automatically compare a managed entity's current
+        // property values against its original snapshot — it only persists
+        // entities explicitly scheduled for a dirty check. Without this
+        // call, flush() below silently runs (no error) but produces no SQL
+        // at all for this change: confirmed live by logging the actual
+        // queries flush() issued, once with and once without this line.
+        // Missing this is exactly why the unsubscribe footer never actually
+        // reached the database, even though it correctly reached Mirror —
+        // this method mutates $email in-memory before onEmailPostSave()
+        // builds the outgoing sync payload from it, so Mirror's own stored
+        // copy was never affected by this bug, only Mautic's local one.
+        $this->entityManager->getUnitOfWork()->scheduleForDirtyCheck($email);
         $this->entityManager->flush();
     }
 
