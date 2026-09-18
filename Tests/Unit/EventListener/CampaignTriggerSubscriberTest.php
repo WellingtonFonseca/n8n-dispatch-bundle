@@ -512,16 +512,14 @@ class CampaignTriggerSubscriberTest extends TestCase
         );
         $this->httpClient->method('request')->willReturn($response);
 
-        // A failed dispatch still creates a Stat — core's Timeline has its
-        // own native "Email failed" state (Stat::isFailed()), distinct
-        // from "Email sent", so the contact's history shows the truth
-        // instead of staying blank for an attempt that did happen.
-        $this->emailModel->expects($this->once())->method('saveEmailStat')
-            ->with($this->callback(function (Stat $stat): bool {
-                $this->assertTrue($stat->isFailed());
-
-                return true;
-            }));
+        // A failed dispatch never actually reached the contact — it must
+        // not create the Stat that backs core's native Sent-Email Timeline
+        // entry, or the contact's history would show "email sent" for an
+        // email that never went out. (Marking it setIsFailed(true) instead
+        // of skipping it was tried and reverted — core's own 'sent' state
+        // query has no is_failed filter, so it would show as BOTH "sent"
+        // and "failed", not just the latter. See createStat()'s docblock.)
+        $this->emailModel->expects($this->never())->method('saveEmailStat');
 
         $this->subscriber->onEmailSend($pendingEvent);
 
@@ -575,7 +573,7 @@ class CampaignTriggerSubscriberTest extends TestCase
         $this->assertSame(404, $metadata['n8ndispatch']['response']['statusCode']);
     }
 
-    public function testFailedDispatchStillSendsAnUnsubscribeUrlAndPersistsAMatchingFailedStat(): void
+    public function testFailedDispatchStillSendsAnUnsubscribeUrlButNeverPersistsItsStat(): void
     {
         $pendingEvent = $this->buildPendingEvent(['email' => 1, 'status' => 'production']);
 
@@ -585,24 +583,12 @@ class CampaignTriggerSubscriberTest extends TestCase
         // buildUrl() only generates a route string — it never touches the
         // database — so the unsubscribe URL still goes out in the payload
         // even for a dispatch that turns out to fail, same as a successful
-        // one. The idHash it's built from is the same one the resulting
-        // (failed) Stat gets persisted with below.
-        $capturedIdHash = null;
+        // one. Only saveEmailStat() (asserted never-called below) is what
+        // would actually persist anything, and that's gated on success.
         $this->emailModel->expects($this->once())->method('buildUrl')
-            ->with('mautic_email_unsubscribe', $this->callback(function (array $params) use (&$capturedIdHash) {
-                $capturedIdHash = $params['idHash'];
-
-                return true;
-            }))
+            ->with('mautic_email_unsubscribe', $this->anything())
             ->willReturn('https://mautic.example.test/email/unsubscribe/xyz');
-
-        $this->emailModel->expects($this->once())->method('saveEmailStat')
-            ->with($this->callback(function (Stat $stat) use (&$capturedIdHash): bool {
-                $this->assertTrue($stat->isFailed());
-                $this->assertSame($capturedIdHash, $stat->getTrackingHash());
-
-                return true;
-            }));
+        $this->emailModel->expects($this->never())->method('saveEmailStat');
 
         $response = $this->createMock(ResponseInterface::class);
         $response->method('getStatusCode')->willReturn(500);
