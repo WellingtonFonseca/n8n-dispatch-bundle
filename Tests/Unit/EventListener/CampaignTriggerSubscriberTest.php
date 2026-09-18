@@ -24,7 +24,6 @@ use Mautic\PluginBundle\Helper\IntegrationHelper;
 use MauticPlugin\N8nDispatchBundle\EventListener\CampaignTriggerSubscriber;
 use MauticPlugin\N8nDispatchBundle\Integration\N8nDispatchIntegration;
 use MauticPlugin\N8nDispatchBundle\Resolver\VariableResolver;
-use MauticPlugin\N8nDispatchBundle\TrackingPixelVariable;
 use MauticPlugin\N8nDispatchBundle\UnsubscribeVariable;
 use PHPUnit\Framework\TestCase;
 use Psr\Log\LoggerInterface;
@@ -252,23 +251,15 @@ class CampaignTriggerSubscriberTest extends TestCase
                 return true;
             }));
 
-        // buildUrl() is called twice now — once per reserved variable, both
-        // sharing the same Stat/idHash (see createStatAndBuildTrackingVariables()).
-        $this->emailModel->expects($this->exactly(2))->method('buildUrl')
-            ->willReturnCallback(function (string $route, array $params) {
-                if ('mautic_email_unsubscribe' === $route) {
-                    $this->assertSame('contact@example.test', $params['urlEmail']);
-                    $this->assertSame($this->mailHashHelper->getEmailHash('contact@example.test'), $params['secretHash']);
-                    $this->assertNotEmpty($params['idHash']);
-
-                    return 'https://mautic.example.test/email/unsubscribe/xyz';
-                }
-
-                $this->assertSame('mautic_email_tracker', $route);
+        $this->emailModel->expects($this->once())->method('buildUrl')
+            ->with('mautic_email_unsubscribe', $this->callback(function (array $params) {
+                $this->assertSame('contact@example.test', $params['urlEmail']);
+                $this->assertSame($this->mailHashHelper->getEmailHash('contact@example.test'), $params['secretHash']);
                 $this->assertNotEmpty($params['idHash']);
 
-                return 'https://mautic.example.test/email/xyz.gif';
-            });
+                return true;
+            }))
+            ->willReturn('https://mautic.example.test/email/unsubscribe/xyz');
 
         $response = $this->createMock(ResponseInterface::class);
         $response->method('getStatusCode')->willReturn(200);
@@ -282,10 +273,6 @@ class CampaignTriggerSubscriberTest extends TestCase
                     $this->assertSame(
                         'https://mautic.example.test/email/unsubscribe/xyz',
                         $options['json']['variables'][UnsubscribeVariable::KEY]
-                    );
-                    $this->assertSame(
-                        'https://mautic.example.test/email/xyz.gif',
-                        $options['json']['variables'][TrackingPixelVariable::KEY]
                     );
 
                     return true;
@@ -355,9 +342,8 @@ class CampaignTriggerSubscriberTest extends TestCase
                 'contact_email'      => 'contact@example.test',
                 'status'             => 'test',
                 'variables'          => [
-                    'foo'                            => 'bar',
-                    UnsubscribeVariable::KEY          => '(not generated — no real dispatch)',
-                    TrackingPixelVariable::KEY        => '(not generated — no real dispatch)',
+                    'foo'                     => 'bar',
+                    UnsubscribeVariable::KEY => '(not generated — no real dispatch)',
                 ],
             ],
             $passedLog->getMetadata()['n8ndispatch']

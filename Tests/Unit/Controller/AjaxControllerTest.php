@@ -123,13 +123,6 @@ class AjaxControllerTest extends TestCase
         $this->assertSame(['aluno_nome'], $this->extractMappableVariables($html));
     }
 
-    public function testExtractMappableVariablesExcludesTheReservedTrackingPixelVariable(): void
-    {
-        $html = '<p>Hi {{aluno_nome}}</p><img src="{{n8ndispatch_tracking_pixel_url}}" width="1" height="1" />';
-
-        $this->assertSame(['aluno_nome'], $this->extractMappableVariables($html));
-    }
-
     public function testExtractMappableVariablesDeduplicatesRepeatedVariables(): void
     {
         $html = '<p>{{aluno_nome}}</p><p>{{aluno_nome}}</p>';

@@ -285,11 +285,7 @@ class EmailMirrorSyncSubscriberTest extends TestCase
         $email = $this->buildEmail();
         $email->setCustomHtml('<html><body><p>content</p></body></html>');
 
-        // Two flushes on the very first save: ensureUnsubscribeFooter() and
-        // ensureTrackingPixel() each insert their own block and flush
-        // independently — see testTrackingPixelIsInsertedOnFirstSaveAndNotDuplicatedOnASecondSave
-        // for the pixel side of this same save.
-        $this->entityManager->expects($this->exactly(2))->method('flush');
+        $this->entityManager->expects($this->once())->method('flush');
         $this->dispatch($email);
 
         $htmlAfterFirstSave = (string) $email->getCustomHtml();
@@ -327,70 +323,12 @@ class EmailMirrorSyncSubscriberTest extends TestCase
             .'</body></html>'
         );
 
-        // Footer is stale (needs replacing) AND the tracking pixel block
-        // isn't present at all yet on this email — both ensure* methods
-        // change the HTML, so both flush.
-        $this->entityManager->expects($this->exactly(2))->method('flush');
+        $this->entityManager->expects($this->once())->method('flush');
         $this->dispatch($email);
 
         $html = (string) $email->getCustomHtml();
         $this->assertSame(1, substr_count($html, 'n8ndispatch:unsubscribe-footer:start'));
         $this->assertStringNotContainsString('stale', $html);
         $this->assertStringContainsString('{{n8ndispatch_unsubscribe_url}}', $html);
-    }
-
-    public function testTrackingPixelIsInsertedOnFirstSaveAndNotDuplicatedOnASecondSave(): void
-    {
-        $this->mockIntegration(true, ['webhook_url' => 'https://n8n.example.test/webhook/mirror']);
-        $response = $this->createMock(ResponseInterface::class);
-        $response->method('getStatusCode')->willReturn(200);
-        $this->httpClient->method('request')->willReturn($response);
-
-        $email = $this->buildEmail();
-        $email->setCustomHtml('<html><body><p>content</p></body></html>');
-
-        $this->entityManager->expects($this->exactly(2))->method('flush');
-        $this->dispatch($email);
-
-        $htmlAfterFirstSave = (string) $email->getCustomHtml();
-        $this->assertSame(1, substr_count($htmlAfterFirstSave, 'n8ndispatch:tracking-pixel:start'));
-        $this->assertStringContainsString('{{n8ndispatch_tracking_pixel_url}}', $htmlAfterFirstSave);
-        $this->assertStringContainsString('width="1" height="1"', $htmlAfterFirstSave);
-
-        $secondEntityManager = $this->createMock(EntityManagerInterface::class);
-        $secondEntityManager->expects($this->never())->method('flush');
-        $secondSubscriber = new EmailMirrorSyncSubscriber(
-            $this->integrationHelper,
-            $this->httpClient,
-            $this->logger,
-            $this->userHelper,
-            $secondEntityManager,
-        );
-        $secondSubscriber->onEmailPostSave(new EmailEvent($email, false));
-
-        $this->assertSame($htmlAfterFirstSave, $email->getCustomHtml());
-    }
-
-    public function testTrackingPixelIsResyncedIfContentBecomesStale(): void
-    {
-        $this->mockIntegration(true, ['webhook_url' => 'https://n8n.example.test/webhook/mirror']);
-        $response = $this->createMock(ResponseInterface::class);
-        $response->method('getStatusCode')->willReturn(200);
-        $this->httpClient->method('request')->willReturn($response);
-
-        $email = $this->buildEmail();
-        $email->setCustomHtml(
-            '<html><body><p>content</p>'
-            .'<!-- n8ndispatch:tracking-pixel:start -->stale<!-- n8ndispatch:tracking-pixel:end -->'
-            .'</body></html>'
-        );
-
-        $this->entityManager->expects($this->exactly(2))->method('flush');
-        $this->dispatch($email);
-
-        $html = (string) $email->getCustomHtml();
-        $this->assertSame(1, substr_count($html, 'n8ndispatch:tracking-pixel:start'));
-        $this->assertStringNotContainsString('stale', $html);
-        $this->assertStringContainsString('{{n8ndispatch_tracking_pixel_url}}', $html);
     }
 }
