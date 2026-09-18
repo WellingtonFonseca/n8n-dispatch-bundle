@@ -10,6 +10,8 @@ use Mautic\CampaignBundle\Entity\Event;
 use Mautic\CampaignBundle\Entity\LeadEventLog;
 use Mautic\CampaignBundle\Event\PendingEvent;
 use Mautic\CampaignBundle\EventCollector\Accessor\Event\ActionAccessor;
+use Mautic\EmailBundle\Entity\Copy;
+use Mautic\EmailBundle\Entity\CopyRepository;
 use Mautic\EmailBundle\Entity\Email;
 use Mautic\EmailBundle\Model\EmailModel;
 use Mautic\LeadBundle\Entity\Lead;
@@ -35,6 +37,8 @@ class CampaignTriggerSubscriberTest extends TestCase
 
     private VariableResolver $variableResolver;
 
+    private CopyRepository $copyRepository;
+
     private CampaignTriggerSubscriber $subscriber;
 
     protected function setUp(): void
@@ -44,6 +48,7 @@ class CampaignTriggerSubscriberTest extends TestCase
         $this->logger            = $this->createMock(LoggerInterface::class);
         $this->emailModel        = $this->createMock(EmailModel::class);
         $this->variableResolver  = $this->createMock(VariableResolver::class);
+        $this->copyRepository    = $this->createMock(CopyRepository::class);
 
         $this->subscriber = new CampaignTriggerSubscriber(
             $this->integrationHelper,
@@ -54,6 +59,13 @@ class CampaignTriggerSubscriberTest extends TestCase
         );
 
         $this->variableResolver->method('resolveAll')->willReturn(['foo' => 'bar']);
+        // Every 'production' test fetches an Email and, through
+        // saveTemplateCopy(), calls the CopyRepository — left unconfigured
+        // by default (PHPUnit stubs return null for both methods), which
+        // saveTemplateCopy() already treats as "couldn't snapshot, that's
+        // fine". Tests specifically about the snapshot configure their own
+        // expectations on $this->copyRepository.
+        $this->emailModel->method('getCopyRepository')->willReturn($this->copyRepository);
     }
 
     private function mockIntegration(bool $isPublished, array $keys): void
@@ -138,6 +150,55 @@ class CampaignTriggerSubscriberTest extends TestCase
 
         $this->assertCount(1, $pendingEvent->getSuccessful());
         $this->assertCount(0, $pendingEvent->getFailures());
+    }
+
+    public function testProductionStatusSavesAndAttachesATemplateCopySnapshot(): void
+    {
+        $pendingEvent = $this->buildPendingEvent(['email' => 1, 'status' => 'production']);
+
+        $email = new Email();
+        $email->setSubject('Welcome');
+        $email->setCustomHtml('<html><body>Hi {{aluno_nome}}</body></html>');
+        $this->emailModel->method('getEntity')->with(1)->willReturn($email);
+        $this->mockIntegration(true, ['webhook_url' => 'https://n8n.example.test/webhook/dispatch']);
+
+        $expectedHash = md5('Welcome<html><body>Hi {{aluno_nome}}</body></html>');
+
+        $this->copyRepository->expects($this->once())->method('findByHash')->with($expectedHash)->willReturn(null);
+        $this->copyRepository->expects($this->once())->method('saveCopy')
+            ->with($expectedHash, 'Welcome', '<html><body>Hi {{aluno_nome}}</body></html>', '')
+            ->willReturn(true);
+
+        $response = $this->createMock(ResponseInterface::class);
+        $response->method('getStatusCode')->willReturn(200);
+        $this->httpClient->method('request')->willReturn($response);
+
+        $this->subscriber->onEmailSend($pendingEvent);
+
+        /** @var LeadEventLog $passedLog */
+        $passedLog = $pendingEvent->getSuccessful()->first();
+        $this->assertSame($expectedHash, $passedLog->getMetadata()['n8ndispatch']['templateCopyHash']);
+    }
+
+    public function testProductionStatusReusesAnExistingTemplateCopyInsteadOfSavingAgain(): void
+    {
+        $pendingEvent = $this->buildPendingEvent(['email' => 1, 'status' => 'production']);
+
+        $this->emailModel->method('getEntity')->with(1)->willReturn(new Email());
+        $this->mockIntegration(true, ['webhook_url' => 'https://n8n.example.test/webhook/dispatch']);
+
+        $this->copyRepository->method('findByHash')->willReturn(new Copy());
+        $this->copyRepository->expects($this->never())->method('saveCopy');
+
+        $response = $this->createMock(ResponseInterface::class);
+        $response->method('getStatusCode')->willReturn(200);
+        $this->httpClient->method('request')->willReturn($response);
+
+        $this->subscriber->onEmailSend($pendingEvent);
+
+        /** @var LeadEventLog $passedLog */
+        $passedLog = $pendingEvent->getSuccessful()->first();
+        $this->assertArrayHasKey('templateCopyHash', $passedLog->getMetadata()['n8ndispatch']);
     }
 
     public function testTestStatusRecordsPayloadOnTimelineWithoutDispatching(): void

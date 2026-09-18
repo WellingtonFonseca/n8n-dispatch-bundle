@@ -7,6 +7,7 @@ namespace MauticPlugin\N8nDispatchBundle\EventListener;
 use Mautic\CampaignBundle\Entity\Campaign;
 use Mautic\CampaignBundle\Entity\LeadEventLog;
 use Mautic\CampaignBundle\Event\PendingEvent;
+use Mautic\EmailBundle\Entity\Email;
 use Mautic\EmailBundle\Model\EmailModel;
 use Mautic\LeadBundle\Entity\Lead;
 use Mautic\PluginBundle\Helper\IntegrationHelper;
@@ -117,12 +118,16 @@ class CampaignTriggerSubscriber implements EventSubscriberInterface
             $headers['X-N8n-Dispatch-Token'] = $token;
         }
 
+        // Only worth doing for a real dispatch — 'test'/'paused' never
+        // reach here, so there's no "proof of what was sent" need for them.
+        $templateCopyHash = $this->saveTemplateCopy($email);
+
         /** @var Lead $contact */
         foreach ($event->getContacts() as $logId => $contact) {
             /** @var LeadEventLog $log */
             $log = $event->getPending()->get($logId);
 
-            $this->dispatchToContact($event, $log, $contact, $campaign, $emailId, $status, $variablesConfig, $webhookUrl, $headers);
+            $this->dispatchToContact($event, $log, $contact, $campaign, $emailId, $status, $variablesConfig, $webhookUrl, $headers, $templateCopyHash);
         }
     }
 
@@ -140,6 +145,7 @@ class CampaignTriggerSubscriber implements EventSubscriberInterface
         array $variablesConfig,
         string $webhookUrl,
         array $headers,
+        ?string $templateCopyHash,
     ): void {
         $variables = $this->variableResolver->resolveAll($variablesConfig, $contact, $campaign);
         $payload   = $this->buildPayload($emailId, $contact, $status, $variables);
@@ -160,7 +166,7 @@ class CampaignTriggerSubscriber implements EventSubscriberInterface
                 return;
             }
 
-            $this->recordDispatchOutcome($log, $response, $payload);
+            $this->recordDispatchOutcome($log, $response, $payload, $templateCopyHash);
             $event->pass($log);
         } catch (\Throwable $e) {
             $this->logger->error('N8nDispatch: dispatch failed for contact '.$contact->getId().': '.$e->getMessage());
@@ -213,6 +219,35 @@ class CampaignTriggerSubscriber implements EventSubscriberInterface
     }
 
     /**
+     * Snapshots the Email template's raw content (subject/HTML/plain text,
+     * no token substitution — proof of what template was configured at
+     * dispatch time, not what a specific contact received) by reusing
+     * Mautic core's own EmailBundle\Entity\Copy/CopyRepository — the exact
+     * mechanism core's own MailHelper::createEmailStat() uses to back the
+     * "view in browser" link, keyed by an MD5 hash of subject+body so
+     * identical template content is stored once regardless of how many
+     * times it's dispatched. No core file is touched; this only calls
+     * public repository methods already exposed via
+     * EmailModel::getCopyRepository(). Returns null if the row couldn't be
+     * found or created, in which case the Timeline simply won't show a
+     * "view template" link.
+     */
+    private function saveTemplateCopy(Email $email): ?string
+    {
+        $subject = (string) $email->getSubject();
+        $body    = (string) $email->getCustomHtml();
+        $hash    = md5($subject.$body);
+
+        $copyRepository = $this->emailModel->getCopyRepository();
+
+        if (null !== $copyRepository->findByHash($hash)) {
+            return $hash;
+        }
+
+        return $copyRepository->saveCopy($hash, $subject, $body, (string) $email->getPlainText()) ? $hash : null;
+    }
+
+    /**
      * Prefers the human-readable message n8n's workflow puts in the response
      * body's 'error' field (e.g. "code 404, Entity not found - contact") so
      * it shows up as-is on the contact's Timeline in the Mautic UI — falls
@@ -258,21 +293,27 @@ class CampaignTriggerSubscriber implements EventSubscriberInterface
      *
      * @param array<string, mixed> $payload
      */
-    private function recordDispatchOutcome(LeadEventLog $log, ResponseInterface $response, array $payload): void
+    private function recordDispatchOutcome(LeadEventLog $log, ResponseInterface $response, array $payload, ?string $templateCopyHash): void
     {
         $rawBody    = $response->getContent(false);
         $body       = json_decode($rawBody, true);
         $nestedBody = is_array($body['body'] ?? null) ? $body['body'] : [];
         $logId      = is_array($body) ? ($body['logSendEmailId'] ?? $nestedBody['logSendEmailId'] ?? null) : null;
 
-        $metadata = [
+        $n8ndispatch = $payload + [
             // 'response' is the raw decoded body (falling back to the raw
             // string when it isn't valid JSON) — the Timeline card just
             // dumps it as-is, so if Mirror's response shape grows new
             // fields later, they show up there automatically, no template
             // change needed.
-            'n8ndispatch' => $payload + ['response' => is_array($body) ? $body : $rawBody],
+            'response' => is_array($body) ? $body : $rawBody,
         ];
+
+        if (null !== $templateCopyHash) {
+            $n8ndispatch['templateCopyHash'] = $templateCopyHash;
+        }
+
+        $metadata = ['n8ndispatch' => $n8ndispatch];
 
         if (!empty($logId)) {
             $metadata['logSendEmailId'] = $logId;
