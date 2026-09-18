@@ -155,9 +155,17 @@ class CampaignTriggerSubscriber implements EventSubscriberInterface
         array $headers,
         ?string $templateCopyHash,
     ): void {
-        $variables                            = $this->variableResolver->resolveAll($variablesConfig, $contact, $campaign);
-        $variables[UnsubscribeVariable::KEY] = $this->buildUnsubscribeUrl($email, $contact, $templateCopyHash);
-        $payload                              = $this->buildPayload($emailId, $contact, $status, $variables);
+        $variables    = $this->variableResolver->resolveAll($variablesConfig, $contact, $campaign);
+        $contactEmail = (string) $contact->getEmail();
+        // Generated up front so the same value both goes out in this
+        // dispatch's payload and (only on confirmed success, see below)
+        // becomes the real Stat's trackingHash — but no Stat is created
+        // yet. A failed dispatch never actually reached the contact, so it
+        // must not look like it did in core's native Sent-Email Timeline
+        // entry/history, which is driven entirely by Stat rows existing.
+        $idHash                              = str_replace('.', '', uniqid('', true));
+        $variables[UnsubscribeVariable::KEY] = $this->buildUnsubscribeUrl($contactEmail, $idHash);
+        $payload                             = $this->buildPayload($emailId, $contact, $status, $variables);
 
         try {
             $response = $this->httpClient->request('POST', $webhookUrl, [
@@ -183,13 +191,18 @@ class CampaignTriggerSubscriber implements EventSubscriberInterface
             // _email_send.html.twig already renders the same Body/Response
             // JSON blocks and outcome badge regardless of pass/fail, once
             // this metadata exists.
-            $this->recordDispatchOutcome($log, $response, $payload, $templateCopyHash);
+            $this->recordDispatchOutcome($log, $response, $payload, $templateCopyHash, $statusCode);
 
             if ($statusCode >= 300) {
                 $event->fail($log, 'N8nDispatch: '.$this->extractFailureReason($response, $statusCode));
 
                 return;
             }
+
+            // Only now, on Mirror's own confirmed success, register the
+            // Stat that backs core's native Sent-Email Timeline entry and
+            // the DNC/unsubscribe route — see createStat()'s own docblock.
+            $this->createStat($email, $contact, $contactEmail, $idHash, $templateCopyHash);
 
             $event->pass($log);
         } catch (\Throwable $e) {
@@ -228,6 +241,22 @@ class CampaignTriggerSubscriber implements EventSubscriberInterface
     }
 
     /**
+     * Pure URL generation — EmailModel::buildUrl() just resolves a Symfony
+     * route, it doesn't touch the database or require a Stat to already
+     * exist. A Stat matching this exact $idHash only gets created later,
+     * by createStat(), and only if the dispatch actually succeeds — see
+     * that method's docblock for why the two are deliberately split apart.
+     */
+    private function buildUnsubscribeUrl(string $contactEmail, string $idHash): string
+    {
+        return (string) $this->emailModel->buildUrl('mautic_email_unsubscribe', [
+            'idHash'     => $idHash,
+            'urlEmail'   => $contactEmail,
+            'secretHash' => $this->mailHashHelper->getEmailHash($contactEmail),
+        ]);
+    }
+
+    /**
      * Closes the DNC/unsubscribe compliance gap this whole dispatch path
      * otherwise has: since we never go through Mautic's own mailer, none
      * of the Stat rows core's native "Send Email" relies on ever get
@@ -238,17 +267,22 @@ class CampaignTriggerSubscriber implements EventSubscriberInterface
      * is enough to make that entire existing, unmodified route work for a
      * contact who got here through n8n instead.
      *
-     * The resulting URL is resolved by CampaignTriggerSubscriber only as
-     * far as 'variables' — EmailMirrorSyncSubscriber is the one that
-     * already baked a {{...}} placeholder for UnsubscribeVariable::KEY
-     * into the template's footer at save time, so it just has to be a
-     * value in this map, not spliced into any HTML here.
+     * Only called from dispatchToContact() after a confirmed 2xx from
+     * Mirror/n8n — a Stat is also exactly what makes core's native
+     * Sent-Email Timeline entry appear for a contact (EmailBundle's
+     * LeadSubscriber reads the same email_stats table this dispatch path
+     * otherwise never touches), so creating one on a failed dispatch would
+     * make a contact's history show "email sent" for an email that never
+     * actually went out. The idHash used here is the exact one already
+     * embedded in the unsubscribe URL sent in this same request's payload
+     * (see buildUnsubscribeUrl()) — generated before the HTTP call (so it
+     * could be included in it), but only turned into a real, persisted Stat
+     * once we know Mirror actually accepted the send.
      *
      * Also links the Stat to the same Copy row saveTemplateCopy() already
      * snapshotted for this batch, via setStoredCopy() — the same field
      * core's own MailHelper::createEmailStat() populates on a real send.
-     * Without it, core's native "Sent Email" Timeline entry (which now
-     * exists precisely because this Stat gets created) links to
+     * Without it, core's native "Sent Email" Timeline entry links to
      * mautic_email_webview/PublicController::indexAction, which reads
      * $stat->getStoredCopy() to render anything at all — empty otherwise,
      * so the contact's "view in browser" link opened a blank page.
@@ -258,13 +292,9 @@ class CampaignTriggerSubscriber implements EventSubscriberInterface
      * but is protected (Doctrine's own base EntityRepository), so this
      * plugin injects EntityManagerInterface directly instead, same as any
      * other Symfony service.
-     *
      */
-    private function buildUnsubscribeUrl(Email $email, Lead $contact, ?string $templateCopyHash): string
+    private function createStat(Email $email, Lead $contact, string $contactEmail, string $idHash, ?string $templateCopyHash): void
     {
-        $contactEmail = (string) $contact->getEmail();
-        $idHash       = str_replace('.', '', uniqid('', true));
-
         $stat = new Stat();
         $stat->setEmail($email);
         $stat->setLead($contact);
@@ -277,12 +307,6 @@ class CampaignTriggerSubscriber implements EventSubscriberInterface
         }
 
         $this->emailModel->saveEmailStat($stat);
-
-        return (string) $this->emailModel->buildUrl('mautic_email_unsubscribe', [
-            'idHash'     => $idHash,
-            'urlEmail'   => $contactEmail,
-            'secretHash' => $this->mailHashHelper->getEmailHash($contactEmail),
-        ]);
     }
 
     /**
@@ -365,10 +389,24 @@ class CampaignTriggerSubscriber implements EventSubscriberInterface
      * Resources/views/SubscribedEvents/Timeline/_email_send.html.twig (this
      * event type's registered 'timelineTemplate', see CampaignSubscriber)
      * can render a card on the contact's Timeline showing exactly what was
-     * sent and what came back, not just that something was sent, and pick
-     * its outcome badge off the real response.statusCode. Safe to call
-     * regardless of status: $response->getContent(false) never throws on a
-     * non-2xx status, unlike the argument-less getContent().
+     * sent and what came back, not just that something was sent. Safe to
+     * call regardless of status: $response->getContent(false) never throws
+     * on a non-2xx status, unlike the argument-less getContent().
+     *
+     * $statusCode (the real HTTP transport status — the same value
+     * dispatchToContact() itself branches pass()/fail() on) is stored as
+     * its own 'httpStatusCode' key, separate from the response body's own
+     * nested 'statusCode' field (n8n's convention wraps Mirror's result as
+     * {statusCode, statusMessage, error, body}). The Timeline card's
+     * outcome badge reads 'httpStatusCode' specifically, not the nested
+     * one — the two are supposed to agree by n8n-side convention, but
+     * they're two different signals from two different layers, and only
+     * one of them is what this listener's own pass/fail decision actually
+     * used. Confirmed live: with a test workflow that changed the outer
+     * HTTP status to 2xx without updating the mocked body's own nested
+     * statusCode to match, keying the badge off the body field showed a
+     * false "Failed" for a dispatch that had, by every measure this code
+     * itself cares about, succeeded.
      *
      * n8n's workflow returns the id of the send record it created in Mirror
      * as 'logSendEmailId' on a successful dispatch — 'logSendEmailId'
@@ -389,7 +427,7 @@ class CampaignTriggerSubscriber implements EventSubscriberInterface
      *
      * @param array<string, mixed> $payload
      */
-    private function recordDispatchOutcome(LeadEventLog $log, ResponseInterface $response, array $payload, ?string $templateCopyHash): void
+    private function recordDispatchOutcome(LeadEventLog $log, ResponseInterface $response, array $payload, ?string $templateCopyHash, int $statusCode): void
     {
         $rawBody    = $response->getContent(false);
         $body       = json_decode($rawBody, true);
@@ -402,7 +440,8 @@ class CampaignTriggerSubscriber implements EventSubscriberInterface
             // dumps it as-is, so if Mirror's response shape grows new
             // fields later, they show up there automatically, no template
             // change needed.
-            'response' => is_array($body) ? $body : $rawBody,
+            'response'       => is_array($body) ? $body : $rawBody,
+            'httpStatusCode' => $statusCode,
         ];
 
         if (null !== $templateCopyHash) {

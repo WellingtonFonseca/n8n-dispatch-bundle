@@ -40,8 +40,8 @@
                 {{ ('mautic.n8ndispatch.campaign.event.status.' ~ n8n.status)|trans }}
             </span>
 
-            {% if n8n.response is defined and n8n.response.statusCode is defined %}
-                {% if n8n.response.statusCode < 300 %}
+            {% if n8n.httpStatusCode is defined %}
+                {% if n8n.httpStatusCode < 300 %}
                 <span class="n8ndispatch-timeline-badge n8ndispatch-timeline-badge--success">
                     <i class="ri-check-line"></i>
                     {{ 'mautic.n8ndispatch.timeline.status.success'|trans }}
