@@ -23,8 +23,15 @@ use Symfony\Contracts\HttpClient\ResponseInterface;
  * within Mautic's batch (see CampaignSubscriber.php for why
  * batchEventName/PendingEvent, not the legacy single-event API). Only
  * actually dispatches to n8n when the step's status is 'production' —
- * 'test' records the same payload on the contact's Timeline without
- * calling out, and 'paused' skips entirely.
+ * 'test' and 'paused' both just record the payload that would have been
+ * sent on the contact's Timeline, without calling out. They're handled
+ * identically; the Timeline card (see recordWithoutDispatch()) only
+ * differs by badge color/label, driven by the 'status' value itself.
+ * 'paused' going through here — instead of failing the step — also means
+ * a paused period now leaves a permanent, visible record on the Timeline,
+ * unlike the old failAll() path whose failure metadata got wiped by
+ * PendingEvent::pass() the moment the contact was later dispatched for
+ * real.
  */
 class CampaignTriggerSubscriber implements EventSubscriberInterface
 {
@@ -60,27 +67,17 @@ class CampaignTriggerSubscriber implements EventSubscriberInterface
         $variablesConfig = json_decode((string) ($config['variablesJson'] ?? '{}'), true);
         $variablesConfig = is_array($variablesConfig) ? $variablesConfig : [];
 
-        if ('paused' === $status) {
-            // Same "can't process right now" pattern as the checks below
-            // (missing Email/integration) — Mautic reschedules a failed
-            // contact automatically, so flipping the step off 'paused'
-            // later picks these back up on the next campaign run, no
-            // manual rebuild needed.
-            $event->failAll('N8nDispatch: campaign step status is "paused", dispatch skipped.');
-
-            return;
-        }
-
-        if ('test' === $status) {
-            // No call to n8n — the point of 'test' is letting a non-technical
-            // user validate the payload (merge tags resolved, right contact
-            // data) straight from the contact's Timeline, without actually
-            // reaching the webhook.
+        if ('test' === $status || 'paused' === $status) {
+            // No call to n8n — 'test' lets a non-technical user validate the
+            // payload (merge tags resolved, right contact data) straight
+            // from the contact's Timeline; 'paused' means the step is
+            // deliberately held back. Either way nothing is sent, so both
+            // just record what would have gone out.
             foreach ($event->getContacts() as $logId => $contact) {
                 /** @var LeadEventLog $log */
                 $log = $event->getPending()->get($logId);
 
-                $this->recordTestOnly($event, $log, $contact, $campaign, $emailId, $status, $variablesConfig);
+                $this->recordWithoutDispatch($event, $log, $contact, $campaign, $emailId, $status, $variablesConfig);
             }
 
             return;
@@ -172,15 +169,17 @@ class CampaignTriggerSubscriber implements EventSubscriberInterface
     }
 
     /**
-     * 'test' status never reaches dispatchToContact() — this mirrors just
+     * 'test'/'paused' never reach dispatchToContact() — this mirrors just
      * the payload-building half of it, so what a non-technical user sees on
      * the contact's Timeline (rendered by Resources/views/SubscribedEvents/
      * Timeline/_email_send.html.twig) is built from exactly the same fields
-     * 'production' would have sent, minus the actual HTTP call.
+     * 'production' would have sent, minus the actual HTTP call. $status is
+     * 'test' or 'paused' here and ends up in the payload/metadata as-is —
+     * the Timeline card reads it to pick the badge color/label.
      *
      * @param array<string, array<string, mixed>> $variablesConfig
      */
-    private function recordTestOnly(
+    private function recordWithoutDispatch(
         PendingEvent $event,
         LeadEventLog $log,
         Lead $contact,
@@ -249,8 +248,9 @@ class CampaignTriggerSubscriber implements EventSubscriberInterface
      * required, missing/malformed just means no id gets attached, the
      * dispatch is still a pass either way.
      *
-     * Also writes metadata['n8ndispatch'] — the same payload shape 'test'
-     * status shows via recordTestOnly(), plus the raw response body — so
+     * Also writes metadata['n8ndispatch'] — the same payload shape
+     * recordWithoutDispatch() shows for 'test'/'paused', plus the raw
+     * response body — so
      * Resources/views/SubscribedEvents/Timeline/_email_send.html.twig (this
      * event type's registered 'timelineTemplate', see CampaignSubscriber)
      * can render a card on the contact's Timeline showing exactly what was

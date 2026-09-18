@@ -86,10 +86,8 @@
     background-color: #43a047;
 }
 
-.n8ndispatch-timeline-note {
-    margin: 6px 0 0;
-    font-size: 12px;
-    color: #6c757d;
+.n8ndispatch-timeline-badge--paused {
+    background-color: #fb8c00;
 }
 
 .n8ndispatch-timeline-label {
