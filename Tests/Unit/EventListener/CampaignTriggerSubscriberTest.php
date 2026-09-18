@@ -104,12 +104,9 @@ class CampaignTriggerSubscriberTest extends TestCase
         $this->assertCount(0, $pendingEvent->getSuccessful());
     }
 
-    /**
-     * @dataProvider provideNonPausedStatuses
-     */
-    public function testNonPausedStatusDispatchesAndIncludesStatusInPayload(string $status): void
+    public function testProductionStatusDispatchesAndIncludesStatusInPayload(): void
     {
-        $pendingEvent = $this->buildPendingEvent(['email' => 1, 'status' => $status]);
+        $pendingEvent = $this->buildPendingEvent(['email' => 1, 'status' => 'production']);
 
         $this->emailModel->method('getEntity')->with(1)->willReturn(new Email());
         $this->mockIntegration(true, ['webhook_url' => 'https://n8n.example.test/webhook/dispatch']);
@@ -122,8 +119,8 @@ class CampaignTriggerSubscriberTest extends TestCase
             ->with(
                 'POST',
                 'https://n8n.example.test/webhook/dispatch',
-                $this->callback(function (array $options) use ($status): bool {
-                    $this->assertSame($status, $options['json']['status']);
+                $this->callback(function (array $options): bool {
+                    $this->assertSame('production', $options['json']['status']);
                     $this->assertSame(1, $options['json']['mautic_template_id']);
                     $this->assertSame('contact@example.test', $options['json']['contact_email']);
 
@@ -138,41 +135,48 @@ class CampaignTriggerSubscriberTest extends TestCase
         $this->assertCount(0, $pendingEvent->getFailures());
     }
 
-    /**
-     * @return array<string, array<int, string>>
-     */
-    public static function provideNonPausedStatuses(): array
+    public function testTestStatusRecordsPayloadOnTimelineWithoutDispatching(): void
     {
-        return [
-            'test'       => ['test'],
-            'production' => ['production'],
-        ];
+        $pendingEvent = $this->buildPendingEvent(['email' => 1, 'status' => 'test']);
+
+        $this->httpClient->expects($this->never())->method('request');
+        $this->emailModel->expects($this->never())->method('getEntity');
+
+        $this->subscriber->onEmailSend($pendingEvent);
+
+        $successful = $pendingEvent->getSuccessful();
+        $this->assertCount(1, $successful);
+        $this->assertCount(0, $pendingEvent->getFailures());
+
+        /** @var LeadEventLog $passedLog */
+        $passedLog       = $successful->first();
+        $expectedPayload = json_encode([
+            'mautic_template_id' => 1,
+            'contact_id'         => 0,
+            'contact_email'      => 'contact@example.test',
+            'status'             => 'test',
+            'variables'          => ['foo' => 'bar'],
+        ]);
+        $this->assertSame(
+            'N8nDispatch: status is "test", no call was made to n8n. Payload that would be sent: '.$expectedPayload,
+            $passedLog->getMetadata()['timeline']
+        );
     }
 
-    public function testMissingStatusDefaultsToTestAndStillDispatches(): void
+    public function testMissingStatusDefaultsToTestAndRecordsTimelineWithoutDispatching(): void
     {
         $pendingEvent = $this->buildPendingEvent(['email' => 1]);
 
-        $this->emailModel->method('getEntity')->with(1)->willReturn(new Email());
-        $this->mockIntegration(true, ['webhook_url' => 'https://n8n.example.test/webhook/dispatch']);
-
-        $response = $this->createMock(ResponseInterface::class);
-        $response->method('getStatusCode')->willReturn(200);
-
-        $this->httpClient->expects($this->once())
-            ->method('request')
-            ->with(
-                $this->anything(),
-                $this->anything(),
-                $this->callback(function (array $options): bool {
-                    $this->assertSame('test', $options['json']['status']);
-
-                    return true;
-                })
-            )
-            ->willReturn($response);
+        $this->httpClient->expects($this->never())->method('request');
+        $this->emailModel->expects($this->never())->method('getEntity');
 
         $this->subscriber->onEmailSend($pendingEvent);
+
+        $successful = $pendingEvent->getSuccessful();
+        $this->assertCount(1, $successful);
+        /** @var LeadEventLog $passedLog */
+        $passedLog = $successful->first();
+        $this->assertStringContainsString('"status":"test"', $passedLog->getMetadata()['timeline']);
     }
 
     public function testSuccessAttachesLogSendEmailIdToTheLogMetadataFromFlatBody(): void
@@ -195,7 +199,8 @@ class CampaignTriggerSubscriberTest extends TestCase
         $passedLog = $successful->first();
         $metadata  = $passedLog->getMetadata();
         $this->assertSame(6334025, $metadata['logSendEmailId']);
-        $this->assertSame('N8nDispatch: sent via n8n/Mirror (log id: 6334025).', $metadata['timeline']);
+        $this->assertStringStartsWith('N8nDispatch: sent via n8n/Mirror (log id: 6334025). Payload sent: ', $metadata['timeline']);
+        $this->assertStringContainsString('"status":"production"', $metadata['timeline']);
     }
 
     public function testSuccessAttachesLogSendEmailIdToTheLogMetadataFromNestedBody(): void
@@ -223,7 +228,8 @@ class CampaignTriggerSubscriberTest extends TestCase
         $passedLog = $successful->first();
         $metadata  = $passedLog->getMetadata();
         $this->assertSame(6334029, $metadata['logSendEmailId']);
-        $this->assertSame('N8nDispatch: sent via n8n/Mirror (log id: 6334029).', $metadata['timeline']);
+        $this->assertStringStartsWith('N8nDispatch: sent via n8n/Mirror (log id: 6334029). Payload sent: ', $metadata['timeline']);
+        $this->assertStringContainsString('"status":"production"', $metadata['timeline']);
     }
 
     public function testSuccessWithoutLogSendEmailIdInBodyStillPasses(): void

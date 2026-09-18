@@ -19,10 +19,12 @@ use Symfony\Contracts\HttpClient\HttpClientInterface;
 use Symfony\Contracts\HttpClient\ResponseInterface;
 
 /**
- * Fires the actual dispatch to n8n for the "Send via n8n (Email)" Campaign
- * Action, one contact at a time within Mautic's batch (see
- * CampaignSubscriber.php for why batchEventName/PendingEvent, not the
- * legacy single-event API).
+ * Handles the "Send via n8n (Email)" Campaign Action, one contact at a time
+ * within Mautic's batch (see CampaignSubscriber.php for why
+ * batchEventName/PendingEvent, not the legacy single-event API). Only
+ * actually dispatches to n8n when the step's status is 'production' —
+ * 'test' records the same payload on the contact's Timeline without
+ * calling out, and 'paused' skips entirely.
  */
 class CampaignTriggerSubscriber implements EventSubscriberInterface
 {
@@ -65,6 +67,21 @@ class CampaignTriggerSubscriber implements EventSubscriberInterface
             // later picks these back up on the next campaign run, no
             // manual rebuild needed.
             $event->failAll('N8nDispatch: campaign step status is "paused", dispatch skipped.');
+
+            return;
+        }
+
+        if ('test' === $status) {
+            // No call to n8n — the point of 'test' is letting a non-technical
+            // user validate the payload (merge tags resolved, right contact
+            // data) straight from the contact's Timeline, without actually
+            // reaching the webhook.
+            foreach ($event->getContacts() as $logId => $contact) {
+                /** @var LeadEventLog $log */
+                $log = $event->getPending()->get($logId);
+
+                $this->recordTestOnly($event, $log, $contact, $campaign, $emailId, $status, $variablesConfig);
+            }
 
             return;
         }
@@ -128,17 +145,12 @@ class CampaignTriggerSubscriber implements EventSubscriberInterface
         array $headers,
     ): void {
         $variables = $this->variableResolver->resolveAll($variablesConfig, $contact, $campaign);
+        $payload   = $this->buildPayload($emailId, $contact, $status, $variables);
 
         try {
             $response = $this->httpClient->request('POST', $webhookUrl, [
                 'headers' => $headers,
-                'json'    => [
-                    'mautic_template_id' => $emailId,
-                    'contact_id'         => $contact->getId(),
-                    'contact_email'      => $contact->getEmail(),
-                    'status'             => $status,
-                    'variables'          => $variables,
-                ],
+                'json'    => $payload,
             ]);
 
             // Symfony's HttpClient sends lazily — see EmailMirrorSyncSubscriber
@@ -151,12 +163,63 @@ class CampaignTriggerSubscriber implements EventSubscriberInterface
                 return;
             }
 
-            $this->attachSendLogId($log, $response);
+            $this->recordDispatchOutcome($log, $response, $payload);
             $event->pass($log);
         } catch (\Throwable $e) {
             $this->logger->error('N8nDispatch: dispatch failed for contact '.$contact->getId().': '.$e->getMessage());
             $event->fail($log, 'N8nDispatch: '.$e->getMessage());
         }
+    }
+
+    /**
+     * 'test' status never reaches dispatchToContact() — this mirrors just
+     * the payload-building half of it, so what a non-technical user sees on
+     * the contact's Timeline is exactly the body that would be POSTed to
+     * n8n in 'production', minus the actual HTTP call.
+     *
+     * @param array<string, array<string, mixed>> $variablesConfig
+     */
+    private function recordTestOnly(
+        PendingEvent $event,
+        LeadEventLog $log,
+        Lead $contact,
+        Campaign $campaign,
+        int $emailId,
+        string $status,
+        array $variablesConfig,
+    ): void {
+        $variables = $this->variableResolver->resolveAll($variablesConfig, $contact, $campaign);
+        $payload   = $this->buildPayload($emailId, $contact, $status, $variables);
+
+        $log->appendToMetadata([
+            'timeline' => 'N8nDispatch: status is "test", no call was made to n8n. Payload that would be sent: '.$this->describePayload($payload),
+        ]);
+
+        $event->pass($log);
+    }
+
+    /**
+     * @param array<string, mixed> $variables
+     *
+     * @return array<string, mixed>
+     */
+    private function buildPayload(int $emailId, Lead $contact, string $status, array $variables): array
+    {
+        return [
+            'mautic_template_id' => $emailId,
+            'contact_id'         => $contact->getId(),
+            'contact_email'      => $contact->getEmail(),
+            'status'             => $status,
+            'variables'          => $variables,
+        ];
+    }
+
+    /**
+     * @param array<string, mixed> $payload
+     */
+    private function describePayload(array $payload): string
+    {
+        return json_encode($payload, JSON_UNESCAPED_SLASHES | JSON_UNESCAPED_UNICODE) ?: '{}';
     }
 
     /**
@@ -195,31 +258,32 @@ class CampaignTriggerSubscriber implements EventSubscriberInterface
      * required, missing/malformed just means no id gets attached, the
      * dispatch is still a pass either way.
      *
-     * Also mirrors it into metadata['timeline'] — the one metadata key
-     * Mautic core's own Timeline template (CampaignBundle/Resources/
-     * views/SubscribedEvents/Timeline/index.html.twig) renders as a
-     * plain message regardless of pass/fail, so a non-technical user
-     * checking the contact's Timeline sees the same id without needing
-     * to query campaign_lead_event_log.metadata directly. The raw
-     * 'logSendEmailId' key is kept too, deliberately, for exactly that
-     * kind of direct query/lookup later.
+     * Also writes metadata['timeline'] — the one metadata key Mautic
+     * core's own Timeline template (CampaignBundle/Resources/views/
+     * SubscribedEvents/Timeline/index.html.twig) renders as a plain
+     * message regardless of pass/fail — with the id (when present) plus
+     * the same payload shape 'test' status shows via recordTestOnly(),
+     * so a non-technical user can confirm on the contact's Timeline
+     * exactly what was sent, not just that something was sent.
+     *
+     * @param array<string, mixed> $payload
      */
-    private function attachSendLogId(LeadEventLog $log, ResponseInterface $response): void
+    private function recordDispatchOutcome(LeadEventLog $log, ResponseInterface $response, array $payload): void
     {
-        $body = json_decode($response->getContent(false), true);
-
-        if (!is_array($body)) {
-            return;
-        }
-
+        $body       = json_decode($response->getContent(false), true);
         $nestedBody = is_array($body['body'] ?? null) ? $body['body'] : [];
-        $logId      = $body['logSendEmailId'] ?? $nestedBody['logSendEmailId'] ?? null;
+        $logId      = is_array($body) ? ($body['logSendEmailId'] ?? $nestedBody['logSendEmailId'] ?? null) : null;
+
+        $metadata = [
+            'timeline' => empty($logId)
+                ? 'N8nDispatch: sent via n8n/Mirror. Payload sent: '.$this->describePayload($payload)
+                : 'N8nDispatch: sent via n8n/Mirror (log id: '.$logId.'). Payload sent: '.$this->describePayload($payload),
+        ];
 
         if (!empty($logId)) {
-            $log->appendToMetadata([
-                'logSendEmailId' => $logId,
-                'timeline'       => 'N8nDispatch: sent via n8n/Mirror (log id: '.$logId.').',
-            ]);
+            $metadata['logSendEmailId'] = $logId;
         }
+
+        $log->appendToMetadata($metadata);
     }
 }
