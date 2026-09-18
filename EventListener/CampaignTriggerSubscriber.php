@@ -16,6 +16,7 @@ use MauticPlugin\N8nDispatchBundle\Resolver\VariableResolver;
 use Psr\Log\LoggerInterface;
 use Symfony\Component\EventDispatcher\EventSubscriberInterface;
 use Symfony\Contracts\HttpClient\HttpClientInterface;
+use Symfony\Contracts\HttpClient\ResponseInterface;
 
 /**
  * Fires the actual dispatch to n8n for the "Send via n8n (Email)" Campaign
@@ -145,7 +146,7 @@ class CampaignTriggerSubscriber implements EventSubscriberInterface
             $statusCode = $response->getStatusCode();
 
             if ($statusCode >= 300) {
-                $event->fail($log, 'N8nDispatch: webhook returned HTTP '.$statusCode.'.');
+                $event->fail($log, 'N8nDispatch: '.$this->extractFailureReason($response, $statusCode));
 
                 return;
             }
@@ -155,5 +156,24 @@ class CampaignTriggerSubscriber implements EventSubscriberInterface
             $this->logger->error('N8nDispatch: dispatch failed for contact '.$contact->getId().': '.$e->getMessage());
             $event->fail($log, 'N8nDispatch: '.$e->getMessage());
         }
+    }
+
+    /**
+     * Prefers the human-readable message n8n's workflow puts in the response
+     * body's 'error' field (e.g. "code 404, Entity not found - contact") so
+     * it shows up as-is on the contact's Timeline in the Mautic UI — falls
+     * back to the plain HTTP status code if the body isn't JSON or doesn't
+     * have that field, so a webhook that doesn't follow this convention
+     * still fails with a useful-enough reason instead of a parse error.
+     */
+    private function extractFailureReason(ResponseInterface $response, int $statusCode): string
+    {
+        $body = json_decode($response->getContent(false), true);
+
+        if (is_array($body) && !empty($body['error']) && is_string($body['error'])) {
+            return $body['error'];
+        }
+
+        return 'webhook returned HTTP '.$statusCode.'.';
     }
 }
