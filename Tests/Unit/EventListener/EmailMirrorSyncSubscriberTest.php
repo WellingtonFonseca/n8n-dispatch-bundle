@@ -4,6 +4,7 @@ declare(strict_types=1);
 
 namespace MauticPlugin\N8nDispatchBundle\Tests\Unit\EventListener;
 
+use Doctrine\ORM\EntityManagerInterface;
 use Mautic\CoreBundle\Helper\UserHelper;
 use Mautic\EmailBundle\Entity\Email;
 use Mautic\EmailBundle\Event\EmailEvent;
@@ -27,6 +28,8 @@ class EmailMirrorSyncSubscriberTest extends TestCase
 
     private UserHelper $userHelper;
 
+    private EntityManagerInterface $entityManager;
+
     private EmailMirrorSyncSubscriber $subscriber;
 
     protected function setUp(): void
@@ -35,12 +38,14 @@ class EmailMirrorSyncSubscriberTest extends TestCase
         $this->httpClient        = $this->createMock(HttpClientInterface::class);
         $this->logger            = $this->createMock(LoggerInterface::class);
         $this->userHelper        = $this->createMock(UserHelper::class);
+        $this->entityManager     = $this->createMock(EntityManagerInterface::class);
 
         $this->subscriber = new EmailMirrorSyncSubscriber(
             $this->integrationHelper,
             $this->httpClient,
             $this->logger,
             $this->userHelper,
+            $this->entityManager,
         );
     }
 
@@ -268,5 +273,62 @@ class EmailMirrorSyncSubscriberTest extends TestCase
             ->willReturn($response);
 
         $this->dispatch($this->buildEmail());
+    }
+
+    public function testUnsubscribeFooterIsInsertedOnFirstSaveAndNotDuplicatedOnASecondSave(): void
+    {
+        $this->mockIntegration(true, ['webhook_url' => 'https://n8n.example.test/webhook/mirror']);
+        $response = $this->createMock(ResponseInterface::class);
+        $response->method('getStatusCode')->willReturn(200);
+        $this->httpClient->method('request')->willReturn($response);
+
+        $email = $this->buildEmail();
+        $email->setCustomHtml('<html><body><p>content</p></body></html>');
+
+        $this->entityManager->expects($this->once())->method('flush');
+        $this->dispatch($email);
+
+        $htmlAfterFirstSave = (string) $email->getCustomHtml();
+        $this->assertSame(1, substr_count($htmlAfterFirstSave, 'n8ndispatch:unsubscribe-footer:start'));
+        $this->assertStringContainsString('{{n8ndispatch_unsubscribe_url}}', $htmlAfterFirstSave);
+
+        // Re-save the same (now footer-containing) email through a second
+        // subscriber instance with its own EntityManager mock, so the two
+        // flush() expectations don't collide on one shared mock.
+        $secondEntityManager = $this->createMock(EntityManagerInterface::class);
+        $secondEntityManager->expects($this->never())->method('flush');
+        $secondSubscriber = new EmailMirrorSyncSubscriber(
+            $this->integrationHelper,
+            $this->httpClient,
+            $this->logger,
+            $this->userHelper,
+            $secondEntityManager,
+        );
+        $secondSubscriber->onEmailPostSave(new EmailEvent($email, false));
+
+        $this->assertSame($htmlAfterFirstSave, $email->getCustomHtml());
+    }
+
+    public function testUnsubscribeFooterIsResyncedIfContentBecomesStale(): void
+    {
+        $this->mockIntegration(true, ['webhook_url' => 'https://n8n.example.test/webhook/mirror']);
+        $response = $this->createMock(ResponseInterface::class);
+        $response->method('getStatusCode')->willReturn(200);
+        $this->httpClient->method('request')->willReturn($response);
+
+        $email = $this->buildEmail();
+        $email->setCustomHtml(
+            '<html><body><p>content</p>'
+            .'<!-- n8ndispatch:unsubscribe-footer:start -->stale<!-- n8ndispatch:unsubscribe-footer:end -->'
+            .'</body></html>'
+        );
+
+        $this->entityManager->expects($this->once())->method('flush');
+        $this->dispatch($email);
+
+        $html = (string) $email->getCustomHtml();
+        $this->assertSame(1, substr_count($html, 'n8ndispatch:unsubscribe-footer:start'));
+        $this->assertStringNotContainsString('stale', $html);
+        $this->assertStringContainsString('{{n8ndispatch_unsubscribe_url}}', $html);
     }
 }

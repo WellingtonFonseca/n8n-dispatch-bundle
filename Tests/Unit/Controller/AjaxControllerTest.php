@@ -98,4 +98,35 @@ class AjaxControllerTest extends TestCase
 
         $this->assertSame(Response::HTTP_NOT_FOUND, $response->getStatusCode());
     }
+
+    /**
+     * @return list<string>
+     */
+    private function extractMappableVariables(string $html): array
+    {
+        $method = new \ReflectionMethod(AjaxController::class, 'extractMappableVariables');
+
+        return $method->invoke($this->buildController(), $html);
+    }
+
+    public function testExtractMappableVariablesReturnsTemplateVariables(): void
+    {
+        $html = '<p>Hi {{aluno_nome}}, your course is {{maivar_curso_nome}}.</p>';
+
+        $this->assertSame(['aluno_nome', 'maivar_curso_nome'], $this->extractMappableVariables($html));
+    }
+
+    public function testExtractMappableVariablesExcludesTheReservedUnsubscribeVariable(): void
+    {
+        $html = '<p>Hi {{aluno_nome}}</p><p><a href="{{n8ndispatch_unsubscribe_url}}">Unsubscribe</a></p>';
+
+        $this->assertSame(['aluno_nome'], $this->extractMappableVariables($html));
+    }
+
+    public function testExtractMappableVariablesDeduplicatesRepeatedVariables(): void
+    {
+        $html = '<p>{{aluno_nome}}</p><p>{{aluno_nome}}</p>';
+
+        $this->assertSame(['aluno_nome'], $this->extractMappableVariables($html));
+    }
 }

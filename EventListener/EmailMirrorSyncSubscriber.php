@@ -4,12 +4,15 @@ declare(strict_types=1);
 
 namespace MauticPlugin\N8nDispatchBundle\EventListener;
 
+use Doctrine\ORM\EntityManagerInterface;
 use Mautic\CoreBundle\Helper\UserHelper;
 use Mautic\EmailBundle\EmailEvents;
+use Mautic\EmailBundle\Entity\Email;
 use Mautic\EmailBundle\Event\EmailEvent;
 use Mautic\EmailBundle\EventListener\EmailSubscriber as CoreEmailSubscriber;
 use Mautic\PluginBundle\Helper\IntegrationHelper;
 use MauticPlugin\N8nDispatchBundle\Integration\N8nDispatchIntegration;
+use MauticPlugin\N8nDispatchBundle\UnsubscribeVariable;
 use Psr\Log\LoggerInterface;
 use Symfony\Component\EventDispatcher\EventSubscriberInterface;
 use Symfony\Contracts\HttpClient\HttpClientInterface;
@@ -66,11 +69,21 @@ class EmailMirrorSyncSubscriber implements EventSubscriberInterface
      */
     private const ACTION = 'email.save';
 
+    /**
+     * Delimits the auto-managed unsubscribe footer inside customHtml (see
+     * ensureUnsubscribeFooter()) so re-saving a template never duplicates
+     * it — the block between these two markers is replaced wholesale on
+     * every save, not appended to.
+     */
+    private const UNSUBSCRIBE_FOOTER_START = '<!-- n8ndispatch:unsubscribe-footer:start -->';
+    private const UNSUBSCRIBE_FOOTER_END   = '<!-- n8ndispatch:unsubscribe-footer:end -->';
+
     public function __construct(
         private IntegrationHelper $integrationHelper,
         private HttpClientInterface $httpClient,
         private LoggerInterface $logger,
         private UserHelper $userHelper,
+        private EntityManagerInterface $entityManager,
     ) {
     }
 
@@ -101,7 +114,8 @@ class EmailMirrorSyncSubscriber implements EventSubscriberInterface
             return;
         }
 
-        $email           = $event->getEmail();
+        $email = $event->getEmail();
+        $this->ensureUnsubscribeFooter($email);
         $html            = $this->injectPreheader((string) $email->getCustomHtml(), $email->getPreheaderText());
         $hash            = hash('sha256', $html);
         $fromName        = $email->getFromName();
@@ -148,6 +162,54 @@ class EmailMirrorSyncSubscriber implements EventSubscriberInterface
             // a sync failure here must not surface as a save error to the user.
             $this->logger->error('N8nDispatch: failed to sync email '.$email->getId().' to the configured webhook: '.$e->getMessage());
         }
+    }
+
+    /**
+     * Persists a one-click-unsubscribe footer straight into the template's
+     * customHtml — unlike injectPreheader() below (which only patches the
+     * HTML in-memory for the outgoing sync payload), this one is saved for
+     * real, so the footer shows up in Mautic's own editor/preview too, and
+     * CampaignTriggerSubscriber's saveTemplateCopy() snapshot already
+     * includes it without any extra work.
+     *
+     * Idempotent by design: the block between UNSUBSCRIBE_FOOTER_START/END
+     * is replaced wholesale on every save (not appended), so re-saving the
+     * same template — from the UI or the API, doesn't matter, both go
+     * through saveEntity() — never duplicates it, and a future change to
+     * the footer's own markup here reaches every existing template on its
+     * next save.
+     *
+     * Only touches the database when the computed HTML actually differs
+     * from what's stored — flush() runs directly on the EntityManager, not
+     * through EmailModel::saveEntity(), specifically to avoid
+     * re-dispatching EMAIL_POST_SAVE (this listener's own event) in a loop.
+     */
+    private function ensureUnsubscribeFooter(Email $email): void
+    {
+        $html = (string) $email->getCustomHtml();
+
+        $footer = self::UNSUBSCRIBE_FOOTER_START
+            ."\n".'<p style="font-size:11px;color:#888888;text-align:center;margin:16px 0 0;">'
+            .'<a href="'.UnsubscribeVariable::TOKEN.'" style="color:#888888;">Unsubscribe</a>'
+            ."</p>\n"
+            .self::UNSUBSCRIBE_FOOTER_END;
+
+        $blockPattern = '/'.preg_quote(self::UNSUBSCRIBE_FOOTER_START, '/').'.*?'.preg_quote(self::UNSUBSCRIBE_FOOTER_END, '/').'/s';
+
+        if (preg_match($blockPattern, $html)) {
+            $updatedHtml = preg_replace($blockPattern, $footer, $html);
+        } elseif (preg_match('/(<\/body>)/i', $html, $bodyMatch)) {
+            $updatedHtml = str_ireplace($bodyMatch[0], $footer."\n".$bodyMatch[0], $html);
+        } else {
+            $updatedHtml = rtrim($html)."\n".$footer;
+        }
+
+        if ($updatedHtml === $html) {
+            return;
+        }
+
+        $email->setCustomHtml($updatedHtml);
+        $this->entityManager->flush();
     }
 
     /**
