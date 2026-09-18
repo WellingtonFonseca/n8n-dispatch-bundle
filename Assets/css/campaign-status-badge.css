@@ -90,6 +90,28 @@
     background-color: #fb8c00;
 }
 
+.n8ndispatch-timeline-header {
+    display: flex;
+    align-items: center;
+    gap: 20px;
+    flex-wrap: wrap;
+}
+
+/* Same pill as the status badges (.n8ndispatch-timeline-badge), just in
+   Mautic's brand blue instead of a status color, and clickable. */
+.n8ndispatch-timeline-badge--view {
+    background-color: #268bd2;
+    text-decoration: none;
+    cursor: pointer;
+}
+
+.n8ndispatch-timeline-badge--view:hover,
+.n8ndispatch-timeline-badge--view:focus {
+    background-color: #1c6ea4;
+    color: #fff;
+    text-decoration: none;
+}
+
 .n8ndispatch-timeline-label {
     margin: 8px 0 0;
     font-size: 13px;

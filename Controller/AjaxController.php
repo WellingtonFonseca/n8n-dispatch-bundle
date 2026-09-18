@@ -10,6 +10,7 @@ use Mautic\LeadBundle\Model\FieldModel;
 use MauticPlugin\CustomObjectsBundle\Model\CustomObjectModel;
 use Symfony\Component\HttpFoundation\JsonResponse;
 use Symfony\Component\HttpFoundation\Request;
+use Symfony\Component\HttpFoundation\Response;
 
 /**
  * Backs the campaign builder's "Send via n8n (Email)" action form. The
@@ -51,6 +52,37 @@ class AjaxController extends CommonAjaxController
         $variables = array_values(array_unique($matches[1]));
 
         return $this->sendJsonResponse(['success' => 1, 'variables' => $variables, 'fields' => $fields, 'customObjects' => $customObjects]);
+    }
+
+    /**
+     * Serves the raw HTML snapshot CampaignTriggerSubscriber::
+     * saveTemplateCopy() stores in Mautic core's own email_copies table
+     * (via EmailModel::getCopyRepository(), the exact mechanism core's own
+     * "view in browser" link uses) — resolved via action=plugin:
+     * N8nDispatch:getTemplateCopy&hash=..., linked from the "View
+     * template" link on the contact's Timeline card. Returns the content
+     * as-is (no token substitution, unlike core's own webview), so this is
+     * the raw template as configured, not what any one contact received.
+     */
+    public function getTemplateCopyAction(Request $request, EmailModel $emailModel): Response
+    {
+        $hash = (string) $request->query->get('hash', $request->request->get('hash', ''));
+        $copy = '' !== $hash ? $emailModel->getCopyRepository()->find($hash) : null;
+
+        if (null === $copy) {
+            return new Response('Template snapshot not found.', Response::HTTP_NOT_FOUND);
+        }
+
+        $subject = (string) $copy->getSubject();
+        $body    = (string) $copy->getBody();
+
+        if (!str_contains($body, '<html')) {
+            $body = '<!DOCTYPE html><html><head><meta charset="UTF-8"><title>'
+                .htmlspecialchars($subject, ENT_QUOTES)
+                .'</title></head><body>'.$body.'</body></html>';
+        }
+
+        return new Response($body, Response::HTTP_OK, ['Content-Type' => 'text/html; charset=UTF-8']);
     }
 
     /**

@@ -34,10 +34,19 @@
         'paused':     'ri-pause-fill',
     }[n8n.status]|default('ri-bug-line') %}
     <div class="n8ndispatch-timeline">
-        <span class="n8ndispatch-timeline-badge n8ndispatch-timeline-badge--{{ n8n.status }}">
-            <i class="{{ statusIcon }}"></i>
-            {{ ('mautic.n8ndispatch.campaign.event.status.' ~ n8n.status)|trans }}
-        </span>
+        <div class="n8ndispatch-timeline-header">
+            <span class="n8ndispatch-timeline-badge n8ndispatch-timeline-badge--{{ n8n.status }}">
+                <i class="{{ statusIcon }}"></i>
+                {{ ('mautic.n8ndispatch.campaign.event.status.' ~ n8n.status)|trans }}
+            </span>
+
+            {% if n8n.templateCopyHash is defined and n8n.templateCopyHash %}
+            <a class="n8ndispatch-timeline-badge n8ndispatch-timeline-badge--view" href="{{ path('mautic_core_ajax', {action: 'plugin:N8nDispatch:getTemplateCopy', hash: n8n.templateCopyHash}) }}" target="_blank" rel="noopener">
+                <i class="ri-eye-line"></i>
+                {{ 'mautic.n8ndispatch.timeline.view_template'|trans }}
+            </a>
+            {% endif %}
+        </div>
 
         {% set jsonOptions = constant('JSON_PRETTY_PRINT') b-or constant('JSON_UNESCAPED_UNICODE') b-or constant('JSON_UNESCAPED_SLASHES') %}
         {% set requestBody = {
