@@ -10,7 +10,9 @@ use Mautic\CampaignBundle\Entity\Event;
 use Mautic\CampaignBundle\Entity\LeadEventLog;
 use Mautic\CampaignBundle\Event\PendingEvent;
 use Mautic\CampaignBundle\EventCollector\Accessor\Event\ActionAccessor;
+use Mautic\LeadBundle\Entity\DoNotContact;
 use Mautic\LeadBundle\Entity\Lead;
+use Mautic\LeadBundle\Model\DoNotContact as DncModel;
 use Mautic\PluginBundle\Entity\Integration as IntegrationSettings;
 use Mautic\PluginBundle\Helper\IntegrationHelper;
 use MauticPlugin\N8nDispatchBundle\EventListener\SmsCampaignTriggerSubscriber;
@@ -31,6 +33,8 @@ class SmsCampaignTriggerSubscriberTest extends TestCase
 
     private VariableResolver $variableResolver;
 
+    private DncModel $dncModel;
+
     private SmsCampaignTriggerSubscriber $subscriber;
 
     protected function setUp(): void
@@ -39,12 +43,18 @@ class SmsCampaignTriggerSubscriberTest extends TestCase
         $this->httpClient        = $this->createMock(HttpClientInterface::class);
         $this->logger            = $this->createMock(LoggerInterface::class);
         $this->variableResolver  = $this->createMock(VariableResolver::class);
+        $this->dncModel          = $this->createMock(DncModel::class);
+        // Default every test to "contactable" so the existing dispatch/
+        // pass-path tests don't each have to configure this themselves —
+        // tests specifically about the DNC gate override it.
+        $this->dncModel->method('isContactable')->willReturn(DoNotContact::IS_CONTACTABLE);
 
         $this->subscriber = new SmsCampaignTriggerSubscriber(
             $this->integrationHelper,
             $this->httpClient,
             $this->logger,
             $this->variableResolver,
+            $this->dncModel,
         );
 
         $this->variableResolver->method('resolveAll')->willReturn(['foo' => 'bar']);
@@ -177,6 +187,36 @@ class SmsCampaignTriggerSubscriberTest extends TestCase
         $this->subscriber->onSmsSend($pendingEvent);
 
         $this->assertCount(1, $pendingEvent->getFailures());
+    }
+
+    public function testProductionStatusFailsWithoutDispatchingWhenContactIsOnTheSmsDncList(): void
+    {
+        $pendingEvent = $this->buildPendingEvent(['text' => 'Hi {{foo}}', 'status' => 'production']);
+
+        $this->mockIntegration(true, ['webhook_url' => 'https://n8n.example.test/webhook/dispatch']);
+
+        $this->dncModel = $this->createMock(DncModel::class);
+        $this->dncModel->method('isContactable')->with($this->anything(), 'sms')->willReturn(DoNotContact::UNSUBSCRIBED);
+        $this->subscriber = new SmsCampaignTriggerSubscriber(
+            $this->integrationHelper,
+            $this->httpClient,
+            $this->logger,
+            $this->variableResolver,
+            $this->dncModel,
+        );
+
+        $this->httpClient->expects($this->never())->method('request');
+
+        $this->subscriber->onSmsSend($pendingEvent);
+
+        $failures = $pendingEvent->getFailures();
+        $this->assertCount(1, $failures);
+        /** @var LeadEventLog $failedLog */
+        $failedLog = $failures->first();
+        $this->assertSame(
+            'N8nDispatch: contact is on the Do Not Contact list for sms.',
+            $failedLog->getFailedLog()->getReason()
+        );
     }
 
     public function testProductionStatusFailsAContactWithNoPhoneNumberWithoutCallingTheWebhook(): void

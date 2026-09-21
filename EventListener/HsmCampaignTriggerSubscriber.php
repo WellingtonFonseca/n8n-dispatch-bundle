@@ -7,7 +7,9 @@ namespace MauticPlugin\N8nDispatchBundle\EventListener;
 use Mautic\CampaignBundle\Entity\Campaign;
 use Mautic\CampaignBundle\Entity\LeadEventLog;
 use Mautic\CampaignBundle\Event\PendingEvent;
+use Mautic\LeadBundle\Entity\DoNotContact;
 use Mautic\LeadBundle\Entity\Lead;
+use Mautic\LeadBundle\Model\DoNotContact as DncModel;
 use Mautic\PluginBundle\Helper\IntegrationHelper;
 use MauticPlugin\N8nDispatchBundle\Integration\N8nDispatchIntegration;
 use MauticPlugin\N8nDispatchBundle\N8nDispatchEvents;
@@ -49,6 +51,7 @@ class HsmCampaignTriggerSubscriber implements EventSubscriberInterface
         private HttpClientInterface $httpClient,
         private LoggerInterface $logger,
         private VariableResolver $variableResolver,
+        private DncModel $dncModel,
     ) {
     }
 
@@ -135,6 +138,18 @@ class HsmCampaignTriggerSubscriber implements EventSubscriberInterface
         string $webhookUrl,
         array $headers,
     ): void {
+        // Same DNC gap as the Email/SMS dispatch paths (see
+        // CampaignTriggerSubscriber::dispatchToContact() for the full
+        // reasoning). HSM/WhatsApp has no native Mautic channel of its own
+        // to check against, so this reuses the 'sms' channel as the closest
+        // real proxy — a contact opted out of SMS is treated as opted out
+        // of HSM too, on request.
+        if (DoNotContact::IS_CONTACTABLE !== $this->dncModel->isContactable($contact, 'sms')) {
+            $event->fail($log, 'N8nDispatch: contact is on the Do Not Contact list for sms.');
+
+            return;
+        }
+
         $phone = (string) $contact->getPhone();
 
         // A WhatsApp HSM has to go to a real number just as much as an
