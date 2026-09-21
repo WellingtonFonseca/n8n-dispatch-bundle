@@ -96,6 +96,44 @@ class VariableResolverTest extends TestCase
         $this->assertSame(['destinatario' => '3110987654'], $resolved);
     }
 
+    public function testFieldSourceFormatsADateFieldToBrazilianFormat(): void
+    {
+        $contact = new Lead();
+        $contact->setFields([
+            'core' => [
+                'discstart' => ['type' => 'date', 'value' => '2026-09-21'],
+            ],
+        ]);
+        $campaign = new Campaign();
+
+        $resolved = $this->resolver->resolveAll(
+            ['inicio' => ['source' => 'field', 'field' => 'discstart']],
+            $contact,
+            $campaign
+        );
+
+        $this->assertSame(['inicio' => '21/09/2026'], $resolved);
+    }
+
+    public function testFieldSourceFormatsADatetimeFieldToBrazilianFormat(): void
+    {
+        $contact = new Lead();
+        $contact->setFields([
+            'core' => [
+                'last_active' => ['type' => 'datetime', 'value' => '2026-09-21 14:30:00'],
+            ],
+        ]);
+        $campaign = new Campaign();
+
+        $resolved = $this->resolver->resolveAll(
+            ['ultimo_acesso' => ['source' => 'field', 'field' => 'last_active']],
+            $contact,
+            $campaign
+        );
+
+        $this->assertSame(['ultimo_acesso' => '21/09/2026 14:30:00'], $resolved);
+    }
+
     public function testFieldSourceLazilyHydratesUnhydratedContact(): void
     {
         $contact = new Lead();

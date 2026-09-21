@@ -76,6 +76,17 @@ class VariableResolver
 
         $value = $contact->getFieldValue($fieldAlias);
 
-        return null === $value ? '' : (string) $value;
+        if (null === $value) {
+            return '';
+        }
+
+        // Mautic stores date/datetime fields as 'Y-m-d'/'Y-m-d H:i:s' —
+        // reformatted to pt-BR for dispatch, on request. getField() (not
+        // getFieldValue(), which already applied CustomFieldHelper's own
+        // type coercion above) is where the field's 'type' actually lives.
+        $field = $contact->getField($fieldAlias);
+        $type  = is_array($field) ? (string) ($field['type'] ?? '') : '';
+
+        return BrazilianDateFormatter::format((string) $value, $type);
     }
 }
