@@ -5,8 +5,6 @@ declare(strict_types=1);
 namespace MauticPlugin\N8nDispatchBundle\Tests\Unit\EventListener;
 
 use Doctrine\Common\Collections\ArrayCollection;
-use Doctrine\ORM\EntityManagerInterface;
-use Doctrine\Persistence\ObjectRepository;
 use Mautic\CampaignBundle\Entity\Campaign;
 use Mautic\CampaignBundle\Entity\Event;
 use Mautic\CampaignBundle\Entity\LeadEventLog;
@@ -15,8 +13,6 @@ use Mautic\CampaignBundle\EventCollector\Accessor\Event\ActionAccessor;
 use Mautic\LeadBundle\Entity\Lead;
 use Mautic\PluginBundle\Entity\Integration as IntegrationSettings;
 use Mautic\PluginBundle\Helper\IntegrationHelper;
-use Mautic\SmsBundle\Entity\Sms;
-use Mautic\SmsBundle\Entity\Stat;
 use MauticPlugin\N8nDispatchBundle\EventListener\SmsCampaignTriggerSubscriber;
 use MauticPlugin\N8nDispatchBundle\Integration\N8nDispatchIntegration;
 use MauticPlugin\N8nDispatchBundle\Resolver\VariableResolver;
@@ -35,10 +31,6 @@ class SmsCampaignTriggerSubscriberTest extends TestCase
 
     private VariableResolver $variableResolver;
 
-    private EntityManagerInterface $entityManager;
-
-    private ObjectRepository $smsRepository;
-
     private SmsCampaignTriggerSubscriber $subscriber;
 
     protected function setUp(): void
@@ -47,24 +39,15 @@ class SmsCampaignTriggerSubscriberTest extends TestCase
         $this->httpClient        = $this->createMock(HttpClientInterface::class);
         $this->logger            = $this->createMock(LoggerInterface::class);
         $this->variableResolver  = $this->createMock(VariableResolver::class);
-        $this->entityManager     = $this->createMock(EntityManagerInterface::class);
-        $this->smsRepository     = $this->createMock(ObjectRepository::class);
 
         $this->subscriber = new SmsCampaignTriggerSubscriber(
             $this->integrationHelper,
             $this->httpClient,
             $this->logger,
             $this->variableResolver,
-            $this->entityManager,
         );
 
         $this->variableResolver->method('resolveAll')->willReturn(['foo' => 'bar']);
-        $this->entityManager->method('getRepository')->with(Sms::class)->willReturn($this->smsRepository);
-        // Default: an Sms row for this text already exists, so
-        // resolveSmsTemplate() never needs to persist one — tests only
-        // about Stat creation don't have to account for that extra call.
-        // Tests specifically about resolveSmsTemplate() itself override this.
-        $this->smsRepository->method('findOneBy')->willReturn(new Sms());
     }
 
     private function mockIntegration(bool $isPublished, array $keys): void
@@ -242,17 +225,13 @@ class SmsCampaignTriggerSubscriberTest extends TestCase
             )
             ->willReturn($response);
 
-        $this->entityManager->expects($this->once())->method('persist')
-            ->with($this->isInstanceOf(Stat::class));
-        $this->entityManager->expects($this->once())->method('flush');
-
         $this->subscriber->onSmsSend($pendingEvent);
 
         $this->assertCount(1, $pendingEvent->getSuccessful());
         $this->assertCount(0, $pendingEvent->getFailures());
     }
 
-    public function testProductionStatusCreatesAFailedStatOnHttpFailure(): void
+    public function testProductionStatusFailureReasonUsesTheErrorMessageFromTheResponseBody(): void
     {
         $pendingEvent = $this->buildPendingEvent(['text' => 'Hi {{foo}}', 'status' => 'production']);
 
@@ -265,18 +244,7 @@ class SmsCampaignTriggerSubscriberTest extends TestCase
         );
         $this->httpClient->method('request')->willReturn($response);
 
-        $capturedStat = null;
-        $this->entityManager->expects($this->once())->method('persist')
-            ->with($this->callback(function (Stat $stat) use (&$capturedStat): bool {
-                $capturedStat = $stat;
-
-                return true;
-            }));
-
         $this->subscriber->onSmsSend($pendingEvent);
-
-        $this->assertTrue($capturedStat->isFailed());
-        $this->assertInstanceOf(Sms::class, $capturedStat->getSms());
 
         $failures = $pendingEvent->getFailures();
         $this->assertCount(1, $failures);
@@ -289,24 +257,14 @@ class SmsCampaignTriggerSubscriberTest extends TestCase
         $this->assertSame(404, $failedLog->getMetadata()['n8ndispatch']['httpStatusCode']);
     }
 
-    public function testProductionStatusCreatesAFailedStatOnTransportException(): void
+    public function testProductionStatusOnTransportException(): void
     {
         $pendingEvent = $this->buildPendingEvent(['text' => 'Hi {{foo}}', 'status' => 'production']);
 
         $this->mockIntegration(true, ['webhook_url' => 'https://n8n.example.test/webhook/dispatch']);
         $this->httpClient->method('request')->willThrowException(new \RuntimeException('Connection refused'));
 
-        $capturedStat = null;
-        $this->entityManager->expects($this->once())->method('persist')
-            ->with($this->callback(function (Stat $stat) use (&$capturedStat): bool {
-                $capturedStat = $stat;
-
-                return true;
-            }));
-
         $this->subscriber->onSmsSend($pendingEvent);
-
-        $this->assertTrue($capturedStat->isFailed());
 
         $failures = $pendingEvent->getFailures();
         $this->assertCount(1, $failures);
@@ -335,59 +293,5 @@ class SmsCampaignTriggerSubscriberTest extends TestCase
         $metadata  = $passedLog->getMetadata();
         $this->assertSame(9001, $metadata['logSendSmsId']);
         $this->assertSame(['logSendSmsId' => 9001], $metadata['n8ndispatch']['response']);
-    }
-
-    /**
-     * The default setUp() stub already returns an existing Sms for every
-     * findOneBy() call (see its own comment) — every other production
-     * test above already exercises the "reuse" branch implicitly, and
-     * asserts a Stat's getSms() is an Sms instance
-     * (testProductionStatusCreatesAFailedStatOnHttpFailure). This test
-     * covers the other branch: no matching row found at all, built fresh
-     * with its own mocks (rather than reconfiguring the shared ones from
-     * setUp() mid-test) so there's no ambiguity about which stub applies.
-     */
-    public function testResolveSmsTemplateCreatesAnUnpublishedRowWhenNoneExistsForThisText(): void
-    {
-        $pendingEvent = $this->buildPendingEvent(['text' => 'Hi {{foo}}', 'status' => 'production']);
-
-        $entityManager = $this->createMock(EntityManagerInterface::class);
-        $smsRepository = $this->createMock(ObjectRepository::class);
-        $smsRepository->method('findOneBy')->willReturn(null);
-        $entityManager->method('getRepository')->with(Sms::class)->willReturn($smsRepository);
-
-        $persisted = [];
-        $entityManager->expects($this->exactly(2))->method('persist')
-            ->willReturnCallback(function (object $entity) use (&$persisted): void {
-                $persisted[] = $entity;
-            });
-
-        $subscriber = new SmsCampaignTriggerSubscriber(
-            $this->integrationHelper,
-            $this->httpClient,
-            $this->logger,
-            $this->variableResolver,
-            $entityManager,
-        );
-
-        $this->mockIntegration(true, ['webhook_url' => 'https://n8n.example.test/webhook/dispatch']);
-        $response = $this->createMock(ResponseInterface::class);
-        $response->method('getStatusCode')->willReturn(200);
-        $this->httpClient->method('request')->willReturn($response);
-
-        $subscriber->onSmsSend($pendingEvent);
-
-        $smsRows = array_values(array_filter($persisted, static fn (object $e): bool => $e instanceof Sms));
-        $this->assertCount(1, $smsRows);
-        /** @var Sms $sms */
-        $sms = $smsRows[0];
-        $this->assertSame('Hi {{foo}}', $sms->getMessage());
-        $this->assertFalse($sms->isPublished(false));
-        $this->assertStringStartsWith('N8n Dispatch: Hi {{foo}}', $sms->getName());
-
-        $statRows = array_values(array_filter($persisted, static fn (object $e): bool => $e instanceof Stat));
-        /** @var Stat $stat */
-        $stat = $statRows[0];
-        $this->assertSame($sms, $stat->getSms());
     }
 }
