@@ -102,40 +102,62 @@
             + '</div>';
     }
 
+    // Shared with campaign-sms-dispatch.js: turns an ajaxActionRequest
+    // response of shape {variables, fields, customObjects} into the
+    // rendered variable-source rows for whichever field anchors them
+    // ($anchorField — the Email picker there, the SMS textarea here).
+    // Kept off Mautic.n8ndispatchShared rather than duplicated per channel,
+    // since both channels' AJAX actions already return the same shape.
+    function renderVariablesFromResponse($anchorField, response) {
+        var $container = getContainer($anchorField);
+        var $hidden     = getHiddenField($anchorField);
+
+        if (!response || !response.success) {
+            return;
+        }
+
+        var existing = {};
+        try {
+            existing = JSON.parse($hidden.val() || '{}');
+        } catch (e) {
+            existing = {};
+        }
+
+        var html = '';
+        mQuery.each(response.variables || [], function (i, name) {
+            html += variableRowHtml(name, existing[name], response.fields, response.customObjects);
+        });
+
+        $container.html(html);
+        syncHiddenField($container, $hidden);
+        wireVariableRowEvents($container, $hidden, response.customObjects);
+    }
+
+    function clearVariables($anchorField) {
+        getContainer($anchorField).empty();
+        getHiddenField($anchorField).val('{}');
+    }
+
     function renderVariableInputs($emailField) {
-        var emailId    = $emailField.val();
-        var $container = getContainer($emailField);
-        var $hidden     = getHiddenField($emailField);
+        var emailId = $emailField.val();
 
         if (!emailId) {
-            $container.empty();
-            $hidden.val('{}');
+            clearVariables($emailField);
 
             return;
         }
 
         Mautic.ajaxActionRequest('plugin:N8nDispatch:getEmailVariables', {emailId: emailId}, function (response) {
-            if (!response || !response.success) {
-                return;
-            }
-
-            var existing = {};
-            try {
-                existing = JSON.parse($hidden.val() || '{}');
-            } catch (e) {
-                existing = {};
-            }
-
-            var html = '';
-            mQuery.each(response.variables || [], function (i, name) {
-                html += variableRowHtml(name, existing[name], response.fields, response.customObjects);
-            });
-
-            $container.html(html);
-            syncHiddenField($container, $hidden);
-            wireVariableRowEvents($container, $hidden, response.customObjects);
+            renderVariablesFromResponse($emailField, response);
         });
     }
+
+    Mautic.n8ndispatchShared = {
+        getContainer:               getContainer,
+        getHiddenField:             getHiddenField,
+        clearVariables:             clearVariables,
+        renderVariablesFromResponse: renderVariablesFromResponse,
+    };
 
     function wireVariableRowEvents($container, $hidden, customObjects) {
         $container.find('.n8ndispatch-var-source').on('change', function () {

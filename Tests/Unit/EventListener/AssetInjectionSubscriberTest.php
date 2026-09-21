@@ -29,11 +29,16 @@ class AssetInjectionSubscriberTest extends TestCase
 
         $content = implode('', $event->getContent());
 
-        $jsMtime  = filemtime(__DIR__.'/../../../Assets/js/campaign-email-dispatch.js');
-        $cssMtime = filemtime(__DIR__.'/../../../Assets/css/campaign-status-badge.css');
+        $emailJsMtime = filemtime(__DIR__.'/../../../Assets/js/campaign-email-dispatch.js');
+        $smsJsMtime   = filemtime(__DIR__.'/../../../Assets/js/campaign-sms-dispatch.js');
+        $cssMtime     = filemtime(__DIR__.'/../../../Assets/css/campaign-status-badge.css');
 
         $this->assertStringContainsString(
-            '<script src="/plugins/N8nDispatchBundle/Assets/js/campaign-email-dispatch.js?v='.$jsMtime.'"></script>',
+            '<script src="/plugins/N8nDispatchBundle/Assets/js/campaign-email-dispatch.js?v='.$emailJsMtime.'"></script>',
+            $content
+        );
+        $this->assertStringContainsString(
+            '<script src="/plugins/N8nDispatchBundle/Assets/js/campaign-sms-dispatch.js?v='.$smsJsMtime.'"></script>',
             $content
         );
         $this->assertStringContainsString(
