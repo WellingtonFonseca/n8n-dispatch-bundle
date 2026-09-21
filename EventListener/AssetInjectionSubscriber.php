@@ -9,14 +9,19 @@ use Mautic\CoreBundle\Event\CustomContentEvent;
 use Symfony\Component\EventDispatcher\EventSubscriberInterface;
 
 /**
- * Loads campaign-email-dispatch.js and campaign-status-badge.css globally,
- * the same way GrapesJsBuilderBundle injects its own JS/vars via
- * 'page.header.left' (a context rendered on every admin page, not just the
- * campaign builder). Harmless elsewhere — the JS only defines
- * Mautic.n8nDispatch* functions, which nothing calls unless the "Send via
- * n8n (Email)" campaign action form is actually on the page, and the CSS
- * only styles .n8ndispatch-status-badge, rendered solely by
+ * Loads campaign-email-dispatch.js, campaign-sms-dispatch.js, and
+ * campaign-status-badge.css globally, the same way GrapesJsBuilderBundle
+ * injects its own JS/vars via 'page.header.left' (a context rendered on
+ * every admin page, not just the campaign builder). Harmless elsewhere —
+ * the JS only defines Mautic.n8nDispatch* functions, which nothing calls
+ * unless one of the "Send via n8n (...)" campaign action forms is
+ * actually on the page, and the CSS only styles
+ * .n8ndispatch-status-badge, rendered solely by
  * Resources/views/Event/_email_send.html.twig.
+ *
+ * campaign-sms-dispatch.js is injected after campaign-email-dispatch.js,
+ * and depends on running after it — it reads
+ * Mautic.n8ndispatchShared, which the Email script sets up.
  */
 class AssetInjectionSubscriber implements EventSubscriberInterface
 {
@@ -33,11 +38,13 @@ class AssetInjectionSubscriber implements EventSubscriberInterface
             return;
         }
 
-        $jsRelativePath  = 'Assets/js/campaign-email-dispatch.js';
-        $cssRelativePath = 'Assets/css/campaign-status-badge.css';
+        $emailJsRelativePath = 'Assets/js/campaign-email-dispatch.js';
+        $smsJsRelativePath   = 'Assets/js/campaign-sms-dispatch.js';
+        $cssRelativePath     = 'Assets/css/campaign-status-badge.css';
 
         $customContentEvent->addContent(
-            '<script src="/plugins/N8nDispatchBundle/'.$jsRelativePath.'?v='.$this->assetVersion($jsRelativePath).'"></script>'
+            '<script src="/plugins/N8nDispatchBundle/'.$emailJsRelativePath.'?v='.$this->assetVersion($emailJsRelativePath).'"></script>'
+            .'<script src="/plugins/N8nDispatchBundle/'.$smsJsRelativePath.'?v='.$this->assetVersion($smsJsRelativePath).'"></script>'
             .'<link rel="stylesheet" href="/plugins/N8nDispatchBundle/'.$cssRelativePath.'?v='.$this->assetVersion($cssRelativePath).'">'
         );
     }

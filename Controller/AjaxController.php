@@ -55,6 +55,27 @@ class AjaxController extends CommonAjaxController
     }
 
     /**
+     * Backs the "Send via n8n (SMS)" action form. Same response shape as
+     * getEmailVariablesAction() (so the campaign builder's JS can reuse the
+     * exact same rendering code for both), but there's no entity to load —
+     * the {{variable}} names are extracted straight from the pasted SMS
+     * text the user already has in the browser, sent back as 'text'.
+     */
+    public function getSmsVariablesAction(
+        Request $request,
+        FieldModel $fieldModel,
+        CustomObjectModel $customObjectModel,
+    ): JsonResponse {
+        $text = (string) $request->request->get('text', $request->query->get('text', ''));
+
+        $fields        = $fieldModel->getFieldList(false);
+        $customObjects = $this->buildCustomObjectsList($customObjectModel);
+        $variables     = $this->extractMappableVariables($text);
+
+        return $this->sendJsonResponse(['success' => 1, 'variables' => $variables, 'fields' => $fields, 'customObjects' => $customObjects]);
+    }
+
+    /**
      * Split out of getEmailVariablesAction() so it's unit-testable without
      * the rest of that action's Symfony container dependency (sendJsonResponse()
      * needs a container, this doesn't).

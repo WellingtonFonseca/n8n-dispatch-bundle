@@ -334,11 +334,22 @@ class CampaignTriggerSubscriber implements EventSubscriberInterface
     private function buildPayload(int $emailId, Lead $contact, string $status, array $variables): array
     {
         return [
-            'mautic_template_id' => $emailId,
-            'contact_id'         => $contact->getId(),
-            'contact_email'      => $contact->getEmail(),
-            'status'             => $status,
-            'variables'          => $variables,
+            'mautic_template_id'     => $emailId,
+            'contact_id'             => $contact->getId(),
+            'contact_email'          => $contact->getEmail(),
+            // Added alongside the SMS dispatch's own payload (which needs
+            // it to actually address the send) — kept here too on request,
+            // so every channel's payload carries it consistently even
+            // though Email dispatch itself has no use for it.
+            'contact_phone'          => $contact->getPhone(),
+            // Custom (non-fixed) contact fields, no dedicated getter on
+            // Lead — read via VariableResolver's own field-resolution
+            // logic (handles the same field-hydration requirement
+            // resolveOne()'s 'field' source already needs elsewhere).
+            'contact_ies_id_lyceum'  => $this->variableResolver->resolveContactField($contact, 'ies_id_lyceum'),
+            'contact_ies_id_company' => $this->variableResolver->resolveContactField($contact, 'ies_id_company'),
+            'status'                 => $status,
+            'variables'              => $variables,
         ];
     }
 

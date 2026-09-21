@@ -337,11 +337,14 @@ class CampaignTriggerSubscriberTest extends TestCase
         $passedLog = $successful->first();
         $this->assertSame(
             [
-                'mautic_template_id' => 1,
-                'contact_id'         => 0,
-                'contact_email'      => 'contact@example.test',
-                'status'             => 'test',
-                'variables'          => [
+                'mautic_template_id'     => 1,
+                'contact_id'             => 0,
+                'contact_email'          => 'contact@example.test',
+                'contact_phone'          => null,
+                'contact_ies_id_lyceum'  => '',
+                'contact_ies_id_company' => '',
+                'status'                 => 'test',
+                'variables'              => [
                     'foo'                     => 'bar',
                     UnsubscribeVariable::KEY => '(not generated — no real dispatch)',
                 ],

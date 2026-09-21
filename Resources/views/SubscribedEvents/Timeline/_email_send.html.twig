@@ -1,11 +1,18 @@
 {#
-  Timeline card for the "Send via n8n (Email)" Campaign Action, registered
-  as this event type's 'timelineTemplate' in CampaignSubscriber.php —
-  replaces @MauticCampaign/SubscribedEvents/Timeline/index.html.twig just
-  for this event type. The error-handling block below is copied from that
+  Timeline card shared by both the "Send via n8n (Email)" and "Send via
+  n8n (SMS)" Campaign Actions, registered as each event type's
+  'timelineTemplate' in CampaignSubscriber.php — replaces
+  @MauticCampaign/SubscribedEvents/Timeline/index.html.twig just for
+  those event types. The error-handling block below is copied from that
   core template (same condition, same 'errors' variable) since overriding
   the whole content template means Mautic core's own error rendering no
   longer runs for us; everything under the n8ndispatch block is ours.
+
+  The 'Body' block below dumps the whole item.metadata.n8ndispatch bag
+  minus its own outcome/meta keys, rather than a fixed list of field
+  names — Email's and SMS's payload shapes differ (mautic_template_id vs.
+  message, for one), so this stays correct for both without a
+  channel-specific copy of this template.
 
   Variables
     - event (event.extra.log is the LeadEventLog row, as an array)
@@ -56,13 +63,8 @@
         </div>
 
         {% set jsonOptions = constant('JSON_PRETTY_PRINT') b-or constant('JSON_UNESCAPED_UNICODE') b-or constant('JSON_UNESCAPED_SLASHES') %}
-        {% set requestBody = {
-            'mautic_template_id': n8n.mautic_template_id,
-            'contact_id': n8n.contact_id,
-            'contact_email': n8n.contact_email,
-            'status': n8n.status,
-            'variables': n8n.variables,
-        } %}
+        {% set metaKeys = ['response', 'httpStatusCode', 'templateCopyHash'] %}
+        {% set requestBody = n8n|filter((value, key) => key not in metaKeys) %}
         <p class="n8ndispatch-timeline-label">{{ 'mautic.n8ndispatch.timeline.body'|trans }}:</p>
         <pre class="n8ndispatch-timeline-json">{{ requestBody|json_encode(jsonOptions) }}</pre>
 
