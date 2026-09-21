@@ -326,16 +326,18 @@ class SmsCampaignTriggerSubscriber implements EventSubscriberInterface
     private function buildPayload(Lead $contact, string $phone, string $status, string $message, array $variables): array
     {
         return [
-            'contact_id'             => $contact->getId(),
-            'contact_email'          => $contact->getEmail(),
-            'contact_phone'          => $phone,
+            'contact_id'                     => $contact->getId(),
+            'contact_email'                  => $contact->getEmail(),
+            'contact_phone'                  => $phone,
+            'name'                           => $contact->getName(),
             // Same fields, same reasoning as CampaignTriggerSubscriber's
             // own buildPayload() — see that one's docblock.
-            'contact_ies_id_lyceum'  => $this->variableResolver->resolveContactField($contact, 'ies_id_lyceum'),
-            'contact_ies_id_company' => $this->variableResolver->resolveContactField($contact, 'ies_id_company'),
-            'status'                 => $status,
-            'message'                => $message,
-            'variables'              => $variables,
+            'contact_ies_id_lyceum'          => $this->variableResolver->resolveContactField($contact, 'ies_id_lyceum'),
+            'contact_ies_id_company'         => $this->variableResolver->resolveContactField($contact, 'ies_id_company'),
+            'contact_ies_institution_alias'  => $this->variableResolver->resolveContactField($contact, 'ies_institution_alias'),
+            'status'                         => $status,
+            'message'                        => $message,
+            'variables'                      => $variables,
         ];
     }
 

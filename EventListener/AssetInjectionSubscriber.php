@@ -9,19 +9,19 @@ use Mautic\CoreBundle\Event\CustomContentEvent;
 use Symfony\Component\EventDispatcher\EventSubscriberInterface;
 
 /**
- * Loads campaign-email-dispatch.js, campaign-sms-dispatch.js, and
- * campaign-status-badge.css globally, the same way GrapesJsBuilderBundle
- * injects its own JS/vars via 'page.header.left' (a context rendered on
- * every admin page, not just the campaign builder). Harmless elsewhere —
- * the JS only defines Mautic.n8nDispatch* functions, which nothing calls
- * unless one of the "Send via n8n (...)" campaign action forms is
- * actually on the page, and the CSS only styles
- * .n8ndispatch-status-badge, rendered solely by
+ * Loads campaign-email-dispatch.js, campaign-sms-dispatch.js,
+ * campaign-hsm-dispatch.js, and campaign-status-badge.css globally, the
+ * same way GrapesJsBuilderBundle injects its own JS/vars via
+ * 'page.header.left' (a context rendered on every admin page, not just
+ * the campaign builder). Harmless elsewhere — the JS only defines
+ * Mautic.n8nDispatch* functions, which nothing calls unless one of the
+ * "Send via n8n (...)" campaign action forms is actually on the page,
+ * and the CSS only styles .n8ndispatch-status-badge, rendered solely by
  * Resources/views/Event/_email_send.html.twig.
  *
- * campaign-sms-dispatch.js is injected after campaign-email-dispatch.js,
- * and depends on running after it — it reads
- * Mautic.n8ndispatchShared, which the Email script sets up.
+ * campaign-sms-dispatch.js and campaign-hsm-dispatch.js are injected
+ * after campaign-email-dispatch.js, and depend on running after it —
+ * both read Mautic.n8ndispatchShared, which the Email script sets up.
  */
 class AssetInjectionSubscriber implements EventSubscriberInterface
 {
@@ -40,11 +40,13 @@ class AssetInjectionSubscriber implements EventSubscriberInterface
 
         $emailJsRelativePath = 'Assets/js/campaign-email-dispatch.js';
         $smsJsRelativePath   = 'Assets/js/campaign-sms-dispatch.js';
+        $hsmJsRelativePath   = 'Assets/js/campaign-hsm-dispatch.js';
         $cssRelativePath     = 'Assets/css/campaign-status-badge.css';
 
         $customContentEvent->addContent(
             '<script src="/plugins/N8nDispatchBundle/'.$emailJsRelativePath.'?v='.$this->assetVersion($emailJsRelativePath).'"></script>'
             .'<script src="/plugins/N8nDispatchBundle/'.$smsJsRelativePath.'?v='.$this->assetVersion($smsJsRelativePath).'"></script>'
+            .'<script src="/plugins/N8nDispatchBundle/'.$hsmJsRelativePath.'?v='.$this->assetVersion($hsmJsRelativePath).'"></script>'
             .'<link rel="stylesheet" href="/plugins/N8nDispatchBundle/'.$cssRelativePath.'?v='.$this->assetVersion($cssRelativePath).'">'
         );
     }

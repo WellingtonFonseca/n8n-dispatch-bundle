@@ -62,7 +62,12 @@
 
     var DEFAULT_ENTRY = {source: 'static', value: '', field: '', customObject: '', customObjectField: ''};
 
-    function variableRowHtml(name, existingEntry, fields, customObjects) {
+    // 'removable' is only used by campaign-hsm-dispatch.js: HSM has no
+    // text to (re)scan for {{variable}} names the way Email/SMS do, so a
+    // row added by hand there needs its own way to be taken back out —
+    // Email/SMS rows stay exactly as before (no button) since their names
+    // are always driven by the next scan, never edited by hand.
+    function variableRowHtml(name, existingEntry, fields, customObjects, removable) {
         var entry  = mQuery.extend({}, DEFAULT_ENTRY, existingEntry || {});
         var source = entry.source || 'static';
 
@@ -72,8 +77,12 @@
             customObject: 'custom_object' === source ? '' : ' style="display:none"',
         };
 
+        var removeButton = removable
+            ? '<button type="button" class="btn btn-xs btn-danger n8ndispatch-var-remove" title="Remove">&times;</button>'
+            : '';
+
         return '<div class="form-group n8ndispatch-var-row" data-var-name="' + escapeHtml(name) + '">'
-            + '<label class="control-label">{{' + escapeHtml(name) + '}}</label>'
+            + '<label class="control-label">{{' + escapeHtml(name) + '}}</label> ' + removeButton
             + '<div class="row">'
             + '<div class="col-xs-4">'
             + '<select class="form-control n8ndispatch-var-source">'
@@ -125,7 +134,7 @@
 
         var html = '';
         mQuery.each(response.variables || [], function (i, name) {
-            html += variableRowHtml(name, existing[name], response.fields, response.customObjects);
+            html += variableRowHtml(name, existing[name], response.fields, response.customObjects, false);
         });
 
         $container.html(html);
@@ -153,10 +162,16 @@
     }
 
     Mautic.n8ndispatchShared = {
-        getContainer:               getContainer,
-        getHiddenField:             getHiddenField,
-        clearVariables:             clearVariables,
+        getContainer:                getContainer,
+        getHiddenField:              getHiddenField,
+        clearVariables:              clearVariables,
         renderVariablesFromResponse: renderVariablesFromResponse,
+        // Exposed for campaign-hsm-dispatch.js, which builds/removes rows
+        // by hand (manually named variables, no text to scan) instead of
+        // replacing the whole set from one ajaxActionRequest response.
+        variableRowHtml:             variableRowHtml,
+        syncHiddenField:             syncHiddenField,
+        wireVariableRowEvents:       wireVariableRowEvents,
     };
 
     function wireVariableRowEvents($container, $hidden, customObjects) {
@@ -185,6 +200,11 @@
         $container.find(
             '.n8ndispatch-var-value, .n8ndispatch-var-field, .n8ndispatch-var-custom-object-field'
         ).on('keyup change', function () {
+            syncHiddenField($container, $hidden);
+        });
+
+        $container.find('.n8ndispatch-var-remove').on('click', function () {
+            mQuery(this).closest('.n8ndispatch-var-row').remove();
             syncHiddenField($container, $hidden);
         });
     }
