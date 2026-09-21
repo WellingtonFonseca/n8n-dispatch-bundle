@@ -76,6 +76,23 @@ class AjaxController extends CommonAjaxController
     }
 
     /**
+     * Backs the "Send via n8n (HSM)" action form. No 'variables' key —
+     * HSM has no template text in Mautic at all (Form/Type/
+     * HsmDispatchActionType.php's own docblock has the full reasoning), so
+     * there's nothing here to scan; the campaign builder's JS only needs
+     * this call once per form-open, to get 'fields'/'customObjects' ready
+     * before the user starts adding variables by hand.
+     */
+    public function getHsmContextAction(FieldModel $fieldModel, CustomObjectModel $customObjectModel): JsonResponse
+    {
+        return $this->sendJsonResponse([
+            'success'       => 1,
+            'fields'        => $fieldModel->getFieldList(false),
+            'customObjects' => $this->buildCustomObjectsList($customObjectModel),
+        ]);
+    }
+
+    /**
      * Split out of getEmailVariablesAction() so it's unit-testable without
      * the rest of that action's Symfony container dependency (sendJsonResponse()
      * needs a container, this doesn't).

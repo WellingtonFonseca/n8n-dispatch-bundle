@@ -334,22 +334,30 @@ class CampaignTriggerSubscriber implements EventSubscriberInterface
     private function buildPayload(int $emailId, Lead $contact, string $status, array $variables): array
     {
         return [
-            'mautic_template_id'     => $emailId,
-            'contact_id'             => $contact->getId(),
-            'contact_email'          => $contact->getEmail(),
+            'mautic_template_id'             => $emailId,
+            'contact_id'                     => $contact->getId(),
+            'contact_email'                  => $contact->getEmail(),
             // Added alongside the SMS dispatch's own payload (which needs
             // it to actually address the send) — kept here too on request,
             // so every channel's payload carries it consistently even
             // though Email dispatch itself has no use for it.
-            'contact_phone'          => $contact->getPhone(),
+            'contact_phone'                  => $contact->getPhone(),
+            // firstname/lastname are fixed Lead columns (unlike the
+            // ies_* fields below) — Lead::getName() already combines
+            // them, no VariableResolver/field-hydration needed.
+            'name'                           => $contact->getName(),
             // Custom (non-fixed) contact fields, no dedicated getter on
             // Lead — read via VariableResolver's own field-resolution
             // logic (handles the same field-hydration requirement
             // resolveOne()'s 'field' source already needs elsewhere).
-            'contact_ies_id_lyceum'  => $this->variableResolver->resolveContactField($contact, 'ies_id_lyceum'),
-            'contact_ies_id_company' => $this->variableResolver->resolveContactField($contact, 'ies_id_company'),
-            'status'                 => $status,
-            'variables'              => $variables,
+            'contact_ies_id_lyceum'          => $this->variableResolver->resolveContactField($contact, 'ies_id_lyceum'),
+            'contact_ies_id_company'         => $this->variableResolver->resolveContactField($contact, 'ies_id_company'),
+            // Not the same identifier as ies_id_lyceum — some
+            // institutions use a numeric lyceum code and a separate
+            // alias, distinct values, both needed downstream.
+            'contact_ies_institution_alias'  => $this->variableResolver->resolveContactField($contact, 'ies_institution_alias'),
+            'status'                         => $status,
+            'variables'                      => $variables,
         ];
     }
 
