@@ -65,8 +65,12 @@
     // 'removable' is only used by campaign-hsm-dispatch.js: HSM has no
     // text to (re)scan for {{variable}} names the way Email/SMS do, so a
     // row added by hand there needs its own way to be taken back out —
-    // Email/SMS rows stay exactly as before (no button) since their names
-    // are always driven by the next scan, never edited by hand.
+    // Email/SMS rows stay exactly as before (label + no button) since
+    // their names are always driven by the next scan, never edited by
+    // hand. A removable row skips the label line entirely (HSM's
+    // positions aren't a name worth labeling — see
+    // Form/Type/HsmDispatchActionType.php) and puts the trash button as
+    // its own leftmost column instead of next to a label, single line.
     function variableRowHtml(name, existingEntry, fields, customObjects, removable) {
         var entry  = mQuery.extend({}, DEFAULT_ENTRY, existingEntry || {});
         var source = entry.source || 'static';
@@ -77,22 +81,13 @@
             customObject: 'custom_object' === source ? '' : ' style="display:none"',
         };
 
-        var removeButton = removable
-            ? '<button type="button" class="btn btn-xs btn-danger n8ndispatch-var-remove" title="Remove">&times;</button>'
-            : '';
-
-        return '<div class="form-group n8ndispatch-var-row" data-var-name="' + escapeHtml(name) + '">'
-            + '<label class="control-label">{{' + escapeHtml(name) + '}}</label> ' + removeButton
-            + '<div class="row">'
-            + '<div class="col-xs-4">'
-            + '<select class="form-control n8ndispatch-var-source">'
+        var sourceSelect = '<select class="form-control n8ndispatch-var-source">'
             + '<option value="static"' + ('static' === source ? ' selected' : '') + '>Static value</option>'
             + '<option value="field"' + ('field' === source ? ' selected' : '') + '>Contact field</option>'
             + '<option value="custom_object"' + ('custom_object' === source ? ' selected' : '') + '>Custom Object field</option>'
-            + '</select>'
-            + '</div>'
-            + '<div class="col-xs-8">'
-            + '<input type="text" class="form-control n8ndispatch-var-value" value="' + escapeHtml(entry.value) + '"' + display.static + '>'
+            + '</select>';
+
+        var valueBlock = '<input type="text" class="form-control n8ndispatch-var-value" value="' + escapeHtml(entry.value) + '"' + display.static + '>'
             + '<select class="form-control n8ndispatch-var-field"' + display.field + '>'
             + selectOptionsHtml(fields, entry.field)
             + '</select>'
@@ -105,8 +100,37 @@
             + '<option value="">Select a field</option>'
             + customObjectFieldOptionsHtml(customObjects, entry.customObject, entry.customObjectField)
             + '</select>'
-            + '</div>'
-            + '</div>'
+            + '</div>';
+
+        if (removable) {
+            // A fixed 33x33 square — 'btn-block' (width:100%) stretched it
+            // to the full, much narrower col-xs-1 width, squeezing it
+            // horizontally. Height/width are set explicitly (Mautic's own
+            // theme makes a plain '.btn' taller than the 33px
+            // '.form-control' fields it sits next to). Centering via
+            // flexbox (display/align-items/justify-content) rather than
+            // plain text-align — the icon kept drifting right under
+            // text-align alone, most likely Bootstrap's default .btn
+            // padding fighting it; flex directly centers the icon
+            // regardless of that.
+            var trashButton = '<button type="button" class="btn btn-danger n8ndispatch-var-remove" title="Remove" '
+                + 'style="height: 33px; width: 33px; padding: 0; display: flex; align-items: center; justify-content: center; color: #fff;">'
+                + '<i class="ri-delete-bin-line" style="color: #fff;"></i></button>';
+
+            return '<div class="form-group n8ndispatch-var-row" data-var-name="' + escapeHtml(name) + '">'
+                + '<div class="row">'
+                + '<div class="col-xs-1">' + trashButton + '</div>'
+                + '<div class="col-xs-4">' + sourceSelect + '</div>'
+                + '<div class="col-xs-7">' + valueBlock + '</div>'
+                + '</div>'
+                + '</div>';
+        }
+
+        return '<div class="form-group n8ndispatch-var-row" data-var-name="' + escapeHtml(name) + '">'
+            + '<label class="control-label">{{' + escapeHtml(name) + '}}</label>'
+            + '<div class="row">'
+            + '<div class="col-xs-4">' + sourceSelect + '</div>'
+            + '<div class="col-xs-8">' + valueBlock + '</div>'
             + '</div>'
             + '</div>';
     }

@@ -345,7 +345,7 @@ class CampaignTriggerSubscriber implements EventSubscriberInterface
             // firstname/lastname are fixed Lead columns (unlike the
             // ies_* fields below) — Lead::getName() already combines
             // them, no VariableResolver/field-hydration needed.
-            'name'                           => $contact->getName(),
+            'contact_name'                   => $contact->getName(),
             // Custom (non-fixed) contact fields, no dedicated getter on
             // Lead — read via VariableResolver's own field-resolution
             // logic (handles the same field-hydration requirement

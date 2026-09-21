@@ -124,12 +124,12 @@ class HsmCampaignTriggerSubscriberTest extends TestCase
                 'contact_id'                     => 0,
                 'contact_email'                  => 'contact@example.test',
                 'contact_phone'                  => '+5511999999999',
-                'name'                           => '',
+                'contact_name'                   => '',
                 'contact_ies_id_lyceum'          => '',
                 'contact_ies_id_company'         => '',
                 'contact_ies_institution_alias'  => '',
                 'status'                         => 'test',
-                'router'                         => 'r1',
+                'hsm_router'                     => 'r1',
                 'hsm_id'                         => 'h1',
                 'variables'                      => ['nome' => 'Wellington'],
             ],
@@ -203,6 +203,9 @@ class HsmCampaignTriggerSubscriberTest extends TestCase
 
         $response = $this->createMock(ResponseInterface::class);
         $response->method('getStatusCode')->willReturn(200);
+        // A non-empty body — see testProductionStatusTreatsAnEmpty2xxResponseAsAFailure
+        // for what happens when n8n's workflow returns nothing at all.
+        $response->method('getContent')->with(false)->willReturn('{"ok":true}');
 
         $this->httpClient->expects($this->once())
             ->method('request')
@@ -213,7 +216,7 @@ class HsmCampaignTriggerSubscriberTest extends TestCase
                     $this->assertSame('hsm.send', $options['headers']['X-N8n-Dispatch-Action']);
                     $this->assertSame('secret-token', $options['headers']['X-N8n-Dispatch-Token']);
                     $this->assertSame('production', $options['json']['status']);
-                    $this->assertSame('r1', $options['json']['router']);
+                    $this->assertSame('r1', $options['json']['hsm_router']);
                     $this->assertSame('h1', $options['json']['hsm_id']);
                     $this->assertSame('+5511999999999', $options['json']['contact_phone']);
                     $this->assertSame(['nome' => 'Wellington'], $options['json']['variables']);
@@ -227,6 +230,39 @@ class HsmCampaignTriggerSubscriberTest extends TestCase
 
         $this->assertCount(1, $pendingEvent->getSuccessful());
         $this->assertCount(0, $pendingEvent->getFailures());
+    }
+
+    /**
+     * Confirmed live against the user's real n8n instance: a 200 status
+     * with a completely empty body, meaning the webhook call landed but
+     * nothing indicates a WhatsApp send actually happened (this channel's
+     * n8n workflow has no real hsm.send handling wired up yet, unlike
+     * email.send/sms.send). Until it does, treat that specific shape as a
+     * failure too, not just statusCode >= 300, on request.
+     */
+    public function testProductionStatusTreatsAnEmpty2xxResponseAsAFailure(): void
+    {
+        $pendingEvent = $this->buildPendingEvent(['router' => 'r1', 'hsmId' => 'h1', 'status' => 'production']);
+
+        $this->mockIntegration(true, ['webhook_url' => 'https://n8n.example.test/webhook/dispatch']);
+
+        $response = $this->createMock(ResponseInterface::class);
+        $response->method('getStatusCode')->willReturn(200);
+        $response->method('getContent')->with(false)->willReturn('');
+        $this->httpClient->method('request')->willReturn($response);
+
+        $this->subscriber->onHsmSend($pendingEvent);
+
+        $this->assertCount(0, $pendingEvent->getSuccessful());
+        $failures = $pendingEvent->getFailures();
+        $this->assertCount(1, $failures);
+        /** @var LeadEventLog $failedLog */
+        $failedLog = $failures->first();
+        $this->assertSame('N8nDispatch: n8n returned an empty response for hsm.send.', $failedLog->getFailedLog()->getReason());
+        // Still 200 — the transport call itself succeeded, only the body
+        // was empty, so the badge/outcome data should reflect that
+        // truthfully rather than pretending the call itself failed.
+        $this->assertSame(200, $failedLog->getMetadata()['n8ndispatch']['httpStatusCode']);
     }
 
     public function testProductionStatusFailureReasonUsesTheErrorMessageFromTheResponseBody(): void
