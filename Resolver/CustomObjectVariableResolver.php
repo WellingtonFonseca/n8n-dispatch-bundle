@@ -248,6 +248,15 @@ class CustomObjectVariableResolver
             ->setParameter('fieldId', $targetField->getId())
             ->setParameter('itemIds', $itemIds, ArrayParameterType::INTEGER);
 
-        return array_map('strval', array_column($qb->executeQuery()->fetchAllAssociative(), 'value'));
+        $values = array_map('strval', array_column($qb->executeQuery()->fetchAllAssociative(), 'value'));
+
+        // Mautic stores date/datetime Custom Object field values as
+        // 'Y-m-d'/'Y-m-d H:i:s' — reformatted to pt-BR for dispatch, on
+        // request, same as VariableResolver::resolveContactField() does
+        // for core contact fields.
+        return array_map(
+            static fn (string $value): string => BrazilianDateFormatter::format($value, $targetField->getType()),
+            $values
+        );
     }
 }

@@ -268,6 +268,41 @@ class CustomObjectVariableResolverTest extends TestCase
         $this->assertSame('disciplina 1<br>disciplina 2', $result);
     }
 
+    public function testMatchingItemsWithADateTargetFieldAreFormattedToBrazilianDate(): void
+    {
+        $qb = $this->setUpConditionAndQueryBuilder('lte', '+ 10 days');
+
+        $matchResult = $this->createMock(Result::class);
+        $matchResult->method('fetchAllAssociative')->willReturn([
+            ['custom_item_id' => 3],
+        ]);
+
+        $valuesResult = $this->createMock(Result::class);
+        $valuesResult->method('fetchAllAssociative')->willReturn([
+            ['value' => '2026-09-21'],
+        ]);
+
+        $qb->method('executeQuery')->willReturnOnConsecutiveCalls($matchResult, $valuesResult);
+
+        $targetField = new CustomField();
+        $targetField->setId(4);
+        $targetField->setAlias('discstart');
+        $targetField->setType('date');
+
+        $disciplines = new CustomObject();
+        $disciplines->setAlias('disciplines');
+        $disciplines->addCustomField($targetField);
+
+        $this->customObjectModel->method('fetchEntityByAlias')->with('disciplines')->willReturn($disciplines);
+
+        $contact = new Lead();
+        $contact->setId(1);
+
+        $result = $this->resolver->resolve($contact, $this->campaign, 'disciplines', 'discstart');
+
+        $this->assertSame('21/09/2026', $result);
+    }
+
     public function testNoMatchingItemsResolvesToEmptyStringWithoutFetchingFieldValues(): void
     {
         $qb = $this->setUpConditionAndQueryBuilder('lte', '+ 10 days');
