@@ -141,7 +141,7 @@ class SmsCampaignTriggerSubscriberTest extends TestCase
                 'contact_id'                     => 0,
                 'contact_email'                  => 'contact@example.test',
                 'contact_phone'                  => '+5511999999999',
-                'name'                           => '',
+                'contact_name'                   => '',
                 'contact_ies_id_lyceum'          => '',
                 'contact_ies_id_company'         => '',
                 'contact_ies_institution_alias'  => '',

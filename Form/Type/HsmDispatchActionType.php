@@ -27,14 +27,16 @@ use Symfony\Component\Validator\Constraints\NotBlank;
  * - 'router': which WhatsApp number/line dispatches the message.
  * - 'hsmId': which HSM template to send.
  *
- * Since there's no text to scan {{variable}} placeholders out of (unlike
- * Email's picked template or SMS's pasted text), variablesJson's entries
- * are named by hand instead of discovered — Assets/js/
- * campaign-hsm-dispatch.js adds one an "Add variable" control for that,
- * reusing the same per-row static/contact-field/Custom-Object source
- * picker UI as Email/SMS (Mautic.n8ndispatchShared, see
- * campaign-email-dispatch.js), just with a name the user typed instead of
- * one that came back from a scan.
+ * variablesJson's entries are keyed "1", "2", "3", ... in order rather
+ * than by name: WhatsApp's own HSM template syntax takes positional
+ * variables ($1, $2, ...), not Mautic-style {{name}} tokens, and there's
+ * no text here to scan a name out of anyway (unlike Email's picked
+ * template or SMS's pasted text). Assets/js/campaign-hsm-dispatch.js's
+ * "Add variable" button just appends the next position — reusing the
+ * same per-row static/contact-field/Custom-Object source picker UI as
+ * Email/SMS (Mautic.n8ndispatchShared, see campaign-email-dispatch.js) —
+ * and removing a row renumbers every position after it, so the sequence
+ * sent to n8n is always contiguous from 1.
  */
 class HsmDispatchActionType extends AbstractType
 {

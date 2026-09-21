@@ -341,7 +341,7 @@ class CampaignTriggerSubscriberTest extends TestCase
                 'contact_id'                     => 0,
                 'contact_email'                  => 'contact@example.test',
                 'contact_phone'                  => null,
-                'name'                           => '',
+                'contact_name'                   => '',
                 'contact_ies_id_lyceum'          => '',
                 'contact_ies_id_company'         => '',
                 'contact_ies_institution_alias'  => '',

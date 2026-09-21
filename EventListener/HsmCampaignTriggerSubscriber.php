@@ -15,7 +15,6 @@ use MauticPlugin\N8nDispatchBundle\Resolver\VariableResolver;
 use Psr\Log\LoggerInterface;
 use Symfony\Component\EventDispatcher\EventSubscriberInterface;
 use Symfony\Contracts\HttpClient\HttpClientInterface;
-use Symfony\Contracts\HttpClient\ResponseInterface;
 
 /**
  * Handles the "Send via n8n (HSM)" Campaign Action — same
@@ -162,11 +161,21 @@ class HsmCampaignTriggerSubscriber implements EventSubscriberInterface
             // surfaces at all. Same requirement documented on the Email/
             // SMS dispatch listeners.
             $statusCode = $response->getStatusCode();
+            $rawBody    = $response->getContent(false);
 
-            $this->recordDispatchOutcome($log, $response, $payload, $statusCode);
+            $this->recordDispatchOutcome($log, $rawBody, $payload, $statusCode);
 
-            if ($statusCode >= 300) {
-                $event->fail($log, 'N8nDispatch: '.$this->extractFailureReason($response, $statusCode));
+            // Unlike Email/SMS, n8n's workflow side for this channel
+            // doesn't reliably return a real body yet (confirmed live: a
+            // 200 with an empty body, meaning the request landed but
+            // nothing indicates whether a WhatsApp send actually
+            // happened) — until it does, an empty response is treated as
+            // a failure too, not just statusCode >= 300, on request.
+            if ($statusCode >= 300 || '' === trim($rawBody)) {
+                $reason = '' === trim($rawBody)
+                    ? 'n8n returned an empty response for hsm.send.'
+                    : $this->extractFailureReason($rawBody, $statusCode);
+                $event->fail($log, 'N8nDispatch: '.$reason);
 
                 return;
             }
@@ -216,14 +225,14 @@ class HsmCampaignTriggerSubscriber implements EventSubscriberInterface
             'contact_id'                    => $contact->getId(),
             'contact_email'                 => $contact->getEmail(),
             'contact_phone'                 => $phone,
-            'name'                          => $contact->getName(),
+            'contact_name'                  => $contact->getName(),
             // Same fields, same reasoning as CampaignTriggerSubscriber's
             // own buildPayload() — see that one's docblock.
             'contact_ies_id_lyceum'         => $this->variableResolver->resolveContactField($contact, 'ies_id_lyceum'),
             'contact_ies_id_company'        => $this->variableResolver->resolveContactField($contact, 'ies_id_company'),
             'contact_ies_institution_alias' => $this->variableResolver->resolveContactField($contact, 'ies_institution_alias'),
             'status'                        => $status,
-            'router'                        => $router,
+            'hsm_router'                    => $router,
             'hsm_id'                        => $hsmId,
             'variables'                     => $variables,
         ];
@@ -234,9 +243,9 @@ class HsmCampaignTriggerSubscriber implements EventSubscriberInterface
      * — prefers n8n's own {..., error: "..."} envelope, falls back to the
      * bare HTTP status.
      */
-    private function extractFailureReason(ResponseInterface $response, int $statusCode): string
+    private function extractFailureReason(string $rawBody, int $statusCode): string
     {
-        $body = json_decode($response->getContent(false), true);
+        $body = json_decode($rawBody, true);
 
         if (is_array($body) && !empty($body['error']) && is_string($body['error'])) {
             return $body['error'];
@@ -254,9 +263,8 @@ class HsmCampaignTriggerSubscriber implements EventSubscriberInterface
      *
      * @param array<string, mixed> $payload
      */
-    private function recordDispatchOutcome(LeadEventLog $log, ResponseInterface $response, array $payload, int $statusCode): void
+    private function recordDispatchOutcome(LeadEventLog $log, string $rawBody, array $payload, int $statusCode): void
     {
-        $rawBody    = $response->getContent(false);
         $body       = json_decode($rawBody, true);
         $nestedBody = is_array($body['body'] ?? null) ? $body['body'] : [];
         $logId      = is_array($body) ? ($body['logSendHsmId'] ?? $nestedBody['logSendHsmId'] ?? null) : null;
