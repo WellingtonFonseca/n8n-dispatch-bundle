@@ -13,7 +13,9 @@ use Mautic\EmailBundle\Entity\Email;
 use Mautic\EmailBundle\Entity\Stat;
 use Mautic\EmailBundle\Helper\MailHashHelper;
 use Mautic\EmailBundle\Model\EmailModel;
+use Mautic\LeadBundle\Entity\DoNotContact;
 use Mautic\LeadBundle\Entity\Lead;
+use Mautic\LeadBundle\Model\DoNotContact as DncModel;
 use Mautic\PluginBundle\Helper\IntegrationHelper;
 use MauticPlugin\N8nDispatchBundle\Integration\N8nDispatchIntegration;
 use MauticPlugin\N8nDispatchBundle\N8nDispatchEvents;
@@ -52,6 +54,7 @@ class CampaignTriggerSubscriber implements EventSubscriberInterface
         private VariableResolver $variableResolver,
         private MailHashHelper $mailHashHelper,
         private EntityManagerInterface $entityManager,
+        private DncModel $dncModel,
     ) {
     }
 
@@ -155,6 +158,21 @@ class CampaignTriggerSubscriber implements EventSubscriberInterface
         array $headers,
         ?string $templateCopyHash,
     ): void {
+        // This dispatch path never goes through Mautic's own mailer, so
+        // core's native DNC enforcement (EmailModel::sendEmail() checking
+        // this same table before it ever queues a message) never runs for
+        // it either — including for a contact who used the very unsubscribe
+        // link this listener itself generates (buildUnsubscribeUrl() below),
+        // which lands here as a plain 'email'-channel DNC row via core's own
+        // PublicController::unsubscribeAction(). Checked first, before any
+        // variable resolution or the HTTP call, so an opted-out contact is
+        // never sent to n8n at all.
+        if (DoNotContact::IS_CONTACTABLE !== $this->dncModel->isContactable($contact, 'email')) {
+            $event->fail($log, 'N8nDispatch: contact is on the Do Not Contact list for email.');
+
+            return;
+        }
+
         $variables    = $this->variableResolver->resolveAll($variablesConfig, $contact, $campaign);
         $contactEmail = (string) $contact->getEmail();
         // Generated up front so the same value both goes out in this

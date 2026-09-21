@@ -18,7 +18,9 @@ use Mautic\EmailBundle\Entity\Email;
 use Mautic\EmailBundle\Entity\Stat;
 use Mautic\EmailBundle\Helper\MailHashHelper;
 use Mautic\EmailBundle\Model\EmailModel;
+use Mautic\LeadBundle\Entity\DoNotContact;
 use Mautic\LeadBundle\Entity\Lead;
+use Mautic\LeadBundle\Model\DoNotContact as DncModel;
 use Mautic\PluginBundle\Entity\Integration as IntegrationSettings;
 use Mautic\PluginBundle\Helper\IntegrationHelper;
 use MauticPlugin\N8nDispatchBundle\EventListener\CampaignTriggerSubscriber;
@@ -48,6 +50,8 @@ class CampaignTriggerSubscriberTest extends TestCase
 
     private EntityManagerInterface $entityManager;
 
+    private DncModel $dncModel;
+
     private CampaignTriggerSubscriber $subscriber;
 
     protected function setUp(): void
@@ -65,6 +69,11 @@ class CampaignTriggerSubscriberTest extends TestCase
         $coreParametersHelper->method('get')->with('secret_key')->willReturn('test-secret-key');
         $this->mailHashHelper = new MailHashHelper($coreParametersHelper);
         $this->entityManager  = $this->createMock(EntityManagerInterface::class);
+        $this->dncModel       = $this->createMock(DncModel::class);
+        // Default every test to "contactable" so the existing dispatch/
+        // pass-path tests don't each have to configure this themselves —
+        // tests specifically about the DNC gate override it.
+        $this->dncModel->method('isContactable')->willReturn(DoNotContact::IS_CONTACTABLE);
 
         $this->subscriber = new CampaignTriggerSubscriber(
             $this->integrationHelper,
@@ -74,6 +83,7 @@ class CampaignTriggerSubscriberTest extends TestCase
             $this->variableResolver,
             $this->mailHashHelper,
             $this->entityManager,
+            $this->dncModel,
         );
 
         $this->variableResolver->method('resolveAll')->willReturn(['foo' => 'bar']);
@@ -181,6 +191,41 @@ class CampaignTriggerSubscriberTest extends TestCase
 
         $this->assertCount(1, $pendingEvent->getSuccessful());
         $this->assertCount(0, $pendingEvent->getFailures());
+    }
+
+    public function testProductionStatusFailsWithoutDispatchingWhenContactIsOnTheEmailDncList(): void
+    {
+        $pendingEvent = $this->buildPendingEvent(['email' => 1, 'status' => 'production']);
+
+        $this->emailModel->method('getEntity')->with(1)->willReturn(new Email());
+        $this->mockIntegration(true, ['webhook_url' => 'https://n8n.example.test/webhook/dispatch']);
+
+        $this->dncModel = $this->createMock(DncModel::class);
+        $this->dncModel->method('isContactable')->with($this->anything(), 'email')->willReturn(DoNotContact::UNSUBSCRIBED);
+        $this->subscriber = new CampaignTriggerSubscriber(
+            $this->integrationHelper,
+            $this->httpClient,
+            $this->logger,
+            $this->emailModel,
+            $this->variableResolver,
+            $this->mailHashHelper,
+            $this->entityManager,
+            $this->dncModel,
+        );
+
+        $this->httpClient->expects($this->never())->method('request');
+
+        $this->subscriber->onEmailSend($pendingEvent);
+
+        $this->assertCount(0, $pendingEvent->getSuccessful());
+        $failures = $pendingEvent->getFailures();
+        $this->assertCount(1, $failures);
+        /** @var LeadEventLog $failedLog */
+        $failedLog = $failures->first();
+        $this->assertSame(
+            'N8nDispatch: contact is on the Do Not Contact list for email.',
+            $failedLog->getFailedLog()->getReason()
+        );
     }
 
     public function testProductionStatusSavesAndAttachesATemplateCopySnapshot(): void
