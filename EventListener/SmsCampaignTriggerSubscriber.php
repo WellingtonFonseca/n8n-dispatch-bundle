@@ -4,14 +4,11 @@ declare(strict_types=1);
 
 namespace MauticPlugin\N8nDispatchBundle\EventListener;
 
-use Doctrine\ORM\EntityManagerInterface;
 use Mautic\CampaignBundle\Entity\Campaign;
 use Mautic\CampaignBundle\Entity\LeadEventLog;
 use Mautic\CampaignBundle\Event\PendingEvent;
 use Mautic\LeadBundle\Entity\Lead;
 use Mautic\PluginBundle\Helper\IntegrationHelper;
-use Mautic\SmsBundle\Entity\Sms;
-use Mautic\SmsBundle\Entity\Stat;
 use MauticPlugin\N8nDispatchBundle\Integration\N8nDispatchIntegration;
 use MauticPlugin\N8nDispatchBundle\N8nDispatchEvents;
 use MauticPlugin\N8nDispatchBundle\Resolver\VariableResolver;
@@ -31,28 +28,23 @@ use Symfony\Contracts\HttpClient\ResponseInterface;
  * CampaignTriggerSubscriber's own docblock for the full 'test'/
  * 'production'/'paused' rationale, reused here as-is.
  *
- * Two differences from the Email path worth calling out:
- * - The {{variable}} placeholders in the pasted 'text' are resolved and
- *   substituted locally into a final 'message' string before dispatch —
- *   there's no Mirror-registered template on the n8n side for this
- *   channel (Email's sync-on-save step has no SMS equivalent) for n8n to
- *   do that substitution against, unlike Email's payload, which sends the
- *   raw {{variable}} map for n8n/Mirror to resolve against its own
- *   registered template.
- * - Uses Mautic\SmsBundle\Entity\Stat (sms_message_stats) instead of
- *   EmailBundle's, so a dispatch shows up in the contact's native
- *   Timeline the same way a core "Send SMS" campaign action's own send
- *   would (SmsBundle\EventListener\LeadSubscriber reads this same table).
- *   That native Timeline entry's own "view" link only resolves if the
- *   Stat's 'sms' field points at a real Mautic\SmsBundle\Entity\Sms row
- *   (confirmed live: left null, the link just goes to the bare SMS list
- *   screen instead of the message — no exception, but not useful either).
- *   resolveSmsTemplate() creates/reuses one lightweight Sms row per
- *   distinct pasted text (deduped by exact message match, same idea as
- *   CampaignTriggerSubscriber's Copy-row dedup for Email), left
- *   unpublished so it never shows up as pickable in core's own "Send SMS"
- *   action's Sms list — it exists purely so this dispatch path's native
- *   Timeline link has something real to open, not as a reusable template.
+ * Difference from the Email path: the {{variable}} placeholders in the
+ * pasted 'text' are resolved and substituted locally into a final
+ * 'message' string before dispatch — there's no Mirror-registered
+ * template on the n8n side for this channel (Email's sync-on-save step
+ * has no SMS equivalent) for n8n to do that substitution against, unlike
+ * Email's payload, which sends the raw {{variable}} map for n8n/Mirror to
+ * resolve against its own registered template.
+ *
+ * No native Mautic history entity: a Mautic\SmsBundle\Entity\Stat (plus a
+ * synthetic Mautic\SmsBundle\Entity\Sms row for its native Timeline
+ * "view" link) was tried here and then removed on request — Email keeps
+ * its own Stat because a real visual need exists there (the "view in
+ * browser" / stored-copy link back to an actual template), which doesn't
+ * apply to SMS's plain pasted text. The dispatch outcome still lands on
+ * the contact's Timeline through this plugin's own generic
+ * 'n8ndispatch'-metadata card (same as HSM, which never had a native
+ * entity to begin with).
  */
 class SmsCampaignTriggerSubscriber implements EventSubscriberInterface
 {
@@ -66,7 +58,6 @@ class SmsCampaignTriggerSubscriber implements EventSubscriberInterface
         private HttpClientInterface $httpClient,
         private LoggerInterface $logger,
         private VariableResolver $variableResolver,
-        private EntityManagerInterface $entityManager,
     ) {
     }
 
@@ -127,18 +118,12 @@ class SmsCampaignTriggerSubscriber implements EventSubscriberInterface
             $headers['X-N8n-Dispatch-Token'] = $token;
         }
 
-        // Resolved once per batch, not per contact — every contact in this
-        // batch is dispatching the exact same configured 'text', so a
-        // per-contact lookup/create would just repeat the same DB
-        // round-trip for no benefit.
-        $smsEntity = $this->resolveSmsTemplate($text);
-
         /** @var Lead $contact */
         foreach ($event->getContacts() as $logId => $contact) {
             /** @var LeadEventLog $log */
             $log = $event->getPending()->get($logId);
 
-            $this->dispatchToContact($event, $log, $contact, $campaign, $text, $status, $variablesConfig, $webhookUrl, $headers, $smsEntity);
+            $this->dispatchToContact($event, $log, $contact, $campaign, $text, $status, $variablesConfig, $webhookUrl, $headers);
         }
     }
 
@@ -156,7 +141,6 @@ class SmsCampaignTriggerSubscriber implements EventSubscriberInterface
         array $variablesConfig,
         string $webhookUrl,
         array $headers,
-        Sms $smsEntity,
     ): void {
         $phone = (string) $contact->getPhone();
 
@@ -191,17 +175,13 @@ class SmsCampaignTriggerSubscriber implements EventSubscriberInterface
             $this->recordDispatchOutcome($log, $response, $payload, $statusCode);
 
             if ($statusCode >= 300) {
-                $this->createStat($contact, $event->getEvent()->getId(), $smsEntity, true);
                 $event->fail($log, 'N8nDispatch: '.$this->extractFailureReason($response, $statusCode));
 
                 return;
             }
 
-            $this->createStat($contact, $event->getEvent()->getId(), $smsEntity, false);
-
             $event->pass($log);
         } catch (\Throwable $e) {
-            $this->createStat($contact, $event->getEvent()->getId(), $smsEntity, true);
             $this->logger->error('N8nDispatch: SMS dispatch failed for contact '.$contact->getId().': '.$e->getMessage());
             $event->fail($log, 'N8nDispatch: '.$e->getMessage());
         }
@@ -246,76 +226,6 @@ class SmsCampaignTriggerSubscriber implements EventSubscriberInterface
             static fn (array $matches): string => $variables[$matches[1]] ?? $matches[0],
             $text
         );
-    }
-
-    /**
-     * Creates the native Mautic\SmsBundle\Entity\Stat row for this
-     * dispatch (sms_message_stats), the SMS-channel equivalent of what
-     * CampaignTriggerSubscriber's createStat() does for Email — see this
-     * class's own docblock for why 'sms' is left null. 'source'/
-     * 'sourceId' mirror the convention core's own SmsBundle\Model\
-     * SmsModel::createStatEntry() uses for a campaign-triggered send
-     * ($channel = ['campaign.event', $eventId]), so a future admin
-     * querying sms_message_stats by source/source_id finds this dispatch
-     * the same way they'd find a native one.
-     *
-     * Uses the entity manager directly (persist + flush) rather than a
-     * model/repository save method — SmsModel's own createStatEntry()
-     * requires a real Sms entity as its first argument, which doesn't
-     * exist on this channel, so it can't be reused here the way Email's
-     * EmailModel::saveEmailStat() could.
-     */
-    private function createStat(Lead $contact, ?int $campaignEventId, Sms $smsEntity, bool $isFailed): void
-    {
-        $stat = new Stat();
-        $stat->setSms($smsEntity);
-        $stat->setLead($contact);
-        $stat->setDateSent(new \DateTime());
-        $stat->setIsFailed($isFailed);
-        $stat->setSource('campaign.event');
-        $stat->setSourceId($campaignEventId);
-        $stat->setTrackingHash(str_replace('.', '', uniqid('', true)));
-
-        $this->entityManager->persist($stat);
-        $this->entityManager->flush();
-    }
-
-    /**
-     * Creates/reuses the lightweight Sms row a Stat needs so core's native
-     * Timeline "view" link resolves to something real — see this class's
-     * own docblock for why. Deduped by an exact match on 'message' (the
-     * raw pasted text, {{variable}} placeholders and all — the same
-     * template text every contact in this batch dispatches, not each
-     * contact's own resolved message) via a plain findOneBy(), so
-     * re-triggering the same campaign event over and over doesn't pile up
-     * a new row every time — only the first dispatch of a given text ever
-     * creates one.
-     *
-     * Left unpublished deliberately: core's own "Send SMS" campaign
-     * action/Sms pickers filter to published rows, so this stays
-     * invisible there — it's not meant to be reused as a real template,
-     * only to exist for this dispatch path's own Stat to point at.
-     */
-    private function resolveSmsTemplate(string $text): Sms
-    {
-        /** @var Sms|null $sms */
-        $sms = $this->entityManager->getRepository(Sms::class)->findOneBy(['message' => $text]);
-
-        if (null !== $sms) {
-            return $sms;
-        }
-
-        $name = 'N8n Dispatch: '.mb_substr(trim($text), 0, 80);
-
-        $sms = new Sms();
-        $sms->setName('' !== $name ? $name : 'N8n Dispatch SMS');
-        $sms->setMessage($text);
-        $sms->setIsPublished(false);
-
-        $this->entityManager->persist($sms);
-        $this->entityManager->flush();
-
-        return $sms;
     }
 
     /**
