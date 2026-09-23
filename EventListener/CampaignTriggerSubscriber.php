@@ -361,19 +361,19 @@ class CampaignTriggerSubscriber implements EventSubscriberInterface
             // though Email dispatch itself has no use for it.
             'contact_phone'                  => $contact->getPhone(),
             // firstname/lastname are fixed Lead columns (unlike the
-            // ies_* fields below) — Lead::getName() already combines
+            // inst_* fields below) — Lead::getName() already combines
             // them, no VariableResolver/field-hydration needed.
             'contact_name'                   => $contact->getName(),
             // Custom (non-fixed) contact fields, no dedicated getter on
             // Lead — read via VariableResolver's own field-resolution
             // logic (handles the same field-hydration requirement
             // resolveOne()'s 'field' source already needs elsewhere).
-            'contact_ies_id_lyceum'          => $this->variableResolver->resolveContactField($contact, 'ies_id_lyceum'),
-            'contact_ies_id_company'         => $this->variableResolver->resolveContactField($contact, 'ies_id_company'),
-            // Not the same identifier as ies_id_lyceum — some
+            'contact_inst_id_lyceum'         => $this->variableResolver->resolveContactField($contact, 'inst_id_lyceum'),
+            'contact_inst_id_company'        => $this->variableResolver->resolveContactField($contact, 'inst_id_company'),
+            // Not the same identifier as inst_id_lyceum — some
             // institutions use a numeric lyceum code and a separate
             // alias, distinct values, both needed downstream.
-            'contact_ies_institution_alias'  => $this->variableResolver->resolveContactField($contact, 'ies_institution_alias'),
+            'contact_inst_alias'             => $this->variableResolver->resolveContactField($contact, 'inst_alias'),
             'status'                         => $status,
             'variables'                      => $variables,
         ];

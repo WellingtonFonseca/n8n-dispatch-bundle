@@ -256,9 +256,9 @@ class SmsCampaignTriggerSubscriber implements EventSubscriberInterface
             'contact_name'                   => $contact->getName(),
             // Same fields, same reasoning as CampaignTriggerSubscriber's
             // own buildPayload() — see that one's docblock.
-            'contact_ies_id_lyceum'          => $this->variableResolver->resolveContactField($contact, 'ies_id_lyceum'),
-            'contact_ies_id_company'         => $this->variableResolver->resolveContactField($contact, 'ies_id_company'),
-            'contact_ies_institution_alias'  => $this->variableResolver->resolveContactField($contact, 'ies_institution_alias'),
+            'contact_inst_id_lyceum'         => $this->variableResolver->resolveContactField($contact, 'inst_id_lyceum'),
+            'contact_inst_id_company'        => $this->variableResolver->resolveContactField($contact, 'inst_id_company'),
+            'contact_inst_alias'             => $this->variableResolver->resolveContactField($contact, 'inst_alias'),
             'status'                         => $status,
             'message'                        => $message,
             'variables'                      => $variables,

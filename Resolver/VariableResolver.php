@@ -56,7 +56,7 @@ class VariableResolver
     /**
      * Public: also called directly by CampaignTriggerSubscriber/
      * SmsCampaignTriggerSubscriber to read a fixed contact field (e.g.
-     * 'ies_id_lyceum') straight into the dispatch payload, outside of the
+     * 'inst_id_lyceum') straight into the dispatch payload, outside of the
      * variablesJson source-picker mechanism this class otherwise serves.
      */
     public function resolveContactField(Lead $contact, string $fieldAlias): string

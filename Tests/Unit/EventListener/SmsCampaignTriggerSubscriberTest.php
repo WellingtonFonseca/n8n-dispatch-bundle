@@ -135,9 +135,9 @@ class SmsCampaignTriggerSubscriberTest extends TestCase
                 'contact_email'                  => 'contact@example.test',
                 'contact_phone'                  => '+5511999999999',
                 'contact_name'                   => '',
-                'contact_ies_id_lyceum'          => '',
-                'contact_ies_id_company'         => '',
-                'contact_ies_institution_alias'  => '',
+                'contact_inst_id_lyceum'         => '',
+                'contact_inst_id_company'        => '',
+                'contact_inst_alias'             => '',
                 'status'                         => 'test',
                 // {{foo}} resolved from the variable map; {{missing}} has no
                 // entry in it (variablesJson only ever has keys the form
