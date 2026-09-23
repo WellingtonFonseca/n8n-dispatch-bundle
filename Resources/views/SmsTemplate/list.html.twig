@@ -1,0 +1,116 @@
+{#
+  Own list view instead of core's Standard list.html.twig: that one probes
+  attribute(item, 'getCategory'), which throws for entities with no
+  category (FormEntity's __call), as soon as the list has a row.
+  Modeled on core's PointBundle Group/list.html.twig.
+#}
+{% set isIndex = 'index' == tmpl ? true : false %}
+{% set tmpl = 'list' %}
+{% extends isIndex ? '@MauticCore/Default/content.html.twig' : '@MauticCore/Default/raw_output.html.twig' %}
+
+{% block mauticContent %}n8ndispatch.smstemplate{% endblock %}
+
+{% block headerTitle %}{{ 'mautic.n8ndispatch.smstemplate.header.index'|trans }}{% endblock %}
+
+{% block content %}
+    {% if isIndex %}
+    <div id="page-list-wrapper" class="panel panel-default">
+        {{- include('@MauticCore/Helper/list_toolbar.html.twig', {
+            'searchValue': searchValue,
+            'action': currentRoute,
+            'list_actions': include('@MauticCore/Helper/toolbar_page_actions.html.twig', {
+                'templateButtons': {
+                    'new': permissions['sms:smses:create'],
+                },
+                'routeBase': 'n8ndispatch.smstemplate',
+                'langVar': 'n8ndispatch.smstemplate',
+            })
+        }) -}}
+        <div class="page-list">
+            {{ block('listContent') }}
+        </div>
+    </div>
+    {% else %}
+        {{ block('listContent') }}
+    {% endif %}
+{% endblock %}
+
+{% block listContent %}
+    {% if items is defined and items is not empty %}
+        <div class="table-responsive">
+            <table class="table table-hover" id="smsTemplateTable">
+                <thead>
+                <tr>
+                    {{ include('@MauticCore/Helper/tableheader.html.twig', {
+                        'checkall': 'true',
+                        'target': '#smsTemplateTable',
+                        'langVar': 'n8ndispatch.smstemplate',
+                        'routeBase': 'n8ndispatch.smstemplate',
+                        'templateButtons': {
+                            'delete': permissions['sms:smses:deleteown'] or permissions['sms:smses:deleteother'],
+                        },
+                    }) }}
+                    {{ include('@MauticCore/Helper/tableheader.html.twig', {
+                        'sessionVar': 'n8ndispatch.smstemplate',
+                        'orderBy': 'st.name',
+                        'text': 'mautic.core.name',
+                        'class': 'col-smstemplate-name',
+                        'default': true,
+                    }) }}
+                    {{ include('@MauticCore/Helper/tableheader.html.twig', {
+                        'sessionVar': 'n8ndispatch.smstemplate',
+                        'orderBy': 'st.id',
+                        'text': 'mautic.core.id',
+                        'class': 'visible-md visible-lg col-smstemplate-id',
+                    }) }}
+                </tr>
+                </thead>
+                <tbody>
+                {% for item in items %}
+                    <tr>
+                        <td>
+                            {{- include('@MauticCore/Helper/list_actions.html.twig', {
+                                'item': item,
+                                'templateButtons': {
+                                    'edit': securityHasEntityAccess(permissions['sms:smses:editown'], permissions['sms:smses:editother'], item.getCreatedBy()),
+                                    'clone': permissions['sms:smses:create'],
+                                    'delete': securityHasEntityAccess(permissions['sms:smses:deleteown'], permissions['sms:smses:deleteother'], item.getCreatedBy()),
+                                },
+                                'routeBase': 'n8ndispatch.smstemplate',
+                                'langVar': 'n8ndispatch.smstemplate',
+                                'translationBase': 'mautic.n8ndispatch.smstemplate',
+                            }) -}}
+                        </td>
+                        <td>
+                            <div>
+                                {{- include('@MauticCore/Helper/publishstatus_icon.html.twig', {
+                                    'item': item,
+                                    'model': 'n8ndispatch.smstemplate',
+                                }) -}}
+                                <a href="{{ path('mautic_n8ndispatch.smstemplate_action', {'objectAction': 'edit', 'objectId': item.getId()}) }}" data-toggle="ajax">
+                                    {{ item.getName() }}
+                                </a>
+                            </div>
+                            {% if item.getDescription() %}
+                                <div class="text-muted mt-4"><small>{{ item.getDescription()|purify }}</small></div>
+                            {% endif %}
+                        </td>
+                        <td class="visible-md visible-lg">{{ item.getId() }}</td>
+                    </tr>
+                {% endfor %}
+                </tbody>
+            </table>
+        </div>
+        <div class="panel-footer">
+            {{- include('@MauticCore/Helper/pagination.html.twig', {
+                'totalItems': totalItems,
+                'page': page,
+                'limit': limit,
+                'baseUrl': path('mautic_n8ndispatch.smstemplate_index'),
+                'sessionVar': 'n8ndispatch.smstemplate',
+            }) -}}
+        </div>
+    {% else %}
+        {{ include('@MauticCore/Helper/noresults.html.twig') }}
+    {% endif %}
+{% endblock %}

@@ -12,6 +12,7 @@ use Mautic\LeadBundle\Entity\Lead;
 use Mautic\LeadBundle\Model\DoNotContact as DncModel;
 use Mautic\PluginBundle\Helper\IntegrationHelper;
 use MauticPlugin\N8nDispatchBundle\Integration\N8nDispatchIntegration;
+use MauticPlugin\N8nDispatchBundle\Model\SmsTemplateModel;
 use MauticPlugin\N8nDispatchBundle\N8nDispatchEvents;
 use MauticPlugin\N8nDispatchBundle\Resolver\VariableResolver;
 use Psr\Log\LoggerInterface;
@@ -47,6 +48,13 @@ use Symfony\Contracts\HttpClient\ResponseInterface;
  * the contact's Timeline through this plugin's own generic
  * 'n8ndispatch'-metadata card (same as HSM, which never had a native
  * entity to begin with).
+ *
+ * Text and variable mapping come from the SmsTemplate the event points at
+ * ('smsTemplate' property, see Entity/SmsTemplate.php), read fresh on
+ * every run so an edit to the template reaches every campaign using it.
+ * Events saved before templates existed have no 'smsTemplate' and still
+ * carry their own inline 'text'/'variablesJson' — those keep working
+ * as-is until the event is re-saved with a template picked.
  */
 class SmsCampaignTriggerSubscriber implements EventSubscriberInterface
 {
@@ -61,6 +69,7 @@ class SmsCampaignTriggerSubscriber implements EventSubscriberInterface
         private LoggerInterface $logger,
         private VariableResolver $variableResolver,
         private DncModel $dncModel,
+        private SmsTemplateModel $smsTemplateModel,
     ) {
     }
 
@@ -77,11 +86,30 @@ class SmsCampaignTriggerSubscriber implements EventSubscriberInterface
             return;
         }
 
-        $config          = $event->getEvent()->getProperties();
-        $campaign        = $event->getEvent()->getCampaign();
-        $text            = (string) ($config['text'] ?? '');
-        $status          = (string) ($config['status'] ?? 'test');
-        $variablesConfig = json_decode((string) ($config['variablesJson'] ?? '{}'), true);
+        $config        = $event->getEvent()->getProperties();
+        $campaign      = $event->getEvent()->getCampaign();
+        $status        = (string) ($config['status'] ?? 'test');
+        $text          = (string) ($config['text'] ?? '');
+        $variablesJson = (string) ($config['variablesJson'] ?? '{}');
+        $templateId    = (int) ($config['smsTemplate'] ?? 0);
+
+        if ($templateId > 0) {
+            $template = $this->smsTemplateModel->getEntity($templateId);
+
+            // Checked before the status branch on purpose: a deleted
+            // template is a configuration error worth surfacing in 'test'
+            // too, not only once the step is flipped to 'production'.
+            if (null === $template) {
+                $event->failAll('N8nDispatch: SMS template #'.$templateId.' not found.');
+
+                return;
+            }
+
+            $text          = (string) $template->getText();
+            $variablesJson = (string) ($template->getVariablesJson() ?? '{}');
+        }
+
+        $variablesConfig = json_decode($variablesJson, true);
         $variablesConfig = is_array($variablesConfig) ? $variablesConfig : [];
 
         if ('test' === $status || 'paused' === $status) {

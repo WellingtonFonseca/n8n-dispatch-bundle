@@ -22,4 +22,13 @@ return function (ContainerConfigurator $configurator): void {
 
     $services->load('MauticPlugin\\N8nDispatchBundle\\', '../')
         ->exclude('../{'.implode(',', array_merge(MauticCoreExtension::DEFAULT_EXCLUDES, $excludes)).'}');
+
+    // Entity/ is in DEFAULT_EXCLUDES; repositories still have to be services
+    // (CommonRepository is a ServiceEntityRepository) — same as core bundles.
+    $services->load('MauticPlugin\\N8nDispatchBundle\\Entity\\', '../Entity/*Repository.php')
+        ->tag(Doctrine\Bundle\DoctrineBundle\DependencyInjection\Compiler\ServiceRepositoryCompilerPass::REPOSITORY_SERVICE_TAG);
+
+    // Mautic's standard CRUD controller (Controller/SmsTemplateController.php)
+    // resolves its model by the 'mautic.<bundle>.model.<name>' id convention.
+    $services->alias('mautic.n8ndispatch.model.smstemplate', MauticPlugin\N8nDispatchBundle\Model\SmsTemplateModel::class);
 };

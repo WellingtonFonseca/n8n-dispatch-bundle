@@ -7,8 +7,32 @@ use MauticPlugin\N8nDispatchBundle\Integration\N8nDispatchIntegration;
 return [
     'name'        => 'N8n Dispatch',
     'description' => 'Syncs Email templates to Mirror on save, and (later) dispatches Email/SMS/HSM sends via n8n',
-    'version'     => '0.1.0',
+    'version'     => '0.2.0',
     'author'      => 'Wellington Fonseca',
+
+    'routes' => [
+        'main' => [
+            'mautic_n8ndispatch.smstemplate_index' => [
+                'path'       => '/n8ndispatch/sms-templates/{page}',
+                'controller' => 'MauticPlugin\\N8nDispatchBundle\\Controller\\SmsTemplateController::indexAction',
+            ],
+            'mautic_n8ndispatch.smstemplate_action' => [
+                'path'       => '/n8ndispatch/sms-templates/{objectAction}/{objectId}',
+                'controller' => 'MauticPlugin\\N8nDispatchBundle\\Controller\\SmsTemplateController::executeAction',
+            ],
+        ],
+    ],
+
+    'menu' => [
+        'main' => [
+            'mautic.n8ndispatch.smstemplate.menu.index' => [
+                'route'    => 'mautic_n8ndispatch.smstemplate_index',
+                'access'   => 'sms:smses:viewown',
+                'parent'   => 'mautic.core.channels',
+                'priority' => 5,
+            ],
+        ],
+    ],
 
     'services' => [
         'integrations' => [

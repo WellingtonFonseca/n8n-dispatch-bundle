@@ -55,7 +55,7 @@ class AjaxController extends CommonAjaxController
     }
 
     /**
-     * Backs the "Send via n8n (SMS)" action form. Same response shape as
+     * Backs the SMS Template form (Form/Type/SmsTemplateType.php). Same response shape as
      * getEmailVariablesAction() (so the campaign builder's JS can reuse the
      * exact same rendering code for both), but there's no entity to load —
      * the {{variable}} names are extracted straight from the pasted SMS

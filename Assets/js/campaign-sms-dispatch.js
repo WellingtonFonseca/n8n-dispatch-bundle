@@ -22,7 +22,8 @@
     }
 
     // data-onload-callback convention (see CoreBundle Assets/js/1a.content.js) —
-    // fires once when an existing "Send via n8n (SMS)" event's edit modal opens.
+    // fires once when an SMS Template's edit page opens (Form/Type/
+    // SmsTemplateType.php; the campaign action itself no longer holds text).
     Mautic.n8nDispatchInitSmsVariables = function (el) {
         renderSmsVariables(mQuery(el));
     };

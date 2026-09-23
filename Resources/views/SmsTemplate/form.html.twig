@@ -1,0 +1,39 @@
+{% extends '@MauticCore/Default/content.html.twig' %}
+
+{% block mauticContent %}n8ndispatch.smstemplate{% endblock %}
+
+{% block headerTitle %}
+    {% if entity.id %}
+        {{ 'mautic.n8ndispatch.smstemplate.menu.edit'|trans({'%name%': entity.name}) }}
+    {% else %}
+        {{ 'mautic.n8ndispatch.smstemplate.menu.new'|trans }}
+    {% endif %}
+{% endblock %}
+
+{% block content %}
+    {{ form_start(form) }}
+    <div class="box-layout">
+        <div class="col-md-9 height-auto bdr-r">
+            <div class="pa-md">
+                {{ form_row(form.name) }}
+                {{ form_row(form.description) }}
+                {# The .row wrapper matters: campaign-sms-dispatch.js inserts
+                   the variable-source rows right after the textarea's
+                   closest .row (see getContainer() in
+                   campaign-email-dispatch.js). #}
+                <div class="row">
+                    <div class="col-xs-12">
+                        {{ form_row(form.text) }}
+                        <p class="help-block">{{ 'mautic.n8ndispatch.smstemplate.text.help'|trans }}</p>
+                    </div>
+                </div>
+            </div>
+        </div>
+        <div class="col-md-3 height-auto">
+            <div class="pr-lg pl-lg pt-md pb-md">
+                {{ form_row(form.isPublished) }}
+            </div>
+        </div>
+    </div>
+    {{ form_end(form) }}
+{% endblock %}

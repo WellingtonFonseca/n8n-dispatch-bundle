@@ -4,31 +4,33 @@ declare(strict_types=1);
 
 namespace MauticPlugin\N8nDispatchBundle\Form\Type;
 
+use MauticPlugin\N8nDispatchBundle\Model\SmsTemplateModel;
 use Symfony\Component\Form\AbstractType;
 use Symfony\Component\Form\Extension\Core\Type\ChoiceType;
-use Symfony\Component\Form\Extension\Core\Type\HiddenType;
-use Symfony\Component\Form\Extension\Core\Type\TextareaType;
 use Symfony\Component\Form\FormBuilderInterface;
 use Symfony\Component\Validator\Constraints\NotBlank;
 
 /**
- * Campaign Action form for "Send via n8n (SMS)". Same shape as
- * EmailDispatchActionType (see that class for the full 'status' and
- * 'variablesJson' rationale, reused as-is here), with one difference:
- * there's no Mautic SMS entity to pick from and scan for {{variable}}
- * placeholders the way EmailListType lets the Email one be scanned server
- * side, so 'text' is a plain textarea the user pastes the message into
- * directly, and the {{variable}} names are extracted from that pasted
- * text instead (Controller/AjaxController::getSmsVariablesAction, wired
- * up via Assets/js/campaign-sms-dispatch.js).
+ * Campaign Action form for "Send via n8n (SMS)": the 'status' dropdown
+ * (same 'test'/'production'/'paused' rationale as
+ * EmailDispatchActionType's docblock) plus a picker for which
+ * SmsTemplate to send. The message text and its {{variable}} source
+ * mapping used to live right here on the action; they now live on the
+ * template (Entity/SmsTemplate.php, edited under Channels > SMS
+ * Templates (n8n)) so one template can serve several campaigns and is
+ * edited in one place. Only the template's id is stored on the event, as
+ * 'smsTemplate' — SmsCampaignTriggerSubscriber loads the template itself
+ * at dispatch time.
  *
- * The DNC/unsubscribe variable EmailMirrorSyncSubscriber auto-injects
- * into an Email template's footer has no SMS equivalent and is never
- * added to this form's variable list — there's no footer here to inject
- * it into.
+ * Only published templates are offered.
  */
 class SmsDispatchActionType extends AbstractType
 {
+    public function __construct(
+        private SmsTemplateModel $smsTemplateModel,
+    ) {
+    }
+
     public function buildForm(FormBuilderInterface $builder, array $options): void
     {
         $builder->add(
@@ -50,32 +52,19 @@ class SmsDispatchActionType extends AbstractType
         );
 
         $builder->add(
-            'text',
-            TextareaType::class,
+            'smsTemplate',
+            ChoiceType::class,
             [
-                'label'      => 'mautic.n8ndispatch.campaign.event.sms.text',
-                'label_attr' => ['class' => 'control-label'],
-                'required'   => true,
-                'attr'       => [
-                    'class'                => 'form-control',
-                    'rows'                 => 4,
-                    'onkeyup'              => 'Mautic.n8nDispatchOnSmsTextChange(this)',
-                    'onchange'             => 'Mautic.n8nDispatchOnSmsTextChange(this)',
-                    'data-onload-callback' => 'n8nDispatchInitSmsVariables',
+                'label'       => 'mautic.n8ndispatch.campaign.event.sms.template',
+                'label_attr'  => ['class' => 'control-label'],
+                'choices'     => $this->smsTemplateModel->getRepository()->getPublishedChoices(),
+                'placeholder' => 'mautic.n8ndispatch.campaign.event.sms.template.placeholder',
+                'required'    => true,
+                'attr'        => [
+                    'class' => 'form-control',
                 ],
                 'constraints' => [
                     new NotBlank(['message' => 'mautic.core.value.required']),
-                ],
-            ]
-        );
-
-        $builder->add(
-            'variablesJson',
-            HiddenType::class,
-            [
-                'required' => false,
-                'attr'     => [
-                    'class' => 'n8ndispatch-variables-json',
                 ],
             ]
         );

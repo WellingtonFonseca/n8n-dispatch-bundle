@@ -15,8 +15,10 @@ use Mautic\LeadBundle\Entity\Lead;
 use Mautic\LeadBundle\Model\DoNotContact as DncModel;
 use Mautic\PluginBundle\Entity\Integration as IntegrationSettings;
 use Mautic\PluginBundle\Helper\IntegrationHelper;
+use MauticPlugin\N8nDispatchBundle\Entity\SmsTemplate;
 use MauticPlugin\N8nDispatchBundle\EventListener\SmsCampaignTriggerSubscriber;
 use MauticPlugin\N8nDispatchBundle\Integration\N8nDispatchIntegration;
+use MauticPlugin\N8nDispatchBundle\Model\SmsTemplateModel;
 use MauticPlugin\N8nDispatchBundle\Resolver\VariableResolver;
 use PHPUnit\Framework\TestCase;
 use Psr\Log\LoggerInterface;
@@ -35,6 +37,8 @@ class SmsCampaignTriggerSubscriberTest extends TestCase
 
     private DncModel $dncModel;
 
+    private SmsTemplateModel $smsTemplateModel;
+
     private SmsCampaignTriggerSubscriber $subscriber;
 
     protected function setUp(): void
@@ -48,6 +52,7 @@ class SmsCampaignTriggerSubscriberTest extends TestCase
         // pass-path tests don't each have to configure this themselves —
         // tests specifically about the DNC gate override it.
         $this->dncModel->method('isContactable')->willReturn(DoNotContact::IS_CONTACTABLE);
+        $this->smsTemplateModel = $this->createMock(SmsTemplateModel::class);
 
         $this->subscriber = new SmsCampaignTriggerSubscriber(
             $this->integrationHelper,
@@ -55,6 +60,7 @@ class SmsCampaignTriggerSubscriberTest extends TestCase
             $this->logger,
             $this->variableResolver,
             $this->dncModel,
+            $this->smsTemplateModel,
         );
 
         $this->variableResolver->method('resolveAll')->willReturn(['foo' => 'bar']);
@@ -203,6 +209,7 @@ class SmsCampaignTriggerSubscriberTest extends TestCase
             $this->logger,
             $this->variableResolver,
             $this->dncModel,
+            $this->smsTemplateModel,
         );
 
         $this->httpClient->expects($this->never())->method('request');
@@ -333,5 +340,69 @@ class SmsCampaignTriggerSubscriberTest extends TestCase
         $metadata  = $passedLog->getMetadata();
         $this->assertSame(9001, $metadata['logSendSmsId']);
         $this->assertSame(['logSendSmsId' => 9001], $metadata['n8ndispatch']['response']);
+    }
+
+    public function testTemplateTextAndVariablesAreUsedInsteadOfTheEventsOwnProperties(): void
+    {
+        $template = new SmsTemplate();
+        $template->setText('Hello {{foo}}');
+        $template->setVariablesJson('{"foo":{"source":"static","value":"from-template"}}');
+
+        $this->smsTemplateModel->method('getEntity')->with(7)->willReturn($template);
+
+        $variableResolver = $this->createMock(VariableResolver::class);
+        $variableResolver->expects($this->once())
+            ->method('resolveAll')
+            ->with(['foo' => ['source' => 'static', 'value' => 'from-template']])
+            ->willReturn(['foo' => 'bar']);
+        $subscriber = new SmsCampaignTriggerSubscriber(
+            $this->integrationHelper,
+            $this->httpClient,
+            $this->logger,
+            $variableResolver,
+            $this->dncModel,
+            $this->smsTemplateModel,
+        );
+
+        // Leftover inline 'text' from before the template was picked must
+        // be ignored once a template is set.
+        $pendingEvent = $this->buildPendingEvent(['smsTemplate' => '7', 'text' => 'Old inline text', 'status' => 'test']);
+
+        $subscriber->onSmsSend($pendingEvent);
+
+        $successful = $pendingEvent->getSuccessful();
+        $this->assertCount(1, $successful);
+        /** @var LeadEventLog $passedLog */
+        $passedLog = $successful->first();
+        $this->assertSame('Hello bar', $passedLog->getMetadata()['n8ndispatch']['message']);
+    }
+
+    public function testMissingTemplateFailsAllWithoutDispatching(): void
+    {
+        $this->smsTemplateModel->method('getEntity')->with(7)->willReturn(null);
+        $this->httpClient->expects($this->never())->method('request');
+
+        $pendingEvent = $this->buildPendingEvent(['smsTemplate' => '7', 'status' => 'production']);
+
+        $this->subscriber->onSmsSend($pendingEvent);
+
+        $failures = $pendingEvent->getFailures();
+        $this->assertCount(1, $failures);
+        /** @var LeadEventLog $failedLog */
+        $failedLog = $failures->first();
+        $this->assertSame('N8nDispatch: SMS template #7 not found.', $failedLog->getFailedLog()->getReason());
+    }
+
+    public function testEventWithoutTemplateStillUsesItsOwnInlineText(): void
+    {
+        $this->smsTemplateModel->expects($this->never())->method('getEntity');
+
+        $pendingEvent = $this->buildPendingEvent(['text' => 'Inline {{foo}}', 'status' => 'test']);
+
+        $this->subscriber->onSmsSend($pendingEvent);
+
+        /** @var LeadEventLog $passedLog */
+        $passedLog = $pendingEvent->getSuccessful()->first();
+        $this->assertSame('Inline bar', $passedLog->getMetadata()['n8ndispatch']['message']);
     }
 }
