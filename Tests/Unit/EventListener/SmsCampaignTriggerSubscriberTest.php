@@ -405,4 +405,31 @@ class SmsCampaignTriggerSubscriberTest extends TestCase
         $passedLog = $pendingEvent->getSuccessful()->first();
         $this->assertSame('Inline bar', $passedLog->getMetadata()['n8ndispatch']['message']);
     }
+
+    public function testSmsAsksForSeveralCustomObjectValuesToBeJoinedWithACommaOnTheSameLine(): void
+    {
+        // "<br>" only makes sense in Email HTML; in an SMS body it would
+        // show up as literal text.
+        $variableResolver = $this->createMock(VariableResolver::class);
+        $variableResolver->expects($this->once())
+            ->method('resolveAll')
+            ->with($this->anything(), $this->anything(), $this->anything(), ', ')
+            ->willReturn(['foo' => 'a, b']);
+        $subscriber = new SmsCampaignTriggerSubscriber(
+            $this->integrationHelper,
+            $this->httpClient,
+            $this->logger,
+            $variableResolver,
+            $this->dncModel,
+            $this->smsTemplateModel,
+        );
+
+        $pendingEvent = $this->buildPendingEvent(['text' => 'Hi {{foo}}', 'status' => 'test']);
+
+        $subscriber->onSmsSend($pendingEvent);
+
+        /** @var LeadEventLog $passedLog */
+        $passedLog = $pendingEvent->getSuccessful()->first();
+        $this->assertSame('Hi a, b', $passedLog->getMetadata()['n8ndispatch']['message']);
+    }
 }

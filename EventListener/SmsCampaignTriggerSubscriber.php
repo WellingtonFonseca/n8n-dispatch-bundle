@@ -63,6 +63,13 @@ class SmsCampaignTriggerSubscriber implements EventSubscriberInterface
 
     private const VARIABLE_PATTERN = '/\{\{\s*([a-zA-Z0-9_]+)\s*\}\}/';
 
+    /**
+     * Joins a Custom Object variable's values when several items match,
+     * on the same line (Email uses '<br>', which would be literal text in
+     * an SMS).
+     */
+    private const MULTI_VALUE_SEPARATOR = ', ';
+
     public function __construct(
         private IntegrationHelper $integrationHelper,
         private HttpClientInterface $httpClient,
@@ -198,7 +205,7 @@ class SmsCampaignTriggerSubscriber implements EventSubscriberInterface
             return;
         }
 
-        $variables = $this->variableResolver->resolveAll($variablesConfig, $contact, $campaign);
+        $variables = $this->variableResolver->resolveAll($variablesConfig, $contact, $campaign, self::MULTI_VALUE_SEPARATOR);
         $message   = $this->resolveMessage($text, $variables);
         $payload   = $this->buildPayload($contact, $phone, $status, $message, $variables);
 
@@ -249,7 +256,7 @@ class SmsCampaignTriggerSubscriber implements EventSubscriberInterface
         string $status,
         array $variablesConfig,
     ): void {
-        $variables = $this->variableResolver->resolveAll($variablesConfig, $contact, $campaign);
+        $variables = $this->variableResolver->resolveAll($variablesConfig, $contact, $campaign, self::MULTI_VALUE_SEPARATOR);
         $message   = $this->resolveMessage($text, $variables);
         $payload   = $this->buildPayload($contact, (string) $contact->getPhone(), $status, $message, $variables);
 

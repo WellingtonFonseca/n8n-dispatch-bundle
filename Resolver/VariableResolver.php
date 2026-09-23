@@ -21,16 +21,20 @@ class VariableResolver
     }
 
     /**
+     * $multiValueSeparator joins a Custom Object variable's values when
+     * several items match: '<br>' for Email HTML (the default), ', ' for
+     * SMS, where '<br>' would show up as literal text.
+     *
      * @param array<string, array<string, mixed>> $variablesConfig
      *
      * @return array<string, string>
      */
-    public function resolveAll(array $variablesConfig, Lead $contact, Campaign $campaign): array
+    public function resolveAll(array $variablesConfig, Lead $contact, Campaign $campaign, string $multiValueSeparator = '<br>'): array
     {
         $resolved = [];
 
         foreach ($variablesConfig as $name => $entry) {
-            $resolved[$name] = $this->resolveOne(is_array($entry) ? $entry : [], $contact, $campaign);
+            $resolved[$name] = $this->resolveOne(is_array($entry) ? $entry : [], $contact, $campaign, $multiValueSeparator);
         }
 
         return $resolved;
@@ -39,7 +43,7 @@ class VariableResolver
     /**
      * @param array<string, mixed> $entry
      */
-    private function resolveOne(array $entry, Lead $contact, Campaign $campaign): string
+    private function resolveOne(array $entry, Lead $contact, Campaign $campaign, string $multiValueSeparator): string
     {
         return match ($entry['source'] ?? 'static') {
             'field'         => $this->resolveContactField($contact, (string) ($entry['field'] ?? '')),
@@ -47,7 +51,8 @@ class VariableResolver
                 $contact,
                 $campaign,
                 (string) ($entry['customObject'] ?? ''),
-                (string) ($entry['customObjectField'] ?? '')
+                (string) ($entry['customObjectField'] ?? ''),
+                $multiValueSeparator
             ),
             default => (string) ($entry['value'] ?? ''),
         };

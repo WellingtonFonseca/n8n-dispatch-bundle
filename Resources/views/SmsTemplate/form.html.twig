@@ -27,6 +27,51 @@
                         <p class="help-block">{{ 'mautic.n8ndispatch.smstemplate.text.help'|trans }}</p>
                     </div>
                 </div>
+                {% if entity.id %}
+                    {# Same status pill as the contact History card
+                       (SubscribedEvents/Timeline/_email_send.html.twig). #}
+                    {% set statusIcons = {
+                        'test':       'ri-bug-line',
+                        'production': 'ri-play-fill',
+                        'paused':     'ri-pause-fill',
+                    } %}
+                    <div class="mt-lg">
+                        <h4 class="mb-sm">{{ 'mautic.n8ndispatch.smstemplate.usages.header'|trans }}</h4>
+                        {% if campaignUsages is defined and campaignUsages is not empty %}
+                            <table class="table table-condensed">
+                                <thead>
+                                <tr>
+                                    <th>{{ 'mautic.n8ndispatch.smstemplate.usages.campaign'|trans }}</th>
+                                    <th>{{ 'mautic.n8ndispatch.smstemplate.usages.step'|trans }}</th>
+                                    <th>{{ 'mautic.n8ndispatch.campaign.event.status'|trans }}</th>
+                                </tr>
+                                </thead>
+                                <tbody>
+                                {% for usage in campaignUsages %}
+                                    <tr>
+                                        <td>
+                                            <a href="{{ path('mautic_campaign_action', {'objectAction': 'view', 'objectId': usage.campaignId}) }}" data-toggle="ajax">{{ usage.campaignName }}</a>
+                                            {% if not usage.campaignPublished %}
+                                                <span class="label label-default">{{ 'mautic.n8ndispatch.smstemplate.usages.unpublished'|trans }}</span>
+                                            {% endif %}
+                                        </td>
+                                        <td>{{ usage.eventName }}</td>
+                                        <td>
+                                            {% set status = statusIcons[usage.status] is defined ? usage.status : 'test' %}
+                                            <span class="n8ndispatch-timeline-badge n8ndispatch-timeline-badge--{{ status }}">
+                                                <i class="{{ statusIcons[status] }}"></i>
+                                                {{ ('mautic.n8ndispatch.campaign.event.status.' ~ status)|trans }}
+                                            </span>
+                                        </td>
+                                    </tr>
+                                {% endfor %}
+                                </tbody>
+                            </table>
+                        {% else %}
+                            <p class="text-muted">{{ 'mautic.n8ndispatch.smstemplate.usages.none'|trans }}</p>
+                        {% endif %}
+                    </div>
+                {% endif %}
             </div>
         </div>
         <div class="col-md-3 height-auto">

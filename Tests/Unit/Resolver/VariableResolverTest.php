@@ -184,7 +184,7 @@ class VariableResolverTest extends TestCase
 
         $this->customObjectVariableResolver->expects($this->once())
             ->method('resolve')
-            ->with($contact, $campaign, 'disciplines', 'discname')
+            ->with($contact, $campaign, 'disciplines', 'discname', '<br>')
             ->willReturn('disciplina 1<br>disciplina 2');
 
         $resolved = $this->resolver->resolveAll(
@@ -194,5 +194,25 @@ class VariableResolverTest extends TestCase
         );
 
         $this->assertSame(['disciplina' => 'disciplina 1<br>disciplina 2'], $resolved);
+    }
+
+    public function testCustomObjectSourcePassesTheMultiValueSeparatorThrough(): void
+    {
+        $contact  = new Lead();
+        $campaign = new Campaign();
+
+        $this->customObjectVariableResolver->expects($this->once())
+            ->method('resolve')
+            ->with($contact, $campaign, 'disciplines', 'discname', "\n")
+            ->willReturn("disciplina 1\ndisciplina 2");
+
+        $resolved = $this->resolver->resolveAll(
+            ['disciplina' => ['source' => 'custom_object', 'customObject' => 'disciplines', 'customObjectField' => 'discname']],
+            $contact,
+            $campaign,
+            "\n"
+        );
+
+        $this->assertSame(['disciplina' => "disciplina 1\ndisciplina 2"], $resolved);
     }
 }

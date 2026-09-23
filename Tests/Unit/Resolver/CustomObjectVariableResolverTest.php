@@ -310,4 +310,15 @@ class CustomObjectVariableResolverTest extends TestCase
 
         $this->assertSame('', $this->resolver->resolve($this->contact, $campaign, 'disciplina', 'naoexiste'));
     }
+
+    public function testSeveralItemsAreJoinedWithTheGivenSeparator(): void
+    {
+        $posicao  = $this->fieldFilter(2);
+        $campaign = $this->campaignWithSegment([$posicao]);
+
+        $this->positiveMatches([[$posicao, [1, 2]]]);
+        $this->expectValuesFetchedFor([1, 2], 'nome', ['a', 'b']);
+
+        $this->assertSame("a\nb", $this->resolver->resolve($this->contact, $campaign, 'disciplina', 'nome', "\n"));
+    }
 }

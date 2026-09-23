@@ -37,9 +37,9 @@ use Psr\Log\LoggerInterface;
  * - Operators the segment applies as NOT EXISTS keep every item except
  *   the ones matching the positive condition (see SegmentItemMatcher).
  *
- * If several items remain, their values are joined with "<br>" — Mirror
- * inserts the variable's value raw into the Email HTML, so it renders as
- * a line break.
+ * If several items remain, their values are joined with $separator:
+ * "<br>" by default, because Mirror inserts the value raw into the Email
+ * HTML where it renders as a line break; SMS passes ", ".
  */
 class CustomObjectVariableResolver
 {
@@ -61,7 +61,7 @@ class CustomObjectVariableResolver
     ) {
     }
 
-    public function resolve(Lead $contact, Campaign $campaign, string $customObjectAlias, string $targetFieldAlias): string
+    public function resolve(Lead $contact, Campaign $campaign, string $customObjectAlias, string $targetFieldAlias, string $separator = '<br>'): string
     {
         try {
             $customObject = $this->customObjectModel->fetchEntityByAlias($customObjectAlias);
@@ -140,7 +140,7 @@ class CustomObjectVariableResolver
             $this->itemMatcher->fetchFieldValues($itemIds, $targetField)
         );
 
-        return implode('<br>', $values);
+        return implode($separator, $values);
     }
 
     /**
