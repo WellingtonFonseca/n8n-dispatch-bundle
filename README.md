@@ -1,12 +1,15 @@
 # N8n Dispatch Bundle
 
 Mautic 5 plugin that syncs Email templates to Mirror on save, and dispatches
-Email sends (SMS/HSM planned) through n8n instead of Mautic's native senders.
+Email, SMS and HSM (WhatsApp template) sends through n8n instead of Mautic's
+native senders.
 
 ## Requirements
 
 - PHP >= 8.1
 - `mautic/core-lib` ^5.0
+- The CustomObjectsBundle plugin installed and enabled (used for Custom
+  Object variables)
 - A running n8n instance with a webhook endpoint that accepts this plugin's
   payload (see [wiki/n8n-dispatch-plugin.md](../wiki/n8n-dispatch-plugin.md)
   in the workspace root for the payload shapes and headers)
@@ -41,6 +44,10 @@ Mautic autoloads plugins from `docroot/plugins/<PluginDirectoryName>` (or
    about a newly mounted plugin — skipping `cache:clear` means the plugin
    silently never shows up, with no error.
 
+   `mautic:plugins:install` also creates or updates the plugin's own table
+   (`n8n_dispatch_sms_templates`). Run it again after pulling a version that
+   bumps `version` in `Config/config.php`.
+
 3. In the Mautic UI, go to **Settings > Plugins**, find **N8n Dispatch**,
    open it and:
    - Set **webhook_url** — the n8n webhook that receives this plugin's calls.
@@ -56,15 +63,34 @@ Mautic autoloads plugins from `docroot/plugins/<PluginDirectoryName>` (or
 
 ## What it does once installed
 
-- **On every Email template save** (UI or API): syncs the template's HTML
-  to Mirror via the configured webhook.
-- **"Send via n8n (Email)" Campaign Action**: a journey-builder step that
-  resolves per-contact variables (static value, contact field, or Custom
-  Object field) and dispatches the send through n8n, recording the outcome
-  back on Mautic's own contact Timeline and DNC/unsubscribe state.
+All calls go to the configured `webhook_url`; n8n tells them apart by the
+`X-N8n-Dispatch-Action` header.
+
+| Feature | Where | `X-N8n-Dispatch-Action` |
+|---|---|---|
+| Sync an Email template to Mirror on every save (UI or API) | automatic | `email.save` |
+| **Send via n8n (Email)** — pick a Mautic Email, map its `{{variables}}` | Campaign Action | `email.send` |
+| **Send via n8n (SMS)** — pick an SMS Template | Campaign Action | `sms.send` |
+| **Send via n8n (HSM)** — type the router and HSM id, add positional variables | Campaign Action | `hsm.send` |
+| **SMS Templates (n8n)** — message text + variable mapping, reused by many campaigns | Channels menu | — |
+
+Each campaign step has a **status**: `test` (records the payload on the
+contact's Timeline without calling n8n), `production` (real call), or
+`paused` (skipped, contact rescheduled).
+
+Variables can come from a static value, a contact field, or a Custom Object
+field. For Custom Object fields, the item(s) used are the ones that match
+the campaign's source segment conditions on that object.
+
+The SMS Template edit page lists the campaigns using the template, and a
+template in use can't be deleted.
+
+Contacts on the Do Not Contact list for the channel are not sent to (SMS and
+HSM use the `sms` channel).
 
 Full architecture, payload formats, and implementation history:
-[wiki/n8n-dispatch-plugin.md](../wiki/n8n-dispatch-plugin.md).
+[wiki/n8n-dispatch-plugin.md](../wiki/n8n-dispatch-plugin.md) — start with
+its "Current state" section.
 
 ## Running the test suite
 
