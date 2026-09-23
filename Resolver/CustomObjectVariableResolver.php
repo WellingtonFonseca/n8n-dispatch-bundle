@@ -4,53 +4,58 @@ declare(strict_types=1);
 
 namespace MauticPlugin\N8nDispatchBundle\Resolver;
 
-use Doctrine\DBAL\ArrayParameterType;
-use Doctrine\ORM\EntityManagerInterface;
 use Mautic\CampaignBundle\Entity\Campaign;
 use Mautic\LeadBundle\Entity\Lead;
+use Mautic\LeadBundle\Segment\ContactSegmentFilter;
+use Mautic\LeadBundle\Segment\ContactSegmentFilterFactory;
 use MauticPlugin\CustomObjectsBundle\Entity\CustomField;
+use MauticPlugin\CustomObjectsBundle\Exception\NotFoundException;
 use MauticPlugin\CustomObjectsBundle\Model\CustomObjectModel;
+use MauticPlugin\CustomObjectsBundle\Segment\Query\Filter\CustomFieldFilterQueryBuilder;
+use MauticPlugin\CustomObjectsBundle\Segment\Query\Filter\CustomItemNameFilterQueryBuilder;
+use MauticPlugin\CustomObjectsBundle\Segment\Query\Filter\CustomObjectMergedFilterQueryBuilder;
 use Psr\Log\LoggerInterface;
 
 /**
  * Resolves a Custom Object variable ({source: 'custom_object', customObject,
  * customObjectField}) to a string, per contact, at dispatch time.
  *
- * There is no per-contact record of "which linked item matched the segment
- * filter" — segment membership is computed with a plain SQL EXISTS(...)
- * (see CustomObjectsBundle's CustomFieldFilterQueryBuilder), which never
- * carries the matched row forward. So instead of asking the campaign
- * builder to redefine the same condition on every variable (duplicated,
- * drifts from the segment over time), this finds the Custom Object
- * condition already stored on the campaign's own source Segment(s) and
- * reapplies that exact condition — live — against just this one contact's
- * linked Custom Items, to find which item(s) still match right now.
+ * A contact can have many items of the same object; the campaign's source
+ * segment(s) say which ones count. The items used are the ones that
+ * satisfy EVERY condition the segment has on this object:
  *
- * If more than one item matches (e.g. a contact with two pending
- * documents), every matching item's field value is joined with "<br>" —
- * Mirror inserts the variable's value raw into the HTML, unescaped, so
- * "<br>" renders as a real line break rather than literal text.
+ * - The filter list is Mautic's own (ContactSegmentFilterFactory::
+ *   getSegmentFilters()), i.e. after the same rewriting the segment build
+ *   applies, and grouped the same way: an 'or' glue starts a new group,
+ *   conditions inside a group are ANDed.
+ * - Inside a group, all conditions on this object must hold for the SAME
+ *   item (intersection). Groups add their items together (union), and so
+ *   do several segments.
+ * - Conditions on contact fields or on other objects don't narrow the
+ *   items; they only decide segment membership, which is respected by
+ *   skipping segments the contact isn't currently in.
+ * - Operators the segment applies as NOT EXISTS keep every item except
+ *   the ones matching the positive condition (see SegmentItemMatcher).
+ *
+ * If several items remain, their values are joined with "<br>" — Mirror
+ * inserts the variable's value raw into the Email HTML, so it renders as
+ * a line break.
  */
 class CustomObjectVariableResolver
 {
-    private const VALUE_TABLE_BY_TYPE = [
-        'text'     => 'custom_field_value_text',
-        'date'     => 'custom_field_value_date',
-        'datetime' => 'custom_field_value_datetime',
-        'int'      => 'custom_field_value_int',
-    ];
+    /**
+     * Operators CustomFieldFilterQueryBuilder applies as NOT EXISTS.
+     */
+    private const NEGATED_FIELD_OPERATORS = ['empty', 'neq', 'notLike', '!multiselect', '!between', 'notBetween'];
 
-    private const SIMPLE_SQL_OPERATOR_BY_FILTER_OPERATOR = [
-        '='   => '=',
-        '!='  => '!=',
-        'gt'  => '>',
-        'gte' => '>=',
-        'lt'  => '<',
-        'lte' => '<=',
-    ];
+    /**
+     * Operators CustomItemNameFilterQueryBuilder applies as NOT EXISTS.
+     */
+    private const NEGATED_ITEM_NAME_OPERATORS = ['empty', 'neq', 'notLike'];
 
     public function __construct(
-        private EntityManagerInterface $em,
+        private ContactSegmentFilterFactory $segmentFilterFactory,
+        private SegmentItemMatcher $itemMatcher,
         private CustomObjectModel $customObjectModel,
         private LoggerInterface $logger,
     ) {
@@ -58,205 +63,150 @@ class CustomObjectVariableResolver
 
     public function resolve(Lead $contact, Campaign $campaign, string $customObjectAlias, string $targetFieldAlias): string
     {
-        $condition = $this->findSegmentCondition($campaign, $customObjectAlias);
-
-        if (null === $condition) {
-            $this->logger->warning(
-                "N8nDispatch: no segment filter condition found for Custom Object '{$customObjectAlias}' on any of campaign {$campaign->getId()}'s source segments — cannot resolve variable for contact {$contact->getId()}."
-            );
+        try {
+            $customObject = $this->customObjectModel->fetchEntityByAlias($customObjectAlias);
+        } catch (NotFoundException) {
+            $this->logger->warning("N8nDispatch: Custom Object '{$customObjectAlias}' not found.");
 
             return '';
         }
 
-        $matchingItemIds = $this->findMatchingItemIds($contact, $condition);
+        $objectId    = (int) $customObject->getId();
+        $fieldIds    = [];
+        $targetField = null;
 
-        if ([] === $matchingItemIds) {
-            return '';
-        }
-
-        return implode('<br>', $this->fetchFieldValues($matchingItemIds, $customObjectAlias, $targetFieldAlias));
-    }
-
-    /**
-     * @return array{fieldId: int, type: string, operator: string, value: mixed}|null
-     */
-    private function findSegmentCondition(Campaign $campaign, string $customObjectAlias): ?array
-    {
-        foreach ($campaign->getLists() as $list) {
-            $filters = $list->getFilters();
-
-            if (!is_array($filters)) {
-                continue;
-            }
-
-            foreach ($filters as $filter) {
-                if (($filter['object'] ?? null) !== 'custom_object') {
-                    continue;
-                }
-
-                $fieldRef = (string) ($filter['field'] ?? '');
-
-                if (!str_starts_with($fieldRef, 'cmf_')) {
-                    continue;
-                }
-
-                $fieldId = (int) substr($fieldRef, 4);
-                /** @var CustomField|null $customField */
-                $customField = $this->em->getRepository(CustomField::class)->find($fieldId);
-
-                if (null === $customField || $customField->getCustomObject()->getAlias() !== $customObjectAlias) {
-                    continue;
-                }
-
-                return [
-                    'fieldId'  => $fieldId,
-                    'type'     => (string) $customField->getType(),
-                    'operator' => (string) ($filter['operator'] ?? '='),
-                    'value'    => $filter['properties']['filter'] ?? $filter['filter'] ?? null,
-                ];
-            }
-        }
-
-        return null;
-    }
-
-    /**
-     * @param array{fieldId: int, type: string, operator: string, value: mixed} $condition
-     *
-     * @return int[]
-     */
-    private function findMatchingItemIds(Lead $contact, array $condition): array
-    {
-        $valueTable = self::VALUE_TABLE_BY_TYPE[$condition['type']] ?? null;
-
-        if (null === $valueTable) {
-            $this->logger->warning("N8nDispatch: field type '{$condition['type']}' is not supported for Custom Object variable resolution yet.");
-
-            return [];
-        }
-
-        $qb = $this->em->getConnection()->createQueryBuilder();
-        $qb->select('civ.custom_item_id')
-            ->from($valueTable, 'civ')
-            ->innerJoin('civ', 'custom_item_xref_contact', 'cix', 'cix.custom_item_id = civ.custom_item_id')
-            ->where('civ.custom_field_id = :fieldId')
-            ->andWhere('cix.contact_id = :contactId')
-            ->setParameter('fieldId', $condition['fieldId'])
-            ->setParameter('contactId', $contact->getId());
-
-        $this->applyOperator($qb, $condition['operator'], $this->resolveValue($condition['type'], $condition['value']));
-
-        return array_map('intval', array_column($qb->executeQuery()->fetchAllAssociative(), 'custom_item_id'));
-    }
-
-    private function applyOperator(\Doctrine\DBAL\Query\QueryBuilder $qb, string $operator, ?string $value): void
-    {
-        if ('empty' === $operator) {
-            $qb->andWhere("(civ.value IS NULL OR civ.value = '')");
-
-            return;
-        }
-
-        if ('!empty' === $operator) {
-            $qb->andWhere("(civ.value IS NOT NULL AND civ.value != '')");
-
-            return;
-        }
-
-        if (isset(self::SIMPLE_SQL_OPERATOR_BY_FILTER_OPERATOR[$operator])) {
-            $qb->andWhere('civ.value '.self::SIMPLE_SQL_OPERATOR_BY_FILTER_OPERATOR[$operator].' :val')
-                ->setParameter('val', $value);
-
-            return;
-        }
-
-        $likeValue = match ($operator) {
-            'like', '!like', 'contains' => '%'.$value.'%',
-            'startsWith'                => $value.'%',
-            'endsWith'                  => '%'.$value,
-            default                     => null,
-        };
-
-        if (null !== $likeValue) {
-            $qb->andWhere('civ.value '.('!like' === $operator ? 'NOT LIKE' : 'LIKE').' :val')
-                ->setParameter('val', $likeValue);
-
-            return;
-        }
-
-        // Unsupported operator (between/in/regexp/etc.) — no items match rather
-        // than silently returning everything.
-        $qb->andWhere('1 = 0');
-        $this->logger->warning("N8nDispatch: segment filter operator '{$operator}' is not supported for Custom Object variable resolution yet.");
-    }
-
-    private function resolveValue(string $type, mixed $rawValue): ?string
-    {
-        if (null === $rawValue) {
-            return null;
-        }
-
-        if (in_array($type, ['date', 'datetime'], true) && is_string($rawValue) && !preg_match('/^\d{4}-\d{2}-\d{2}/', $rawValue)) {
-            // Relative date, e.g. "+ 10 days" — same plain DateTime::modify()
-            // approach core's own DateRelativeInterval decorator uses to
-            // resolve this same kind of value for the live segment filter.
-            $date = new \DateTime();
-            $date->modify($rawValue);
-
-            return $date->format('date' === $type ? 'Y-m-d' : 'Y-m-d H:i:s');
-        }
-
-        return (string) $rawValue;
-    }
-
-    /**
-     * @param int[] $itemIds
-     *
-     * @return string[]
-     */
-    private function fetchFieldValues(array $itemIds, string $customObjectAlias, string $targetFieldAlias): array
-    {
-        $customObject = $this->customObjectModel->fetchEntityByAlias($customObjectAlias);
-        $targetField  = null;
-
+        /** @var CustomField $field */
         foreach ($customObject->getCustomFields() as $field) {
+            $fieldIds[] = (int) $field->getId();
+
             if ($field->getAlias() === $targetFieldAlias) {
                 $targetField = $field;
-                break;
             }
         }
 
         if (null === $targetField) {
             $this->logger->warning("N8nDispatch: field '{$targetFieldAlias}' not found on Custom Object '{$customObjectAlias}'.");
 
-            return [];
+            return '';
         }
 
-        $valueTable = self::VALUE_TABLE_BY_TYPE[$targetField->getType()] ?? null;
+        $hasCondition = false;
+        $itemIds      = [];
 
-        if (null === $valueTable) {
-            $this->logger->warning("N8nDispatch: field type '{$targetField->getType()}' is not supported for Custom Object variable resolution yet.");
+        foreach ($campaign->getLists() as $segment) {
+            if (!$this->itemMatcher->isContactInSegment($segment, $contact)) {
+                continue;
+            }
 
-            return [];
+            foreach ($this->groupByOr($this->segmentFilterFactory->getSegmentFilters($segment)) as $group) {
+                $groupItemIds = null;
+
+                foreach ($group as $filter) {
+                    if (!$this->isConditionOnObject($filter, $objectId, $fieldIds)) {
+                        continue;
+                    }
+
+                    $conditionItemIds = $this->findItemIds($filter, $contact, $objectId);
+                    $groupItemIds     = null === $groupItemIds ? $conditionItemIds : array_intersect($groupItemIds, $conditionItemIds);
+                }
+
+                if (null !== $groupItemIds) {
+                    $hasCondition = true;
+                    $itemIds      = array_merge($itemIds, $groupItemIds);
+                }
+            }
         }
 
-        $qb = $this->em->getConnection()->createQueryBuilder();
-        $qb->select('civ.value')
-            ->from($valueTable, 'civ')
-            ->where('civ.custom_field_id = :fieldId')
-            ->andWhere($qb->expr()->in('civ.custom_item_id', ':itemIds'))
-            ->setParameter('fieldId', $targetField->getId())
-            ->setParameter('itemIds', $itemIds, ArrayParameterType::INTEGER);
+        if (!$hasCondition) {
+            $this->logger->warning(
+                "N8nDispatch: no segment filter condition found for Custom Object '{$customObjectAlias}' on campaign {$campaign->getId()}'s source segments the contact is in — cannot resolve variable for contact {$contact->getId()}."
+            );
 
-        $values = array_map('strval', array_column($qb->executeQuery()->fetchAllAssociative(), 'value'));
+            return '';
+        }
 
-        // Mautic stores date/datetime Custom Object field values as
-        // 'Y-m-d'/'Y-m-d H:i:s' — reformatted to pt-BR for dispatch, on
-        // request, same as VariableResolver::resolveContactField() does
-        // for core contact fields.
-        return array_map(
-            static fn (string $value): string => BrazilianDateFormatter::format($value, $targetField->getType()),
-            $values
+        $itemIds = array_values(array_unique($itemIds));
+        sort($itemIds);
+
+        if ([] === $itemIds) {
+            return '';
+        }
+
+        // Mautic stores date/datetime values as 'Y-m-d'/'Y-m-d H:i:s' —
+        // reformatted to pt-BR, same as VariableResolver does for contact
+        // fields.
+        $values = array_map(
+            static fn (string $value): string => BrazilianDateFormatter::format($value, (string) $targetField->getType()),
+            $this->itemMatcher->fetchFieldValues($itemIds, $targetField)
         );
+
+        return implode('<br>', $values);
+    }
+
+    /**
+     * @return ContactSegmentFilter[][]
+     */
+    private function groupByOr(iterable $filters): array
+    {
+        $groups  = [];
+        $current = [];
+
+        foreach ($filters as $filter) {
+            if ('or' === strtolower((string) $filter->getGlue()) && [] !== $current) {
+                $groups[] = $current;
+                $current  = [];
+            }
+
+            $current[] = $filter;
+        }
+
+        if ([] !== $current) {
+            $groups[] = $current;
+        }
+
+        return $groups;
+    }
+
+    /**
+     * @param int[] $fieldIds
+     */
+    private function isConditionOnObject(ContactSegmentFilter $filter, int $objectId, array $fieldIds): bool
+    {
+        return match ($filter->getQueryType()) {
+            CustomFieldFilterQueryBuilder::getServiceId()        => in_array((int) $filter->getField(), $fieldIds, true),
+            CustomItemNameFilterQueryBuilder::getServiceId()     => (int) $filter->getField() === $objectId,
+            CustomObjectMergedFilterQueryBuilder::getServiceId() => $this->warnMergedFilter(),
+            default                                              => false,
+        };
+    }
+
+    /**
+     * The Custom Objects plugin's 'custom_object_merge_filter' setting
+     * (off in this project) packs several conditions into one filter.
+     * Not supported here; logged so it doesn't fail silently if enabled.
+     */
+    private function warnMergedFilter(): bool
+    {
+        $this->logger->warning("N8nDispatch: merged Custom Object segment filters ('custom_object_merge_filter') are not supported for variable resolution; condition ignored.");
+
+        return false;
+    }
+
+    /**
+     * @return int[]
+     */
+    private function findItemIds(ContactSegmentFilter $filter, Lead $contact, int $objectId): array
+    {
+        $positive = $this->itemMatcher->findPositiveItemIds($filter, $contact, $objectId);
+
+        $negatedOperators = CustomItemNameFilterQueryBuilder::getServiceId() === $filter->getQueryType()
+            ? self::NEGATED_ITEM_NAME_OPERATORS
+            : self::NEGATED_FIELD_OPERATORS;
+
+        if (!in_array($filter->getOperator(), $negatedOperators, true)) {
+            return $positive;
+        }
+
+        return array_values(array_diff($this->itemMatcher->findAllItemIds($contact, $objectId), $positive));
     }
 }

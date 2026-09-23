@@ -4,25 +4,39 @@ declare(strict_types=1);
 
 namespace MauticPlugin\N8nDispatchBundle\Tests\Unit\Resolver;
 
-use Doctrine\DBAL\Connection;
-use Doctrine\DBAL\Query\Expression\ExpressionBuilder;
-use Doctrine\DBAL\Query\QueryBuilder;
-use Doctrine\DBAL\Result;
-use Doctrine\ORM\EntityManagerInterface;
-use Doctrine\Persistence\ObjectRepository;
+use Doctrine\Common\Collections\ArrayCollection;
 use Mautic\CampaignBundle\Entity\Campaign;
 use Mautic\LeadBundle\Entity\Lead;
 use Mautic\LeadBundle\Entity\LeadList;
+use Mautic\LeadBundle\Segment\ContactSegmentFilter;
+use Mautic\LeadBundle\Segment\ContactSegmentFilterFactory;
+use Mautic\LeadBundle\Segment\ContactSegmentFilters;
 use MauticPlugin\CustomObjectsBundle\Entity\CustomField;
 use MauticPlugin\CustomObjectsBundle\Entity\CustomObject;
 use MauticPlugin\CustomObjectsBundle\Model\CustomObjectModel;
+use MauticPlugin\CustomObjectsBundle\Segment\Query\Filter\CustomFieldFilterQueryBuilder;
+use MauticPlugin\CustomObjectsBundle\Segment\Query\Filter\CustomItemNameFilterQueryBuilder;
 use MauticPlugin\N8nDispatchBundle\Resolver\CustomObjectVariableResolver;
+use MauticPlugin\N8nDispatchBundle\Resolver\SegmentItemMatcher;
 use PHPUnit\Framework\TestCase;
 use Psr\Log\LoggerInterface;
 
+/**
+ * Covers how CustomObjectVariableResolver combines a segment's Custom
+ * Object conditions into the set of items whose value is used. The SQL
+ * for each single condition is SegmentItemMatcher's job (it reuses the
+ * Custom Objects plugin's own segment query builders) and is mocked here.
+ *
+ * Fixture: Custom Object #1 'disciplina' with fields #1 nome (text),
+ * #2 posicao (int), #3 inicio (date). Another object's field is #9.
+ */
 class CustomObjectVariableResolverTest extends TestCase
 {
-    private EntityManagerInterface $em;
+    private const OBJECT_ID = 1;
+
+    private ContactSegmentFilterFactory $segmentFilterFactory;
+
+    private SegmentItemMatcher $itemMatcher;
 
     private CustomObjectModel $customObjectModel;
 
@@ -30,292 +44,270 @@ class CustomObjectVariableResolverTest extends TestCase
 
     private CustomObjectVariableResolver $resolver;
 
+    private Lead $contact;
+
     protected function setUp(): void
     {
-        $this->em                = $this->createMock(EntityManagerInterface::class);
-        $this->customObjectModel = $this->createMock(CustomObjectModel::class);
-        $this->logger             = $this->createMock(LoggerInterface::class);
+        $this->segmentFilterFactory = $this->createMock(ContactSegmentFilterFactory::class);
+        $this->itemMatcher          = $this->createMock(SegmentItemMatcher::class);
+        $this->customObjectModel    = $this->createMock(CustomObjectModel::class);
+        $this->logger               = $this->createMock(LoggerInterface::class);
+
+        $this->customObjectModel->method('fetchEntityByAlias')->with('disciplina')->willReturn($this->buildCustomObject());
+        $this->itemMatcher->method('isContactInSegment')->willReturn(true);
 
         $this->resolver = new CustomObjectVariableResolver(
-            $this->em,
+            $this->segmentFilterFactory,
+            $this->itemMatcher,
             $this->customObjectModel,
             $this->logger,
         );
+
+        $this->contact = new Lead();
+        $this->contact->setId(1);
     }
 
-    // ---- resolveValue() — relative/absolute date handling, via reflection ----
-    // Same logic manually verified live during the `between` operator
-    // investigation (see wiki/n8n-dispatch-plugin.md) — now automated.
-
-    private function callResolveValue(string $type, mixed $rawValue): ?string
+    private function buildCustomObject(): CustomObject
     {
-        $method = new \ReflectionMethod(CustomObjectVariableResolver::class, 'resolveValue');
-        $method->setAccessible(true);
+        $customObject = $this->createMock(CustomObject::class);
+        $customObject->method('getId')->willReturn(self::OBJECT_ID);
+        $customObject->method('getCustomFields')->willReturn(new ArrayCollection([
+            $this->buildField(1, 'nome', 'text'),
+            $this->buildField(2, 'posicao', 'int'),
+            $this->buildField(3, 'inicio', 'date'),
+        ]));
 
-        return $method->invoke($this->resolver, $type, $rawValue);
+        return $customObject;
     }
 
-    public function testResolveValueReturnsNullForNull(): void
+    private function buildField(int $id, string $alias, string $type): CustomField
     {
-        $this->assertNull($this->callResolveValue('date', null));
+        $field = $this->createMock(CustomField::class);
+        $field->method('getId')->willReturn($id);
+        $field->method('getAlias')->willReturn($alias);
+        $field->method('getType')->willReturn($type);
+
+        return $field;
     }
 
-    public function testResolveValuePassesThroughAbsoluteDateUnchanged(): void
+    private function fieldFilter(int $fieldId, string $operator = 'eq', string $glue = 'and'): ContactSegmentFilter
     {
-        $this->assertSame('2026-09-20', $this->callResolveValue('date', '2026-09-20'));
+        return $this->segmentFilter(CustomFieldFilterQueryBuilder::getServiceId(), $fieldId, $operator, $glue);
     }
 
-    public function testResolveValueResolvesRelativeDateForDateType(): void
+    private function itemNameFilter(int $objectId, string $operator = 'eq', string $glue = 'and'): ContactSegmentFilter
     {
-        $expected = (new \DateTime())->modify('+ 10 days')->format('Y-m-d');
-
-        $this->assertSame($expected, $this->callResolveValue('date', '+ 10 days'));
+        return $this->segmentFilter(CustomItemNameFilterQueryBuilder::getServiceId(), $objectId, $operator, $glue);
     }
 
-    public function testResolveValueResolvesRelativeDateWithTimeForDatetimeType(): void
+    private function contactFieldFilter(string $glue = 'and'): ContactSegmentFilter
     {
-        $expected = (new \DateTime())->modify('+ 10 days')->format('Y-m-d H:i:s');
-
-        $this->assertSame($expected, $this->callResolveValue('datetime', '+ 10 days'));
+        return $this->segmentFilter('mautic.lead.query.builder.basic', 'email', 'eq', $glue);
     }
 
-    public function testResolveValueDoesNotTreatNonDateTypesAsDates(): void
+    private function segmentFilter(string $queryType, int|string $field, string $operator, string $glue): ContactSegmentFilter
     {
-        // A text/int field's value must never go through DateTime::modify(),
-        // even if it happens to look like a relative-date string.
-        $this->assertSame('+ 10 days', $this->callResolveValue('text', '+ 10 days'));
-        $this->assertSame('42', $this->callResolveValue('int', 42));
+        $filter = $this->createMock(ContactSegmentFilter::class);
+        $filter->method('getQueryType')->willReturn($queryType);
+        $filter->method('getField')->willReturn($field);
+        $filter->method('getOperator')->willReturn($operator);
+        $filter->method('getGlue')->willReturn($glue);
+
+        return $filter;
     }
-
-    // ---- findSegmentCondition() early-return paths, via the public resolve() ----
-    // None of these reach the DBAL layer, so no QueryBuilder mocking needed.
-
-    public function testResolveReturnsEmptyWhenCampaignHasNoLists(): void
-    {
-        $this->logger->expects($this->once())->method('warning');
-
-        $result = $this->resolver->resolve(new Lead(), new Campaign(), 'disciplines', 'discname');
-
-        $this->assertSame('', $result);
-    }
-
-    public function testResolveSkipsFiltersNotOnCustomObjects(): void
-    {
-        $list = new LeadList();
-        $list->setFilters([
-            ['object' => 'lead', 'field' => 'email', 'operator' => '=', 'filter' => 'x@example.com'],
-        ]);
-        $campaign = new Campaign();
-        $campaign->addList($list);
-
-        $result = $this->resolver->resolve(new Lead(), $campaign, 'disciplines', 'discname');
-
-        $this->assertSame('', $result);
-    }
-
-    public function testResolveSkipsWhenCustomFieldNotFound(): void
-    {
-        $list = new LeadList();
-        $list->setFilters([
-            ['object' => 'custom_object', 'field' => 'cmf_4', 'type' => 'date', 'operator' => 'lte', 'properties' => ['filter' => '+ 10 days']],
-        ]);
-        $campaign = new Campaign();
-        $campaign->addList($list);
-
-        $repository = $this->createMock(ObjectRepository::class);
-        $repository->method('find')->with(4)->willReturn(null);
-        $this->em->method('getRepository')->with(CustomField::class)->willReturn($repository);
-
-        $result = $this->resolver->resolve(new Lead(), $campaign, 'disciplines', 'discname');
-
-        $this->assertSame('', $result);
-    }
-
-    public function testResolveSkipsWhenCustomObjectAliasDoesNotMatch(): void
-    {
-        $list = new LeadList();
-        $list->setFilters([
-            ['object' => 'custom_object', 'field' => 'cmf_4', 'type' => 'date', 'operator' => 'lte', 'properties' => ['filter' => '+ 10 days']],
-        ]);
-        $campaign = new Campaign();
-        $campaign->addList($list);
-
-        $otherObject = new CustomObject();
-        $otherObject->setAlias('courses');
-        $field = new CustomField();
-        $field->setType('date');
-        $field->setCustomObject($otherObject);
-
-        $repository = $this->createMock(ObjectRepository::class);
-        $repository->method('find')->willReturn($field);
-        $this->em->method('getRepository')->with(CustomField::class)->willReturn($repository);
-
-        $result = $this->resolver->resolve(new Lead(), $campaign, 'disciplines', 'discname');
-
-        $this->assertSame('', $result);
-    }
-
-    // ---- Full flow through the DBAL layer ----
 
     /**
-     * Builds a Campaign whose one source Segment has a Custom Object filter
-     * on the "disciplines" object's "discstart" field (id=4, type date),
-     * and wires the EntityManager mock so findSegmentCondition() resolves
-     * it — everything short of the actual query results, which each test
-     * configures on the returned QueryBuilder mock.
+     * @param ContactSegmentFilter[] $filters
      */
-    private function setUpConditionAndQueryBuilder(string $operator, mixed $filterValue): QueryBuilder
+    private function campaignWithSegment(array $filters): Campaign
     {
+        $segmentFilters = new ContactSegmentFilters();
+        foreach ($filters as $filter) {
+            $segmentFilters->addContactSegmentFilter($filter);
+        }
+
         $list = new LeadList();
-        $list->setFilters([
-            ['object' => 'custom_object', 'field' => 'cmf_4', 'type' => 'date', 'operator' => $operator, 'properties' => ['filter' => $filterValue]],
-        ]);
+        $this->segmentFilterFactory->method('getSegmentFilters')->with($list)->willReturn($segmentFilters);
+
         $campaign = new Campaign();
         $campaign->addList($list);
 
-        $disciplines = new CustomObject();
-        $disciplines->setAlias('disciplines');
-        $field = new CustomField();
-        $field->setId(4);
-        $field->setType('date');
-        $field->setCustomObject($disciplines);
-
-        $repository = $this->createMock(ObjectRepository::class);
-        $repository->method('find')->with(4)->willReturn($field);
-        $this->em->method('getRepository')->with(CustomField::class)->willReturn($repository);
-
-        $qb = $this->createMock(QueryBuilder::class);
-        foreach (['select', 'from', 'innerJoin', 'where', 'andWhere', 'setParameter'] as $fluentMethod) {
-            $qb->method($fluentMethod)->willReturnSelf();
-        }
-        $expr = $this->createMock(ExpressionBuilder::class);
-        $expr->method('in')->willReturn('civ.custom_item_id IN (:itemIds)');
-        $qb->method('expr')->willReturn($expr);
-
-        $connection = $this->createMock(Connection::class);
-        $connection->method('createQueryBuilder')->willReturn($qb);
-        $this->em->method('getConnection')->willReturn($connection);
-
-        $this->campaign = $campaign;
-
-        return $qb;
+        return $campaign;
     }
 
-    private Campaign $campaign;
-
-    public function testUnsupportedOperatorMatchesNothingAndLogsWarning(): void
+    /**
+     * Maps each filter to the item ids its condition matches (the
+     * "positive" set, before any negation).
+     *
+     * @param array<int, array{0: ContactSegmentFilter, 1: int[]}> $map
+     */
+    private function positiveMatches(array $map): void
     {
-        // Value is a well-formed date string purely so resolveValue()'s
-        // unconditional DateTime::modify() call (for the 'date'-typed field
-        // this fixture uses) doesn't emit an unrelated parse warning — 'in'
-        // never actually uses the resolved value, it always matches nothing.
-        $qb = $this->setUpConditionAndQueryBuilder('in', '2026-01-01');
+        $this->itemMatcher->method('findPositiveItemIds')->willReturnCallback(
+            static function (ContactSegmentFilter $filter) use ($map): array {
+                foreach ($map as [$mappedFilter, $ids]) {
+                    if ($mappedFilter === $filter) {
+                        return $ids;
+                    }
+                }
 
-        $qb->expects($this->atLeastOnce())
-            ->method('andWhere')
-            ->with($this->logicalOr(
-                $this->stringContains('civ.custom_field_id'),
-                $this->stringContains('cix.contact_id'),
-                $this->equalTo('1 = 0')
-            ));
-
-        $result   = $this->createMock(Result::class);
-        $result->method('fetchAllAssociative')->willReturn([]);
-        $qb->method('executeQuery')->willReturn($result);
-
-        $this->logger->expects($this->atLeastOnce())->method('warning');
-
-        $contact = new Lead();
-        $contact->setId(1);
-
-        $this->assertSame('', $this->resolver->resolve($contact, $this->campaign, 'disciplines', 'discname'));
+                return [];
+            }
+        );
     }
 
-    public function testMatchingItemsAreJoinedWithBr(): void
+    /**
+     * @param int[]    $expectedItemIds
+     * @param string[] $values
+     */
+    private function expectValuesFetchedFor(array $expectedItemIds, string $targetFieldAlias, array $values): void
     {
-        $qb = $this->setUpConditionAndQueryBuilder('lte', '+ 10 days');
+        $this->itemMatcher->expects($this->once())
+            ->method('fetchFieldValues')
+            ->with(
+                $this->callback(static function (array $ids) use ($expectedItemIds): bool {
+                    sort($ids);
 
-        $matchResult = $this->createMock(Result::class);
-        $matchResult->method('fetchAllAssociative')->willReturn([
-            ['custom_item_id' => 3],
-            ['custom_item_id' => 4],
-        ]);
-
-        $valuesResult = $this->createMock(Result::class);
-        $valuesResult->method('fetchAllAssociative')->willReturn([
-            ['value' => 'disciplina 1'],
-            ['value' => 'disciplina 2'],
-        ]);
-
-        $qb->method('executeQuery')->willReturnOnConsecutiveCalls($matchResult, $valuesResult);
-
-        $targetField = new CustomField();
-        $targetField->setId(5);
-        $targetField->setAlias('discname');
-        $targetField->setType('text');
-
-        $disciplines = new CustomObject();
-        $disciplines->setAlias('disciplines');
-        $disciplines->addCustomField($targetField);
-
-        $this->customObjectModel->method('fetchEntityByAlias')->with('disciplines')->willReturn($disciplines);
-
-        $contact = new Lead();
-        $contact->setId(1);
-
-        $result = $this->resolver->resolve($contact, $this->campaign, 'disciplines', 'discname');
-
-        $this->assertSame('disciplina 1<br>disciplina 2', $result);
+                    return $ids === $expectedItemIds;
+                }),
+                $this->callback(static fn (CustomField $field): bool => $field->getAlias() === $targetFieldAlias)
+            )
+            ->willReturn($values);
     }
 
-    public function testMatchingItemsWithADateTargetFieldAreFormattedToBrazilianDate(): void
+    public function testCampaignWithoutSegmentsResolvesEmptyAndLogsWarning(): void
     {
-        $qb = $this->setUpConditionAndQueryBuilder('lte', '+ 10 days');
+        $this->logger->expects($this->once())->method('warning');
+        $this->itemMatcher->expects($this->never())->method('fetchFieldValues');
 
-        $matchResult = $this->createMock(Result::class);
-        $matchResult->method('fetchAllAssociative')->willReturn([
-            ['custom_item_id' => 3],
-        ]);
-
-        $valuesResult = $this->createMock(Result::class);
-        $valuesResult->method('fetchAllAssociative')->willReturn([
-            ['value' => '2026-09-21'],
-        ]);
-
-        $qb->method('executeQuery')->willReturnOnConsecutiveCalls($matchResult, $valuesResult);
-
-        $targetField = new CustomField();
-        $targetField->setId(4);
-        $targetField->setAlias('discstart');
-        $targetField->setType('date');
-
-        $disciplines = new CustomObject();
-        $disciplines->setAlias('disciplines');
-        $disciplines->addCustomField($targetField);
-
-        $this->customObjectModel->method('fetchEntityByAlias')->with('disciplines')->willReturn($disciplines);
-
-        $contact = new Lead();
-        $contact->setId(1);
-
-        $result = $this->resolver->resolve($contact, $this->campaign, 'disciplines', 'discstart');
-
-        $this->assertSame('21/09/2026', $result);
+        $this->assertSame('', $this->resolver->resolve($this->contact, new Campaign(), 'disciplina', 'nome'));
     }
 
-    public function testNoMatchingItemsResolvesToEmptyStringWithoutFetchingFieldValues(): void
+    public function testSegmentWithoutConditionsOnThisObjectResolvesEmptyAndLogsWarning(): void
     {
-        $qb = $this->setUpConditionAndQueryBuilder('lte', '+ 10 days');
+        $campaign = $this->campaignWithSegment([$this->contactFieldFilter(), $this->fieldFilter(9)]);
 
-        $emptyResult = $this->createMock(Result::class);
-        $emptyResult->method('fetchAllAssociative')->willReturn([]);
-        $qb->method('executeQuery')->willReturn($emptyResult);
+        $this->logger->expects($this->once())->method('warning');
+        $this->itemMatcher->expects($this->never())->method('fetchFieldValues');
 
-        $this->customObjectModel->expects($this->never())->method('fetchEntityByAlias');
+        $this->assertSame('', $this->resolver->resolve($this->contact, $campaign, 'disciplina', 'nome'));
+    }
 
-        $contact = new Lead();
-        $contact->setId(1);
+    public function testSegmentTheContactIsNotInIsIgnored(): void
+    {
+        $posicao  = $this->fieldFilter(2);
+        $campaign = $this->campaignWithSegment([$posicao]);
 
-        $this->assertSame('', $this->resolver->resolve($contact, $this->campaign, 'disciplines', 'discname'));
+        $this->itemMatcher = $this->createMock(SegmentItemMatcher::class);
+        $this->itemMatcher->method('isContactInSegment')->willReturn(false);
+        $this->itemMatcher->expects($this->never())->method('findPositiveItemIds');
+        $this->itemMatcher->expects($this->never())->method('fetchFieldValues');
+        $resolver = new CustomObjectVariableResolver($this->segmentFilterFactory, $this->itemMatcher, $this->customObjectModel, $this->logger);
+
+        $this->assertSame('', $resolver->resolve($this->contact, $campaign, 'disciplina', 'nome'));
+    }
+
+    public function testConditionsJoinedByAndMustAllMatchTheSameItem(): void
+    {
+        // posicao = 10 AND nome = 'xxxx': item 2 is the only one in both.
+        $posicao  = $this->fieldFilter(2);
+        $nome     = $this->fieldFilter(1);
+        $campaign = $this->campaignWithSegment([$posicao, $nome]);
+
+        $this->positiveMatches([[$posicao, [1, 2]], [$nome, [2, 3]]]);
+        $this->expectValuesFetchedFor([2], 'nome', ['xxxx']);
+
+        $this->assertSame('xxxx', $this->resolver->resolve($this->contact, $campaign, 'disciplina', 'nome'));
+    }
+
+    public function testAndConditionsWithNoCommonItemResolveEmpty(): void
+    {
+        $posicao  = $this->fieldFilter(2);
+        $nome     = $this->fieldFilter(1);
+        $campaign = $this->campaignWithSegment([$posicao, $nome]);
+
+        $this->positiveMatches([[$posicao, [1]], [$nome, [3]]]);
+        $this->itemMatcher->expects($this->never())->method('fetchFieldValues');
+
+        $this->assertSame('', $this->resolver->resolve($this->contact, $campaign, 'disciplina', 'nome'));
+    }
+
+    public function testOrGroupsAddTheirItemsTogether(): void
+    {
+        // (posicao = 10 AND nome = 'a') OR (posicao = 20)
+        $posicao10 = $this->fieldFilter(2);
+        $nomeA     = $this->fieldFilter(1);
+        $posicao20 = $this->fieldFilter(2, 'eq', 'or');
+        $campaign  = $this->campaignWithSegment([$posicao10, $nomeA, $posicao20]);
+
+        $this->positiveMatches([[$posicao10, [1, 2]], [$nomeA, [1]], [$posicao20, [4]]]);
+        $this->expectValuesFetchedFor([1, 4], 'nome', ['a', 'd']);
+
+        $this->assertSame('a<br>d', $this->resolver->resolve($this->contact, $campaign, 'disciplina', 'nome'));
+    }
+
+    public function testNegatedOperatorKeepsTheItemsThatDoNotMatchThePositiveCondition(): void
+    {
+        // posicao = 10 AND nome != 'x' — mirrors the segment's NOT EXISTS:
+        // for 'neq' the matcher returns the items WITH nome = 'x'.
+        $posicao  = $this->fieldFilter(2);
+        $nomeNeq  = $this->fieldFilter(1, 'neq');
+        $campaign = $this->campaignWithSegment([$posicao, $nomeNeq]);
+
+        $this->positiveMatches([[$posicao, [1, 2, 3]], [$nomeNeq, [2]]]);
+        $this->itemMatcher->method('findAllItemIds')->with($this->contact, self::OBJECT_ID)->willReturn([1, 2, 3, 4]);
+        $this->expectValuesFetchedFor([1, 3], 'nome', ['a', 'c']);
+
+        $this->assertSame('a<br>c', $this->resolver->resolve($this->contact, $campaign, 'disciplina', 'nome'));
+    }
+
+    public function testItemNameConditionOnThisObjectIsApplied(): void
+    {
+        $posicao  = $this->fieldFilter(2);
+        $itemName = $this->itemNameFilter(self::OBJECT_ID);
+        $campaign = $this->campaignWithSegment([$posicao, $itemName]);
+
+        $this->positiveMatches([[$posicao, [1, 2]], [$itemName, [2]]]);
+        $this->expectValuesFetchedFor([2], 'nome', ['b']);
+
+        $this->assertSame('b', $this->resolver->resolve($this->contact, $campaign, 'disciplina', 'nome'));
+    }
+
+    public function testConditionsOnOtherObjectsAndContactFieldsDoNotNarrowTheItems(): void
+    {
+        // email = ... AND otherObject.field = ... AND posicao = 10
+        $email      = $this->contactFieldFilter();
+        $otherField = $this->fieldFilter(9);
+        $otherName  = $this->itemNameFilter(99);
+        $posicao    = $this->fieldFilter(2);
+        $campaign   = $this->campaignWithSegment([$email, $otherField, $otherName, $posicao]);
+
+        $this->positiveMatches([[$posicao, [1, 2]]]);
+        $this->expectValuesFetchedFor([1, 2], 'nome', ['a', 'b']);
+
+        $this->assertSame('a<br>b', $this->resolver->resolve($this->contact, $campaign, 'disciplina', 'nome'));
+    }
+
+    public function testDateTargetFieldIsFormattedToBrazilianDate(): void
+    {
+        $posicao  = $this->fieldFilter(2);
+        $campaign = $this->campaignWithSegment([$posicao]);
+
+        $this->positiveMatches([[$posicao, [1]]]);
+        $this->expectValuesFetchedFor([1], 'inicio', ['2026-09-01']);
+
+        $this->assertSame('01/09/2026', $this->resolver->resolve($this->contact, $campaign, 'disciplina', 'inicio'));
+    }
+
+    public function testUnknownTargetFieldResolvesEmptyAndLogsWarning(): void
+    {
+        $posicao  = $this->fieldFilter(2);
+        $campaign = $this->campaignWithSegment([$posicao]);
+
+        $this->positiveMatches([[$posicao, [1]]]);
+        $this->logger->expects($this->once())->method('warning');
+        $this->itemMatcher->expects($this->never())->method('fetchFieldValues');
+
+        $this->assertSame('', $this->resolver->resolve($this->contact, $campaign, 'disciplina', 'naoexiste'));
     }
 }
