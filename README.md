@@ -44,9 +44,12 @@ Mautic autoloads plugins from `docroot/plugins/<PluginDirectoryName>` (or
    about a newly mounted plugin — skipping `cache:clear` means the plugin
    silently never shows up, with no error.
 
-   `mautic:plugins:install` also creates or updates the plugin's own table
-   (`n8n_dispatch_sms_templates`). Run it again after pulling a version that
-   bumps `version` in `Config/config.php`.
+   `mautic:plugins:install` also creates or updates the plugin's own tables
+   (`n8n_dispatch_sms_templates`, `n8n_dispatch_hsm_templates`) — including
+   adding/renaming a column on an existing table, via a narrow, explicit
+   `ALTER TABLE` (see `N8nDispatchBundle::onPluginUpdate()`'s own comment
+   for why it's not a full schema diff/update). Run it again after pulling
+   a version that bumps `version` in `Config/config.php`.
 
 3. In the Mautic UI, go to **Settings > Plugins**, find **N8n Dispatch**,
    open it and:
@@ -71,8 +74,9 @@ All calls go to the configured `webhook_url`; n8n tells them apart by the
 | Sync an Email template to Mirror on every save (UI or API) | automatic | `email.save` |
 | **Send via n8n (Email)** — pick a Mautic Email, map its `{{variables}}` | Campaign Action | `email.send` |
 | **Send via n8n (SMS)** — pick an SMS Template | Campaign Action | `sms.send` |
-| **Send via n8n (HSM)** — type the router and HSM id, add positional variables | Campaign Action | `hsm.send` |
+| **Send via n8n (HSM)** — pick an HSM Template | Campaign Action | `hsm.send` |
 | **SMS Templates (n8n)** — message text + variable mapping, reused by many campaigns | Channels menu | — |
+| **HSM Templates (n8n)** — router, WhatsApp-side template reference, send type, and `{{variable}}` mapping, reused by many campaigns | Channels menu | — |
 
 Each campaign step has a **status**: `test` (records the payload on the
 contact's Timeline without calling n8n), `production` (real call), or
@@ -82,8 +86,8 @@ Variables can come from a static value, a contact field, or a Custom Object
 field. For Custom Object fields, the item(s) used are the ones that match
 the campaign's source segment conditions on that object.
 
-The SMS Template edit page lists the campaigns using the template, and a
-template in use can't be deleted.
+Both template screens list the campaigns using the template on their edit
+page, and a template in use can't be deleted (singly or in a batch).
 
 Contacts on the Do Not Contact list for the channel are not sent to (SMS and
 HSM use the `sms` channel).
