@@ -45,11 +45,9 @@ Mautic autoloads plugins from `docroot/plugins/<PluginDirectoryName>` (or
    silently never shows up, with no error.
 
    `mautic:plugins:install` also creates or updates the plugin's own tables
-   (`n8n_dispatch_sms_templates`, `n8n_dispatch_hsm_templates`) — including
-   adding/renaming a column on an existing table, via a narrow, explicit
-   `ALTER TABLE` (see `N8nDispatchBundle::onPluginUpdate()`'s own comment
-   for why it's not a full schema diff/update). Run it again after pulling
-   a version that bumps `version` in `Config/config.php`.
+   (`n8n_dispatch_sms_templates`, `n8n_dispatch_hsm_templates`). Run it
+   again after pulling a version that bumps `version` in
+   `Config/config.php`.
 
 3. In the Mautic UI, go to **Settings > Plugins**, find **N8n Dispatch**,
    open it and:
