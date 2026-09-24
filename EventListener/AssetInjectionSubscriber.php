@@ -15,9 +15,10 @@ use Symfony\Component\EventDispatcher\EventSubscriberInterface;
  * 'page.header.left' (a context rendered on every admin page, not just
  * the campaign builder). Harmless elsewhere — the JS only defines
  * Mautic.n8nDispatch* functions, which nothing calls unless one of the
- * "Send via n8n (...)" campaign action forms is actually on the page,
- * and the CSS only styles .n8ndispatch-status-badge, rendered solely by
- * Resources/views/Event/_email_send.html.twig.
+ * SMS/HSM Template forms (or, for Email, the campaign action form) is
+ * actually on the page, and the CSS only styles
+ * .n8ndispatch-status-badge, rendered solely by Resources/views/Event/
+ * _email_send.html.twig.
  *
  * campaign-sms-dispatch.js and campaign-hsm-dispatch.js are injected
  * after campaign-email-dispatch.js, and depend on running after it —

@@ -62,16 +62,7 @@
 
     var DEFAULT_ENTRY = {source: 'static', value: '', field: '', customObject: '', customObjectField: ''};
 
-    // 'removable' is only used by campaign-hsm-dispatch.js: HSM has no
-    // text to (re)scan for {{variable}} names the way Email/SMS do, so a
-    // row added by hand there needs its own way to be taken back out —
-    // Email/SMS rows stay exactly as before (label + no button) since
-    // their names are always driven by the next scan, never edited by
-    // hand. A removable row skips the label line entirely (HSM's
-    // positions aren't a name worth labeling — see
-    // Form/Type/HsmDispatchActionType.php) and puts the trash button as
-    // its own leftmost column instead of next to a label, single line.
-    function variableRowHtml(name, existingEntry, fields, customObjects, removable) {
+    function variableRowHtml(name, existingEntry, fields, customObjects) {
         var entry  = mQuery.extend({}, DEFAULT_ENTRY, existingEntry || {});
         var source = entry.source || 'static';
 
@@ -101,30 +92,6 @@
             + customObjectFieldOptionsHtml(customObjects, entry.customObject, entry.customObjectField)
             + '</select>'
             + '</div>';
-
-        if (removable) {
-            // A fixed 33x33 square — 'btn-block' (width:100%) stretched it
-            // to the full, much narrower col-xs-1 width, squeezing it
-            // horizontally. Height/width are set explicitly (Mautic's own
-            // theme makes a plain '.btn' taller than the 33px
-            // '.form-control' fields it sits next to). Centering via
-            // flexbox (display/align-items/justify-content) rather than
-            // plain text-align — the icon kept drifting right under
-            // text-align alone, most likely Bootstrap's default .btn
-            // padding fighting it; flex directly centers the icon
-            // regardless of that.
-            var trashButton = '<button type="button" class="btn btn-danger n8ndispatch-var-remove" title="Remove" '
-                + 'style="height: 33px; width: 33px; padding: 0; display: flex; align-items: center; justify-content: center; color: #fff;">'
-                + '<i class="ri-delete-bin-line" style="color: #fff;"></i></button>';
-
-            return '<div class="form-group n8ndispatch-var-row" data-var-name="' + escapeHtml(name) + '">'
-                + '<div class="row">'
-                + '<div class="col-xs-1">' + trashButton + '</div>'
-                + '<div class="col-xs-4">' + sourceSelect + '</div>'
-                + '<div class="col-xs-7">' + valueBlock + '</div>'
-                + '</div>'
-                + '</div>';
-        }
 
         return '<div class="form-group n8ndispatch-var-row" data-var-name="' + escapeHtml(name) + '">'
             + '<label class="control-label">{{' + escapeHtml(name) + '}}</label>'
@@ -185,17 +152,17 @@
         });
     }
 
+    // getContainer/getHiddenField/variableRowHtml/syncHiddenField/
+    // wireVariableRowEvents used to be exposed here too, for
+    // campaign-hsm-dispatch.js's own hand-built (manually named,
+    // no-text-to-scan) variable rows. Removed along with that script when
+    // HSM moved to templates (Entity/HsmTemplate.php) and dropped its
+    // per-campaign variable picker outright — campaign-sms-dispatch.js,
+    // the only remaining consumer of this shared object, only ever needed
+    // clearVariables/renderVariablesFromResponse.
     Mautic.n8ndispatchShared = {
-        getContainer:                getContainer,
-        getHiddenField:              getHiddenField,
         clearVariables:              clearVariables,
         renderVariablesFromResponse: renderVariablesFromResponse,
-        // Exposed for campaign-hsm-dispatch.js, which builds/removes rows
-        // by hand (manually named variables, no text to scan) instead of
-        // replacing the whole set from one ajaxActionRequest response.
-        variableRowHtml:             variableRowHtml,
-        syncHiddenField:             syncHiddenField,
-        wireVariableRowEvents:       wireVariableRowEvents,
     };
 
     function wireVariableRowEvents($container, $hidden, customObjects) {
@@ -224,11 +191,6 @@
         $container.find(
             '.n8ndispatch-var-value, .n8ndispatch-var-field, .n8ndispatch-var-custom-object-field'
         ).on('keyup change', function () {
-            syncHiddenField($container, $hidden);
-        });
-
-        $container.find('.n8ndispatch-var-remove').on('click', function () {
-            mQuery(this).closest('.n8ndispatch-var-row').remove();
             syncHiddenField($container, $hidden);
         });
     }
