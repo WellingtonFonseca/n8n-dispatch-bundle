@@ -4,11 +4,23 @@ declare(strict_types=1);
 
 namespace MauticPlugin\N8nDispatchBundle\Controller;
 
+use Doctrine\Persistence\ManagerRegistry;
 use Mautic\CoreBundle\Controller\AbstractStandardFormController;
+use Mautic\CoreBundle\Factory\MauticFactory;
+use Mautic\CoreBundle\Factory\ModelFactory;
+use Mautic\CoreBundle\Helper\CoreParametersHelper;
+use Mautic\CoreBundle\Helper\UserHelper;
+use Mautic\CoreBundle\Security\Permissions\CorePermissions;
+use Mautic\CoreBundle\Service\FlashBag;
+use Mautic\CoreBundle\Translation\Translator;
+use Mautic\FormBundle\Helper\FormFieldHelper;
 use MauticPlugin\N8nDispatchBundle\Service\SmsTemplateUsageFinder;
+use Symfony\Component\EventDispatcher\EventDispatcherInterface;
+use Symfony\Component\Form\FormFactoryInterface;
 use Symfony\Component\HttpFoundation\JsonResponse;
 use Symfony\Component\HttpFoundation\RedirectResponse;
 use Symfony\Component\HttpFoundation\Request;
+use Symfony\Component\HttpFoundation\RequestStack;
 use Symfony\Component\HttpFoundation\Response;
 
 /**
@@ -18,15 +30,45 @@ use Symfony\Component\HttpFoundation\Response;
  * both views live in Resources/views/SmsTemplate.
  *
  * Two additions on top of the standard flow, both backed by
- * SmsTemplateUsageFinder (injected per action — Mautic's executeAction()
- * forwards to these methods, so Symfony autowires service arguments):
+ * SmsTemplateUsageFinder:
  * - the edit page lists the campaigns whose SMS steps use the template;
  * - a template still used by a campaign can't be deleted, since those
  *   steps would then fail on every send.
+ *
+ * SmsTemplateUsageFinder is constructor-injected, not action-method-
+ * injected: AbstractStandardFormController::cloneStandard() calls
+ * `$this->editAction($request, $newEntity, true)` as a direct PHP call,
+ * not through Symfony's routing (that only happens for the normal
+ * edit/new HTTP requests, via executeAction()'s forward()). A
+ * SmsTemplateUsageFinder $usageFinder parameter on editAction() worked
+ * for those, but broke that direct call — the cloned entity landed in the
+ * $usageFinder slot instead, throwing a TypeError. Keeping editAction()'s
+ * signature identical to core's (Request, $objectId, $ignorePost) avoids
+ * that mismatch.
  */
 class SmsTemplateController extends AbstractStandardFormController
 {
-    private ?SmsTemplateUsageFinder $usageFinder = null;
+    private readonly SmsTemplateUsageFinder $usageFinder;
+
+    public function __construct(
+        FormFactoryInterface $formFactory,
+        FormFieldHelper $fieldHelper,
+        ManagerRegistry $managerRegistry,
+        MauticFactory $factory,
+        ModelFactory $modelFactory,
+        UserHelper $userHelper,
+        CoreParametersHelper $coreParametersHelper,
+        EventDispatcherInterface $dispatcher,
+        Translator $translator,
+        FlashBag $flashBag,
+        RequestStack $requestStack,
+        CorePermissions $security,
+        SmsTemplateUsageFinder $usageFinder
+    ) {
+        parent::__construct($formFactory, $fieldHelper, $managerRegistry, $factory, $modelFactory, $userHelper, $coreParametersHelper, $dispatcher, $translator, $flashBag, $requestStack, $security);
+
+        $this->usageFinder = $usageFinder;
+    }
 
     protected function getTemplateBase(): string
     {
@@ -59,10 +101,8 @@ class SmsTemplateController extends AbstractStandardFormController
     /**
      * @return JsonResponse|Response
      */
-    public function editAction(Request $request, SmsTemplateUsageFinder $usageFinder, $objectId, $ignorePost = false)
+    public function editAction(Request $request, $objectId, $ignorePost = false)
     {
-        $this->usageFinder = $usageFinder;
-
         return parent::editStandard($request, $objectId, $ignorePost);
     }
 
@@ -77,12 +117,12 @@ class SmsTemplateController extends AbstractStandardFormController
     /**
      * @return JsonResponse|RedirectResponse
      */
-    public function deleteAction(Request $request, SmsTemplateUsageFinder $usageFinder, $objectId)
+    public function deleteAction(Request $request, $objectId)
     {
         $template = $this->getModel($this->getModelName())->getEntity($objectId);
 
         if ('POST' === $request->getMethod() && null !== $template && null !== $template->getId()) {
-            $usages = $usageFinder->findUsages((int) $template->getId());
+            $usages = $this->usageFinder->findUsages((int) $template->getId());
 
             if ([] !== $usages) {
                 $page = $request->getSession()->get('mautic.'.$this->getSessionBase().'.page', 1);
@@ -103,7 +143,7 @@ class SmsTemplateController extends AbstractStandardFormController
     /**
      * @return JsonResponse|RedirectResponse
      */
-    public function batchDeleteAction(Request $request, SmsTemplateUsageFinder $usageFinder)
+    public function batchDeleteAction(Request $request)
     {
         if ('POST' === $request->getMethod()) {
             $deletable = [];
@@ -111,7 +151,7 @@ class SmsTemplateController extends AbstractStandardFormController
             // Templates still in use are dropped from the batch (with an
             // error each); the rest go through the standard batch delete.
             foreach ((array) json_decode((string) $request->query->get('ids', ''), true) as $objectId) {
-                if (!$usageFinder->isInUse((int) $objectId)) {
+                if (!$this->usageFinder->isInUse((int) $objectId)) {
                     $deletable[] = $objectId;
 
                     continue;
@@ -130,13 +170,11 @@ class SmsTemplateController extends AbstractStandardFormController
     protected function getViewArguments(array $args, $action): array
     {
         if ('edit' === $action) {
-            if (null !== $this->usageFinder) {
-                $template = $args['viewParameters']['entity'] ?? null;
+            $template = $args['viewParameters']['entity'] ?? null;
 
-                $args['viewParameters']['campaignUsages'] = null !== $template && null !== $template->getId()
-                    ? $this->usageFinder->findUsages((int) $template->getId())
-                    : [];
-            }
+            $args['viewParameters']['campaignUsages'] = null !== $template && null !== $template->getId()
+                ? $this->usageFinder->findUsages((int) $template->getId())
+                : [];
 
             // Same 'permissions' array shape as AbstractStandardFormController::
             // indexStandard() — the edit view's Clone/Delete options dropdown
