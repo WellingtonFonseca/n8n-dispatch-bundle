@@ -129,12 +129,26 @@ class SmsTemplateController extends AbstractStandardFormController
 
     protected function getViewArguments(array $args, $action): array
     {
-        if ('edit' === $action && null !== $this->usageFinder) {
-            $template = $args['viewParameters']['entity'] ?? null;
+        if ('edit' === $action) {
+            if (null !== $this->usageFinder) {
+                $template = $args['viewParameters']['entity'] ?? null;
 
-            $args['viewParameters']['campaignUsages'] = null !== $template && null !== $template->getId()
-                ? $this->usageFinder->findUsages((int) $template->getId())
-                : [];
+                $args['viewParameters']['campaignUsages'] = null !== $template && null !== $template->getId()
+                    ? $this->usageFinder->findUsages((int) $template->getId())
+                    : [];
+            }
+
+            // Same 'permissions' array shape as AbstractStandardFormController::
+            // indexStandard() — the edit view's Clone/Delete options dropdown
+            // (form.html.twig's 'actions' block) needs it the same way.
+            $args['viewParameters']['permissions'] = $this->security->isGranted(
+                [
+                    $this->getPermissionBase().':create',
+                    $this->getPermissionBase().':deleteown',
+                    $this->getPermissionBase().':deleteother',
+                ],
+                'RETURN_ARRAY'
+            );
         }
 
         return $args;
