@@ -44,10 +44,11 @@ class N8nDispatchBundle extends PluginBundleBase
         // (SchemaTool::createSchemaForComparison() only narrows that scope
         // when a schema_assets_filter is already configured) and could
         // emit DROP statements for every other table it doesn't know
-        // about. So a field added to an *existing* table (like 'type'
-        // here) gets its own narrow, explicit, single-column ALTER
-        // instead — installs new enough to get the column for free via
-        // the CREATE above skip this (hasColumn() is already true).
+        // about. So a field added to, or renamed on, an *existing* table
+        // (like 'type' and 'hsm_id'->'hsm_template' below) gets its own
+        // narrow, explicit, single-column ALTER instead — installs new
+        // enough to get the column right from the CREATE above skip
+        // these (hasColumn()/hasTable() are already as expected).
         if ($installedSchema instanceof Schema && $installedSchema->hasTable(HsmTemplate::TABLE_NAME)) {
             $table = $installedSchema->getTable(HsmTemplate::TABLE_NAME);
 
@@ -55,6 +56,16 @@ class N8nDispatchBundle extends PluginBundleBase
                 $factory->getDatabase()->executeQuery(
                     'ALTER TABLE '.HsmTemplate::TABLE_NAME
                     ." ADD COLUMN type VARCHAR(191) NOT NULL DEFAULT '".HsmTemplate::TYPE_TEXT."'"
+                );
+            }
+
+            // 'hsmId' renamed to 'hsmTemplate' (the field is the
+            // WhatsApp-side template descriptor string, not an id) — an
+            // install that already has the old column gets it renamed in
+            // place, keeping whatever rows it already has.
+            if ($table->hasColumn('hsm_id') && !$table->hasColumn('hsm_template')) {
+                $factory->getDatabase()->executeQuery(
+                    'ALTER TABLE '.HsmTemplate::TABLE_NAME.' RENAME COLUMN hsm_id TO hsm_template'
                 );
             }
         }

@@ -10,9 +10,12 @@ use Doctrine\ORM\EntityManagerInterface;
  * Finds the campaigns whose "Send via n8n (HSM)" steps point at an
  * HsmTemplate: listed on the template's edit page, and used to refuse
  * deleting a template that is still in use. Same mechanism as Service/
- * SmsTemplateUsageFinder.php, just against the 'hsmTemplate' properties
- * key and the 'n8ndispatch.hsm.send' event type — see that class's own
- * docblock for why matching happens in PHP instead of SQL.
+ * SmsTemplateUsageFinder.php, just against the 'hsmTemplateId' properties
+ * key (Form/Type/HsmDispatchActionType.php's own field — which
+ * HsmTemplate *entity* a campaign picked, an int; not to be confused
+ * with that entity's own 'hsmTemplate' field, a string) and the
+ * 'n8ndispatch.hsm.send' event type — see that class's own docblock for
+ * why matching happens in PHP instead of SQL.
  */
 class HsmTemplateUsageFinder
 {
@@ -59,7 +62,7 @@ class HsmTemplateUsageFinder
         foreach ($rows as $row) {
             $properties = @unserialize((string) $row['properties'], ['allowed_classes' => false]);
 
-            if (!is_array($properties) || (int) ($properties['hsmTemplate'] ?? 0) !== $templateId) {
+            if (!is_array($properties) || (int) ($properties['hsmTemplateId'] ?? 0) !== $templateId) {
                 continue;
             }
 

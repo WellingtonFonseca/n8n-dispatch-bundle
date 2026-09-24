@@ -146,7 +146,7 @@ class HsmCampaignTriggerSubscriberTest extends TestCase
                 'contact_inst_alias'             => '',
                 'status'                         => 'test',
                 'hsm_router'                     => 'r1',
-                'hsm_id'                         => 'h1',
+                'hsm_template'                   => 'h1',
                 'hsm_type'                       => HsmTemplate::TYPE_TEXT,
                 'variables'                      => ['nome' => 'Wellington'],
             ],
@@ -265,7 +265,7 @@ class HsmCampaignTriggerSubscriberTest extends TestCase
                     $this->assertSame('secret-token', $options['headers']['X-N8n-Dispatch-Token']);
                     $this->assertSame('production', $options['json']['status']);
                     $this->assertSame('r1', $options['json']['hsm_router']);
-                    $this->assertSame('h1', $options['json']['hsm_id']);
+                    $this->assertSame('h1', $options['json']['hsm_template']);
                     $this->assertSame(HsmTemplate::TYPE_TEXT, $options['json']['hsm_type']);
                     $this->assertSame('+5511999999999', $options['json']['contact_phone']);
                     $this->assertSame(['nome' => 'Wellington'], $options['json']['variables']);
@@ -378,11 +378,11 @@ class HsmCampaignTriggerSubscriberTest extends TestCase
         $this->assertSame(['logSendHsmId' => 4242], $metadata['n8ndispatch']['response']);
     }
 
-    public function testTemplateRouterHsmIdTypeAndVariablesAreUsedInsteadOfTheEventsOwnProperties(): void
+    public function testTemplateRouterHsmTemplateTypeAndVariablesAreUsedInsteadOfTheEventsOwnProperties(): void
     {
         $template = new HsmTemplate();
         $template->setRouter('router-from-template');
-        $template->setHsmId('hsm-from-template');
+        $template->setHsmTemplate('hsm-from-template');
         // A value TYPE_TEXT/the default wouldn't distinguish "read from
         // the template" from "always defaults to text" — the entity
         // itself doesn't restrict setType() to today's single UI choice.
@@ -408,10 +408,10 @@ class HsmCampaignTriggerSubscriberTest extends TestCase
         // Leftover inline 'router'/'hsmId' from before the template was
         // picked must be ignored once a template is set.
         $pendingEvent = $this->buildPendingEvent([
-            'hsmTemplate' => '7',
-            'router'      => 'old-inline-router',
-            'hsmId'       => 'old-inline-hsm-id',
-            'status'      => 'test',
+            'hsmTemplateId' => '7',
+            'router'        => 'old-inline-router',
+            'hsmId'         => 'old-inline-hsm-id',
+            'status'        => 'test',
         ]);
 
         $subscriber->onHsmSend($pendingEvent);
@@ -422,7 +422,7 @@ class HsmCampaignTriggerSubscriberTest extends TestCase
         $passedLog = $successful->first();
         $payload   = $passedLog->getMetadata()['n8ndispatch'];
         $this->assertSame('router-from-template', $payload['hsm_router']);
-        $this->assertSame('hsm-from-template', $payload['hsm_id']);
+        $this->assertSame('hsm-from-template', $payload['hsm_template']);
         $this->assertSame('image', $payload['hsm_type']);
         $this->assertSame(['nome' => 'bar'], $payload['variables']);
     }
@@ -432,7 +432,7 @@ class HsmCampaignTriggerSubscriberTest extends TestCase
         $this->hsmTemplateModel->method('getEntity')->with(7)->willReturn(null);
         $this->httpClient->expects($this->never())->method('request');
 
-        $pendingEvent = $this->buildPendingEvent(['hsmTemplate' => '7', 'status' => 'production']);
+        $pendingEvent = $this->buildPendingEvent(['hsmTemplateId' => '7', 'status' => 'production']);
 
         $this->subscriber->onHsmSend($pendingEvent);
 
@@ -443,7 +443,7 @@ class HsmCampaignTriggerSubscriberTest extends TestCase
         $this->assertSame('N8nDispatch: HSM template #7 not found.', $failedLog->getFailedLog()->getReason());
     }
 
-    public function testEventWithoutTemplateStillUsesItsOwnInlineRouterAndHsmId(): void
+    public function testEventWithoutTemplateStillUsesItsOwnInlineRouterAndHsmTemplate(): void
     {
         $this->hsmTemplateModel->expects($this->never())->method('getEntity');
 
@@ -455,7 +455,7 @@ class HsmCampaignTriggerSubscriberTest extends TestCase
         $passedLog = $pendingEvent->getSuccessful()->first();
         $payload   = $passedLog->getMetadata()['n8ndispatch'];
         $this->assertSame('r1', $payload['hsm_router']);
-        $this->assertSame('h1', $payload['hsm_id']);
+        $this->assertSame('h1', $payload['hsm_template']);
         // 'type' never existed as an inline Campaign Action field, so a
         // pre-template event always defaults to HsmTemplate::TYPE_TEXT.
         $this->assertSame(HsmTemplate::TYPE_TEXT, $payload['hsm_type']);
