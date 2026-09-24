@@ -13,14 +13,16 @@ use Symfony\Component\Validator\Constraints\NotBlank;
 /**
  * Campaign Action form for "Send via n8n (HSM)": the 'status' dropdown
  * (same 'test'/'production'/'paused' rationale as
- * EmailDispatchActionType's docblock) plus a picker for which HsmTemplate
- * to send. 'router' and 'hsmId' — and the per-campaign positional
- * ($1, $2, ...) variable picker that used to sit right here — used to
- * live on this form; they now live on the template (Entity/
- * HsmTemplate.php, edited under Channels > HSM Templates (n8n)) so one
- * template can serve several campaigns and is edited in one place. The
- * variable picker was dropped outright, not moved. Only the template's
- * id is stored on the event, as 'hsmTemplate' —
+ * EmailDispatchActionType's docblock) plus 'hsmTemplateId', a picker for
+ * which HsmTemplate *entity* to send (an int — not to be confused with
+ * that entity's own 'hsmTemplate' field, Entity/HsmTemplate.php's
+ * WhatsApp-side template descriptor string). 'router' and 'hsmTemplate'
+ * (that string) — and the per-campaign positional ($1, $2, ...) variable
+ * picker that used to sit right here — used to live on this form; they
+ * now live on the template (edited under Channels > HSM Templates
+ * (n8n)) so one template can serve several campaigns and is edited in
+ * one place. The variable picker was dropped outright, not moved. Only
+ * the template's id is stored on the event, as 'hsmTemplateId' —
  * HsmCampaignTriggerSubscriber loads the template itself at dispatch
  * time. Same shape as Form/Type/SmsDispatchActionType.php's own
  * post-template-screen form.
@@ -55,13 +57,13 @@ class HsmDispatchActionType extends AbstractType
         );
 
         $builder->add(
-            'hsmTemplate',
+            'hsmTemplateId',
             ChoiceType::class,
             [
-                'label'       => 'mautic.n8ndispatch.campaign.event.hsm.template',
+                'label'       => 'mautic.n8ndispatch.campaign.event.hsm.template_id',
                 'label_attr'  => ['class' => 'control-label'],
                 'choices'     => $this->hsmTemplateModel->getRepository()->getPublishedChoices(),
-                'placeholder' => 'mautic.n8ndispatch.campaign.event.hsm.template.placeholder',
+                'placeholder' => 'mautic.n8ndispatch.campaign.event.hsm.template_id.placeholder',
                 'required'    => true,
                 'attr'        => [
                     'class' => 'form-control',

@@ -13,17 +13,21 @@ use Symfony\Component\Validator\Mapping\ClassMetadata;
 /**
  * A reusable WhatsApp HSM template reference for the "Send via n8n
  * (HSM)" Campaign Action: which WhatsApp line dispatches it ('router'),
- * which HSM template to send ('hsmId'), and — same shape as Entity/
- * SmsTemplate.php's own 'text'/'variablesJson' — a 'text' field the user
- * types the template's copy into (with {{name}} placeholders) purely to
- * declare and map its variables, plus 'variablesJson', their source
- * mapping. 'text' is never sent anywhere: WhatsApp already has the real
- * template registered on its side, addressed by 'hsmId'; it exists only
- * so the same {{name}}-scanning mechanism Email/SMS use
+ * the WhatsApp-side template descriptor to send ('hsmTemplate' — a
+ * string, e.g. "lembrete_aula_v1"; not to be confused with
+ * Form/Type/HsmDispatchActionType.php's 'hsmTemplateId', the Campaign
+ * Action's own field for *which HsmTemplate entity* — this one — a
+ * campaign picks, an int), and — same shape as Entity/SmsTemplate.php's
+ * own 'text'/'variablesJson' — a 'text' field the user types the
+ * template's copy into (with {{name}} placeholders) purely to declare
+ * and map its variables, plus 'variablesJson', their source mapping.
+ * 'text' is never sent anywhere: WhatsApp already has the real template
+ * registered on its side, addressed by 'hsmTemplate'; it exists only so
+ * the same {{name}}-scanning mechanism Email/SMS use
  * (Controller/AjaxController.php, Assets/js/campaign-hsm-dispatch.js) can
  * drive this screen's variable-source picker too, replacing the
  * positional ($1, $2, ...) picker that used to live on the Campaign
- * Action's own form and was dropped when router/hsmId moved here.
+ * Action's own form and was dropped when router/hsmTemplate moved here.
  *
  * The table is created by N8nDispatchBundle::onPluginUpdate() on the
  * version bump that introduces it — this plugin was already installed
@@ -51,7 +55,7 @@ class HsmTemplate extends FormEntity
 
     private ?string $router = null;
 
-    private ?string $hsmId = null;
+    private ?string $hsmTemplate = null;
 
     private ?string $text = null;
 
@@ -99,7 +103,7 @@ class HsmTemplate extends FormEntity
             ->build();
 
         $builder->addNamedField('router', 'string', 'router');
-        $builder->addNamedField('hsmId', 'string', 'hsm_id');
+        $builder->addNamedField('hsmTemplate', 'string', 'hsm_template');
         $builder->addField('text', 'text');
         $builder->addNamedField('variablesJson', 'text', 'variables_json', true);
     }
@@ -118,7 +122,7 @@ class HsmTemplate extends FormEntity
             'message' => 'mautic.core.value.required',
         ]));
 
-        $metadata->addPropertyConstraint('hsmId', new Assert\NotBlank([
+        $metadata->addPropertyConstraint('hsmTemplate', new Assert\NotBlank([
             'message' => 'mautic.core.value.required',
         ]));
 
@@ -184,15 +188,15 @@ class HsmTemplate extends FormEntity
         return $this;
     }
 
-    public function getHsmId(): ?string
+    public function getHsmTemplate(): ?string
     {
-        return $this->hsmId;
+        return $this->hsmTemplate;
     }
 
-    public function setHsmId(?string $hsmId): self
+    public function setHsmTemplate(?string $hsmTemplate): self
     {
-        $this->isChanged('hsmId', $hsmId);
-        $this->hsmId = $hsmId;
+        $this->isChanged('hsmTemplate', $hsmTemplate);
+        $this->hsmTemplate = $hsmTemplate;
 
         return $this;
     }
