@@ -39,6 +39,24 @@ class SmsTemplate extends FormEntity
     private ?string $variablesJson = null;
 
     /**
+     * Same pattern as every other clonable core entity (e.g. PointBundle's
+     * Trigger, EmailBundle's Email): FormEntity::__clone() resets the
+     * publish/audit fields it owns, but knows nothing about this class's
+     * own $id — left alone, `clone $entity` keeps the original row's id.
+     * Doctrine then sees a non-empty id on an unmanaged entity and treats
+     * it as *detached* rather than *new* (its id generator isn't
+     * "natural" — see UnitOfWork::getEntityState()), so persist() on Save
+     * throws instead of inserting a new row: Clone opens the form fine,
+     * but Save silently does nothing.
+     */
+    public function __clone()
+    {
+        $this->id = null;
+
+        parent::__clone();
+    }
+
+    /**
      * @param ORM\ClassMetadata<SmsTemplate> $metadata
      */
     public static function loadMetadata(ORM\ClassMetadata $metadata): void
