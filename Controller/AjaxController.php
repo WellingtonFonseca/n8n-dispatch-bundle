@@ -76,20 +76,22 @@ class AjaxController extends CommonAjaxController
     }
 
     /**
-     * Backs the "Send via n8n (HSM)" action form. No 'variables' key —
-     * HSM has no template text in Mautic at all (Form/Type/
-     * HsmDispatchActionType.php's own docblock has the full reasoning), so
-     * there's nothing here to scan; the campaign builder's JS only needs
-     * this call once per form-open, to get 'fields'/'customObjects' ready
-     * before the user starts adding variables by hand.
+     * Backs the HSM Template form (Form/Type/HsmTemplateType.php). Same
+     * shape as getSmsVariablesAction() in every respect — see that one's
+     * own docblock.
      */
-    public function getHsmContextAction(FieldModel $fieldModel, CustomObjectModel $customObjectModel): JsonResponse
-    {
-        return $this->sendJsonResponse([
-            'success'       => 1,
-            'fields'        => $fieldModel->getFieldList(false),
-            'customObjects' => $this->buildCustomObjectsList($customObjectModel),
-        ]);
+    public function getHsmVariablesAction(
+        Request $request,
+        FieldModel $fieldModel,
+        CustomObjectModel $customObjectModel,
+    ): JsonResponse {
+        $text = (string) $request->request->get('text', $request->query->get('text', ''));
+
+        $fields        = $fieldModel->getFieldList(false);
+        $customObjects = $this->buildCustomObjectsList($customObjectModel);
+        $variables     = $this->extractMappableVariables($text);
+
+        return $this->sendJsonResponse(['success' => 1, 'variables' => $variables, 'fields' => $fields, 'customObjects' => $customObjects]);
     }
 
     /**

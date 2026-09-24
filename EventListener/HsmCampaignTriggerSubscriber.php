@@ -11,7 +11,9 @@ use Mautic\LeadBundle\Entity\DoNotContact;
 use Mautic\LeadBundle\Entity\Lead;
 use Mautic\LeadBundle\Model\DoNotContact as DncModel;
 use Mautic\PluginBundle\Helper\IntegrationHelper;
+use MauticPlugin\N8nDispatchBundle\Entity\HsmTemplate;
 use MauticPlugin\N8nDispatchBundle\Integration\N8nDispatchIntegration;
+use MauticPlugin\N8nDispatchBundle\Model\HsmTemplateModel;
 use MauticPlugin\N8nDispatchBundle\N8nDispatchEvents;
 use MauticPlugin\N8nDispatchBundle\Resolver\VariableResolver;
 use Psr\Log\LoggerInterface;
@@ -25,13 +27,24 @@ use Symfony\Contracts\HttpClient\HttpClientInterface;
  * the full 'test'/'production'/'paused' rationale, reused here as-is.
  *
  * Differences from both of those:
- * - No text/message at all — HSM has no Mautic-side template content,
- *   only a 'router' (which WhatsApp line sends it) and 'hsmId' (which
- *   template), both plain values the user typed into the form
- *   (Form/Type/HsmDispatchActionType.php). 'variables' is resolved and
- *   sent as-is, for n8n/WhatsApp to fill into the template itself — there
- *   is no local substitution step the way SMS's 'message' needed, since
- *   there's no local text to substitute into.
+ * - No message text sent anywhere — HSM has no Mautic-side template
+ *   content, WhatsApp already has the real template on its side. But
+ *   'router', 'hsmId', 'type' (WhatsApp send shape — text, image,
+ *   carousel, ...; see Entity/HsmTemplate.php's own TYPE_TEXT docblock),
+ *   and 'variables' (resolved from the template's own {{name}}-mapped
+ *   'variablesJson', same convention Email/SMS use — see that entity's
+ *   own docblock for why it carries a 'text' field despite never sending
+ *   it) all come from the HsmTemplate the event points at ('hsmTemplate'
+ *   property), read fresh on every run so an edit to the template
+ *   reaches every campaign using it — same reasoning as
+ *   SmsCampaignTriggerSubscriber's own move. Events saved before
+ *   templates existed have no 'hsmTemplate' and still carry their own
+ *   inline 'router'/'hsmId'/'variablesJson' (and, since 'type' never
+ *   existed as an inline field, always default to
+ *   HsmTemplate::TYPE_TEXT) — those keep working as-is until the event
+ *   is re-saved with a template picked. Replaces the positional
+ *   ($1, $2, ...) variable picker this action's own form used to have,
+ *   dropped when router/hsmId/variables all moved onto the template.
  * - No native Mautic history entity: unlike Email (Stat/email_stats) and
  *   SMS (Stat/sms_message_stats), Mautic core has no HSM/WhatsApp bundle
  *   at all to hook a Stat into (see the plugin's original architecture
@@ -46,12 +59,19 @@ class HsmCampaignTriggerSubscriber implements EventSubscriberInterface
     private const CONTEXT = 'n8ndispatch.hsm.send';
     private const ACTION  = 'hsm.send';
 
+    // Joins a Custom Object variable's values when several items match —
+    // same reasoning as SmsCampaignTriggerSubscriber's own constant:
+    // WhatsApp messages are plain text too, so '<br>' would show up
+    // literally.
+    private const MULTI_VALUE_SEPARATOR = ', ';
+
     public function __construct(
         private IntegrationHelper $integrationHelper,
         private HttpClientInterface $httpClient,
         private LoggerInterface $logger,
         private VariableResolver $variableResolver,
         private DncModel $dncModel,
+        private HsmTemplateModel $hsmTemplateModel,
     ) {
     }
 
@@ -68,12 +88,34 @@ class HsmCampaignTriggerSubscriber implements EventSubscriberInterface
             return;
         }
 
-        $config          = $event->getEvent()->getProperties();
-        $campaign        = $event->getEvent()->getCampaign();
-        $router          = (string) ($config['router'] ?? '');
-        $hsmId           = (string) ($config['hsmId'] ?? '');
-        $status          = (string) ($config['status'] ?? 'test');
-        $variablesConfig = json_decode((string) ($config['variablesJson'] ?? '{}'), true);
+        $config        = $event->getEvent()->getProperties();
+        $campaign      = $event->getEvent()->getCampaign();
+        $status        = (string) ($config['status'] ?? 'test');
+        $router        = (string) ($config['router'] ?? '');
+        $hsmId         = (string) ($config['hsmId'] ?? '');
+        $hsmType       = HsmTemplate::TYPE_TEXT;
+        $variablesJson = (string) ($config['variablesJson'] ?? '{}');
+        $templateId    = (int) ($config['hsmTemplate'] ?? 0);
+
+        if ($templateId > 0) {
+            $template = $this->hsmTemplateModel->getEntity($templateId);
+
+            // Checked before the status branch on purpose: a deleted
+            // template is a configuration error worth surfacing in 'test'
+            // too, not only once the step is flipped to 'production'.
+            if (null === $template) {
+                $event->failAll('N8nDispatch: HSM template #'.$templateId.' not found.');
+
+                return;
+            }
+
+            $router        = (string) $template->getRouter();
+            $hsmId         = (string) $template->getHsmId();
+            $hsmType       = $template->getType();
+            $variablesJson = (string) ($template->getVariablesJson() ?? '{}');
+        }
+
+        $variablesConfig = json_decode($variablesJson, true);
         $variablesConfig = is_array($variablesConfig) ? $variablesConfig : [];
 
         if ('test' === $status || 'paused' === $status) {
@@ -81,7 +123,7 @@ class HsmCampaignTriggerSubscriber implements EventSubscriberInterface
                 /** @var LeadEventLog $log */
                 $log = $event->getPending()->get($logId);
 
-                $this->recordWithoutDispatch($event, $log, $contact, $campaign, $router, $hsmId, $status, $variablesConfig);
+                $this->recordWithoutDispatch($event, $log, $contact, $campaign, $router, $hsmId, $hsmType, $status, $variablesConfig);
             }
 
             return;
@@ -118,7 +160,7 @@ class HsmCampaignTriggerSubscriber implements EventSubscriberInterface
             /** @var LeadEventLog $log */
             $log = $event->getPending()->get($logId);
 
-            $this->dispatchToContact($event, $log, $contact, $campaign, $router, $hsmId, $status, $variablesConfig, $webhookUrl, $headers);
+            $this->dispatchToContact($event, $log, $contact, $campaign, $router, $hsmId, $hsmType, $status, $variablesConfig, $webhookUrl, $headers);
         }
     }
 
@@ -133,6 +175,7 @@ class HsmCampaignTriggerSubscriber implements EventSubscriberInterface
         Campaign $campaign,
         string $router,
         string $hsmId,
+        string $hsmType,
         string $status,
         array $variablesConfig,
         string $webhookUrl,
@@ -162,8 +205,8 @@ class HsmCampaignTriggerSubscriber implements EventSubscriberInterface
             return;
         }
 
-        $variables = $this->variableResolver->resolveAll($variablesConfig, $contact, $campaign);
-        $payload   = $this->buildPayload($contact, $phone, $router, $hsmId, $status, $variables);
+        $variables = $this->variableResolver->resolveAll($variablesConfig, $contact, $campaign, self::MULTI_VALUE_SEPARATOR);
+        $payload   = $this->buildPayload($contact, $phone, $router, $hsmId, $hsmType, $status, $variables);
 
         try {
             $response = $this->httpClient->request('POST', $webhookUrl, [
@@ -218,11 +261,12 @@ class HsmCampaignTriggerSubscriber implements EventSubscriberInterface
         Campaign $campaign,
         string $router,
         string $hsmId,
+        string $hsmType,
         string $status,
         array $variablesConfig,
     ): void {
-        $variables = $this->variableResolver->resolveAll($variablesConfig, $contact, $campaign);
-        $payload   = $this->buildPayload($contact, (string) $contact->getPhone(), $router, $hsmId, $status, $variables);
+        $variables = $this->variableResolver->resolveAll($variablesConfig, $contact, $campaign, self::MULTI_VALUE_SEPARATOR);
+        $payload   = $this->buildPayload($contact, (string) $contact->getPhone(), $router, $hsmId, $hsmType, $status, $variables);
 
         $log->appendToMetadata(['n8ndispatch' => $payload]);
 
@@ -234,7 +278,7 @@ class HsmCampaignTriggerSubscriber implements EventSubscriberInterface
      *
      * @return array<string, mixed>
      */
-    private function buildPayload(Lead $contact, string $phone, string $router, string $hsmId, string $status, array $variables): array
+    private function buildPayload(Lead $contact, string $phone, string $router, string $hsmId, string $hsmType, string $status, array $variables): array
     {
         return [
             'contact_id'                    => $contact->getId(),
@@ -249,6 +293,7 @@ class HsmCampaignTriggerSubscriber implements EventSubscriberInterface
             'status'                        => $status,
             'hsm_router'                    => $router,
             'hsm_id'                        => $hsmId,
+            'hsm_type'                      => $hsmType,
             'variables'                     => $variables,
         ];
     }

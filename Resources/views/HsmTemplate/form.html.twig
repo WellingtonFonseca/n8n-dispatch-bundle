@@ -1,34 +1,22 @@
 {% extends '@MauticCore/Default/content.html.twig' %}
 
-{% block mauticContent %}n8ndispatch.smstemplate{% endblock %}
+{% block mauticContent %}n8ndispatch.hsmtemplate{% endblock %}
 
 {% block headerTitle %}
     {% if entity.id %}
-        {{ 'mautic.n8ndispatch.smstemplate.menu.edit'|trans({'%name%': entity.name}) }}
+        {{ 'mautic.n8ndispatch.hsmtemplate.menu.edit'|trans({'%name%': entity.name}) }}
     {% else %}
-        {{ 'mautic.n8ndispatch.smstemplate.menu.new'|trans }}
+        {{ 'mautic.n8ndispatch.hsmtemplate.menu.new'|trans }}
     {% endif %}
 {% endblock %}
 
 {#
   Options dropdown with Clone/Delete, both inside the dropdown, pushed to
-  the far right past the Save/Apply/Cancel buttons.
-
-  Can't reuse @MauticCore/Helper/page_actions.html.twig as-is: its
-  TYPE_BUTTON_DROPDOWN group type always keeps at least one button outside
-  the dropdown (CoreBundle's ButtonHelper::orderButtons() — "show at least
-  one button"), so Clone would render as a flat button next to the arrow
-  instead of inside it. Built the same way core's own
-  @MauticCore/Helper/list_actions.html.twig does it (the per-row dropdown
-  on the SMS Templates list): TYPE_DROPDOWN puts every button added via
-  buttonAdd() inside the <ul> as an <li>, none left outside.
-
-  .n8ndispatch-template-actions (campaign-status-badge.css) gives the
-  wrapper `order: 1`. #toolbar (core's pageheader.html.twig) is a flex row
-  packed to the right edge in DOM order — actions, then
-  .toolbar-bundle-buttons, then .toolbar-form-buttons (Save/Apply/Cancel) —
-  so without the CSS override this dropdown would sit left of those
-  buttons instead of at the far right like Contact/Email's own dropdowns.
+  the far right past the Save/Apply/Cancel buttons. Identical to
+  Resources/views/SmsTemplate/form.html.twig's own 'actions' block — see
+  that file's comment for the full reasoning (TYPE_DROPDOWN vs.
+  page_actions.html.twig's TYPE_BUTTON_DROPDOWN, and the 'order'/'ml-xs'
+  positioning).
 #}
 {% block actions %}
     {% if entity.id %}
@@ -41,7 +29,7 @@
         {% if permissions['sms:smses:create'] %}
             {{ buttonAdd({
                 attr: {
-                    'href'        : path('mautic_n8ndispatch.smstemplate_action', {'objectAction': 'clone', 'objectId': entity.getId()}),
+                    'href'        : path('mautic_n8ndispatch.hsmtemplate_action', {'objectAction': 'clone', 'objectId': entity.getId()}),
                     'data-toggle' : 'ajax',
                 },
                 iconClass : 'ri-file-copy-line',
@@ -54,8 +42,8 @@
             {{ buttonAdd({
                 confirm: {
                     btnClass      : false,
-                    message       : 'mautic.n8ndispatch.smstemplate.form.confirmdelete'|trans({'%name%': entity.getName() ~ ' (' ~ entity.getId() ~ ')'}),
-                    confirmAction : path('mautic_n8ndispatch.smstemplate_action', {'objectAction': 'delete', 'objectId': entity.getId()}),
+                    message       : 'mautic.n8ndispatch.hsmtemplate.form.confirmdelete'|trans({'%name%': entity.getName() ~ ' (' ~ entity.getId() ~ ')'}),
+                    confirmAction : path('mautic_n8ndispatch.hsmtemplate_action', {'objectAction': 'delete', 'objectId': entity.getId()}),
                     template      : 'delete',
                 },
                 priority: -1,
@@ -92,14 +80,25 @@
             <div class="pa-md">
                 {{ form_row(form.name) }}
                 {{ form_row(form.description) }}
-                {# The .row wrapper matters: campaign-sms-dispatch.js inserts
-                   the variable-source rows right after the textarea's
-                   closest .row (see getContainer() in
+                <div class="row">
+                    <div class="col-xs-4">
+                        {{ form_row(form.router) }}
+                    </div>
+                    <div class="col-xs-4">
+                        {{ form_row(form.hsmId) }}
+                    </div>
+                    <div class="col-xs-4">
+                        {{ form_row(form.type) }}
+                    </div>
+                </div>
+                {# The .row wrapper matters: campaign-hsm-dispatch.js
+                   inserts the variable-source rows right after the
+                   textarea's closest .row (see getContainer() in
                    campaign-email-dispatch.js). #}
                 <div class="row">
                     <div class="col-xs-12">
                         {{ form_row(form.text) }}
-                        <p class="help-block">{{ 'mautic.n8ndispatch.smstemplate.text.help'|trans }}</p>
+                        <p class="help-block">{{ 'mautic.n8ndispatch.hsmtemplate.text.help'|trans }}</p>
                     </div>
                 </div>
                 {% if entity.id %}
@@ -111,13 +110,13 @@
                         'paused':     'ri-pause-fill',
                     } %}
                     <div class="mt-lg">
-                        <h4 class="mb-sm">{{ 'mautic.n8ndispatch.smstemplate.usages.header'|trans }}</h4>
+                        <h4 class="mb-sm">{{ 'mautic.n8ndispatch.hsmtemplate.usages.header'|trans }}</h4>
                         {% if campaignUsages is defined and campaignUsages is not empty %}
                             <table class="table table-condensed">
                                 <thead>
                                 <tr>
-                                    <th>{{ 'mautic.n8ndispatch.smstemplate.usages.campaign'|trans }}</th>
-                                    <th>{{ 'mautic.n8ndispatch.smstemplate.usages.step'|trans }}</th>
+                                    <th>{{ 'mautic.n8ndispatch.hsmtemplate.usages.campaign'|trans }}</th>
+                                    <th>{{ 'mautic.n8ndispatch.hsmtemplate.usages.step'|trans }}</th>
                                     <th>{{ 'mautic.n8ndispatch.campaign.event.status'|trans }}</th>
                                 </tr>
                                 </thead>
@@ -127,7 +126,7 @@
                                         <td>
                                             <a href="{{ path('mautic_campaign_action', {'objectAction': 'view', 'objectId': usage.campaignId}) }}" data-toggle="ajax">{{ usage.campaignName }}</a>
                                             {% if not usage.campaignPublished %}
-                                                <span class="label label-default">{{ 'mautic.n8ndispatch.smstemplate.usages.unpublished'|trans }}</span>
+                                                <span class="label label-default">{{ 'mautic.n8ndispatch.hsmtemplate.usages.unpublished'|trans }}</span>
                                             {% endif %}
                                         </td>
                                         <td>{{ usage.eventName }}</td>
@@ -143,7 +142,7 @@
                                 </tbody>
                             </table>
                         {% else %}
-                            <p class="text-muted">{{ 'mautic.n8ndispatch.smstemplate.usages.none'|trans }}</p>
+                            <p class="text-muted">{{ 'mautic.n8ndispatch.hsmtemplate.usages.none'|trans }}</p>
                         {% endif %}
                     </div>
                 {% endif %}
