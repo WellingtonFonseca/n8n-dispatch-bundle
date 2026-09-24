@@ -10,6 +10,81 @@
     {% endif %}
 {% endblock %}
 
+{#
+  Options dropdown with Clone/Delete, both inside the dropdown, pushed to
+  the far right past the Save/Apply/Cancel buttons.
+
+  Can't reuse @MauticCore/Helper/page_actions.html.twig as-is: its
+  TYPE_BUTTON_DROPDOWN group type always keeps at least one button outside
+  the dropdown (CoreBundle's ButtonHelper::orderButtons() — "show at least
+  one button"), so Clone would render as a flat button next to the arrow
+  instead of inside it. Built the same way core's own
+  @MauticCore/Helper/list_actions.html.twig does it (the per-row dropdown
+  on the SMS Templates list): TYPE_DROPDOWN puts every button added via
+  buttonAdd() inside the <ul> as an <li>, none left outside.
+
+  .n8ndispatch-smstemplate-actions (campaign-status-badge.css) gives the
+  wrapper `order: 1`. #toolbar (core's pageheader.html.twig) is a flex row
+  packed to the right edge in DOM order — actions, then
+  .toolbar-bundle-buttons, then .toolbar-form-buttons (Save/Apply/Cancel) —
+  so without the CSS override this dropdown would sit left of those
+  buttons instead of at the far right like Contact/Email's own dropdowns.
+#}
+{% block actions %}
+    {% if entity.id %}
+        {{ buttonReset(
+            constant('Mautic\\CoreBundle\\Twig\\Helper\\ButtonHelper::LOCATION_PAGE_ACTIONS'),
+            constant('Mautic\\CoreBundle\\Twig\\Helper\\ButtonHelper::TYPE_DROPDOWN'),
+            entity
+        ) }}
+
+        {% if permissions['sms:smses:create'] %}
+            {{ buttonAdd({
+                attr: {
+                    'href'        : path('mautic_n8ndispatch.smstemplate_action', {'objectAction': 'clone', 'objectId': entity.getId()}),
+                    'data-toggle' : 'ajax',
+                },
+                iconClass : 'ri-file-copy-line',
+                btnText   : 'mautic.core.form.clone'|trans,
+                priority  : 200,
+            }) }}
+        {% endif %}
+
+        {% if securityHasEntityAccess(permissions['sms:smses:deleteown'], permissions['sms:smses:deleteother'], entity.getCreatedBy()) %}
+            {{ buttonAdd({
+                confirm: {
+                    btnClass      : false,
+                    message       : 'mautic.n8ndispatch.smstemplate.form.confirmdelete'|trans({'%name%': entity.getName() ~ ' (' ~ entity.getId() ~ ')'}),
+                    confirmAction : path('mautic_n8ndispatch.smstemplate_action', {'objectAction': 'delete', 'objectId': entity.getId()}),
+                    template      : 'delete',
+                },
+                priority: -1,
+            }) }}
+        {% endif %}
+
+        <div class="std-toolbar n8ndispatch-smstemplate-actions ml-xs">
+            {% include '@MauticCore/Helper/button.html.twig' with {
+                buttons: [
+                    {
+                        variant    : 'primary',
+                        icon_only  : true,
+                        icon       : 'ri-arrow-down-s-line',
+                        label      : 'mautic.core.options',
+                        attributes : {
+                            'class'         : 'dropdown-toggle',
+                            'data-toggle'   : 'dropdown',
+                            'aria-expanded' : 'false',
+                        },
+                    },
+                ],
+            } %}
+            <ul class="dropdown-menu dropdown-menu-right" role="menu">
+                {{ buttonsRender()|raw }}
+            </ul>
+        </div>
+    {% endif %}
+{% endblock %}
+
 {% block content %}
     {{ form_start(form) }}
     <div class="box-layout">

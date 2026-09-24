@@ -116,6 +116,22 @@
     font-weight: 600;
 }
 
+/*
+ * Options dropdown on the SMS Template edit page (Resources/views/
+ * SmsTemplate/form.html.twig). Core's #toolbar (pageheader.html.twig) is a
+ * flex row packed to the right edge in DOM order: 'actions' block first,
+ * then .toolbar-bundle-buttons, then .toolbar-form-buttons
+ * (Save/Apply/Cancel) — all default to flex `order: 0`, so without this
+ * the dropdown would render to the left of those buttons instead of past
+ * them, at the far right like Contact/Email's own options dropdowns. The
+ * gap from those buttons (core has none between #toolbar's flex children)
+ * comes from the 'ml-xs' utility class on the same element in the twig
+ * file, not from here.
+ */
+.n8ndispatch-smstemplate-actions {
+    order: 1;
+}
+
 .n8ndispatch-timeline-json {
     margin: 8px 0 0;
     padding: 10px 12px;
