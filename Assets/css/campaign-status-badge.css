@@ -132,6 +132,38 @@
     order: 1;
 }
 
+/*
+ * The pending/scheduled line on our Timeline card (isScheduled block in
+ * SubscribedEvents/Timeline/_email_send.html.twig) — the text and its
+ * reschedule/cancel/save actions sit on one flexible row instead of
+ * core's own .form-buttons (position: absolute), which needs a
+ * position: relative ancestor we don't have here and otherwise pins the
+ * buttons to some distant corner of the page.
+ */
+.n8ndispatch-timeline-scheduled {
+    display: flex;
+    align-items: center;
+    flex-wrap: wrap;
+    gap: 6px 4px;
+}
+
+.n8ndispatch-timeline-actions {
+    display: inline-flex;
+    align-items: center;
+    gap: 2px;
+}
+
+/*
+ * Core's Bootstrap .text-warning (#FDB933, a saturated gold) is what
+ * marks the 'this event was cancelled' message — fails contrast on our
+ * card's white background (Mautic's own theme apparently tolerates it
+ * elsewhere, but it read as illegible here). Scoped to our own card
+ * only, not a global .text-warning override.
+ */
+.n8ndispatch-timeline-scheduled .text-warning {
+    color: #8a6100;
+}
+
 .n8ndispatch-timeline-json {
     margin: 8px 0 0;
     padding: 10px 12px;
