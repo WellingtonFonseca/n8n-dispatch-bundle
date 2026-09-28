@@ -87,6 +87,20 @@
           passed through via 'attributes' so reschedule/cancel/save keep
           working exactly as before; only the visual classes now come
           from this component instead of .btn-ghost.
+
+          Cancel additionally goes through core's own confirmation-modal
+          helper (Mautic.showConfirmation, Assets/js/9.modals.js) instead
+          of cancelling straight away. It's called directly from onclick
+          rather than via the usual data-toggle="confirmation"
+          auto-binding, since that only wires up <a> elements
+          (Mautic.makeConfirmationsAlive's selector is
+          "a[data-toggle='confirmation']" — CoreBundle/Assets/js/
+          1a.content.js:375) and this needs to stay a real <button> for
+          the disabled state to work. n8ndispatchConfirmCancelSchedule
+          (Assets/js/campaign-timeline-scheduled.js) reads the event/
+          contact ids back off this same element via data-event-id/
+          data-contact-id and does the actual cancelScheduledCampaignEvent
+          call once the user confirms.
         #}
         <span class="n8ndispatch-timeline-actions" role="group" aria-label="Field options">
             {% include '@MauticCore/Helper/button.html.twig' with {
@@ -123,13 +137,17 @@
                         size: 'xs',
                         icon_only: true,
                         icon: 'ri-close-line',
-                        onclick: 'Mautic.cancelScheduledCampaignEvent(' ~ item.event_id ~ ', ' ~ lead.getId() ~ ')',
-                        attributes: cancelled ? {
+                        onclick: 'Mautic.showConfirmation(this)',
+                        attributes: (cancelled ? { disabled: 'disabled' } : {})|merge({
                             id: 'timeline-campaign-event-cancel-' ~ item.event_id,
-                            disabled: 'disabled',
-                        } : {
-                            id: 'timeline-campaign-event-cancel-' ~ item.event_id,
-                        },
+                            'data-event-id': item.event_id,
+                            'data-contact-id': lead.getId(),
+                            'data-message': 'mautic.n8ndispatch.timeline.cancel_schedule.message'|trans,
+                            'data-confirm-text': 'mautic.n8ndispatch.timeline.cancel_schedule.confirm_btn'|trans,
+                            'data-cancel-text': 'mautic.n8ndispatch.timeline.cancel_schedule.keep_btn'|trans,
+                            'data-confirm-callback': 'n8ndispatchConfirmCancelSchedule',
+                            'data-confirm-btn-class': 'btn btn-danger',
+                        }),
                     },
                 ]
             } %}
