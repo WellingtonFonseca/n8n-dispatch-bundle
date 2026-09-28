@@ -10,15 +10,16 @@ use Symfony\Component\EventDispatcher\EventSubscriberInterface;
 
 /**
  * Loads campaign-email-dispatch.js, campaign-sms-dispatch.js,
- * campaign-hsm-dispatch.js, and campaign-status-badge.css globally, the
- * same way GrapesJsBuilderBundle injects its own JS/vars via
- * 'page.header.left' (a context rendered on every admin page, not just
- * the campaign builder). Harmless elsewhere — the JS only defines
- * Mautic.n8nDispatch* functions, which nothing calls unless one of the
- * SMS/HSM Template forms (or, for Email, the campaign action form) is
- * actually on the page, and the CSS only styles
- * .n8ndispatch-status-badge, rendered solely by Resources/views/Event/
- * _email_send.html.twig.
+ * campaign-hsm-dispatch.js, campaign-timeline-scheduled.js, and
+ * campaign-status-badge.css globally, the same way GrapesJsBuilderBundle
+ * injects its own JS/vars via 'page.header.left' (a context rendered on
+ * every admin page, not just the campaign builder). Harmless elsewhere —
+ * the JS only defines Mautic.n8nDispatch... / n8ndispatch... functions, which
+ * nothing calls unless one of the SMS/HSM Template forms, the Email
+ * campaign action form, or a contact's Timeline (for
+ * campaign-timeline-scheduled.js) is actually on the page, and the CSS
+ * only styles .n8ndispatch-* classes, rendered solely by our own
+ * Resources/views templates.
  *
  * campaign-sms-dispatch.js and campaign-hsm-dispatch.js are injected
  * after campaign-email-dispatch.js, and depend on running after it —
@@ -39,15 +40,17 @@ class AssetInjectionSubscriber implements EventSubscriberInterface
             return;
         }
 
-        $emailJsRelativePath = 'Assets/js/campaign-email-dispatch.js';
-        $smsJsRelativePath   = 'Assets/js/campaign-sms-dispatch.js';
-        $hsmJsRelativePath   = 'Assets/js/campaign-hsm-dispatch.js';
-        $cssRelativePath     = 'Assets/css/campaign-status-badge.css';
+        $emailJsRelativePath    = 'Assets/js/campaign-email-dispatch.js';
+        $smsJsRelativePath      = 'Assets/js/campaign-sms-dispatch.js';
+        $hsmJsRelativePath      = 'Assets/js/campaign-hsm-dispatch.js';
+        $timelineJsRelativePath = 'Assets/js/campaign-timeline-scheduled.js';
+        $cssRelativePath        = 'Assets/css/campaign-status-badge.css';
 
         $customContentEvent->addContent(
             '<script src="/plugins/N8nDispatchBundle/'.$emailJsRelativePath.'?v='.$this->assetVersion($emailJsRelativePath).'"></script>'
             .'<script src="/plugins/N8nDispatchBundle/'.$smsJsRelativePath.'?v='.$this->assetVersion($smsJsRelativePath).'"></script>'
             .'<script src="/plugins/N8nDispatchBundle/'.$hsmJsRelativePath.'?v='.$this->assetVersion($hsmJsRelativePath).'"></script>'
+            .'<script src="/plugins/N8nDispatchBundle/'.$timelineJsRelativePath.'?v='.$this->assetVersion($timelineJsRelativePath).'"></script>'
             .'<link rel="stylesheet" href="/plugins/N8nDispatchBundle/'.$cssRelativePath.'?v='.$this->assetVersion($cssRelativePath).'">'
         );
     }
