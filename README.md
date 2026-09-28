@@ -90,6 +90,11 @@ page, and a template in use can't be deleted (singly or in a batch).
 Contacts on the Do Not Contact list for the channel are not sent to (SMS and
 HSM use the `sms` channel).
 
+A campaign step held back by an hour/day restriction shows its real
+scheduled time on the contact's Timeline (not a blank card), with buttons to
+reschedule or cancel it — cancelling asks for confirmation first, and both
+actions record who did it and when, shown right on the card.
+
 Full architecture, payload formats, and implementation history:
 [wiki/n8n-dispatch-plugin.md](../wiki/n8n-dispatch-plugin.md) — start with
 its "Current state" section.
