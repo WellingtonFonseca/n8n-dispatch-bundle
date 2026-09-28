@@ -93,6 +93,26 @@
             <i class="ri-time-line"></i>
             <span class="timeline-campaign-event-scheduled-{{ item.event_id }}{{cancelled ? ' hide' : '' }}">
                 {{ 'mautic.core.timeline.event.scheduled.time'|trans({'%date%' : dateSpan, '%event%' : event.eventLabel})|purify }}
+                {#
+                  Unlike the cancellation case, this row stays
+                  is_scheduled=1 after a reschedule — item.isScheduled
+                  keeps reflecting the real column on every later page
+                  load, so metadata.n8ndispatch_reschedule (written by
+                  Assets/js/campaign-timeline-scheduled.js's global
+                  ajaxSuccess listener, action=plugin:N8nDispatch:
+                  recordScheduleReschedule) can be read directly here —
+                  no equivalent to the cancellation block's 'errors'
+                  fallback is needed for this one.
+                #}
+                <span class="n8ndispatch-timeline-rescheduled-by-{{ item.event_id }}">
+                    {%- if item.metadata.n8ndispatch_reschedule is defined and item.metadata.n8ndispatch_reschedule.rescheduledByEmail is defined and item.metadata.n8ndispatch_reschedule.rescheduledByEmail -%}
+                        {% set rescheduledAt = item.metadata.n8ndispatch_reschedule.rescheduledAt is defined ? item.metadata.n8ndispatch_reschedule.rescheduledAt : null %}
+                        <br/>{{ 'mautic.n8ndispatch.timeline.rescheduled_by'|trans({
+                            '%email%': item.metadata.n8ndispatch_reschedule.rescheduledByEmail,
+                            '%date%': rescheduledAt ? dateToFullConcat(rescheduledAt) : '',
+                        })|purify }}
+                    {%- endif -%}
+                </span>
             </span>
             {#
               metadata.n8ndispatch_cancellation is set by our own separate

@@ -34,3 +34,50 @@ Mautic.n8ndispatchConfirmCancelSchedule = function (action, el) {
         }
     });
 };
+
+/**
+ * Reschedule tracking, via a global ajaxSuccess listener rather than a
+ * wrapped onclick — core lets a reschedule be saved two different ways
+ * (pressing Enter in the inline date field, or clicking our own Save
+ * button, CampaignBundle/Assets/js/campaign.js's
+ * Mautic.updateScheduledCampaignEvent and Mautic.saveScheduledCampaignEvent),
+ * and only one of those two paths goes through a button this plugin
+ * controls. Both fire the exact same campaign:updateScheduledCampaignEvent
+ * ajax call under the hood, so watching for that call succeeding, rather
+ * than hooking a specific button, covers both uniformly and needs no
+ * changes if core ever adds a third way to save the same edit.
+ *
+ * mQuery.ajax() (what Mautic.ajaxActionRequest calls) is what settings/xhr
+ * below come from — this fires for every ajax call on the page, filtered
+ * down to just this one action by URL.
+ */
+mQuery(document).ajaxSuccess(function (event, xhr, settings) {
+    if (!settings.url || settings.url.indexOf('action=campaign:updateScheduledCampaignEvent') === -1) {
+        return;
+    }
+
+    var response = xhr.responseJSON;
+    if (!response || !response.success) {
+        return;
+    }
+
+    var params    = new URLSearchParams(settings.data);
+    var eventId   = params.get('eventId');
+    var contactId = params.get('contactId');
+
+    if (!eventId || !contactId) {
+        return;
+    }
+
+    // Same best-effort reasoning as the cancellation call above: never
+    // blocks or undoes the reschedule that already succeeded if this
+    // fails.
+    Mautic.ajaxActionRequest('plugin:N8nDispatch:recordScheduleReschedule', {
+        eventId: eventId,
+        contactId: contactId,
+    }, function (recordResponse) {
+        if (recordResponse.success && recordResponse.rescheduledByMessage) {
+            mQuery('.n8ndispatch-timeline-rescheduled-by-' + eventId).html('<br/>' + recordResponse.rescheduledByMessage);
+        }
+    });
+});
