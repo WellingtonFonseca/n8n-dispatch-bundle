@@ -4,10 +4,12 @@ declare(strict_types=1);
 
 namespace MauticPlugin\N8nDispatchBundle\Controller;
 
+use Mautic\CampaignBundle\Entity\LeadEventLog;
 use Mautic\CampaignBundle\Model\EventLogModel;
 use Mautic\CoreBundle\Controller\AjaxController as CommonAjaxController;
 use Mautic\CoreBundle\Helper\UserHelper;
 use Mautic\CoreBundle\Security\Permissions\CorePermissions;
+use Mautic\CoreBundle\Twig\Helper\DateHelper;
 use Mautic\EmailBundle\Model\EmailModel;
 use Mautic\LeadBundle\Model\FieldModel;
 use MauticPlugin\CustomObjectsBundle\Model\CustomObjectModel;
@@ -127,43 +129,23 @@ class AjaxController extends CommonAjaxController
      * into metadata.errors; it has no concept of who clicked cancel, and
      * dispatches no event this could hook into instead — hence the
      * separate call rather than extending core's own endpoint.
-     *
-     * Same permission check and log lookup core's own endpoint uses
-     * (LeadEventLogRepository has no dedicated finder for 'the current log
-     * for this event+contact', so both resolve it the same way: latest by
-     * dateTriggered).
      */
     public function recordScheduleCancellationAction(
         Request $request,
         UserHelper $userHelper,
         CorePermissions $security,
-        \Mautic\CoreBundle\Twig\Helper\DateHelper $dateHelper
+        DateHelper $dateHelper
     ): JsonResponse {
         $eventId   = (int) $request->request->get('eventId');
         $contactId = (int) $request->request->get('contactId');
-
-        if (empty($eventId) || empty($contactId)) {
-            return $this->sendJsonResponse(['success' => 0]);
-        }
-
-        $contact = $this->getModel('lead')->getEntity($contactId);
-        if (!$contact || !$security->hasEntityAccess('lead:leads:editown', 'lead:leads:editother', $contact->getPermissionUser())) {
-            return $this->sendJsonResponse(['success' => 0]);
-        }
-
-        /** @var EventLogModel $logModel */
-        $logModel = $this->getModel('campaign.event_log');
-        $log      = $logModel->getRepository()->findOneBy(
-            ['lead' => $contactId, 'event' => $eventId],
-            ['dateTriggered' => 'desc']
-        );
+        $log       = $this->resolveContactEventLog($eventId, $contactId, $security);
 
         if (!$log) {
             return $this->sendJsonResponse(['success' => 0]);
         }
 
-        $user  = $userHelper->getUser(true);
-        $email = $user instanceof \Mautic\UserBundle\Entity\User ? $user->getEmail() : null;
+        $email = $this->getUserEmail($userHelper);
+        $at    = (new \DateTime())->format('Y-m-d H:i:s');
 
         $metadata = $log->getMetadata();
         // A distinct top-level key, not nested under 'n8ndispatch' — that
@@ -175,30 +157,119 @@ class AjaxController extends CommonAjaxController
         // reusing that key here made the template treat this cancellation
         // data as a dispatch outcome and crash reading n8n.status, which
         // never exists on it.
-        $cancelledAt = (new \DateTime())->format('Y-m-d H:i:s');
-
         $metadata['n8ndispatch_cancellation']['cancelledByEmail'] = $email;
-        $metadata['n8ndispatch_cancellation']['cancelledAt']      = $cancelledAt;
+        $metadata['n8ndispatch_cancellation']['cancelledAt']      = $at;
         $log->setMetadata($metadata);
-        $logModel->getRepository()->saveEntity($log);
+        $this->getModel('campaign.event_log')->getRepository()->saveEntity($log);
 
-        // Pre-translated server-side (rather than handing the JS raw
-        // email/date and a translation key) so the Timeline card's live
-        // update doesn't need its own copy of 'mautic.n8ndispatch.
-        // timeline.cancelled_by' registered in the 'javascript'
-        // translation domain Mautic.translate() reads from — the Twig
-        // side already renders this same key normally, on a later page
-        // load. Same dateToFullConcat-equivalent formatting as the rest
-        // of the app (DateHelper is core's own Twig helper, but it's a
-        // plain service — nothing Twig-specific about calling it here).
-        $cancelledByMessage = $email
-            ? $this->translator->trans('mautic.n8ndispatch.timeline.cancelled_by', [
-                '%email%' => $email,
-                '%date%'  => $dateHelper->toFullConcat($cancelledAt),
-            ])
-            : null;
+        return $this->sendJsonResponse([
+            'success'            => 1,
+            'cancelledByMessage' => $this->translateAuditMessage('mautic.n8ndispatch.timeline.cancelled_by', $email, $at, $dateHelper),
+        ]);
+    }
 
-        return $this->sendJsonResponse(['success' => 1, 'cancelledByMessage' => $cancelledByMessage]);
+    /**
+     * Records who rescheduled a pending n8n dispatch to a new date, from
+     * the Timeline card's reschedule flow (Assets/js/
+     * campaign-timeline-scheduled.js) — a global jQuery ajaxSuccess
+     * listener there, not a wrapped onclick like the cancellation button
+     * above, since core lets a reschedule be saved two different ways
+     * (pressing Enter in the inline date field, or our own Save button —
+     * CampaignBundle/Assets/js/campaign.js's Mautic.updateScheduledCampaignEvent
+     * and Mautic.saveScheduledCampaignEvent both fire the exact same
+     * campaign:updateScheduledCampaignEvent ajax call under the hood, and
+     * only one of the two goes through a button this plugin controls).
+     * Same reasoning as the cancellation endpoint above for why this is a
+     * separate call rather than touching core's own endpoint: core's
+     * updateScheduledCampaignEventAction only moves trigger_date, no
+     * concept of who asked for the move.
+     */
+    public function recordScheduleRescheduleAction(
+        Request $request,
+        UserHelper $userHelper,
+        CorePermissions $security,
+        DateHelper $dateHelper
+    ): JsonResponse {
+        $eventId   = (int) $request->request->get('eventId');
+        $contactId = (int) $request->request->get('contactId');
+        $log       = $this->resolveContactEventLog($eventId, $contactId, $security);
+
+        if (!$log) {
+            return $this->sendJsonResponse(['success' => 0]);
+        }
+
+        $email = $this->getUserEmail($userHelper);
+        $at    = (new \DateTime())->format('Y-m-d H:i:s');
+
+        $metadata                                                    = $log->getMetadata();
+        $metadata['n8ndispatch_reschedule']['rescheduledByEmail'] = $email;
+        $metadata['n8ndispatch_reschedule']['rescheduledAt']      = $at;
+        $log->setMetadata($metadata);
+        $this->getModel('campaign.event_log')->getRepository()->saveEntity($log);
+
+        return $this->sendJsonResponse([
+            'success'              => 1,
+            'rescheduledByMessage' => $this->translateAuditMessage('mautic.n8ndispatch.timeline.rescheduled_by', $email, $at, $dateHelper),
+        ]);
+    }
+
+    /**
+     * Shared by recordScheduleCancellationAction and
+     * recordScheduleRescheduleAction: same permission check and log lookup
+     * core's own scheduled-event endpoints use (LeadEventLogRepository has
+     * no dedicated finder for 'the current log for this event+contact', so
+     * all three resolve it the same way — latest by dateTriggered).
+     */
+    private function resolveContactEventLog(int $eventId, int $contactId, CorePermissions $security): ?LeadEventLog
+    {
+        if (empty($eventId) || empty($contactId)) {
+            return null;
+        }
+
+        $contact = $this->getModel('lead')->getEntity($contactId);
+        if (!$contact || !$security->hasEntityAccess('lead:leads:editown', 'lead:leads:editother', $contact->getPermissionUser())) {
+            return null;
+        }
+
+        /** @var EventLogModel $logModel */
+        $logModel = $this->getModel('campaign.event_log');
+
+        /** @var LeadEventLog|null $log */
+        $log = $logModel->getRepository()->findOneBy(
+            ['lead' => $contactId, 'event' => $eventId],
+            ['dateTriggered' => 'desc']
+        );
+
+        return $log;
+    }
+
+    private function getUserEmail(UserHelper $userHelper): ?string
+    {
+        $user = $userHelper->getUser(true);
+
+        return $user instanceof \Mautic\UserBundle\Entity\User ? $user->getEmail() : null;
+    }
+
+    /**
+     * Pre-translated server-side (rather than handing the JS raw email/
+     * date and a translation key) so the Timeline card's live update
+     * doesn't need its own copy of these keys registered in the
+     * 'javascript' translation domain Mautic.translate() reads from — the
+     * Twig side already renders the same keys normally, on a later page
+     * load. Same dateToFullConcat-equivalent formatting as the rest of the
+     * app (DateHelper is core's own Twig helper, but it's a plain service
+     * — nothing Twig-specific about calling it here).
+     */
+    private function translateAuditMessage(string $translationKey, ?string $email, string $at, DateHelper $dateHelper): ?string
+    {
+        if (!$email) {
+            return null;
+        }
+
+        return $this->translator->trans($translationKey, [
+            '%email%' => $email,
+            '%date%'  => $dateHelper->toFullConcat($at),
+        ]);
     }
 
     /**
