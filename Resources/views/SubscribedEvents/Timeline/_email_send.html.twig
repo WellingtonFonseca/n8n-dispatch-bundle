@@ -45,6 +45,27 @@
     {% set errors = item.fail_reason %}
 {% endif %}
 
+{#
+  core's own 'cancelled' detection further below (the isScheduled block)
+  assumes date_triggered stays NULL for a row that was scheduled, then
+  cancelled, never actually dispatched — not true in this Mautic version:
+  date_triggered gets set the moment the row is first created/held for
+  scheduling, not only on real execution. That makes 'cancelled' compute
+  false here in practice, so that whole block (and the 'cancelled by'
+  span inside it) never renders again once is_scheduled flips back to 0
+  on a later page load — only this top 'errors' paragraph survives a
+  reload (core's own cancel action writes straight into metadata.errors).
+  So the 'cancelled by' info is appended here too, not only in that
+  other, session-live-only block.
+#}
+{% if errors and item.metadata.n8ndispatch_cancellation is defined and item.metadata.n8ndispatch_cancellation.cancelledByEmail is defined and item.metadata.n8ndispatch_cancellation.cancelledByEmail %}
+    {% set cancelledAt = item.metadata.n8ndispatch_cancellation.cancelledAt is defined ? item.metadata.n8ndispatch_cancellation.cancelledAt : null %}
+    {% set errors = errors ~ '<br/>' ~ ('mautic.n8ndispatch.timeline.cancelled_by'|trans({
+        '%email%': item.metadata.n8ndispatch_cancellation.cancelledByEmail,
+        '%date%': cancelledAt ? dateToFullConcat(cancelledAt) : '',
+    })) %}
+{% endif %}
+
 {% set cancelled = item.isScheduled is empty and item.dateTriggered is empty %}
 {% set dateSpan  = item.triggerDate is not empty ? '<span class="timeline-campaign-event-date-' ~ item.event_id ~ '" data-date="' ~ item.triggerDate.format('Y-m-d H:i:s') ~ '">' ~ dateToFullConcat(item.triggerDate) ~ '</span>' : '' %}
 
@@ -73,8 +94,37 @@
             <span class="timeline-campaign-event-scheduled-{{ item.event_id }}{{cancelled ? ' hide' : '' }}">
                 {{ 'mautic.core.timeline.event.scheduled.time'|trans({'%date%' : dateSpan, '%event%' : event.eventLabel})|purify }}
             </span>
+            {#
+              metadata.n8ndispatch_cancellation is set by our own separate
+              ajax call (Assets/js/campaign-timeline-scheduled.js,
+              action=plugin:N8nDispatch:recordScheduleCancellation) — core's
+              own cancel endpoint has no concept of who clicked cancel. A
+              distinct top-level metadata key on purpose, not nested under
+              'n8ndispatch' — that one is reserved for an actual dispatch
+              request/response payload (status/response/httpStatusCode,
+              read by the 'n8n dispatch outcome' block further below);
+              reusing it here made that block treat a cancelled-before-ever-
+              dispatching row as if it had a dispatch outcome and crash
+              reading n8n.status, which never exists on it.
+              This can legitimately be absent (e.g. a row cancelled before
+              this feature existed) — the base 'cancelled' sentence above
+              still renders fine on its own either way. This <span> is
+              empty on first render (metadata not written yet — cancelling
+              happens client-side, after page load) and filled in live by
+              the same JS's ajax success handler; only a later page load
+              ever renders it from here server-side.
+            #}
             <span class="timeline-campaign-event-cancelled-{{ item.event_id }}{{ cancelled is empty ? ' hide' : '' }}">
                 {{ 'mautic.campaign.event.cancelled.time'|trans({'%date%' : dateSpan, '%event%' : event.eventLabel})|purify }}
+                <span class="n8ndispatch-timeline-cancelled-by-{{ item.event_id }}">
+                    {%- if item.metadata.n8ndispatch_cancellation is defined and item.metadata.n8ndispatch_cancellation.cancelledByEmail is defined and item.metadata.n8ndispatch_cancellation.cancelledByEmail -%}
+                        {% set cancelledAt = item.metadata.n8ndispatch_cancellation.cancelledAt is defined ? item.metadata.n8ndispatch_cancellation.cancelledAt : null %}
+                        <br/>{{ 'mautic.n8ndispatch.timeline.cancelled_by'|trans({
+                            '%email%': item.metadata.n8ndispatch_cancellation.cancelledByEmail,
+                            '%date%': cancelledAt ? dateToFullConcat(cancelledAt) : '',
+                        })|purify }}
+                    {%- endif -%}
+                </span>
             </span>
         </span>
         {% if (lead and securityHasEntityAccess('lead:leads:editown', 'lead:leads:editother', lead.getPermissionUser())) %}
