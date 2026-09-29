@@ -29,13 +29,18 @@ class AssetInjectionSubscriberTest extends TestCase
 
         $content = implode('', $event->getContent());
 
-        $emailJsMtime = filemtime(__DIR__.'/../../../Assets/js/campaign-email-dispatch.js');
-        $smsJsMtime   = filemtime(__DIR__.'/../../../Assets/js/campaign-sms-dispatch.js');
-        $hsmJsMtime   = filemtime(__DIR__.'/../../../Assets/js/campaign-hsm-dispatch.js');
-        $cssMtime     = filemtime(__DIR__.'/../../../Assets/css/campaign-status-badge.css');
+        $sharedJsMtime   = filemtime(__DIR__.'/../../../Assets/js/n8ndispatch-shared.js');
+        $emailTabJsMtime = filemtime(__DIR__.'/../../../Assets/js/email-tab-variables.js');
+        $smsJsMtime      = filemtime(__DIR__.'/../../../Assets/js/campaign-sms-dispatch.js');
+        $hsmJsMtime      = filemtime(__DIR__.'/../../../Assets/js/campaign-hsm-dispatch.js');
+        $cssMtime        = filemtime(__DIR__.'/../../../Assets/css/campaign-status-badge.css');
 
         $this->assertStringContainsString(
-            '<script src="/plugins/N8nDispatchBundle/Assets/js/campaign-email-dispatch.js?v='.$emailJsMtime.'"></script>',
+            '<script src="/plugins/N8nDispatchBundle/Assets/js/n8ndispatch-shared.js?v='.$sharedJsMtime.'"></script>',
+            $content
+        );
+        $this->assertStringContainsString(
+            '<script src="/plugins/N8nDispatchBundle/Assets/js/email-tab-variables.js?v='.$emailTabJsMtime.'"></script>',
             $content
         );
         $this->assertStringContainsString(

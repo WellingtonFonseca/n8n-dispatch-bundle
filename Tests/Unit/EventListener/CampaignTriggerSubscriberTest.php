@@ -23,6 +23,7 @@ use Mautic\LeadBundle\Entity\Lead;
 use Mautic\LeadBundle\Model\DoNotContact as DncModel;
 use Mautic\PluginBundle\Entity\Integration as IntegrationSettings;
 use Mautic\PluginBundle\Helper\IntegrationHelper;
+use MauticPlugin\N8nDispatchBundle\Entity\EmailVariablesRepository;
 use MauticPlugin\N8nDispatchBundle\EventListener\CampaignTriggerSubscriber;
 use MauticPlugin\N8nDispatchBundle\Integration\N8nDispatchIntegration;
 use MauticPlugin\N8nDispatchBundle\Resolver\VariableResolver;
@@ -52,6 +53,8 @@ class CampaignTriggerSubscriberTest extends TestCase
 
     private DncModel $dncModel;
 
+    private EmailVariablesRepository $emailVariablesRepository;
+
     private CampaignTriggerSubscriber $subscriber;
 
     protected function setUp(): void
@@ -74,6 +77,16 @@ class CampaignTriggerSubscriberTest extends TestCase
         // pass-path tests don't each have to configure this themselves —
         // tests specifically about the DNC gate override it.
         $this->dncModel->method('isContactable')->willReturn(DoNotContact::IS_CONTACTABLE);
+        // Left unstubbed here deliberately: an unconfigured mock method
+        // returns null by default, which is exactly "no Entity/
+        // EmailVariables.php row yet" — the fallback path every existing
+        // test below already relies on. A method() stub added here (even
+        // with a matching ->with()) would win over a more specific one
+        // added later inside an individual test, so the two tests
+        // specifically about the new "Variables" tab source configure
+        // their own ->method()->with()->willReturn() from scratch instead
+        // of overriding a default.
+        $this->emailVariablesRepository = $this->createMock(EmailVariablesRepository::class);
 
         $this->subscriber = new CampaignTriggerSubscriber(
             $this->integrationHelper,
@@ -84,6 +97,7 @@ class CampaignTriggerSubscriberTest extends TestCase
             $this->mailHashHelper,
             $this->entityManager,
             $this->dncModel,
+            $this->emailVariablesRepository,
         );
 
         $this->variableResolver->method('resolveAll')->willReturn(['foo' => 'bar']);
@@ -193,6 +207,78 @@ class CampaignTriggerSubscriberTest extends TestCase
         $this->assertCount(0, $pendingEvent->getFailures());
     }
 
+    /**
+     * The Email has a row in Entity/EmailVariables.php ("Variables" tab
+     * saved at least once) — that source wins, even though this event's
+     * own properties still carry a (now-stale) inline variablesJson.
+     */
+    public function testUsesTheEmailsOwnSavedVariablesOverTheEventsInlineOnes(): void
+    {
+        $pendingEvent = $this->buildPendingEvent([
+            'email'         => 1,
+            'status'        => 'production',
+            'variablesJson' => '{"stale":{"source":"static","value":"from the old event field"}}',
+        ]);
+
+        $this->emailModel->method('getEntity')->with(1)->willReturn(new Email());
+        $this->mockIntegration(true, ['webhook_url' => 'https://n8n.example.test/webhook/dispatch']);
+        $this->emailVariablesRepository->method('getVariablesJsonForEmail')
+            ->with(1)
+            ->willReturn('{"fresh":{"source":"static","value":"from the Variables tab"}}');
+
+        $this->variableResolver->expects($this->once())
+            ->method('resolveAll')
+            ->with(
+                ['fresh' => ['source' => 'static', 'value' => 'from the Variables tab']],
+                $this->anything(),
+                $this->anything()
+            )
+            ->willReturn(['fresh' => 'from the Variables tab']);
+
+        $response = $this->createMock(ResponseInterface::class);
+        $response->method('getStatusCode')->willReturn(200);
+        $this->httpClient->method('request')->willReturn($response);
+
+        $this->subscriber->onEmailSend($pendingEvent);
+
+        $this->assertCount(1, $pendingEvent->getSuccessful());
+    }
+
+    /**
+     * No row yet for this Email (its "Variables" tab was never opened) —
+     * falls back to the event's own inline properties.variablesJson, same
+     * as before this source existed.
+     */
+    public function testFallsBackToTheEventsInlineVariablesWhenTheEmailHasNoSavedVariablesYet(): void
+    {
+        $pendingEvent = $this->buildPendingEvent([
+            'email'         => 1,
+            'status'        => 'production',
+            'variablesJson' => '{"legacy":{"source":"static","value":"from the old event field"}}',
+        ]);
+
+        $this->emailModel->method('getEntity')->with(1)->willReturn(new Email());
+        $this->mockIntegration(true, ['webhook_url' => 'https://n8n.example.test/webhook/dispatch']);
+        $this->emailVariablesRepository->method('getVariablesJsonForEmail')->with(1)->willReturn(null);
+
+        $this->variableResolver->expects($this->once())
+            ->method('resolveAll')
+            ->with(
+                ['legacy' => ['source' => 'static', 'value' => 'from the old event field']],
+                $this->anything(),
+                $this->anything()
+            )
+            ->willReturn(['legacy' => 'from the old event field']);
+
+        $response = $this->createMock(ResponseInterface::class);
+        $response->method('getStatusCode')->willReturn(200);
+        $this->httpClient->method('request')->willReturn($response);
+
+        $this->subscriber->onEmailSend($pendingEvent);
+
+        $this->assertCount(1, $pendingEvent->getSuccessful());
+    }
+
     public function testProductionStatusFailsWithoutDispatchingWhenContactIsOnTheEmailDncList(): void
     {
         $pendingEvent = $this->buildPendingEvent(['email' => 1, 'status' => 'production']);
@@ -211,6 +297,7 @@ class CampaignTriggerSubscriberTest extends TestCase
             $this->mailHashHelper,
             $this->entityManager,
             $this->dncModel,
+            $this->emailVariablesRepository,
         );
 
         $this->httpClient->expects($this->never())->method('request');

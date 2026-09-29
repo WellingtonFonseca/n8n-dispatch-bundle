@@ -13,27 +13,29 @@ use Mautic\CoreBundle\Twig\Helper\DateHelper;
 use Mautic\EmailBundle\Model\EmailModel;
 use Mautic\LeadBundle\Model\FieldModel;
 use MauticPlugin\CustomObjectsBundle\Model\CustomObjectModel;
-use MauticPlugin\N8nDispatchBundle\UnsubscribeVariable;
+use MauticPlugin\N8nDispatchBundle\Entity\EmailVariablesRepository;
+use MauticPlugin\N8nDispatchBundle\Service\TemplateVariableScanner;
 use Symfony\Component\HttpFoundation\JsonResponse;
 use Symfony\Component\HttpFoundation\Request;
 use Symfony\Component\HttpFoundation\Response;
 
 /**
- * Backs the campaign builder's "Send via n8n (Email)" action form. The
- * generic /ajax route (Mautic\CoreBundle\Controller\AjaxController::
- * delegateAjaxAction) resolves action=plugin:N8nDispatch:getEmailVariables
- * to getEmailVariablesAction() below, by bundle-name convention — no
- * route registration needed.
+ * Backs the "Variables" tab EventListener/EmailTabSubscriber.php adds to
+ * the native Email edit page (getEmailVariablesAction/
+ * saveEmailVariablesAction), plus the SMS/HSM Template forms
+ * (getSmsVariablesAction/getHsmVariablesAction). The generic /ajax route
+ * (Mautic\CoreBundle\Controller\AjaxController::delegateAjaxAction)
+ * resolves action=plugin:N8nDispatch:<name> to <name>Action() below, by
+ * bundle-name convention — no route registration needed.
  */
 class AjaxController extends CommonAjaxController
 {
-    private const VARIABLE_PATTERN = '/\{\{\s*([a-zA-Z0-9_]+)\s*\}\}/';
-
     public function getEmailVariablesAction(
         Request $request,
         EmailModel $emailModel,
         FieldModel $fieldModel,
         CustomObjectModel $customObjectModel,
+        TemplateVariableScanner $variableScanner,
     ): JsonResponse {
         $emailId = (int) $request->request->get('emailId', $request->query->get('emailId', 0));
 
@@ -54,9 +56,41 @@ class AjaxController extends CommonAjaxController
             return $this->sendJsonResponse(['success' => 0, 'variables' => [], 'fields' => $fields, 'customObjects' => $customObjects]);
         }
 
-        $variables = $this->extractMappableVariables((string) $email->getCustomHtml());
+        $variables = $variableScanner->extract((string) $email->getCustomHtml());
 
         return $this->sendJsonResponse(['success' => 1, 'variables' => $variables, 'fields' => $fields, 'customObjects' => $customObjects]);
+    }
+
+    /**
+     * Persists the "Variables" tab's variable-source rows to Entity/
+     * EmailVariables.php. Called by Assets/js/email-tab-variables.js only
+     * when the native Email form is actually submitted via Save/Apply —
+     * not on every row edit, so opening the tab to look, or toggling a
+     * source without meaning to keep it, never writes anything. This tab
+     * isn't one of that Symfony Form's own fields (it can't be, Email is a
+     * core entity), hence the separate AJAX call instead of just another
+     * form field. EventListener/CampaignTriggerSubscriber.php reads this
+     * back fresh at dispatch time.
+     */
+    public function saveEmailVariablesAction(
+        Request $request,
+        EmailVariablesRepository $emailVariablesRepository,
+    ): JsonResponse {
+        $emailId       = (int) $request->request->get('emailId', 0);
+        $variablesJson = (string) $request->request->get('variablesJson', '{}');
+
+        if ($emailId <= 0) {
+            return $this->sendJsonResponse(['success' => 0]);
+        }
+
+        $decoded = json_decode($variablesJson, true);
+        if (!is_array($decoded)) {
+            return $this->sendJsonResponse(['success' => 0]);
+        }
+
+        $emailVariablesRepository->saveForEmail($emailId, $variablesJson);
+
+        return $this->sendJsonResponse(['success' => 1]);
     }
 
     /**
@@ -70,12 +104,13 @@ class AjaxController extends CommonAjaxController
         Request $request,
         FieldModel $fieldModel,
         CustomObjectModel $customObjectModel,
+        TemplateVariableScanner $variableScanner,
     ): JsonResponse {
         $text = (string) $request->request->get('text', $request->query->get('text', ''));
 
         $fields        = $fieldModel->getFieldList(false);
         $customObjects = $this->buildCustomObjectsList($customObjectModel);
-        $variables     = $this->extractMappableVariables($text);
+        $variables     = $variableScanner->extract($text);
 
         return $this->sendJsonResponse(['success' => 1, 'variables' => $variables, 'fields' => $fields, 'customObjects' => $customObjects]);
     }
@@ -89,34 +124,15 @@ class AjaxController extends CommonAjaxController
         Request $request,
         FieldModel $fieldModel,
         CustomObjectModel $customObjectModel,
+        TemplateVariableScanner $variableScanner,
     ): JsonResponse {
         $text = (string) $request->request->get('text', $request->query->get('text', ''));
 
         $fields        = $fieldModel->getFieldList(false);
         $customObjects = $this->buildCustomObjectsList($customObjectModel);
-        $variables     = $this->extractMappableVariables($text);
+        $variables     = $variableScanner->extract($text);
 
         return $this->sendJsonResponse(['success' => 1, 'variables' => $variables, 'fields' => $fields, 'customObjects' => $customObjects]);
-    }
-
-    /**
-     * Split out of getEmailVariablesAction() so it's unit-testable without
-     * the rest of that action's Symfony container dependency (sendJsonResponse()
-     * needs a container, this doesn't).
-     *
-     * UnsubscribeVariable::KEY is always present in a saved template's
-     * footer (EmailMirrorSyncSubscriber injects it there), but it's
-     * resolved automatically by CampaignTriggerSubscriber on every
-     * dispatch — never something a user maps by hand here, so it's
-     * filtered out of the list the campaign builder shows.
-     *
-     * @return list<string>
-     */
-    private function extractMappableVariables(string $html): array
-    {
-        preg_match_all(self::VARIABLE_PATTERN, $html, $matches);
-
-        return array_values(array_diff(array_unique($matches[1]), [UnsubscribeVariable::KEY]));
     }
 
     /**

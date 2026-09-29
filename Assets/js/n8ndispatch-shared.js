@@ -102,12 +102,14 @@
             + '</div>';
     }
 
-    // Shared with campaign-sms-dispatch.js: turns an ajaxActionRequest
-    // response of shape {variables, fields, customObjects} into the
-    // rendered variable-source rows for whichever field anchors them
-    // ($anchorField — the Email picker there, the SMS textarea here).
-    // Kept off Mautic.n8ndispatchShared rather than duplicated per channel,
-    // since both channels' AJAX actions already return the same shape.
+    // Shared with campaign-sms-dispatch.js and email-tab-variables.js: turns
+    // an ajaxActionRequest response of shape {variables, fields,
+    // customObjects} into the rendered variable-source rows for whichever
+    // field anchors them ($anchorField — the SMS textarea there, the
+    // "Variables" tab's container here). Only ever writes into the hidden
+    // field kept in the DOM — persisting it anywhere (a form's own Save
+    // button, or email-tab-variables.js's submit-time AJAX call) is each
+    // caller's own concern, not this shared renderer's.
     function renderVariablesFromResponse($anchorField, response) {
         var $container = getContainer($anchorField);
         var $hidden     = getHiddenField($anchorField);
@@ -138,28 +140,11 @@
         getHiddenField($anchorField).val('{}');
     }
 
-    function renderVariableInputs($emailField) {
-        var emailId = $emailField.val();
-
-        if (!emailId) {
-            clearVariables($emailField);
-
-            return;
-        }
-
-        Mautic.ajaxActionRequest('plugin:N8nDispatch:getEmailVariables', {emailId: emailId}, function (response) {
-            renderVariablesFromResponse($emailField, response);
-        });
-    }
-
-    // getContainer/getHiddenField/variableRowHtml/syncHiddenField/
-    // wireVariableRowEvents used to be exposed here too, for
-    // campaign-hsm-dispatch.js's own hand-built (manually named,
+    // getContainer/getHiddenField/variableRowHtml used to be exposed here
+    // too, for campaign-hsm-dispatch.js's own hand-built (manually named,
     // no-text-to-scan) variable rows. Removed along with that script when
     // HSM moved to templates (Entity/HsmTemplate.php) and dropped its
-    // per-campaign variable picker outright — campaign-sms-dispatch.js,
-    // the only remaining consumer of this shared object, only ever needed
-    // clearVariables/renderVariablesFromResponse.
+    // per-campaign variable picker outright.
     Mautic.n8ndispatchShared = {
         clearVariables:              clearVariables,
         renderVariablesFromResponse: renderVariablesFromResponse,
@@ -218,18 +203,4 @@
 
         $hidden.val(JSON.stringify(values));
     }
-
-    // data-onload-callback convention (see CoreBundle Assets/js/1a.content.js) —
-    // Mautic calls Mautic.<name>(el) for every element carrying this attribute
-    // whenever the containing form/panel is (re)rendered, e.g. opening an
-    // existing "Send via n8n (Email)" campaign step for editing.
-    Mautic.n8nDispatchInitVariables = function (el) {
-        renderVariableInputs(mQuery(el));
-    };
-
-    // Plain onchange handler for when the user picks a different Email while
-    // the form is already open.
-    Mautic.n8nDispatchOnEmailChange = function (el) {
-        renderVariableInputs(mQuery(el));
-    };
 })(window.Mautic, window.mQuery);
