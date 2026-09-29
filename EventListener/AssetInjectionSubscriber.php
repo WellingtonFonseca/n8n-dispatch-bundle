@@ -9,21 +9,26 @@ use Mautic\CoreBundle\Event\CustomContentEvent;
 use Symfony\Component\EventDispatcher\EventSubscriberInterface;
 
 /**
- * Loads campaign-email-dispatch.js, campaign-sms-dispatch.js,
- * campaign-hsm-dispatch.js, campaign-timeline-scheduled.js, and
- * campaign-status-badge.css globally, the same way GrapesJsBuilderBundle
- * injects its own JS/vars via 'page.header.left' (a context rendered on
- * every admin page, not just the campaign builder). Harmless elsewhere —
- * the JS only defines Mautic.n8nDispatch... / n8ndispatch... functions, which
- * nothing calls unless one of the SMS/HSM Template forms, the Email
- * campaign action form, or a contact's Timeline (for
+ * Loads n8ndispatch-shared.js, email-tab-variables.js,
+ * campaign-sms-dispatch.js, campaign-hsm-dispatch.js,
+ * campaign-timeline-scheduled.js, and campaign-status-badge.css globally,
+ * the same way GrapesJsBuilderBundle injects its own JS/vars via
+ * 'page.header.left' (a context rendered on every admin page, not just the
+ * campaign builder). Harmless elsewhere — the JS only defines
+ * Mautic.n8nDispatch... / n8ndispatch... functions, which nothing calls
+ * unless one of the SMS/HSM Template forms, the Email edit page's
+ * "Variables" tab, or a contact's Timeline (for
  * campaign-timeline-scheduled.js) is actually on the page, and the CSS
  * only styles .n8ndispatch-* classes, rendered solely by our own
  * Resources/views templates.
  *
- * campaign-sms-dispatch.js and campaign-hsm-dispatch.js are injected
- * after campaign-email-dispatch.js, and depend on running after it —
- * both read Mautic.n8ndispatchShared, which the Email script sets up.
+ * email-tab-variables.js, campaign-sms-dispatch.js and
+ * campaign-hsm-dispatch.js are injected after n8ndispatch-shared.js, and
+ * depend on running after it — all three read Mautic.n8ndispatchShared,
+ * which that script sets up (n8ndispatch-shared.js used to be named
+ * campaign-email-dispatch.js, back when it also backed the "Send via n8n
+ * (Email)" campaign action's own Email-picker variable rows — that picker
+ * no longer edits variables, see Form/Type/EmailDispatchActionType.php).
  */
 class AssetInjectionSubscriber implements EventSubscriberInterface
 {
@@ -40,14 +45,16 @@ class AssetInjectionSubscriber implements EventSubscriberInterface
             return;
         }
 
-        $emailJsRelativePath    = 'Assets/js/campaign-email-dispatch.js';
-        $smsJsRelativePath      = 'Assets/js/campaign-sms-dispatch.js';
-        $hsmJsRelativePath      = 'Assets/js/campaign-hsm-dispatch.js';
-        $timelineJsRelativePath = 'Assets/js/campaign-timeline-scheduled.js';
-        $cssRelativePath        = 'Assets/css/campaign-status-badge.css';
+        $sharedJsRelativePath      = 'Assets/js/n8ndispatch-shared.js';
+        $emailTabJsRelativePath    = 'Assets/js/email-tab-variables.js';
+        $smsJsRelativePath         = 'Assets/js/campaign-sms-dispatch.js';
+        $hsmJsRelativePath         = 'Assets/js/campaign-hsm-dispatch.js';
+        $timelineJsRelativePath    = 'Assets/js/campaign-timeline-scheduled.js';
+        $cssRelativePath           = 'Assets/css/campaign-status-badge.css';
 
         $customContentEvent->addContent(
-            '<script src="/plugins/N8nDispatchBundle/'.$emailJsRelativePath.'?v='.$this->assetVersion($emailJsRelativePath).'"></script>'
+            '<script src="/plugins/N8nDispatchBundle/'.$sharedJsRelativePath.'?v='.$this->assetVersion($sharedJsRelativePath).'"></script>'
+            .'<script src="/plugins/N8nDispatchBundle/'.$emailTabJsRelativePath.'?v='.$this->assetVersion($emailTabJsRelativePath).'"></script>'
             .'<script src="/plugins/N8nDispatchBundle/'.$smsJsRelativePath.'?v='.$this->assetVersion($smsJsRelativePath).'"></script>'
             .'<script src="/plugins/N8nDispatchBundle/'.$hsmJsRelativePath.'?v='.$this->assetVersion($hsmJsRelativePath).'"></script>'
             .'<script src="/plugins/N8nDispatchBundle/'.$timelineJsRelativePath.'?v='.$this->assetVersion($timelineJsRelativePath).'"></script>'

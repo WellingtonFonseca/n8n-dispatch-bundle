@@ -8,6 +8,7 @@ use Doctrine\DBAL\Schema\Schema;
 use Mautic\CoreBundle\Factory\MauticFactory;
 use Mautic\PluginBundle\Bundle\PluginBundleBase;
 use Mautic\PluginBundle\Entity\Plugin;
+use MauticPlugin\N8nDispatchBundle\Entity\EmailVariables;
 use MauticPlugin\N8nDispatchBundle\Entity\HsmTemplate;
 use MauticPlugin\N8nDispatchBundle\Entity\SmsTemplate;
 
@@ -31,6 +32,10 @@ class N8nDispatchBundle extends PluginBundleBase
 
         if (!empty($metadata[HsmTemplate::class]) && (null === $installedSchema || !$installedSchema->hasTable(HsmTemplate::TABLE_NAME))) {
             $toInstall[] = $metadata[HsmTemplate::class];
+        }
+
+        if (!empty($metadata[EmailVariables::class]) && (null === $installedSchema || !$installedSchema->hasTable(EmailVariables::TABLE_NAME))) {
+            $toInstall[] = $metadata[EmailVariables::class];
         }
 
         if ([] !== $toInstall) {

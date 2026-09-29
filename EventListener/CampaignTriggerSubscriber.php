@@ -17,6 +17,7 @@ use Mautic\LeadBundle\Entity\DoNotContact;
 use Mautic\LeadBundle\Entity\Lead;
 use Mautic\LeadBundle\Model\DoNotContact as DncModel;
 use Mautic\PluginBundle\Helper\IntegrationHelper;
+use MauticPlugin\N8nDispatchBundle\Entity\EmailVariablesRepository;
 use MauticPlugin\N8nDispatchBundle\Integration\N8nDispatchIntegration;
 use MauticPlugin\N8nDispatchBundle\N8nDispatchEvents;
 use MauticPlugin\N8nDispatchBundle\Resolver\VariableResolver;
@@ -40,6 +41,16 @@ use Symfony\Contracts\HttpClient\ResponseInterface;
  * unlike the old failAll() path whose failure metadata got wiped by
  * PendingEvent::pass() the moment the contact was later dispatched for
  * real.
+ *
+ * The {{variable}} source mapping is read fresh from Entity/
+ * EmailVariables.php (the "Variables" tab on the Email's own edit page,
+ * EventListener/EmailTabSubscriber.php) on every run, same reasoning as
+ * SmsCampaignTriggerSubscriber reading SmsTemplate::getVariablesJson()
+ * fresh — an edit there reaches every campaign sending that Email. An
+ * Email with no row yet (its tab never opened) falls back to this event's
+ * own inline properties.variablesJson, for events saved before this
+ * change — same backward-compat shape as SMS's own
+ * 'no smsTemplate picked yet' fallback, see that class's docblock.
  */
 class CampaignTriggerSubscriber implements EventSubscriberInterface
 {
@@ -55,6 +66,7 @@ class CampaignTriggerSubscriber implements EventSubscriberInterface
         private MailHashHelper $mailHashHelper,
         private EntityManagerInterface $entityManager,
         private DncModel $dncModel,
+        private EmailVariablesRepository $emailVariablesRepository,
     ) {
     }
 
@@ -71,11 +83,17 @@ class CampaignTriggerSubscriber implements EventSubscriberInterface
             return;
         }
 
-        $config          = $event->getEvent()->getProperties();
-        $campaign        = $event->getEvent()->getCampaign();
-        $emailId         = (int) ($config['email'] ?? 0);
-        $status          = (string) ($config['status'] ?? 'test');
-        $variablesConfig = json_decode((string) ($config['variablesJson'] ?? '{}'), true);
+        $config   = $event->getEvent()->getProperties();
+        $campaign = $event->getEvent()->getCampaign();
+        $emailId  = (int) ($config['email'] ?? 0);
+        $status   = (string) ($config['status'] ?? 'test');
+
+        $variablesJson = $emailId > 0 ? $this->emailVariablesRepository->getVariablesJsonForEmail($emailId) : null;
+        if (null === $variablesJson) {
+            $variablesJson = (string) ($config['variablesJson'] ?? '{}');
+        }
+
+        $variablesConfig = json_decode($variablesJson, true);
         $variablesConfig = is_array($variablesConfig) ? $variablesConfig : [];
 
         if ('test' === $status || 'paused' === $status) {
