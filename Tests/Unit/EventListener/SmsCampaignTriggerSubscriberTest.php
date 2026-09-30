@@ -145,6 +145,7 @@ class SmsCampaignTriggerSubscriberTest extends TestCase
                 'contact_inst_id_company'        => '',
                 'contact_inst_alias'             => '',
                 'status'                         => 'test',
+                'language'                         => 'pt_BR',
                 // {{foo}} resolved from the variable map; {{missing}} has no
                 // entry in it (variablesJson only ever has keys the form
                 // actually scanned out of the text), so it's left as-is
@@ -431,5 +432,51 @@ class SmsCampaignTriggerSubscriberTest extends TestCase
         /** @var LeadEventLog $passedLog */
         $passedLog = $pendingEvent->getSuccessful()->first();
         $this->assertSame('Hi a, b', $passedLog->getMetadata()['n8ndispatch']['message']);
+    }
+
+    public function testTemplateLanguageIsPassedToTheResolverAndSentInThePayload(): void
+    {
+        $template = new SmsTemplate();
+        $template->setText('Hello {{foo}}');
+        $template->setVariablesJson('{}');
+        $template->setLanguage('en');
+
+        $this->smsTemplateModel->method('getEntity')->with(7)->willReturn($template);
+
+        $variableResolver = $this->createMock(VariableResolver::class);
+        $variableResolver->expects($this->once())
+            ->method('resolveAll')
+            ->with($this->anything(), $this->anything(), $this->anything(), $this->anything(), 'en')
+            ->willReturn(['foo' => 'bar']);
+        $subscriber = new SmsCampaignTriggerSubscriber(
+            $this->integrationHelper,
+            $this->httpClient,
+            $this->logger,
+            $variableResolver,
+            $this->dncModel,
+            $this->smsTemplateModel,
+        );
+
+        $pendingEvent = $this->buildPendingEvent(['smsTemplate' => '7', 'status' => 'test']);
+        $subscriber->onSmsSend($pendingEvent);
+
+        /** @var LeadEventLog $passedLog */
+        $passedLog = $pendingEvent->getSuccessful()->first();
+        $this->assertSame('en', $passedLog->getMetadata()['n8ndispatch']['language']);
+    }
+
+    public function testTemplateWithoutAnExplicitLanguageDefaultsToPortuguese(): void
+    {
+        $this->assertSame('pt_BR', (new SmsTemplate())->getLanguage());
+    }
+
+    public function testInlineEventWithoutATemplateUsesPortuguese(): void
+    {
+        $pendingEvent = $this->buildPendingEvent(['text' => 'Hi {{foo}}', 'status' => 'test']);
+        $this->subscriber->onSmsSend($pendingEvent);
+
+        /** @var LeadEventLog $passedLog */
+        $passedLog = $pendingEvent->getSuccessful()->first();
+        $this->assertSame('pt_BR', $passedLog->getMetadata()['n8ndispatch']['language']);
     }
 }

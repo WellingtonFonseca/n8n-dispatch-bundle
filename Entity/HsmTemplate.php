@@ -7,6 +7,7 @@ namespace MauticPlugin\N8nDispatchBundle\Entity;
 use Doctrine\ORM\Mapping as ORM;
 use Mautic\CoreBundle\Doctrine\Mapping\ClassMetadataBuilder;
 use Mautic\CoreBundle\Entity\FormEntity;
+use MauticPlugin\N8nDispatchBundle\Resolver\LocaleConventions;
 use Symfony\Component\Validator\Constraints as Assert;
 use Symfony\Component\Validator\Mapping\ClassMetadata;
 
@@ -48,6 +49,8 @@ class HsmTemplate extends FormEntity
     private ?int $id = null;
 
     private ?string $name = null;
+
+    private string $language = LocaleConventions::DEFAULT_LOCALE;
 
     private ?string $description = null;
 
@@ -92,6 +95,16 @@ class HsmTemplate extends FormEntity
         // id, name, description (+ FormEntity's isPublished/created/modified
         // columns, mapped by FormEntity's own loadMetadata()).
         $builder->addIdColumns();
+
+        // Not addNamedField(): needs the 'default' column option so
+        // ALTER TABLE ADD COLUMN (N8nDispatchBundle::onPluginUpdate(), for
+        // installs that already have this table) backfills existing rows
+        // with pt_BR — templates saved before the language existed keep
+        // the formatting every dispatch already had.
+        $builder->createField('language', 'string')
+            ->columnName('language')
+            ->option('default', LocaleConventions::DEFAULT_LOCALE)
+            ->build();
 
         // Not addNamedField(): needs the 'default' column option too, so
         // ALTER TABLE ADD COLUMN (N8nDispatchBundle::onPluginUpdate(), for
@@ -145,6 +158,19 @@ class HsmTemplate extends FormEntity
     {
         $this->isChanged('name', $name);
         $this->name = $name;
+
+        return $this;
+    }
+
+    public function getLanguage(): string
+    {
+        return $this->language;
+    }
+
+    public function setLanguage(string $language): self
+    {
+        $this->isChanged('language', $language);
+        $this->language = $language;
 
         return $this;
     }

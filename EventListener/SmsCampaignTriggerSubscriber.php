@@ -14,6 +14,7 @@ use Mautic\PluginBundle\Helper\IntegrationHelper;
 use MauticPlugin\N8nDispatchBundle\Integration\N8nDispatchIntegration;
 use MauticPlugin\N8nDispatchBundle\Model\SmsTemplateModel;
 use MauticPlugin\N8nDispatchBundle\N8nDispatchEvents;
+use MauticPlugin\N8nDispatchBundle\Resolver\LocaleConventions;
 use MauticPlugin\N8nDispatchBundle\Resolver\VariableResolver;
 use Psr\Log\LoggerInterface;
 use Symfony\Component\EventDispatcher\EventSubscriberInterface;
@@ -99,6 +100,7 @@ class SmsCampaignTriggerSubscriber implements EventSubscriberInterface
         $text          = (string) ($config['text'] ?? '');
         $variablesJson = (string) ($config['variablesJson'] ?? '{}');
         $templateId    = (int) ($config['smsTemplate'] ?? 0);
+        $language      = LocaleConventions::DEFAULT_LOCALE;
 
         if ($templateId > 0) {
             $template = $this->smsTemplateModel->getEntity($templateId);
@@ -114,6 +116,7 @@ class SmsCampaignTriggerSubscriber implements EventSubscriberInterface
 
             $text          = (string) $template->getText();
             $variablesJson = (string) ($template->getVariablesJson() ?? '{}');
+            $language      = $template->getLanguage();
         }
 
         $variablesConfig = json_decode($variablesJson, true);
@@ -124,7 +127,7 @@ class SmsCampaignTriggerSubscriber implements EventSubscriberInterface
                 /** @var LeadEventLog $log */
                 $log = $event->getPending()->get($logId);
 
-                $this->recordWithoutDispatch($event, $log, $contact, $campaign, $text, $status, $variablesConfig);
+                $this->recordWithoutDispatch($event, $log, $contact, $campaign, $text, $status, $variablesConfig, $language);
             }
 
             return;
@@ -161,7 +164,7 @@ class SmsCampaignTriggerSubscriber implements EventSubscriberInterface
             /** @var LeadEventLog $log */
             $log = $event->getPending()->get($logId);
 
-            $this->dispatchToContact($event, $log, $contact, $campaign, $text, $status, $variablesConfig, $webhookUrl, $headers);
+            $this->dispatchToContact($event, $log, $contact, $campaign, $text, $status, $variablesConfig, $language, $webhookUrl, $headers);
         }
     }
 
@@ -177,6 +180,7 @@ class SmsCampaignTriggerSubscriber implements EventSubscriberInterface
         string $text,
         string $status,
         array $variablesConfig,
+        string $language,
         string $webhookUrl,
         array $headers,
     ): void {
@@ -205,9 +209,9 @@ class SmsCampaignTriggerSubscriber implements EventSubscriberInterface
             return;
         }
 
-        $variables = $this->variableResolver->resolveAll($variablesConfig, $contact, $campaign, self::MULTI_VALUE_SEPARATOR);
+        $variables = $this->variableResolver->resolveAll($variablesConfig, $contact, $campaign, self::MULTI_VALUE_SEPARATOR, $language);
         $message   = $this->resolveMessage($text, $variables);
-        $payload   = $this->buildPayload($contact, $phone, $status, $message, $variables);
+        $payload   = $this->buildPayload($contact, $phone, $status, $message, $variables, $language);
 
         try {
             $response = $this->httpClient->request('POST', $webhookUrl, [
@@ -255,10 +259,11 @@ class SmsCampaignTriggerSubscriber implements EventSubscriberInterface
         string $text,
         string $status,
         array $variablesConfig,
+        string $language,
     ): void {
-        $variables = $this->variableResolver->resolveAll($variablesConfig, $contact, $campaign, self::MULTI_VALUE_SEPARATOR);
+        $variables = $this->variableResolver->resolveAll($variablesConfig, $contact, $campaign, self::MULTI_VALUE_SEPARATOR, $language);
         $message   = $this->resolveMessage($text, $variables);
-        $payload   = $this->buildPayload($contact, (string) $contact->getPhone(), $status, $message, $variables);
+        $payload   = $this->buildPayload($contact, (string) $contact->getPhone(), $status, $message, $variables, $language);
 
         $log->appendToMetadata(['n8ndispatch' => $payload]);
 
@@ -282,7 +287,7 @@ class SmsCampaignTriggerSubscriber implements EventSubscriberInterface
      *
      * @return array<string, mixed>
      */
-    private function buildPayload(Lead $contact, string $phone, string $status, string $message, array $variables): array
+    private function buildPayload(Lead $contact, string $phone, string $status, string $message, array $variables, string $language): array
     {
         return [
             'contact_id'                     => $contact->getId(),
@@ -295,6 +300,8 @@ class SmsCampaignTriggerSubscriber implements EventSubscriberInterface
             'contact_inst_id_company'        => $this->variableResolver->resolveContactField($contact, 'inst_id_company'),
             'contact_inst_alias'             => $this->variableResolver->resolveContactField($contact, 'inst_alias'),
             'status'                         => $status,
+            // See CampaignTriggerSubscriber::buildPayload().
+            'language'                       => $language,
             'message'                        => $message,
             'variables'                      => $variables,
         ];

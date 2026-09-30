@@ -145,6 +145,7 @@ class HsmCampaignTriggerSubscriberTest extends TestCase
                 'contact_inst_id_company'        => '',
                 'contact_inst_alias'             => '',
                 'status'                         => 'test',
+                'language'                         => 'pt_BR',
                 'hsm_router'                     => 'r1',
                 'hsm_template'                   => 'h1',
                 'hsm_type'                       => HsmTemplate::TYPE_TEXT,
@@ -459,5 +460,42 @@ class HsmCampaignTriggerSubscriberTest extends TestCase
         // 'type' never existed as an inline Campaign Action field, so a
         // pre-template event always defaults to HsmTemplate::TYPE_TEXT.
         $this->assertSame(HsmTemplate::TYPE_TEXT, $payload['hsm_type']);
+    }
+
+    public function testTemplateLanguageIsPassedToTheResolverAndSentInThePayload(): void
+    {
+        $template = new HsmTemplate();
+        $template->setRouter('r');
+        $template->setHsmTemplate('h');
+        $template->setVariablesJson('{}');
+        $template->setLanguage('en_US');
+
+        $this->hsmTemplateModel->method('getEntity')->with(7)->willReturn($template);
+
+        $variableResolver = $this->createMock(VariableResolver::class);
+        $variableResolver->expects($this->once())
+            ->method('resolveAll')
+            ->with($this->anything(), $this->anything(), $this->anything(), $this->anything(), 'en_US')
+            ->willReturn([]);
+        $subscriber = new HsmCampaignTriggerSubscriber(
+            $this->integrationHelper,
+            $this->httpClient,
+            $this->logger,
+            $variableResolver,
+            $this->dncModel,
+            $this->hsmTemplateModel,
+        );
+
+        $pendingEvent = $this->buildPendingEvent(['hsmTemplateId' => '7', 'status' => 'test']);
+        $subscriber->onHsmSend($pendingEvent);
+
+        /** @var LeadEventLog $passedLog */
+        $passedLog = $pendingEvent->getSuccessful()->first();
+        $this->assertSame('en_US', $passedLog->getMetadata()['n8ndispatch']['language']);
+    }
+
+    public function testTemplateWithoutAnExplicitLanguageDefaultsToPortuguese(): void
+    {
+        $this->assertSame('pt_BR', (new HsmTemplate())->getLanguage());
     }
 }

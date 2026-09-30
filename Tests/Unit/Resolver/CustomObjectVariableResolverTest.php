@@ -75,6 +75,7 @@ class CustomObjectVariableResolverTest extends TestCase
             $this->buildField(1, 'nome', 'text'),
             $this->buildField(2, 'posicao', 'int'),
             $this->buildField(3, 'inicio', 'date'),
+            $this->buildField(4, 'valor', 'decimal'),
         ]));
 
         return $customObject;
@@ -297,6 +298,37 @@ class CustomObjectVariableResolverTest extends TestCase
         $this->expectValuesFetchedFor([1], 'inicio', ['2026-09-01']);
 
         $this->assertSame('01/09/2026', $this->resolver->resolve($this->contact, $campaign, 'disciplina', 'inicio'));
+    }
+
+    public function testDecimalTargetFieldIsFormattedWithTwoPlacesMinimum(): void
+    {
+        $posicao  = $this->fieldFilter(2);
+        $campaign = $this->campaignWithSegment([$posicao]);
+
+        $this->positiveMatches([[$posicao, [1, 2]]]);
+        $this->expectValuesFetchedFor([1, 2], 'valor', ['1.100000', '1.000100']);
+
+        $this->assertSame('1,10<br>1,0001', $this->resolver->resolve($this->contact, $campaign, 'disciplina', 'valor'));
+    }
+
+    public function testTargetFieldsFollowTheGivenLanguage(): void
+    {
+        $posicao  = $this->fieldFilter(2);
+        $campaign = $this->campaignWithSegment([$posicao]);
+
+        $this->positiveMatches([[$posicao, [1]]]);
+        $this->expectValuesFetchedFor([1], 'valor', ['1.100000']);
+        $this->assertSame('1.10', $this->resolver->resolve($this->contact, $campaign, 'disciplina', 'valor', '<br>', 'en'));
+    }
+
+    public function testDateTargetFieldFollowsTheGivenLanguage(): void
+    {
+        $posicao  = $this->fieldFilter(2);
+        $campaign = $this->campaignWithSegment([$posicao]);
+
+        $this->positiveMatches([[$posicao, [1]]]);
+        $this->expectValuesFetchedFor([1], 'inicio', ['2026-09-01']);
+        $this->assertSame('09/01/2026', $this->resolver->resolve($this->contact, $campaign, 'disciplina', 'inicio', '<br>', 'en'));
     }
 
     public function testUnknownTargetFieldResolvesEmptyAndLogsWarning(): void

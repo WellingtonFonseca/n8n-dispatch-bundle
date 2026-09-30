@@ -15,6 +15,7 @@ use MauticPlugin\N8nDispatchBundle\Entity\HsmTemplate;
 use MauticPlugin\N8nDispatchBundle\Integration\N8nDispatchIntegration;
 use MauticPlugin\N8nDispatchBundle\Model\HsmTemplateModel;
 use MauticPlugin\N8nDispatchBundle\N8nDispatchEvents;
+use MauticPlugin\N8nDispatchBundle\Resolver\LocaleConventions;
 use MauticPlugin\N8nDispatchBundle\Resolver\VariableResolver;
 use Psr\Log\LoggerInterface;
 use Symfony\Component\EventDispatcher\EventSubscriberInterface;
@@ -104,6 +105,7 @@ class HsmCampaignTriggerSubscriber implements EventSubscriberInterface
         $hsmType       = HsmTemplate::TYPE_TEXT;
         $variablesJson = (string) ($config['variablesJson'] ?? '{}');
         $templateId    = (int) ($config['hsmTemplateId'] ?? 0);
+        $language      = LocaleConventions::DEFAULT_LOCALE;
 
         if ($templateId > 0) {
             $template = $this->hsmTemplateModel->getEntity($templateId);
@@ -121,6 +123,7 @@ class HsmCampaignTriggerSubscriber implements EventSubscriberInterface
             $hsmTemplate   = (string) $template->getHsmTemplate();
             $hsmType       = $template->getType();
             $variablesJson = (string) ($template->getVariablesJson() ?? '{}');
+            $language      = $template->getLanguage();
         }
 
         $variablesConfig = json_decode($variablesJson, true);
@@ -131,7 +134,7 @@ class HsmCampaignTriggerSubscriber implements EventSubscriberInterface
                 /** @var LeadEventLog $log */
                 $log = $event->getPending()->get($logId);
 
-                $this->recordWithoutDispatch($event, $log, $contact, $campaign, $router, $hsmTemplate, $hsmType, $status, $variablesConfig);
+                $this->recordWithoutDispatch($event, $log, $contact, $campaign, $router, $hsmTemplate, $hsmType, $status, $variablesConfig, $language);
             }
 
             return;
@@ -168,7 +171,7 @@ class HsmCampaignTriggerSubscriber implements EventSubscriberInterface
             /** @var LeadEventLog $log */
             $log = $event->getPending()->get($logId);
 
-            $this->dispatchToContact($event, $log, $contact, $campaign, $router, $hsmTemplate, $hsmType, $status, $variablesConfig, $webhookUrl, $headers);
+            $this->dispatchToContact($event, $log, $contact, $campaign, $router, $hsmTemplate, $hsmType, $status, $variablesConfig, $language, $webhookUrl, $headers);
         }
     }
 
@@ -186,6 +189,7 @@ class HsmCampaignTriggerSubscriber implements EventSubscriberInterface
         string $hsmType,
         string $status,
         array $variablesConfig,
+        string $language,
         string $webhookUrl,
         array $headers,
     ): void {
@@ -213,8 +217,8 @@ class HsmCampaignTriggerSubscriber implements EventSubscriberInterface
             return;
         }
 
-        $variables = $this->variableResolver->resolveAll($variablesConfig, $contact, $campaign, self::MULTI_VALUE_SEPARATOR);
-        $payload   = $this->buildPayload($contact, $phone, $router, $hsmTemplate, $hsmType, $status, $variables);
+        $variables = $this->variableResolver->resolveAll($variablesConfig, $contact, $campaign, self::MULTI_VALUE_SEPARATOR, $language);
+        $payload   = $this->buildPayload($contact, $phone, $router, $hsmTemplate, $hsmType, $status, $variables, $language);
 
         try {
             $response = $this->httpClient->request('POST', $webhookUrl, [
@@ -272,9 +276,10 @@ class HsmCampaignTriggerSubscriber implements EventSubscriberInterface
         string $hsmType,
         string $status,
         array $variablesConfig,
+        string $language,
     ): void {
-        $variables = $this->variableResolver->resolveAll($variablesConfig, $contact, $campaign, self::MULTI_VALUE_SEPARATOR);
-        $payload   = $this->buildPayload($contact, (string) $contact->getPhone(), $router, $hsmTemplate, $hsmType, $status, $variables);
+        $variables = $this->variableResolver->resolveAll($variablesConfig, $contact, $campaign, self::MULTI_VALUE_SEPARATOR, $language);
+        $payload   = $this->buildPayload($contact, (string) $contact->getPhone(), $router, $hsmTemplate, $hsmType, $status, $variables, $language);
 
         $log->appendToMetadata(['n8ndispatch' => $payload]);
 
@@ -286,7 +291,7 @@ class HsmCampaignTriggerSubscriber implements EventSubscriberInterface
      *
      * @return array<string, mixed>
      */
-    private function buildPayload(Lead $contact, string $phone, string $router, string $hsmTemplate, string $hsmType, string $status, array $variables): array
+    private function buildPayload(Lead $contact, string $phone, string $router, string $hsmTemplate, string $hsmType, string $status, array $variables, string $language): array
     {
         return [
             'contact_id'                    => $contact->getId(),
@@ -299,6 +304,8 @@ class HsmCampaignTriggerSubscriber implements EventSubscriberInterface
             'contact_inst_id_company'       => $this->variableResolver->resolveContactField($contact, 'inst_id_company'),
             'contact_inst_alias'            => $this->variableResolver->resolveContactField($contact, 'inst_alias'),
             'status'                        => $status,
+            // See CampaignTriggerSubscriber::buildPayload().
+            'language'                      => $language,
             'hsm_router'                    => $router,
             'hsm_template'                  => $hsmTemplate,
             'hsm_type'                      => $hsmType,
