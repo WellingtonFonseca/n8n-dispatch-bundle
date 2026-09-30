@@ -22,6 +22,11 @@
     'production': 'mautic.n8ndispatch.campaign.event.status.production',
     'paused':     'mautic.n8ndispatch.campaign.event.status.paused',
 }[status]|default('mautic.n8ndispatch.campaign.event.status.test') %}
+{% set typeIcon = {
+    'n8ndispatch.email.send': 'ri-mail-fill',
+    'n8ndispatch.sms.send':   'ri-message-3-fill',
+    'n8ndispatch.hsm.send':   'ri-whatsapp-fill',
+}[event['type']]|default(getCampaignEventIcon(event['type'])) %}
 {% if update is not defined %}
   <div id="CampaignEvent_{{ event['id'] }}"
        data-type="{{ event['eventType'] }}"
@@ -35,7 +40,7 @@
     </span>
     <div class="campaign-event-type">
         <div class="campaign-event-content d-flex fw-nowrap ai-center gap-sm">
-            <div class="campaign-event-icon pa-sm mr-5"><i class="{{ getCampaignEventIcon(event['type']) }}"></i></div>
+            <div class="campaign-event-icon pa-sm mr-5"><i class="{{ typeIcon }}"></i></div>
             <div class="d-flex fd-column ai-start">
                 <span class="fs-18 fw-l">{{ ('mautic.campaign.'~event['type'])|trans }}</span>
                 <span class="campaign-event-name ellipsis">{% if ('dev' == constant('MAUTIC_ENV')) %}<small>{{ event['id'] }}</small> {% endif %}{{ event['name'] }}</span>
