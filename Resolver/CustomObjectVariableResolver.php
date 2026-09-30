@@ -134,9 +134,13 @@ class CustomObjectVariableResolver
 
         // Mautic stores date/datetime values as 'Y-m-d'/'Y-m-d H:i:s' —
         // reformatted to pt-BR, same as VariableResolver does for contact
-        // fields.
+        // fields. Decimal values lose their storage padding
+        // (DecimalFormatter); each formatter ignores the other's types.
         $values = array_map(
-            static fn (string $value): string => BrazilianDateFormatter::format($value, (string) $targetField->getType()),
+            static fn (string $value): string => DecimalFormatter::format(
+                BrazilianDateFormatter::format($value, (string) $targetField->getType()),
+                (string) $targetField->getType()
+            ),
             $this->itemMatcher->fetchFieldValues($itemIds, $targetField)
         );
 
