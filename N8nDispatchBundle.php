@@ -11,6 +11,7 @@ use Mautic\PluginBundle\Entity\Plugin;
 use MauticPlugin\N8nDispatchBundle\Entity\EmailVariables;
 use MauticPlugin\N8nDispatchBundle\Entity\HsmTemplate;
 use MauticPlugin\N8nDispatchBundle\Entity\SmsTemplate;
+use MauticPlugin\N8nDispatchBundle\Resolver\LocaleConventions;
 
 class N8nDispatchBundle extends PluginBundleBase
 {
@@ -54,6 +55,18 @@ class N8nDispatchBundle extends PluginBundleBase
         // narrow, explicit, single-column ALTER instead — installs new
         // enough to get the column right from the CREATE above skip
         // these (hasColumn()/hasTable() are already as expected).
+        // 'language' (added to both Template tables): existing rows — about
+        // 30 HSM templates in production — get 'pt_BR' from the column
+        // default, so nobody has to open and re-save them.
+        foreach ([SmsTemplate::TABLE_NAME, HsmTemplate::TABLE_NAME] as $tableName) {
+            if ($installedSchema instanceof Schema && $installedSchema->hasTable($tableName) && !$installedSchema->getTable($tableName)->hasColumn('language')) {
+                $factory->getDatabase()->executeQuery(
+                    'ALTER TABLE '.$tableName
+                    ." ADD COLUMN language VARCHAR(191) NOT NULL DEFAULT '".LocaleConventions::DEFAULT_LOCALE."'"
+                );
+            }
+        }
+
         if ($installedSchema instanceof Schema && $installedSchema->hasTable(HsmTemplate::TABLE_NAME)) {
             $table = $installedSchema->getTable(HsmTemplate::TABLE_NAME);
 

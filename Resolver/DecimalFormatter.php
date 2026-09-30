@@ -11,7 +11,8 @@ namespace MauticPlugin\N8nDispatchBundle\Resolver;
  * third on only up to the last non-zero one": 1.10, 3.75, 2.00, 1.0001.
  *
  * Works on the stored text, never through float, so no rounding can creep
- * in. The separator stays a dot.
+ * in. The separator follows the language (LocaleConventions): '1,10' for
+ * pt_BR, '1.10' for en.
  */
 final class DecimalFormatter
 {
@@ -21,9 +22,9 @@ final class DecimalFormatter
      * Returns $value unchanged for any $type other than 'decimal', or when
      * $value isn't a plain decimal number (empty, text, scientific
      * notation) — same "never throw a dispatchable value away" stance as
-     * BrazilianDateFormatter.
+     * DateFormatter.
      */
-    public static function format(string $value, string $type): string
+    public static function format(string $value, string $type, string $locale = LocaleConventions::DEFAULT_LOCALE): string
     {
         if ('decimal' !== $type || 1 !== preg_match('/^(-?\d+)(?:\.(\d+))?$/', $value, $parts)) {
             return $value;
@@ -31,6 +32,6 @@ final class DecimalFormatter
 
         $fraction = str_pad(rtrim($parts[2] ?? '', '0'), self::MIN_PLACES, '0');
 
-        return $parts[1].'.'.$fraction;
+        return $parts[1].LocaleConventions::decimalSeparator($locale).$fraction;
     }
 }

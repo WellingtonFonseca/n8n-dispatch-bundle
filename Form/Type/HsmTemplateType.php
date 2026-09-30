@@ -12,6 +12,7 @@ use MauticPlugin\N8nDispatchBundle\Entity\HsmTemplate;
 use Symfony\Component\Form\AbstractType;
 use Symfony\Component\Form\Extension\Core\Type\ChoiceType;
 use Symfony\Component\Form\Extension\Core\Type\HiddenType;
+use Symfony\Component\Form\Extension\Core\Type\LocaleType;
 use Symfony\Component\Form\Extension\Core\Type\TextareaType;
 use Symfony\Component\Form\Extension\Core\Type\TextType;
 use Symfony\Component\Form\FormBuilderInterface;
@@ -58,6 +59,16 @@ class HsmTemplateType extends AbstractType
             'variablesJson' => 'raw',
         ]));
         $builder->addEventSubscriber(new FormExitSubscriber('n8ndispatch.hsmtemplate', $options));
+
+        // Same field as the Email editor's language (EmailBundle's EmailType):
+        // picks how dates and decimals are formatted in this template's
+        // variables, see Resolver/LocaleConventions.php.
+        $builder->add('language', LocaleType::class, [
+            'label'      => 'mautic.core.language',
+            'label_attr' => ['class' => 'control-label'],
+            'attr'       => ['class' => 'form-control'],
+            'required'   => true,
+        ]);
 
         $builder->add('name', TextType::class, [
             'label'      => 'mautic.core.name',

@@ -8,19 +8,15 @@ namespace MauticPlugin\N8nDispatchBundle\Resolver;
  * Both VariableResolver (contact fields) and CustomObjectVariableResolver
  * (Custom Object fields) read date/datetime values straight out of
  * storage — Mautic's own 'Y-m-d'/'Y-m-d H:i:s' format, ISO-ish but not
- * what n8n/Mirror need: the client's templates expect pt-BR dates
- * ('d/m/Y'). Shared here instead of duplicated in both resolvers.
+ * what n8n/Mirror need. Rewritten to the convention of the language set on
+ * the template (see LocaleConventions: 'd/m/Y' for pt_BR, 'm/d/Y' for en).
+ * Shared here instead of duplicated in both resolvers.
  */
-final class BrazilianDateFormatter
+final class DateFormatter
 {
     private const SOURCE_FORMAT = [
         'date'     => 'Y-m-d',
         'datetime' => 'Y-m-d H:i:s',
-    ];
-
-    private const TARGET_FORMAT = [
-        'date'     => 'd/m/Y',
-        'datetime' => 'd/m/Y H:i:s',
     ];
 
     /**
@@ -29,7 +25,7 @@ final class BrazilianDateFormatter
      * safer than throwing away a value dispatch would otherwise have
      * sent, in case storage ever returns something unexpected.
      */
-    public static function format(string $value, string $type): string
+    public static function format(string $value, string $type, string $locale = LocaleConventions::DEFAULT_LOCALE): string
     {
         if ('' === $value || !isset(self::SOURCE_FORMAT[$type])) {
             return $value;
@@ -41,6 +37,6 @@ final class BrazilianDateFormatter
             return $value;
         }
 
-        return $date->format(self::TARGET_FORMAT[$type]);
+        return $date->format(LocaleConventions::dateFormat($locale, $type));
     }
 }

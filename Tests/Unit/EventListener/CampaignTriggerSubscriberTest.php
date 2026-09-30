@@ -163,7 +163,8 @@ class CampaignTriggerSubscriberTest extends TestCase
         $pendingEvent = $this->buildPendingEvent(['email' => 1, 'status' => 'paused']);
 
         $this->httpClient->expects($this->never())->method('request');
-        $this->emailModel->expects($this->never())->method('getEntity');
+        // Loaded in test/paused too, only to read its language.
+        $this->emailModel->method('getEntity')->willReturn(null);
 
         $this->subscriber->onEmailSend($pendingEvent);
 
@@ -457,7 +458,8 @@ class CampaignTriggerSubscriberTest extends TestCase
         $pendingEvent = $this->buildPendingEvent(['email' => 1, 'status' => 'test']);
 
         $this->httpClient->expects($this->never())->method('request');
-        $this->emailModel->expects($this->never())->method('getEntity');
+        // Loaded in test/paused too, only to read its language.
+        $this->emailModel->method('getEntity')->willReturn(null);
 
         $this->subscriber->onEmailSend($pendingEvent);
 
@@ -478,6 +480,7 @@ class CampaignTriggerSubscriberTest extends TestCase
                 'contact_inst_id_company'        => '',
                 'contact_inst_alias'             => '',
                 'status'                         => 'test',
+                'language'                         => 'pt_BR',
                 'variables'                      => [
                     'foo'                     => 'bar',
                     UnsubscribeVariable::KEY => '(not generated — no real dispatch)',
@@ -492,7 +495,8 @@ class CampaignTriggerSubscriberTest extends TestCase
         $pendingEvent = $this->buildPendingEvent(['email' => 1]);
 
         $this->httpClient->expects($this->never())->method('request');
-        $this->emailModel->expects($this->never())->method('getEntity');
+        // Loaded in test/paused too, only to read its language.
+        $this->emailModel->method('getEntity')->willReturn(null);
 
         $this->subscriber->onEmailSend($pendingEvent);
 
@@ -764,5 +768,19 @@ class CampaignTriggerSubscriberTest extends TestCase
         $this->subscriber->onEmailSend($pendingEvent);
 
         $this->assertCount(1, $pendingEvent->getFailures());
+    }
+
+    public function testEmailLanguageIsSentInThePayloadEvenInTestStatus(): void
+    {
+        $email = new Email();
+        $email->setLanguage('en');
+        $this->emailModel->method('getEntity')->with(1)->willReturn($email);
+
+        $pendingEvent = $this->buildPendingEvent(['email' => 1, 'status' => 'test']);
+        $this->subscriber->onEmailSend($pendingEvent);
+
+        /** @var LeadEventLog $passedLog */
+        $passedLog = $pendingEvent->getSuccessful()->first();
+        $this->assertSame('en', $passedLog->getMetadata()['n8ndispatch']['language']);
     }
 }

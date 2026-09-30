@@ -14,7 +14,7 @@ class DecimalFormatterTest extends TestCase
      */
     public function testFormatsDecimalValues(string $stored, string $expected): void
     {
-        $this->assertSame($expected, DecimalFormatter::format($stored, 'decimal'));
+        $this->assertSame($expected, DecimalFormatter::format($stored, 'decimal', 'en'));
     }
 
     /**
@@ -41,7 +41,7 @@ class DecimalFormatterTest extends TestCase
 
     public function testLeavesNonDecimalTypesUnchanged(): void
     {
-        $this->assertSame('1.100000', DecimalFormatter::format('1.100000', 'int'));
+        $this->assertSame('1.100000', DecimalFormatter::format('1.100000', 'int', 'pt_BR'));
         $this->assertSame('Wellington', DecimalFormatter::format('Wellington', 'text'));
     }
 
@@ -50,5 +50,24 @@ class DecimalFormatterTest extends TestCase
         $this->assertSame('', DecimalFormatter::format('', 'decimal'));
         $this->assertSame('abc', DecimalFormatter::format('abc', 'decimal'));
         $this->assertSame('1e-06', DecimalFormatter::format('1e-06', 'decimal'));
+    }
+
+    public function testPortugueseUsesACommaSeparator(): void
+    {
+        $this->assertSame('1,10', DecimalFormatter::format('1.100000', 'decimal', 'pt_BR'));
+        $this->assertSame('1,0001', DecimalFormatter::format('1.000100', 'decimal', 'pt_BR'));
+        $this->assertSame('-0,50', DecimalFormatter::format('-0.500000', 'decimal', 'pt_BR'));
+    }
+
+    public function testEnglishAndBritishEnglishUseADot(): void
+    {
+        $this->assertSame('1.10', DecimalFormatter::format('1.100000', 'decimal', 'en_US'));
+        $this->assertSame('1.10', DecimalFormatter::format('1.100000', 'decimal', 'en_GB'));
+    }
+
+    public function testUnknownOrMissingLocaleFallsBackToPortuguese(): void
+    {
+        $this->assertSame('1,10', DecimalFormatter::format('1.100000', 'decimal', 'xx_YY'));
+        $this->assertSame('1,10', DecimalFormatter::format('1.100000', 'decimal'));
     }
 }

@@ -21,6 +21,9 @@ class VariableResolver
     }
 
     /**
+     * $language is the locale of the template being sent (Email/SMS/HSM),
+     * used to format dates and decimals — see LocaleConventions.
+     *
      * $multiValueSeparator joins a Custom Object variable's values when
      * several items match: '<br>' for Email HTML (the default), ', ' for
      * SMS, where '<br>' would show up as literal text.
@@ -29,12 +32,12 @@ class VariableResolver
      *
      * @return array<string, string>
      */
-    public function resolveAll(array $variablesConfig, Lead $contact, Campaign $campaign, string $multiValueSeparator = '<br>'): array
+    public function resolveAll(array $variablesConfig, Lead $contact, Campaign $campaign, string $multiValueSeparator = '<br>', string $language = LocaleConventions::DEFAULT_LOCALE): array
     {
         $resolved = [];
 
         foreach ($variablesConfig as $name => $entry) {
-            $resolved[$name] = $this->resolveOne(is_array($entry) ? $entry : [], $contact, $campaign, $multiValueSeparator);
+            $resolved[$name] = $this->resolveOne(is_array($entry) ? $entry : [], $contact, $campaign, $multiValueSeparator, $language);
         }
 
         return $resolved;
@@ -43,16 +46,17 @@ class VariableResolver
     /**
      * @param array<string, mixed> $entry
      */
-    private function resolveOne(array $entry, Lead $contact, Campaign $campaign, string $multiValueSeparator): string
+    private function resolveOne(array $entry, Lead $contact, Campaign $campaign, string $multiValueSeparator, string $language): string
     {
         return match ($entry['source'] ?? 'static') {
-            'field'         => $this->resolveContactField($contact, (string) ($entry['field'] ?? '')),
+            'field'         => $this->resolveContactField($contact, (string) ($entry['field'] ?? ''), $language),
             'custom_object' => $this->customObjectVariableResolver->resolve(
                 $contact,
                 $campaign,
                 (string) ($entry['customObject'] ?? ''),
                 (string) ($entry['customObjectField'] ?? ''),
-                $multiValueSeparator
+                $multiValueSeparator,
+                $language
             ),
             default => (string) ($entry['value'] ?? ''),
         };
@@ -64,7 +68,7 @@ class VariableResolver
      * 'inst_id_lyceum') straight into the dispatch payload, outside of the
      * variablesJson source-picker mechanism this class otherwise serves.
      */
-    public function resolveContactField(Lead $contact, string $fieldAlias): string
+    public function resolveContactField(Lead $contact, string $fieldAlias, string $language = LocaleConventions::DEFAULT_LOCALE): string
     {
         if ('' === $fieldAlias) {
             return '';
@@ -86,12 +90,12 @@ class VariableResolver
         }
 
         // Mautic stores date/datetime fields as 'Y-m-d'/'Y-m-d H:i:s' —
-        // reformatted to pt-BR for dispatch, on request. getField() (not
+        // reformatted to the template's language for dispatch. getField() (not
         // getFieldValue(), which already applied CustomFieldHelper's own
         // type coercion above) is where the field's 'type' actually lives.
         $field = $contact->getField($fieldAlias);
         $type  = is_array($field) ? (string) ($field['type'] ?? '') : '';
 
-        return BrazilianDateFormatter::format((string) $value, $type);
+        return DateFormatter::format((string) $value, $type, $language);
     }
 }

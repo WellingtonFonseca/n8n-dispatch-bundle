@@ -106,6 +106,7 @@
 
                     <div class="tab-content pa-md">
                         <div class="tab-pane fade in active bdr-w-0" id="sms-template-container">
+                            {{ form_row(form.language) }}
                             {{ form_row(form.name) }}
                             {{ form_row(form.description) }}
                             {# The .row wrapper matters: campaign-sms-dispatch.js

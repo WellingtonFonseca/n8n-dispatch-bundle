@@ -20,6 +20,7 @@ use Mautic\PluginBundle\Helper\IntegrationHelper;
 use MauticPlugin\N8nDispatchBundle\Entity\EmailVariablesRepository;
 use MauticPlugin\N8nDispatchBundle\Integration\N8nDispatchIntegration;
 use MauticPlugin\N8nDispatchBundle\N8nDispatchEvents;
+use MauticPlugin\N8nDispatchBundle\Resolver\LocaleConventions;
 use MauticPlugin\N8nDispatchBundle\Resolver\VariableResolver;
 use MauticPlugin\N8nDispatchBundle\UnsubscribeVariable;
 use Psr\Log\LoggerInterface;
@@ -96,6 +97,9 @@ class CampaignTriggerSubscriber implements EventSubscriberInterface
         $variablesConfig = json_decode($variablesJson, true);
         $variablesConfig = is_array($variablesConfig) ? $variablesConfig : [];
 
+        $email    = $emailId > 0 ? $this->emailModel->getEntity($emailId) : null;
+        $language = $email ? (string) $email->getLanguage() : LocaleConventions::DEFAULT_LOCALE;
+
         if ('test' === $status || 'paused' === $status) {
             // No call to n8n — 'test' lets a non-technical user validate the
             // payload (merge tags resolved, right contact data) straight
@@ -106,13 +110,11 @@ class CampaignTriggerSubscriber implements EventSubscriberInterface
                 /** @var LeadEventLog $log */
                 $log = $event->getPending()->get($logId);
 
-                $this->recordWithoutDispatch($event, $log, $contact, $campaign, $emailId, $status, $variablesConfig);
+                $this->recordWithoutDispatch($event, $log, $contact, $campaign, $emailId, $status, $variablesConfig, $language);
             }
 
             return;
         }
-
-        $email = $emailId > 0 ? $this->emailModel->getEntity($emailId) : null;
 
         if (null === $email) {
             $event->failAll('N8nDispatch: the configured Email template no longer exists.');
@@ -155,7 +157,7 @@ class CampaignTriggerSubscriber implements EventSubscriberInterface
             /** @var LeadEventLog $log */
             $log = $event->getPending()->get($logId);
 
-            $this->dispatchToContact($event, $log, $contact, $campaign, $emailId, $email, $status, $variablesConfig, $webhookUrl, $headers, $templateCopyHash);
+            $this->dispatchToContact($event, $log, $contact, $campaign, $emailId, $email, $status, $variablesConfig, $language, $webhookUrl, $headers, $templateCopyHash);
         }
     }
 
@@ -172,6 +174,7 @@ class CampaignTriggerSubscriber implements EventSubscriberInterface
         Email $email,
         string $status,
         array $variablesConfig,
+        string $language,
         string $webhookUrl,
         array $headers,
         ?string $templateCopyHash,
@@ -191,7 +194,7 @@ class CampaignTriggerSubscriber implements EventSubscriberInterface
             return;
         }
 
-        $variables    = $this->variableResolver->resolveAll($variablesConfig, $contact, $campaign);
+        $variables    = $this->variableResolver->resolveAll($variablesConfig, $contact, $campaign, '<br>', $language);
         $contactEmail = (string) $contact->getEmail();
         // Generated up front so the same value both goes out in this
         // dispatch's payload and (only on confirmed success, see below)
@@ -201,7 +204,7 @@ class CampaignTriggerSubscriber implements EventSubscriberInterface
         // entry/history, which is driven entirely by Stat rows existing.
         $idHash                              = str_replace('.', '', uniqid('', true));
         $variables[UnsubscribeVariable::KEY] = $this->buildUnsubscribeUrl($contactEmail, $idHash);
-        $payload                             = $this->buildPayload($emailId, $contact, $status, $variables);
+        $payload                             = $this->buildPayload($emailId, $contact, $status, $variables, $language);
 
         try {
             $response = $this->httpClient->request('POST', $webhookUrl, [
@@ -275,10 +278,11 @@ class CampaignTriggerSubscriber implements EventSubscriberInterface
         int $emailId,
         string $status,
         array $variablesConfig,
+        string $language,
     ): void {
-        $variables                            = $this->variableResolver->resolveAll($variablesConfig, $contact, $campaign);
+        $variables                            = $this->variableResolver->resolveAll($variablesConfig, $contact, $campaign, '<br>', $language);
         $variables[UnsubscribeVariable::KEY] = '(not generated — no real dispatch)';
-        $payload                              = $this->buildPayload($emailId, $contact, $status, $variables);
+        $payload                              = $this->buildPayload($emailId, $contact, $status, $variables, $language);
 
         $log->appendToMetadata(['n8ndispatch' => $payload]);
 
@@ -367,7 +371,7 @@ class CampaignTriggerSubscriber implements EventSubscriberInterface
      *
      * @return array<string, mixed>
      */
-    private function buildPayload(int $emailId, Lead $contact, string $status, array $variables): array
+    private function buildPayload(int $emailId, Lead $contact, string $status, array $variables, string $language): array
     {
         return [
             'mautic_template_id'             => $emailId,
@@ -393,6 +397,10 @@ class CampaignTriggerSubscriber implements EventSubscriberInterface
             // alias, distinct values, both needed downstream.
             'contact_inst_alias'             => $this->variableResolver->resolveContactField($contact, 'inst_alias'),
             'status'                         => $status,
+            // The template's language — what dates/decimals in 'variables'
+            // were formatted for, so a wrong-looking value can be traced to
+            // the template's language setting vs. a bug.
+            'language'                       => $language,
             'variables'                      => $variables,
         ];
     }
