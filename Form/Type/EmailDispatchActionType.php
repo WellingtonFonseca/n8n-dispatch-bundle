@@ -4,7 +4,7 @@ declare(strict_types=1);
 
 namespace MauticPlugin\N8nDispatchBundle\Form\Type;
 
-use Mautic\EmailBundle\Form\Type\EmailListType;
+use Mautic\EmailBundle\Model\EmailModel;
 use Symfony\Component\Form\AbstractType;
 use Symfony\Component\Form\Extension\Core\Type\ChoiceType;
 use Symfony\Component\Form\FormBuilderInterface;
@@ -13,8 +13,11 @@ use Symfony\Component\Validator\Constraints\NotBlank;
 /**
  * Campaign Action form for "Send via n8n (Email)": the 'status' dropdown
  * (same 'test'/'production'/'paused' rationale below) plus the usual
- * Mautic Email entity picker (same EmailListType core's own "Send Email"
- * action uses).
+ * Mautic Email picker. It is a plain ChoiceType of published template
+ * Emails rather than core's EmailListType (what core's own "Send Email"
+ * action uses): EmailListType's lookup has no published filter, so
+ * unpublished Emails showed up as selectable — same "only published are
+ * offered" rule SmsDispatchActionType already applies to its templates.
  *
  * The {{variable}} source mapping used to live right here, as a third
  * hidden field kept in sync by JS as the Email picker changed (see git
@@ -47,6 +50,11 @@ use Symfony\Component\Validator\Constraints\NotBlank;
  */
 class EmailDispatchActionType extends AbstractType
 {
+    public function __construct(
+        private EmailModel $emailModel,
+    ) {
+    }
+
     public function buildForm(FormBuilderInterface $builder, array $options): void
     {
         $builder->add(
@@ -69,13 +77,14 @@ class EmailDispatchActionType extends AbstractType
 
         $builder->add(
             'email',
-            EmailListType::class,
+            ChoiceType::class,
             [
-                'label'      => 'mautic.email.send.selectemails',
-                'label_attr' => ['class' => 'control-label'],
-                'multiple'   => false,
-                'required'   => true,
-                'attr'       => [
+                'label'       => 'mautic.email.send.selectemails',
+                'label_attr'  => ['class' => 'control-label'],
+                'choices'     => $this->getPublishedEmailChoices(),
+                'placeholder' => 'mautic.core.form.chooseone',
+                'required'    => true,
+                'attr'        => [
                     'class' => 'form-control',
                 ],
                 'constraints' => [
@@ -83,6 +92,33 @@ class EmailDispatchActionType extends AbstractType
                 ],
             ]
         );
+    }
+
+    /**
+     * Same scope core's EmailListType defaults to (template Emails, no A/B
+     * variant children), plus the published filter it lacks.
+     *
+     * @return array<string, int>
+     */
+    private function getPublishedEmailChoices(): array
+    {
+        $rows = $this->emailModel->getRepository()->createQueryBuilder('e')
+            ->select('e.id, e.name')
+            ->where('e.isPublished = :published')
+            ->andWhere('e.emailType = :type')
+            ->andWhere('e.variantParent IS NULL')
+            ->setParameter('published', true)
+            ->setParameter('type', 'template')
+            ->orderBy('e.name', 'ASC')
+            ->getQuery()
+            ->getArrayResult();
+
+        $choices = [];
+        foreach ($rows as $row) {
+            $choices[$row['name'].' (#'.$row['id'].')'] = (int) $row['id'];
+        }
+
+        return $choices;
     }
 
     public function getBlockPrefix(): string
