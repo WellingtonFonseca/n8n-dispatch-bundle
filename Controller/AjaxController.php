@@ -56,7 +56,11 @@ class AjaxController extends CommonAjaxController
             return $this->sendJsonResponse(['success' => 0, 'variables' => [], 'fields' => $fields, 'customObjects' => $customObjects]);
         }
 
-        $variables = $variableScanner->extract((string) $email->getCustomHtml());
+        // 'html' is sent by email-tab-variables.js when the builder is
+        // closed: the new content only lives in the page's textarea until
+        // the Email form itself is saved, so the saved customHtml is stale.
+        $html      = $request->request->has('html') ? (string) $request->request->get('html') : (string) $email->getCustomHtml();
+        $variables = $variableScanner->extract($html);
 
         return $this->sendJsonResponse(['success' => 1, 'variables' => $variables, 'fields' => $fields, 'customObjects' => $customObjects]);
     }

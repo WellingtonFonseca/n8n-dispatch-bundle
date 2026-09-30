@@ -97,17 +97,52 @@
             formEl.n8ndispatchEmailId = emailId;
         }
 
-        Mautic.ajaxActionRequest('plugin:N8nDispatch:getEmailVariables', {emailId: emailId}, function (response) {
-            // No {{variable}} placeholders found: leave the container as-is
-            // — it already holds the translated "none found" message Twig
-            // rendered by default (Resources/views/SubscribedEvents/
-            // EmailTab/content.html.twig), so there's nothing to build or
-            // save here.
-            if (!response || !response.success || !response.variables || 0 === response.variables.length) {
-                return;
+        var noneHtml = $el.html();
+
+        function refreshVariables(html) {
+            var data = {emailId: emailId};
+
+            if (typeof html === 'string') {
+                data.html = html;
             }
 
-            shared.renderVariablesFromResponse($el, response);
-        });
+            Mautic.ajaxActionRequest('plugin:N8nDispatch:getEmailVariables', data, function (response) {
+                if (!response || !response.success) {
+                    return;
+                }
+
+                // No {{variable}} placeholders found: show the translated
+                // "none found" message Twig rendered by default (Resources/
+                // views/SubscribedEvents/EmailTab/content.html.twig) and
+                // reset the hidden field, so nothing stale gets saved.
+                if (!response.variables || 0 === response.variables.length) {
+                    $el.html(noneHtml);
+                    shared.clearVariables($el);
+                    return;
+                }
+
+                shared.renderVariablesFromResponse($el, response);
+            });
+        }
+
+        refreshVariables();
+        $el.data('n8ndispatchRefresh', refreshVariables);
     };
+
+    // Closing the GrapesJS builder (the check/"Close" button) copies the
+    // new HTML into textarea.builder-html and then triggers 'builder:hide'
+    // on '.builder' (GrapesJsBuilderBundle builder.service.js) — before
+    // the Email form is saved, so the tab re-scans that textarea instead
+    // of the stale saved customHtml. Delegated on document, bound once.
+    if (!Mautic.n8ndispatchBuilderHideWired) {
+        Mautic.n8ndispatchBuilderHideWired = true;
+
+        mQuery(document).on('builder:hide', function () {
+            var refresh = mQuery('#n8ndispatch-variables-container').data('n8ndispatchRefresh');
+
+            if (refresh) {
+                refresh(mQuery('textarea.builder-html').val() || '');
+            }
+        });
+    }
 })(window.Mautic, window.mQuery);
