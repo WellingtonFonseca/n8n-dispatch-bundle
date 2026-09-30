@@ -11,7 +11,8 @@ use Symfony\Component\EventDispatcher\EventSubscriberInterface;
 /**
  * Loads n8ndispatch-shared.js, email-tab-variables.js,
  * campaign-sms-dispatch.js, campaign-hsm-dispatch.js,
- * campaign-timeline-scheduled.js, and campaign-status-badge.css globally,
+ * campaign-timeline-scheduled.js, campaign-preview-icons.js, and
+ * campaign-status-badge.css globally,
  * the same way GrapesJsBuilderBundle injects its own JS/vars via
  * 'page.header.left' (a context rendered on every admin page, not just the
  * campaign builder). Harmless elsewhere — the JS only defines
@@ -50,6 +51,7 @@ class AssetInjectionSubscriber implements EventSubscriberInterface
         $smsJsRelativePath         = 'Assets/js/campaign-sms-dispatch.js';
         $hsmJsRelativePath         = 'Assets/js/campaign-hsm-dispatch.js';
         $timelineJsRelativePath    = 'Assets/js/campaign-timeline-scheduled.js';
+        $previewIconsJsRelativePath = 'Assets/js/campaign-preview-icons.js';
         $cssRelativePath           = 'Assets/css/campaign-status-badge.css';
 
         $customContentEvent->addContent(
@@ -58,6 +60,7 @@ class AssetInjectionSubscriber implements EventSubscriberInterface
             .'<script src="/plugins/N8nDispatchBundle/'.$smsJsRelativePath.'?v='.$this->assetVersion($smsJsRelativePath).'"></script>'
             .'<script src="/plugins/N8nDispatchBundle/'.$hsmJsRelativePath.'?v='.$this->assetVersion($hsmJsRelativePath).'"></script>'
             .'<script src="/plugins/N8nDispatchBundle/'.$timelineJsRelativePath.'?v='.$this->assetVersion($timelineJsRelativePath).'"></script>'
+            .'<script src="/plugins/N8nDispatchBundle/'.$previewIconsJsRelativePath.'?v='.$this->assetVersion($previewIconsJsRelativePath).'"></script>'
             .'<link rel="stylesheet" href="/plugins/N8nDispatchBundle/'.$cssRelativePath.'?v='.$this->assetVersion($cssRelativePath).'">'
         );
     }

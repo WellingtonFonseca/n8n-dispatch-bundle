@@ -33,6 +33,7 @@ class AssetInjectionSubscriberTest extends TestCase
         $emailTabJsMtime = filemtime(__DIR__.'/../../../Assets/js/email-tab-variables.js');
         $smsJsMtime      = filemtime(__DIR__.'/../../../Assets/js/campaign-sms-dispatch.js');
         $hsmJsMtime      = filemtime(__DIR__.'/../../../Assets/js/campaign-hsm-dispatch.js');
+        $previewIconsMtime = filemtime(__DIR__.'/../../../Assets/js/campaign-preview-icons.js');
         $cssMtime        = filemtime(__DIR__.'/../../../Assets/css/campaign-status-badge.css');
 
         $this->assertStringContainsString(
@@ -49,6 +50,10 @@ class AssetInjectionSubscriberTest extends TestCase
         );
         $this->assertStringContainsString(
             '<script src="/plugins/N8nDispatchBundle/Assets/js/campaign-hsm-dispatch.js?v='.$hsmJsMtime.'"></script>',
+            $content
+        );
+        $this->assertStringContainsString(
+            '<script src="/plugins/N8nDispatchBundle/Assets/js/campaign-preview-icons.js?v='.$previewIconsMtime.'"></script>',
             $content
         );
         $this->assertStringContainsString(
