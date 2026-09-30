@@ -98,6 +98,39 @@ class AjaxController extends CommonAjaxController
     }
 
     /**
+     * Status (test/production/paused) of the given n8n dispatch campaign
+     * events, read from event.properties.status. Backs the badge on the
+     * campaign's read-only preview (Assets/js/campaign-preview-icons.js):
+     * core's preview template doesn't render our own event template, and
+     * the status isn't anywhere in its HTML. Events of other types, and
+     * events of campaigns the user can't view, are left out.
+     */
+    public function getCampaignEventStatusesAction(Request $request, CorePermissions $security): JsonResponse
+    {
+        $eventIds = array_filter(array_map('intval', (array) $request->request->all('eventIds')));
+        $model    = $this->getModel('campaign.event');
+        $statuses = [];
+
+        foreach ($eventIds as $eventId) {
+            $event = $model->getEntity($eventId);
+
+            if (!$event || 0 !== strpos((string) $event->getType(), 'n8ndispatch.')) {
+                continue;
+            }
+
+            $campaign = $event->getCampaign();
+
+            if (!$security->hasEntityAccess('campaign:campaigns:viewown', 'campaign:campaigns:viewother', $campaign->getCreatedBy())) {
+                continue;
+            }
+
+            $statuses[$eventId] = $event->getProperties()['status'] ?? 'test';
+        }
+
+        return $this->sendJsonResponse(['success' => 1, 'statuses' => $statuses]);
+    }
+
+    /**
      * Backs the SMS Template form (Form/Type/SmsTemplateType.php). Same response shape as
      * getEmailVariablesAction() (so the campaign builder's JS can reuse the
      * exact same rendering code for both), but there's no entity to load —
