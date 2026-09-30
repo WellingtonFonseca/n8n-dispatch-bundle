@@ -84,8 +84,9 @@ Variables can come from a static value, a contact field, or a Custom Object
 field. For Custom Object fields, the item(s) used are the ones that match
 the campaign's source segment conditions on that object.
 
-Both template screens list the campaigns using the template on their edit
-page, and a template in use can't be deleted (singly or in a batch).
+Both template screens split their edit page into a **Template** tab and a
+**Campaigns** tab listing every campaign using the template, and a template
+in use can't be deleted (singly or in a batch).
 
 Contacts on the Do Not Contact list for the channel are not sent to (SMS and
 HSM use the `sms` channel).
