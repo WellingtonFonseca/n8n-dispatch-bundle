@@ -228,3 +228,26 @@ test('hasNonNumericPlaceholder treats a missing text as having none', () => {
     assert.strictEqual(shared.hasNonNumericPlaceholder(undefined), false);
     assert.strictEqual(shared.hasNonNumericPlaceholder(''), false);
 });
+
+// Texts that live in the browser (the variable source picker, the status badges) come from Mautic's own `mauticLang`
+// object, filled from the plugin's javascript.ini in the system language; the English text is the fallback.
+function loadSharedWithLang(mauticLang) {
+    const window = {Mautic: {}, mQuery: {extend: Object.assign}, mauticLang};
+    const code   = fs.readFileSync(path.join(__dirname, '../../Assets/js/n8ndispatch-shared.js'), 'utf8');
+
+    vm.runInNewContext(code, {window, Mautic: window.Mautic, mQuery: window.mQuery});
+
+    return window.Mautic.n8ndispatchShared;
+}
+
+test('translate returns the text Mautic put in mauticLang for the system language', () => {
+    const translated = loadSharedWithLang({'mautic.n8ndispatch.js.select_field': 'Selecione um campo'});
+
+    assert.strictEqual(translated.translate('mautic.n8ndispatch.js.select_field', 'Select a field'), 'Selecione um campo');
+});
+
+test('translate falls back to the English text when mauticLang has no such key or does not exist', () => {
+    assert.strictEqual(loadSharedWithLang({}).translate('mautic.n8ndispatch.js.select_field', 'Select a field'), 'Select a field');
+    assert.strictEqual(loadSharedWithLang(undefined).translate('mautic.n8ndispatch.js.select_field', 'Select a field'), 'Select a field');
+    assert.strictEqual(loadSharedWithLang({'mautic.n8ndispatch.js.select_field': ''}).translate('mautic.n8ndispatch.js.select_field', 'Select a field'), 'Select a field');
+});
