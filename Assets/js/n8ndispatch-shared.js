@@ -5,6 +5,15 @@
 
     var CONTAINER_ID = 'n8ndispatch-variables-container';
 
+    // A text that lives in the browser, in the system language: Mautic fills window.mauticLang from the plugin's
+    // javascript.ini (Translations/<locale>/javascript.ini), merged over the en_US one. The English text passed here
+    // is the fallback when the key is missing (or when this runs without a page, as in the tests).
+    function translate(key, fallback) {
+        var lang = window.mauticLang;
+
+        return (lang && lang[key]) || fallback;
+    }
+
     function escapeHtml(str) {
         return mQuery('<div>').text(str == null ? '' : str).html();
     }
@@ -223,9 +232,9 @@
         };
 
         var sourceSelect = '<select class="form-control n8ndispatch-var-source">'
-            + '<option value="static"' + ('static' === source ? ' selected' : '') + '>Static value</option>'
-            + '<option value="field"' + ('field' === source ? ' selected' : '') + '>Contact field</option>'
-            + '<option value="custom_object"' + ('custom_object' === source ? ' selected' : '') + '>Custom Object field</option>'
+            + '<option value="static"' + ('static' === source ? ' selected' : '') + '>' + escapePlain(translate('mautic.n8ndispatch.js.source.static', 'Static value')) + '</option>'
+            + '<option value="field"' + ('field' === source ? ' selected' : '') + '>' + escapePlain(translate('mautic.n8ndispatch.js.source.field', 'Contact field')) + '</option>'
+            + '<option value="custom_object"' + ('custom_object' === source ? ' selected' : '') + '>' + escapePlain(translate('mautic.n8ndispatch.js.source.custom_object', 'Custom Object field')) + '</option>'
             + '</select>';
 
         var valueBlock = '<input type="text" class="form-control n8ndispatch-var-value" value="' + escapeHtml(entry.value) + '"' + display.static + '>'
@@ -234,11 +243,11 @@
             + '</select>'
             + '<div class="n8ndispatch-var-custom-object"' + display.customObject + '>'
             + '<select class="form-control n8ndispatch-var-custom-object-select mb-xs">'
-            + '<option value="">Select a Custom Object</option>'
+            + '<option value="">' + escapePlain(translate('mautic.n8ndispatch.js.select_custom_object', 'Select a Custom Object')) + '</option>'
             + customObjectOptionsHtml(customObjects, entry.customObject)
             + '</select>'
             + '<select class="form-control n8ndispatch-var-custom-object-field">'
-            + '<option value="">Select a field</option>'
+            + '<option value="">' + escapePlain(translate('mautic.n8ndispatch.js.select_field', 'Select a field')) + '</option>'
             + customObjectFieldOptionsHtml(customObjects, entry.customObject, entry.customObjectField)
             + '</select>'
             + '</div>';
@@ -310,6 +319,7 @@
         noticeFor:                   noticeFor,
         renderVariablesFromResponse: renderVariablesFromResponse,
         setNumericAlert:             setNumericAlert,
+        translate:                   translate,
     };
 
     function wireVariableRowEvents($container, $hidden, customObjects) {
@@ -329,7 +339,7 @@
             var selectedAlias = mQuery(this).val();
 
             $row.find('.n8ndispatch-var-custom-object-field').html(
-                '<option value="">Select a field</option>' + customObjectFieldOptionsHtml(customObjects, selectedAlias, '')
+                '<option value="">' + escapePlain(translate('mautic.n8ndispatch.js.select_field', 'Select a field')) + '</option>' + customObjectFieldOptionsHtml(customObjects, selectedAlias, '')
             );
 
             syncHiddenField($container, $hidden);

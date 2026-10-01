@@ -27,13 +27,21 @@
         'n8ndispatch.hsm.send':   'ri-whatsapp-fill',
     };
 
-    // Keep in sync with the status icons in _email_send.html.twig, and
-    // with the labels in translations (mautic.n8ndispatch.campaign.event.status.*).
+    // Keep in sync with the status icons in _email_send.html.twig. The labels are looked up when a badge is drawn
+    // (labelFor() below): Mautic fills window.mauticLang from javascript.ini in the system language, English is
+    // the fallback.
     var STATUSES = {
         test:       {icon: 'ri-bug-line',  label: 'Test'},
         production: {icon: 'ri-play-fill', label: 'Production'},
         paused:     {icon: 'ri-pause-fill', label: 'Paused'},
     };
+
+    function labelFor(status) {
+        var lang = window.mauticLang;
+        var key  = STATUSES[status] ? status : 'test';
+
+        return (lang && lang['mautic.n8ndispatch.js.status.' + key]) || STATUSES[key].label;
+    }
 
     var badgeRequested = {};
 
@@ -41,9 +49,9 @@
         var def = STATUSES[status] || STATUSES.test;
 
         $node.prepend(
-            '<span class="n8ndispatch-status-badge n8ndispatch-status-badge--' + (STATUSES[status] ? status : 'test') + '" title="' + def.label + '">'
+            '<span class="n8ndispatch-status-badge n8ndispatch-status-badge--' + (STATUSES[status] ? status : 'test') + '" title="' + labelFor(status) + '">'
             + '<i class="' + def.icon + '"></i>'
-            + '<span class="n8ndispatch-status-badge__label">' + def.label + '</span>'
+            + '<span class="n8ndispatch-status-badge__label">' + labelFor(status) + '</span>'
             + '</span>'
         );
     }
