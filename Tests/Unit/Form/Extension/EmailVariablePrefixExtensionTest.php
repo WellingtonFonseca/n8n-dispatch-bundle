@@ -35,6 +35,13 @@ class EmailVariablePrefixExtensionTest extends TestCase
         $this->flashBag     = $this->createMock(FlashBag::class);
         $this->requestStack = new RequestStack();
         $this->requestStack->push(Request::create('/s/emails/edit/1'));
+
+        // Same wording as the alert on the edit page: the tab's name is a placeholder in the message.
+        $this->translator->method('trans')->willReturnCallback(
+            fn (string $key, array $params = []): string => 'mautic.n8ndispatch.email.tab.label' === $key
+                ? 'Variables N8N'
+                : $key.' '.json_encode($params)
+        );
     }
 
     public function testExtendsTheEmailForm(): void
@@ -59,41 +66,47 @@ class EmailVariablePrefixExtensionTest extends TestCase
         $this->submit(null, $customHtml);
     }
 
-    public function testAddsAnErrorToCustomHtmlWhenSomeVariableLacksThePrefix(): void
+    public function testAddsAnErrorToCustomHtmlWithTheSameWordingAsTheAlert(): void
     {
-        $this->translator->expects($this->once())
-            ->method('trans')
-            ->with(
-                'mautic.n8ndispatch.email.error.variable_prefix',
-                ['%prefix%' => 'n8n_']
-            )
-            ->willReturn('invalid variables');
-
         $customHtml = $this->createMock(FormInterface::class);
         $customHtml->expects($this->once())
             ->method('addError')
             ->with($this->callback(
                 // Core's API error handling (FormErrorMessagesTrait::getFormErrorCodes) calls
                 // $error->getCause()->getCode(), so the cause must be a violation, never null.
-                fn (FormError $e): bool => 'invalid variables' === $e->getMessage() && $e->getCause() instanceof ConstraintViolationInterface
+                fn (FormError $e): bool => 'mautic.n8ndispatch.email.alert.prefix {"%tab%":"Variables N8N","%prefix%":"n8n_"}' === $e->getMessage()
+                    && $e->getCause() instanceof ConstraintViolationInterface
             ));
 
         $this->submit('<p>{{nome}} {{n8n_ok}} {{curso}} {{nome}}</p>', $customHtml);
     }
 
-    public function testFlashesTheMessageForTheUiButNotForTheApi(): void
+    public function testFlashesTheMessageWithTheTabInBoldForTheUiButNotForTheApi(): void
     {
-        $this->translator->method('trans')->willReturn('invalid variables');
-
         $this->flashBag->expects($this->once())
             ->method('add')
-            ->with('invalid variables', [], FlashBag::LEVEL_ERROR, 'messages');
+            ->with(
+                'mautic.n8ndispatch.email.alert.prefix',
+                ['%tab%' => '<b>Variables N8N</b>', '%prefix%' => 'n8n_'],
+                FlashBag::LEVEL_ERROR,
+                'messages'
+            );
 
         $this->submit('{{nome}}', $this->createMock(FormInterface::class));
 
         $this->requestStack->push(Request::create('/api/emails/new', 'POST'));
         // Same expectation of ONE call overall: the API request must not add a second flash.
         $this->submit('{{nome}}', $this->createMock(FormInterface::class));
+    }
+
+    public function testNeverBlocksTheFirstSaveOfANewEmail(): void
+    {
+        // Templates often come from other tools that don't use the prefix; they get adjusted from the second save on.
+        $customHtml = $this->createMock(FormInterface::class);
+        $customHtml->expects($this->never())->method('addError');
+        $this->flashBag->expects($this->never())->method('add');
+
+        $this->submit('<p>{{nome}} {{curso}}</p>', $customHtml, null);
     }
 
     public function testIgnoresDataThatIsNotAnEmail(): void
@@ -104,10 +117,14 @@ class EmailVariablePrefixExtensionTest extends TestCase
         $this->listener()(new FormEvent($form, new \stdClass()));
     }
 
-    private function submit(?string $html, FormInterface&MockObject $customHtml): void
+    /**
+     * @param int|null $id null stands for an Email that was never saved (its first save)
+     */
+    private function submit(?string $html, FormInterface&MockObject $customHtml, ?int $id = 7): void
     {
-        $email = new Email();
-        $email->setCustomHtml($html);
+        $email = $this->createMock(Email::class);
+        $email->method('getId')->willReturn($id);
+        $email->method('getCustomHtml')->willReturn($html);
 
         $form = $this->createMock(FormInterface::class);
         $form->method('get')->with('customHtml')->willReturn($customHtml);

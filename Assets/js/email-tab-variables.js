@@ -106,11 +106,17 @@
             text: $el.data('alert-text'),
             tab:  $el.data('alert-tab'),
         };
+        var prefixAlertTexts = {
+            text: $el.data('prefix-alert-text'),
+            tab:  $el.data('alert-tab'),
+        };
+        // How many of the template's variables lack the n8n_ prefix, as last reported by getEmailVariables.
+        var invalidPrefixCount = 0;
         var $form   = mQuery(formEl || []);
         var $hidden = $form.find('.n8ndispatch-variables-json');
 
         function updateUnmappedAlert() {
-            mQuery('#n8ndispatch-unmapped-alert').remove();
+            mQuery('#n8ndispatch-unmapped-alert, #n8ndispatch-prefix-alert').remove();
             $form.find('.n8ndispatch-tab-dot').remove();
 
             var mapping = {};
@@ -125,7 +131,9 @@
                 names.push(mQuery(this).data('var-name'));
             });
 
-            if (0 === shared.findUnmapped(names, mapping).length) {
+            var notice = shared.noticeFor(invalidPrefixCount, shared.findUnmapped(names, mapping).length);
+
+            if (null === notice) {
                 return;
             }
 
@@ -135,7 +143,9 @@
             var $tabs = $form.find('ul.nav-tabs-contained').first();
 
             if (0 < $tabs.length) {
-                $tabs.before(shared.buildUnmappedAlertHtml(alertTexts));
+                $tabs.before('prefix' === notice
+                    ? shared.buildPrefixAlertHtml(prefixAlertTexts)
+                    : shared.buildUnmappedAlertHtml(alertTexts));
             }
         }
 
@@ -152,6 +162,8 @@
                 if (!response || !response.success) {
                     return;
                 }
+
+                invalidPrefixCount = (response.invalidVariables || []).length;
 
                 // No {{variable}} placeholders found: show the translated
                 // "none found" message Twig rendered by default (Resources/

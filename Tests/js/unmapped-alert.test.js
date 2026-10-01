@@ -112,3 +112,30 @@ test('the tab dot is a decorative element styled by n8ndispatch-tab-dot', () => 
     assert.match(html, /^<span class="n8ndispatch-tab-dot"/);
     assert.match(html, /aria-hidden="true"/);
 });
+
+test('the prefix alert names the tab in bold, as a link that opens it', () => {
+    assert.strictEqual(typeof shared.buildPrefixAlertHtml, 'function');
+
+    const html = shared.buildPrefixAlertHtml({text: '%tab% must start with n8n_ (for example {{n8n_name}}).', tab: 'Variables N8N'});
+
+    assert.match(html, /class="alert alert-warning" id="n8ndispatch-prefix-alert"/);
+    assert.match(html, /<a href="#n8ndispatch-email-tab-container" class="n8ndispatch-open-variables-tab"><b>Variables N8N<\/b><\/a> must start with n8n_ \(for example \{\{n8n_name\}\}\)\./);
+    assert.doesNotMatch(html, /%tab%/);
+});
+
+test('the prefix alert escapes the translated texts', () => {
+    const html = shared.buildPrefixAlertHtml({text: '<i>%tab%</i>', tab: '<u>t</u>'});
+
+    assert.doesNotMatch(html, /<i>|<u>/);
+    assert.match(html, /&lt;i&gt;/);
+    assert.match(html, /<b>&lt;u&gt;t&lt;\/u&gt;<\/b>/);
+});
+
+test('which notice to show: the prefix one wins, then the unmapped one, otherwise none', () => {
+    assert.strictEqual(typeof shared.noticeFor, 'function');
+
+    assert.strictEqual(shared.noticeFor(2, 3), 'prefix');
+    assert.strictEqual(shared.noticeFor(1, 0), 'prefix');
+    assert.strictEqual(shared.noticeFor(0, 3), 'unmapped');
+    assert.strictEqual(shared.noticeFor(0, 0), null);
+});

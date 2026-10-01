@@ -9,6 +9,7 @@
              class="col-xs-12"
              data-email-id="{{ emailId }}"
              data-alert-text="{{ 'mautic.n8ndispatch.email.alert.text'|trans }}"
+             data-prefix-alert-text="{{ 'mautic.n8ndispatch.email.alert.prefix'|trans({'%prefix%': requiredPrefix}) }}"
              data-alert-tab="{{ 'mautic.n8ndispatch.email.tab.label'|trans }}"
              data-onload-callback="n8nDispatchInitEmailTabVariables">
             <p class="text-muted">{{ 'mautic.n8ndispatch.email.tab.variables.none'|trans }}</p>

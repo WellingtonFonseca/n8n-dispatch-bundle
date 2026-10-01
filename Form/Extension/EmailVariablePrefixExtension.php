@@ -19,8 +19,9 @@ use Symfony\Component\Validator\ConstraintViolation;
 use Symfony\Contracts\Translation\TranslatorInterface;
 
 /**
- * Blocks saving an Email whose HTML has {{variables}} without the
- * TemplateVariableScanner::REQUIRED_PREFIX ("n8n_"). Both the Email edit
+ * Blocks saving an existing Email whose HTML has {{variables}} without the
+ * TemplateVariableScanner::REQUIRED_PREFIX ("n8n_"). The first save of a new
+ * Email is never blocked (see the check in buildForm()). Both the Email edit
  * screen and the REST API (/api/emails) build the Email through this same
  * form type, so one check covers UI and API; an invalid form is never
  * saved (the API answers 400 with the message).
@@ -60,7 +61,9 @@ class EmailVariablePrefixExtension extends AbstractTypeExtension
         $builder->addEventListener(FormEvents::POST_SUBMIT, function (FormEvent $event): void {
             $email = $event->getData();
 
-            if (!$email instanceof Email) {
+            // Never on the first save of a new Email: templates often come from other tools that don't use the
+            // prefix, and the user has to remap them anyway, so they are adjusted from the second save on.
+            if (!$email instanceof Email || null === $email->getId()) {
                 return;
             }
 
@@ -68,17 +71,24 @@ class EmailVariablePrefixExtension extends AbstractTypeExtension
                 return;
             }
 
-            $message = $this->translator->trans(
-                'mautic.n8ndispatch.email.error.variable_prefix',
-                ['%prefix%' => TemplateVariableScanner::REQUIRED_PREFIX]
-            );
+            // Same wording as the alert on the edit page (Assets/js/email-tab-variables.js): the tab's name is plain
+            // text in the form error (what the API returns) and bold in the on-screen message.
+            $tab    = $this->translator->trans('mautic.n8ndispatch.email.tab.label');
+            $prefix = TemplateVariableScanner::REQUIRED_PREFIX;
+
+            $message = $this->translator->trans('mautic.n8ndispatch.email.alert.prefix', ['%tab%' => $tab, '%prefix%' => $prefix]);
 
             // Core's API error handling reads $error->getCause()->getCode(), so the cause can't be null.
             $violation = new ConstraintViolation($message, null, [], $email, 'customHtml', $email->getCustomHtml());
             $event->getForm()->get('customHtml')->addError(new FormError($message, null, [], null, $violation));
 
             if (!str_starts_with((string) $this->requestStack->getCurrentRequest()?->getPathInfo(), '/api/')) {
-                $this->flashBag->add($message, [], FlashBag::LEVEL_ERROR, 'messages');
+                $this->flashBag->add(
+                    'mautic.n8ndispatch.email.alert.prefix',
+                    ['%tab%' => '<b>'.htmlspecialchars($tab, ENT_QUOTES).'</b>', '%prefix%' => $prefix],
+                    FlashBag::LEVEL_ERROR,
+                    'messages'
+                );
             }
         });
     }

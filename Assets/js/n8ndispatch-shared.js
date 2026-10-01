@@ -107,16 +107,36 @@
         return '<span class="n8ndispatch-tab-dot" aria-hidden="true"></span>';
     }
 
+    // The notice about variables that don't start with the required prefix. Same shape as the unmapped one below
+    // ({text, tab}, %tab% replaced by the tab's name in bold), only the id differs.
+    function buildPrefixAlertHtml(texts) {
+        return buildTabAlertHtml('n8ndispatch-prefix-alert', texts);
+    }
+
+    // Which notice the edit page shows. A wrong prefix comes first: those names have to be renamed before mapping
+    // them matters (the save check works the same way).
+    function noticeFor(invalidPrefixCount, unmappedCount) {
+        if (0 < invalidPrefixCount) {
+            return 'prefix';
+        }
+
+        return 0 < unmappedCount ? 'unmapped' : null;
+    }
+
     // texts = {text, tab}, both already translated by Twig (so they follow the system language). text carries a
     // %tab% placeholder, replaced by the tab's name in bold, which opens that tab when clicked. Deliberately
     // generic: it doesn't list the variables, the tab itself shows which ones are missing.
-    function buildUnmappedAlertHtml(texts) {
+    function buildTabAlertHtml(id, texts) {
         var tab = '<a href="#n8ndispatch-email-tab-container" class="n8ndispatch-open-variables-tab"><b>'
             + escapePlain(texts.tab) + '</b></a>';
 
-        return '<div class="alert alert-warning" id="n8ndispatch-unmapped-alert">'
+        return '<div class="alert alert-warning" id="' + id + '">'
             + escapePlain(texts.text).replace('%tab%', function () { return tab; })
             + '</div>';
+    }
+
+    function buildUnmappedAlertHtml(texts) {
+        return buildTabAlertHtml('n8ndispatch-unmapped-alert', texts);
     }
 
     function variableRowHtml(name, existingEntry, fields, customObjects) {
@@ -203,11 +223,13 @@
     // HSM moved to templates (Entity/HsmTemplate.php) and dropped its
     // per-campaign variable picker outright.
     Mautic.n8ndispatchShared = {
+        buildPrefixAlertHtml:        buildPrefixAlertHtml,
         buildTabDotHtml:             buildTabDotHtml,
         buildUnmappedAlertHtml:      buildUnmappedAlertHtml,
         clearVariables:              clearVariables,
         findUnmapped:                findUnmapped,
         isEntrySet:                  isEntrySet,
+        noticeFor:                   noticeFor,
         renderVariablesFromResponse: renderVariablesFromResponse,
     };
 

@@ -62,7 +62,16 @@ class AjaxController extends CommonAjaxController
         $html      = $request->request->has('html') ? (string) $request->request->get('html') : (string) $email->getCustomHtml();
         $variables = $variableScanner->extract($html);
 
-        return $this->sendJsonResponse(['success' => 1, 'variables' => $variables, 'fields' => $fields, 'customObjects' => $customObjects]);
+        // The ones missing the n8n_ prefix, so the edit page can warn about them before the user tries to save.
+        $invalidVariables = $variableScanner->extractWithoutPrefix($html);
+
+        return $this->sendJsonResponse([
+            'success'          => 1,
+            'variables'        => $variables,
+            'invalidVariables' => $invalidVariables,
+            'fields'           => $fields,
+            'customObjects'    => $customObjects,
+        ]);
     }
 
     /**
