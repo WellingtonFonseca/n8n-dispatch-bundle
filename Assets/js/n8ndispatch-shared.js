@@ -107,6 +107,14 @@
         return '<span class="n8ndispatch-tab-dot" aria-hidden="true"></span>';
     }
 
+    var VARIABLES_TAB = '#n8ndispatch-email-tab-container';
+    var ADVANCED_TAB  = '#advanced-container';
+
+    // The tab's name in bold, as a link that opens that tab (the click handler is in email-tab-variables.js).
+    function tabLinkHtml(target, label) {
+        return '<a href="' + target + '" class="n8ndispatch-open-tab"><b>' + escapePlain(label) + '</b></a>';
+    }
+
     // The notice about variables that don't start with the required prefix. Same shape as the unmapped one below
     // ({text, tab}, %tab% replaced by the tab's name in bold), only the id differs.
     function buildPrefixAlertHtml(texts) {
@@ -127,8 +135,7 @@
     // %tab% placeholder, replaced by the tab's name in bold, which opens that tab when clicked. Deliberately
     // generic: it doesn't list the variables, the tab itself shows which ones are missing.
     function buildTabAlertHtml(id, texts) {
-        var tab = '<a href="#n8ndispatch-email-tab-container" class="n8ndispatch-open-variables-tab"><b>'
-            + escapePlain(texts.tab) + '</b></a>';
+        var tab = tabLinkHtml(VARIABLES_TAB, texts.tab);
 
         return '<div class="alert alert-warning" id="' + id + '">'
             + escapePlain(texts.text).replace('%tab%', function () { return tab; })
@@ -137,6 +144,30 @@
 
     function buildUnmappedAlertHtml(texts) {
         return buildTabAlertHtml('n8ndispatch-unmapped-alert', texts);
+    }
+
+    var SENDER_FIELDS = ['fromName', 'fromAddress'];
+
+    // The sender fields (Advanced tab) that are blank, in form order. values = {fromName, fromAddress}.
+    function missingSenderFields(values) {
+        return SENDER_FIELDS.filter(function (field) {
+            var value = values ? values[field] : null;
+
+            return '' === String(null == value ? '' : value).trim();
+        });
+    }
+
+    // texts = {text, tab} translated by Twig; text carries %fields% (the missing fields' labels, as the screen
+    // names them) and %tab% (the Advanced tab's name, in bold, opening that tab).
+    function buildSenderAlertHtml(texts, labels) {
+        var fields = labels.map(escapePlain).join(', ');
+        var tab    = tabLinkHtml(ADVANCED_TAB, texts.tab);
+
+        return '<div class="alert alert-warning" id="n8ndispatch-sender-alert">'
+            + escapePlain(texts.text)
+                .replace('%fields%', function () { return fields; })
+                .replace('%tab%', function () { return tab; })
+            + '</div>';
     }
 
     function variableRowHtml(name, existingEntry, fields, customObjects) {
@@ -224,11 +255,13 @@
     // per-campaign variable picker outright.
     Mautic.n8ndispatchShared = {
         buildPrefixAlertHtml:        buildPrefixAlertHtml,
+        buildSenderAlertHtml:        buildSenderAlertHtml,
         buildTabDotHtml:             buildTabDotHtml,
         buildUnmappedAlertHtml:      buildUnmappedAlertHtml,
         clearVariables:              clearVariables,
         findUnmapped:                findUnmapped,
         isEntrySet:                  isEntrySet,
+        missingSenderFields:         missingSenderFields,
         noticeFor:                   noticeFor,
         renderVariablesFromResponse: renderVariablesFromResponse,
     };

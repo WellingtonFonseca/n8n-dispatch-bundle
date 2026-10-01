@@ -31,6 +31,7 @@ class AssetInjectionSubscriberTest extends TestCase
 
         $sharedJsMtime   = filemtime(__DIR__.'/../../../Assets/js/n8ndispatch-shared.js');
         $emailTabJsMtime = filemtime(__DIR__.'/../../../Assets/js/email-tab-variables.js');
+        $senderAlertMtime = filemtime(__DIR__.'/../../../Assets/js/email-sender-alert.js');
         $smsJsMtime      = filemtime(__DIR__.'/../../../Assets/js/campaign-sms-dispatch.js');
         $hsmJsMtime      = filemtime(__DIR__.'/../../../Assets/js/campaign-hsm-dispatch.js');
         $previewIconsMtime = filemtime(__DIR__.'/../../../Assets/js/campaign-preview-icons.js');
@@ -42,6 +43,10 @@ class AssetInjectionSubscriberTest extends TestCase
         );
         $this->assertStringContainsString(
             '<script src="/plugins/N8nDispatchBundle/Assets/js/email-tab-variables.js?v='.$emailTabJsMtime.'"></script>',
+            $content
+        );
+        $this->assertStringContainsString(
+            '<script src="/plugins/N8nDispatchBundle/Assets/js/email-sender-alert.js?v='.$senderAlertMtime.'"></script>',
             $content
         );
         $this->assertStringContainsString(

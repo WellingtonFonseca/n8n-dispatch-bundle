@@ -87,7 +87,7 @@ test('the alert is generic: it does not list the variables and shows the tab nam
 test('the tab name in the alert opens the tab', () => {
     const html = shared.buildUnmappedAlertHtml({text: 'Go to %tab%', tab: 'Variables N8N'});
 
-    assert.match(html, /<a href="#n8ndispatch-email-tab-container" class="n8ndispatch-open-variables-tab"><b>Variables N8N<\/b><\/a>/);
+    assert.match(html, /<a href="#n8ndispatch-email-tab-container" class="n8ndispatch-open-tab"><b>Variables N8N<\/b><\/a>/);
 });
 
 test('the alert follows the translated texts it receives', () => {
@@ -119,7 +119,7 @@ test('the prefix alert names the tab in bold, as a link that opens it', () => {
     const html = shared.buildPrefixAlertHtml({text: '%tab% must start with n8n_ (for example {{n8n_name}}).', tab: 'Variables N8N'});
 
     assert.match(html, /class="alert alert-warning" id="n8ndispatch-prefix-alert"/);
-    assert.match(html, /<a href="#n8ndispatch-email-tab-container" class="n8ndispatch-open-variables-tab"><b>Variables N8N<\/b><\/a> must start with n8n_ \(for example \{\{n8n_name\}\}\)\./);
+    assert.match(html, /<a href="#n8ndispatch-email-tab-container" class="n8ndispatch-open-tab"><b>Variables N8N<\/b><\/a> must start with n8n_ \(for example \{\{n8n_name\}\}\)\./);
     assert.doesNotMatch(html, /%tab%/);
 });
 
@@ -138,4 +138,53 @@ test('which notice to show: the prefix one wins, then the unmapped one, otherwis
     assert.strictEqual(shared.noticeFor(1, 0), 'prefix');
     assert.strictEqual(shared.noticeFor(0, 3), 'unmapped');
     assert.strictEqual(shared.noticeFor(0, 0), null);
+});
+
+test('the alerts about variables link to the Variables N8N tab', () => {
+    const unmapped = shared.buildUnmappedAlertHtml({text: 'Go to %tab%', tab: 'Variables N8N'});
+    const prefix   = shared.buildPrefixAlertHtml({text: 'Go to %tab%', tab: 'Variables N8N'});
+
+    assert.match(unmapped, /<a href="#n8ndispatch-email-tab-container" class="n8ndispatch-open-tab">/);
+    assert.match(prefix, /<a href="#n8ndispatch-email-tab-container" class="n8ndispatch-open-tab">/);
+});
+
+// The helper runs inside a separate vm context, so the arrays it creates have that context's Array prototype and
+// deepStrictEqual rejects them against the test's own arrays; Array.from() copies them into this context first.
+const missing = (values) => Array.from(shared.missingSenderFields(values));
+
+test('missingSenderFields lists the blank sender fields, in form order', () => {
+    assert.strictEqual(typeof shared.missingSenderFields, 'function');
+
+    assert.deepStrictEqual(missing({fromName: '', fromAddress: 'a@b.c'}), ['fromName']);
+    assert.deepStrictEqual(missing({fromName: 'Inst', fromAddress: '  '}), ['fromAddress']);
+    assert.deepStrictEqual(missing({fromName: '', fromAddress: ''}), ['fromName', 'fromAddress']);
+    assert.deepStrictEqual(missing({fromName: 'Inst', fromAddress: 'a@b.c'}), []);
+});
+
+test('missingSenderFields treats missing values as blank', () => {
+    assert.deepStrictEqual(missing({}), ['fromName', 'fromAddress']);
+    assert.deepStrictEqual(missing({fromName: null, fromAddress: undefined}), ['fromName', 'fromAddress']);
+    assert.deepStrictEqual(missing(undefined), ['fromName', 'fromAddress']);
+});
+
+test('the sender alert lists the missing labels and links to the Advanced tab, in bold', () => {
+    assert.strictEqual(typeof shared.buildSenderAlertHtml, 'function');
+
+    const html = shared.buildSenderAlertHtml(
+        {text: 'Fill in: %fields%. Go to the %tab% tab.', tab: 'Advanced'},
+        ['Nome do Remetente', 'E-mail do Remetente']
+    );
+
+    assert.match(html, /class="alert alert-warning" id="n8ndispatch-sender-alert"/);
+    assert.match(html, /Fill in: Nome do Remetente, E-mail do Remetente\./);
+    assert.match(html, /<a href="#advanced-container" class="n8ndispatch-open-tab"><b>Advanced<\/b><\/a> tab\./);
+    assert.doesNotMatch(html, /%fields%|%tab%/);
+});
+
+test('the sender alert escapes the labels and texts', () => {
+    const html = shared.buildSenderAlertHtml({text: '<i>%fields%</i> %tab%', tab: '<u>t</u>'}, ['<b>x</b>']);
+
+    assert.doesNotMatch(html, /<i>|<u>|<b>x<\/b>/);
+    assert.match(html, /&lt;b&gt;x&lt;\/b&gt;/);
+    assert.match(html, /<b>&lt;u&gt;t&lt;\/u&gt;<\/b>/);
 });
