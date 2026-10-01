@@ -4,11 +4,11 @@ declare(strict_types=1);
 
 namespace MauticPlugin\N8nDispatchBundle\Tests\Unit\Entity;
 
-use MauticPlugin\N8nDispatchBundle\Entity\HsmTemplate;
+use MauticPlugin\N8nDispatchBundle\Entity\SmsTemplate;
 use PHPUnit\Framework\TestCase;
 use Symfony\Component\Validator\Validation;
 
-class HsmTemplateValidationTest extends TestCase
+class SmsTemplateValidationTest extends TestCase
 {
     private const MESSAGE = 'mautic.n8ndispatch.template.error.numeric_variables';
 
@@ -17,7 +17,7 @@ class HsmTemplateValidationTest extends TestCase
      */
     private function textErrors(?string $text): array
     {
-        $template = new HsmTemplate();
+        $template = new SmsTemplate();
         $template->setText($text);
 
         $validator  = Validation::createValidatorBuilder()->addMethodMapping('loadValidatorMetadata')->getValidator();

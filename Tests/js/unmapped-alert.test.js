@@ -207,3 +207,24 @@ test('buildRowAlertHtml wraps the alert in the row/column markup form fields use
     assert.match(html, /<div class="alert alert-warning" id="n8ndispatch-hsm-numeric-alert">Numbers only, e\.g\. \{\{1\}\}<\/div>/);
     assert.match(html, /<\/div><\/div>$/);
 });
+
+// Same rule as TemplateVariableScanner::findNonNumeric() in PHP (tested there): every {{ ... }} must be digits only.
+test('hasNonNumericPlaceholder accepts only digit placeholders', () => {
+    assert.strictEqual(typeof shared.hasNonNumericPlaceholder, 'function');
+
+    assert.strictEqual(shared.hasNonNumericPlaceholder('Hello {{1}}, class {{ 2 }} at {{03}}.'), false);
+    assert.strictEqual(shared.hasNonNumericPlaceholder('Just a reminder.'), false);
+    assert.strictEqual(shared.hasNonNumericPlaceholder('No placeholders, just { braces } and {single}.'), false);
+});
+
+test('hasNonNumericPlaceholder flags anything else between double braces', () => {
+    for (const text of ['Hi {{valor}}', '{{1}} {{n8n_nome}}', '{{1a}}', '{{ nome completo }}', '{{}}', '{{1}} and {{curso}}']) {
+        assert.strictEqual(shared.hasNonNumericPlaceholder(text), true, text);
+    }
+});
+
+test('hasNonNumericPlaceholder treats a missing text as having none', () => {
+    assert.strictEqual(shared.hasNonNumericPlaceholder(null), false);
+    assert.strictEqual(shared.hasNonNumericPlaceholder(undefined), false);
+    assert.strictEqual(shared.hasNonNumericPlaceholder(''), false);
+});

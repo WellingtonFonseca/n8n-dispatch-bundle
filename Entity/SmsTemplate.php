@@ -8,6 +8,7 @@ use Doctrine\ORM\Mapping as ORM;
 use Mautic\CoreBundle\Doctrine\Mapping\ClassMetadataBuilder;
 use Mautic\CoreBundle\Entity\FormEntity;
 use MauticPlugin\N8nDispatchBundle\Resolver\LocaleConventions;
+use MauticPlugin\N8nDispatchBundle\Entity\Validation\NumericVariables;
 use Symfony\Component\Validator\Constraints as Assert;
 use Symfony\Component\Validator\Mapping\ClassMetadata;
 
@@ -97,6 +98,9 @@ class SmsTemplate extends FormEntity
         $metadata->addPropertyConstraint('text', new Assert\NotBlank([
             'message' => 'mautic.core.value.required',
         ]));
+
+        // Positional placeholders only, {{1}}, {{2}}, ... (same rule as the HSM template).
+        $metadata->addPropertyConstraint('text', new Assert\Callback([NumericVariables::class, 'validate']));
     }
 
     public function getId(): ?int

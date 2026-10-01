@@ -378,6 +378,43 @@ class SmsCampaignTriggerSubscriberTest extends TestCase
         $this->assertSame('Hello bar', $passedLog->getMetadata()['n8ndispatch']['message']);
     }
 
+    public function testNumericPlaceholdersAreResolvedAndSentAsAJsonObject(): void
+    {
+        // Templates now use positional placeholders. json_decode() turns the numeric keys of the saved mapping into
+        // integers, so the resolver's map has integer keys: the message lookup by the matched "1" must still find them,
+        // and the payload's variables must still be a JSON object ({"1": ...}), not a list.
+        $template = new SmsTemplate();
+        $template->setText('Hi {{1}}, class {{ 2 }}');
+        $template->setVariablesJson('{"1":{"source":"static","value":"Maria"},"2":{"source":"static","value":"101"}}');
+
+        $this->smsTemplateModel->method('getEntity')->with(7)->willReturn($template);
+
+        $variableResolver = $this->createMock(VariableResolver::class);
+        $variableResolver->expects($this->once())
+            ->method('resolveAll')
+            ->with([1 => ['source' => 'static', 'value' => 'Maria'], 2 => ['source' => 'static', 'value' => '101']])
+            ->willReturn([1 => 'Maria', 2 => '101']);
+        $subscriber = new SmsCampaignTriggerSubscriber(
+            $this->integrationHelper,
+            $this->httpClient,
+            $this->logger,
+            $variableResolver,
+            $this->dncModel,
+            $this->smsTemplateModel,
+        );
+
+        $pendingEvent = $this->buildPendingEvent(['smsTemplate' => '7', 'status' => 'test']);
+
+        $subscriber->onSmsSend($pendingEvent);
+
+        /** @var LeadEventLog $passedLog */
+        $passedLog = $pendingEvent->getSuccessful()->first();
+        $payload   = $passedLog->getMetadata()['n8ndispatch'];
+
+        $this->assertSame('Hi Maria, class 101', $payload['message']);
+        $this->assertSame('{"1":"Maria","2":"101"}', json_encode($payload['variables']));
+    }
+
     public function testMissingTemplateFailsAllWithoutDispatching(): void
     {
         $this->smsTemplateModel->method('getEntity')->with(7)->willReturn(null);

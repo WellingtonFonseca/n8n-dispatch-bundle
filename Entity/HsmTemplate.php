@@ -7,10 +7,9 @@ namespace MauticPlugin\N8nDispatchBundle\Entity;
 use Doctrine\ORM\Mapping as ORM;
 use Mautic\CoreBundle\Doctrine\Mapping\ClassMetadataBuilder;
 use Mautic\CoreBundle\Entity\FormEntity;
+use MauticPlugin\N8nDispatchBundle\Entity\Validation\NumericVariables;
 use MauticPlugin\N8nDispatchBundle\Resolver\LocaleConventions;
-use MauticPlugin\N8nDispatchBundle\Service\TemplateVariableScanner;
 use Symfony\Component\Validator\Constraints as Assert;
-use Symfony\Component\Validator\Context\ExecutionContextInterface;
 use Symfony\Component\Validator\Mapping\ClassMetadata;
 
 /**
@@ -145,21 +144,8 @@ class HsmTemplate extends FormEntity
             'message' => 'mautic.core.value.required',
         ]));
 
-        // WhatsApp only accepts positional placeholders. A callable array, not a closure: the validator caches
-        // this metadata, and closures can't be serialized.
-        $metadata->addPropertyConstraint('text', new Assert\Callback([self::class, 'validateNumericVariables']));
-    }
-
-    /**
-     * One generic message however many placeholders are wrong: it explains the pattern, it doesn't list the culprits.
-     */
-    public static function validateNumericVariables(?string $text, ExecutionContextInterface $context): void
-    {
-        if ([] === (new TemplateVariableScanner())->findNonNumeric((string) $text)) {
-            return;
-        }
-
-        $context->buildViolation('mautic.n8ndispatch.hsmtemplate.error.numeric_variables')->addViolation();
+        // WhatsApp only accepts positional placeholders, {{1}}, {{2}}, ...
+        $metadata->addPropertyConstraint('text', new Assert\Callback([NumericVariables::class, 'validate']));
     }
 
     public function getId(): ?int

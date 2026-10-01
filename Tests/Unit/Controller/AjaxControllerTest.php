@@ -213,4 +213,46 @@ class AjaxControllerTest extends TestCase
 
         $this->assertSame([], $data['nonNumericVariables']);
     }
+
+    /**
+     * @return array<string, mixed>
+     */
+    private function smsVariablesResponse(string $text): array
+    {
+        $fieldModel = $this->createMock(FieldModel::class);
+        $fieldModel->method('getFieldList')->willReturn([]);
+
+        $customObjectModel = $this->createMock(CustomObjectModel::class);
+        $customObjectModel->method('fetchAllPublishedEntities')->willReturn([]);
+
+        $controller = new class() extends AjaxController {
+            public function __construct()
+            {
+            }
+
+            protected function sendJsonResponse($dataArray, $statusCode = null, $addIgnoreWdt = true): JsonResponse
+            {
+                return new JsonResponse($dataArray);
+            }
+        };
+
+        $response = $controller->getSmsVariablesAction(
+            new Request([], ['text' => $text]),
+            $fieldModel,
+            $customObjectModel,
+            new TemplateVariableScanner()
+        );
+
+        return json_decode((string) $response->getContent(), true);
+    }
+
+    public function testSmsVariablesFlagsPlaceholdersThatAreNotNumeric(): void
+    {
+        $this->assertSame(['valor'], $this->smsVariablesResponse('Hi {{1}}, {{valor}}')['nonNumericVariables']);
+    }
+
+    public function testSmsVariablesHasNothingToFlagWhenEveryPlaceholderIsNumeric(): void
+    {
+        $this->assertSame([], $this->smsVariablesResponse('Hi {{1}}, {{2}}')['nonNumericVariables']);
+    }
 }
