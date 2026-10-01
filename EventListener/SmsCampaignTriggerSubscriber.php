@@ -16,6 +16,7 @@ use MauticPlugin\N8nDispatchBundle\Model\SmsTemplateModel;
 use MauticPlugin\N8nDispatchBundle\N8nDispatchEvents;
 use MauticPlugin\N8nDispatchBundle\Resolver\LocaleConventions;
 use MauticPlugin\N8nDispatchBundle\Resolver\VariableResolver;
+use MauticPlugin\N8nDispatchBundle\Service\DispatchFailureReasons;
 use Psr\Log\LoggerInterface;
 use Symfony\Component\EventDispatcher\EventSubscriberInterface;
 use Symfony\Contracts\HttpClient\HttpClientInterface;
@@ -78,6 +79,7 @@ class SmsCampaignTriggerSubscriber implements EventSubscriberInterface
         private VariableResolver $variableResolver,
         private DncModel $dncModel,
         private SmsTemplateModel $smsTemplateModel,
+        private DispatchFailureReasons $failureReasons,
     ) {
     }
 
@@ -109,7 +111,7 @@ class SmsCampaignTriggerSubscriber implements EventSubscriberInterface
             // template is a configuration error worth surfacing in 'test'
             // too, not only once the step is flipped to 'production'.
             if (null === $template) {
-                $event->failAll('N8nDispatch: SMS template #'.$templateId.' not found.');
+                $event->failAll($this->failureReasons->translated(DispatchFailureReasons::SMS_TEMPLATE_NOT_FOUND, ['%id%' => $templateId]));
 
                 return;
             }
@@ -136,7 +138,7 @@ class SmsCampaignTriggerSubscriber implements EventSubscriberInterface
         $integration = $this->integrationHelper->getIntegrationObject(N8nDispatchIntegration::NAME);
 
         if (!$integration || !$integration->getIntegrationSettings()->isPublished()) {
-            $event->failAll('N8nDispatch: the N8n Dispatch integration is not configured/enabled.');
+            $event->failAll($this->failureReasons->translated(DispatchFailureReasons::INTEGRATION_DISABLED));
 
             return;
         }
@@ -145,7 +147,7 @@ class SmsCampaignTriggerSubscriber implements EventSubscriberInterface
         $webhookUrl = trim((string) ($keys['webhook_url'] ?? ''));
 
         if ('' === $webhookUrl) {
-            $event->failAll('N8nDispatch: webhook_url is not configured.');
+            $event->failAll($this->failureReasons->translated(DispatchFailureReasons::WEBHOOK_MISSING));
 
             return;
         }
@@ -190,7 +192,7 @@ class SmsCampaignTriggerSubscriber implements EventSubscriberInterface
         // sendSms(), so its native DNC check never runs either. Checked
         // first, before resolving anything or making the HTTP call.
         if (DoNotContact::IS_CONTACTABLE !== $this->dncModel->isContactable($contact, 'sms')) {
-            $event->fail($log, 'N8nDispatch: contact is on the Do Not Contact list for sms.');
+            $event->fail($log, $this->failureReasons->translated(DispatchFailureReasons::DO_NOT_CONTACT, ['%channel%' => 'sms']));
 
             return;
         }
@@ -204,7 +206,7 @@ class SmsCampaignTriggerSubscriber implements EventSubscriberInterface
         // own SmsModel::sendSms() uses for its own 'missing_number' case,
         // rather than failing the whole batch over one contact's data.
         if ('' === $phone) {
-            $event->fail($log, 'N8nDispatch: contact has no phone number.');
+            $event->fail($log, $this->failureReasons->translated(DispatchFailureReasons::NO_PHONE));
 
             return;
         }
@@ -228,7 +230,7 @@ class SmsCampaignTriggerSubscriber implements EventSubscriberInterface
             $this->recordDispatchOutcome($log, $response, $payload, $statusCode);
 
             if ($statusCode >= 300) {
-                $event->fail($log, 'N8nDispatch: '.$this->extractFailureReason($response, $statusCode));
+                $event->fail($log, $this->failureReasons->reason($this->extractFailureReason($response, $statusCode)));
 
                 return;
             }
@@ -236,7 +238,7 @@ class SmsCampaignTriggerSubscriber implements EventSubscriberInterface
             $event->pass($log);
         } catch (\Throwable $e) {
             $this->logger->error('N8nDispatch: SMS dispatch failed for contact '.$contact->getId().': '.$e->getMessage());
-            $event->fail($log, 'N8nDispatch: '.$e->getMessage());
+            $event->fail($log, $this->failureReasons->reason($e->getMessage()));
         }
     }
 
@@ -320,7 +322,7 @@ class SmsCampaignTriggerSubscriber implements EventSubscriberInterface
             return $body['error'];
         }
 
-        return 'webhook returned HTTP '.$statusCode.'.';
+        return $this->failureReasons->text(DispatchFailureReasons::HTTP_STATUS, ['%status%' => $statusCode]);
     }
 
     /**

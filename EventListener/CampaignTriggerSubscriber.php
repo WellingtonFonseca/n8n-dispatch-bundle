@@ -22,6 +22,7 @@ use MauticPlugin\N8nDispatchBundle\Integration\N8nDispatchIntegration;
 use MauticPlugin\N8nDispatchBundle\N8nDispatchEvents;
 use MauticPlugin\N8nDispatchBundle\Resolver\LocaleConventions;
 use MauticPlugin\N8nDispatchBundle\Resolver\VariableResolver;
+use MauticPlugin\N8nDispatchBundle\Service\DispatchFailureReasons;
 use MauticPlugin\N8nDispatchBundle\UnsubscribeVariable;
 use Psr\Log\LoggerInterface;
 use Symfony\Component\EventDispatcher\EventSubscriberInterface;
@@ -68,6 +69,7 @@ class CampaignTriggerSubscriber implements EventSubscriberInterface
         private EntityManagerInterface $entityManager,
         private DncModel $dncModel,
         private EmailVariablesRepository $emailVariablesRepository,
+        private DispatchFailureReasons $failureReasons,
     ) {
     }
 
@@ -117,7 +119,7 @@ class CampaignTriggerSubscriber implements EventSubscriberInterface
         }
 
         if (null === $email) {
-            $event->failAll('N8nDispatch: the configured Email template no longer exists.');
+            $event->failAll($this->failureReasons->translated(DispatchFailureReasons::EMAIL_TEMPLATE_MISSING));
 
             return;
         }
@@ -125,7 +127,7 @@ class CampaignTriggerSubscriber implements EventSubscriberInterface
         $integration = $this->integrationHelper->getIntegrationObject(N8nDispatchIntegration::NAME);
 
         if (!$integration || !$integration->getIntegrationSettings()->isPublished()) {
-            $event->failAll('N8nDispatch: the N8n Dispatch integration is not configured/enabled.');
+            $event->failAll($this->failureReasons->translated(DispatchFailureReasons::INTEGRATION_DISABLED));
 
             return;
         }
@@ -134,7 +136,7 @@ class CampaignTriggerSubscriber implements EventSubscriberInterface
         $webhookUrl = trim((string) ($keys['webhook_url'] ?? ''));
 
         if ('' === $webhookUrl) {
-            $event->failAll('N8nDispatch: webhook_url is not configured.');
+            $event->failAll($this->failureReasons->translated(DispatchFailureReasons::WEBHOOK_MISSING));
 
             return;
         }
@@ -189,7 +191,7 @@ class CampaignTriggerSubscriber implements EventSubscriberInterface
         // variable resolution or the HTTP call, so an opted-out contact is
         // never sent to n8n at all.
         if (DoNotContact::IS_CONTACTABLE !== $this->dncModel->isContactable($contact, 'email')) {
-            $event->fail($log, 'N8nDispatch: contact is on the Do Not Contact list for email.');
+            $event->fail($log, $this->failureReasons->translated(DispatchFailureReasons::DO_NOT_CONTACT, ['%channel%' => 'email']));
 
             return;
         }
@@ -240,7 +242,7 @@ class CampaignTriggerSubscriber implements EventSubscriberInterface
                 // "Email sent", and it's a better fit than the contact's
                 // history staying blank for an attempt that did happen.
                 $this->createStat($email, $contact, $contactEmail, $idHash, $templateCopyHash, true);
-                $event->fail($log, 'N8nDispatch: '.$this->extractFailureReason($response, $statusCode));
+                $event->fail($log, $this->failureReasons->reason($this->extractFailureReason($response, $statusCode)));
 
                 return;
             }
@@ -255,7 +257,7 @@ class CampaignTriggerSubscriber implements EventSubscriberInterface
             // above — same treatment.
             $this->createStat($email, $contact, $contactEmail, $idHash, $templateCopyHash, true);
             $this->logger->error('N8nDispatch: dispatch failed for contact '.$contact->getId().': '.$e->getMessage());
-            $event->fail($log, 'N8nDispatch: '.$e->getMessage());
+            $event->fail($log, $this->failureReasons->reason($e->getMessage()));
         }
     }
 
@@ -450,7 +452,7 @@ class CampaignTriggerSubscriber implements EventSubscriberInterface
             return $body['error'];
         }
 
-        return 'webhook returned HTTP '.$statusCode.'.';
+        return $this->failureReasons->text(DispatchFailureReasons::HTTP_STATUS, ['%status%' => $statusCode]);
     }
 
     /**

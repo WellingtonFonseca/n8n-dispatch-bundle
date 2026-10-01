@@ -20,6 +20,7 @@ use MauticPlugin\N8nDispatchBundle\EventListener\HsmCampaignTriggerSubscriber;
 use MauticPlugin\N8nDispatchBundle\Integration\N8nDispatchIntegration;
 use MauticPlugin\N8nDispatchBundle\Model\HsmTemplateModel;
 use MauticPlugin\N8nDispatchBundle\Resolver\VariableResolver;
+use MauticPlugin\N8nDispatchBundle\Service\DispatchFailureReasons;
 use PHPUnit\Framework\TestCase;
 use Psr\Log\LoggerInterface;
 use Symfony\Contracts\HttpClient\HttpClientInterface;
@@ -61,6 +62,7 @@ class HsmCampaignTriggerSubscriberTest extends TestCase
             $this->variableResolver,
             $this->dncModel,
             $this->hsmTemplateModel,
+            new DispatchFailureReasons(new EnUsTranslator()),
         );
 
         $this->variableResolver->method('resolveAll')->willReturn(['nome' => 'Wellington']);
@@ -209,6 +211,7 @@ class HsmCampaignTriggerSubscriberTest extends TestCase
             $this->variableResolver,
             $this->dncModel,
             $this->hsmTemplateModel,
+            new DispatchFailureReasons(new EnUsTranslator()),
         );
 
         $this->httpClient->expects($this->never())->method('request');
@@ -404,6 +407,7 @@ class HsmCampaignTriggerSubscriberTest extends TestCase
             $variableResolver,
             $this->dncModel,
             $this->hsmTemplateModel,
+            new DispatchFailureReasons(new EnUsTranslator()),
         );
 
         // Leftover inline 'router'/'hsmId' from before the template was
@@ -484,6 +488,7 @@ class HsmCampaignTriggerSubscriberTest extends TestCase
             $variableResolver,
             $this->dncModel,
             $this->hsmTemplateModel,
+            new DispatchFailureReasons(new EnUsTranslator()),
         );
 
         $pendingEvent = $this->buildPendingEvent(['hsmTemplateId' => '7', 'status' => 'test']);

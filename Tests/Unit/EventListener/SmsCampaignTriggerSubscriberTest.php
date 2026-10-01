@@ -20,6 +20,7 @@ use MauticPlugin\N8nDispatchBundle\EventListener\SmsCampaignTriggerSubscriber;
 use MauticPlugin\N8nDispatchBundle\Integration\N8nDispatchIntegration;
 use MauticPlugin\N8nDispatchBundle\Model\SmsTemplateModel;
 use MauticPlugin\N8nDispatchBundle\Resolver\VariableResolver;
+use MauticPlugin\N8nDispatchBundle\Service\DispatchFailureReasons;
 use PHPUnit\Framework\TestCase;
 use Psr\Log\LoggerInterface;
 use Symfony\Contracts\HttpClient\HttpClientInterface;
@@ -61,6 +62,7 @@ class SmsCampaignTriggerSubscriberTest extends TestCase
             $this->variableResolver,
             $this->dncModel,
             $this->smsTemplateModel,
+            new DispatchFailureReasons(new EnUsTranslator()),
         );
 
         $this->variableResolver->method('resolveAll')->willReturn(['foo' => 'bar']);
@@ -211,6 +213,7 @@ class SmsCampaignTriggerSubscriberTest extends TestCase
             $this->variableResolver,
             $this->dncModel,
             $this->smsTemplateModel,
+            new DispatchFailureReasons(new EnUsTranslator()),
         );
 
         $this->httpClient->expects($this->never())->method('request');
@@ -363,6 +366,7 @@ class SmsCampaignTriggerSubscriberTest extends TestCase
             $variableResolver,
             $this->dncModel,
             $this->smsTemplateModel,
+            new DispatchFailureReasons(new EnUsTranslator()),
         );
 
         // Leftover inline 'text' from before the template was picked must
@@ -401,6 +405,7 @@ class SmsCampaignTriggerSubscriberTest extends TestCase
             $variableResolver,
             $this->dncModel,
             $this->smsTemplateModel,
+            new DispatchFailureReasons(new EnUsTranslator()),
         );
 
         $pendingEvent = $this->buildPendingEvent(['smsTemplate' => '7', 'status' => 'test']);
@@ -460,6 +465,7 @@ class SmsCampaignTriggerSubscriberTest extends TestCase
             $variableResolver,
             $this->dncModel,
             $this->smsTemplateModel,
+            new DispatchFailureReasons(new EnUsTranslator()),
         );
 
         $pendingEvent = $this->buildPendingEvent(['text' => 'Hi {{foo}}', 'status' => 'test']);
@@ -492,6 +498,7 @@ class SmsCampaignTriggerSubscriberTest extends TestCase
             $variableResolver,
             $this->dncModel,
             $this->smsTemplateModel,
+            new DispatchFailureReasons(new EnUsTranslator()),
         );
 
         $pendingEvent = $this->buildPendingEvent(['smsTemplate' => '7', 'status' => 'test']);
