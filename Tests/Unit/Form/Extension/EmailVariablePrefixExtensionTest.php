@@ -59,13 +59,13 @@ class EmailVariablePrefixExtensionTest extends TestCase
         $this->submit(null, $customHtml);
     }
 
-    public function testAddsAnErrorToCustomHtmlListingTheVariablesWithoutThePrefix(): void
+    public function testAddsAnErrorToCustomHtmlWhenSomeVariableLacksThePrefix(): void
     {
         $this->translator->expects($this->once())
             ->method('trans')
             ->with(
                 'mautic.n8ndispatch.email.error.variable_prefix',
-                ['%variables%' => 'nome, curso', '%prefix%' => 'n8n_']
+                ['%prefix%' => 'n8n_']
             )
             ->willReturn('invalid variables');
 

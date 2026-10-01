@@ -64,15 +64,13 @@ class EmailVariablePrefixExtension extends AbstractTypeExtension
                 return;
             }
 
-            $invalid = $this->variableScanner->extractWithoutPrefix((string) $email->getCustomHtml());
-
-            if ([] === $invalid) {
+            if ([] === $this->variableScanner->extractWithoutPrefix((string) $email->getCustomHtml())) {
                 return;
             }
 
             $message = $this->translator->trans(
                 'mautic.n8ndispatch.email.error.variable_prefix',
-                ['%variables%' => implode(', ', $invalid), '%prefix%' => TemplateVariableScanner::REQUIRED_PREFIX]
+                ['%prefix%' => TemplateVariableScanner::REQUIRED_PREFIX]
             );
 
             // Core's API error handling reads $error->getCause()->getCode(), so the cause can't be null.
