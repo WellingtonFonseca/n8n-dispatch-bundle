@@ -17,6 +17,7 @@ use MauticPlugin\N8nDispatchBundle\Model\HsmTemplateModel;
 use MauticPlugin\N8nDispatchBundle\N8nDispatchEvents;
 use MauticPlugin\N8nDispatchBundle\Resolver\LocaleConventions;
 use MauticPlugin\N8nDispatchBundle\Resolver\VariableResolver;
+use MauticPlugin\N8nDispatchBundle\Service\DispatchFailureReasons;
 use Psr\Log\LoggerInterface;
 use Symfony\Component\EventDispatcher\EventSubscriberInterface;
 use Symfony\Contracts\HttpClient\HttpClientInterface;
@@ -81,6 +82,7 @@ class HsmCampaignTriggerSubscriber implements EventSubscriberInterface
         private VariableResolver $variableResolver,
         private DncModel $dncModel,
         private HsmTemplateModel $hsmTemplateModel,
+        private DispatchFailureReasons $failureReasons,
     ) {
     }
 
@@ -114,7 +116,7 @@ class HsmCampaignTriggerSubscriber implements EventSubscriberInterface
             // template is a configuration error worth surfacing in 'test'
             // too, not only once the step is flipped to 'production'.
             if (null === $template) {
-                $event->failAll('N8nDispatch: HSM template #'.$templateId.' not found.');
+                $event->failAll($this->failureReasons->translated(DispatchFailureReasons::HSM_TEMPLATE_NOT_FOUND, ['%id%' => $templateId]));
 
                 return;
             }
@@ -143,7 +145,7 @@ class HsmCampaignTriggerSubscriber implements EventSubscriberInterface
         $integration = $this->integrationHelper->getIntegrationObject(N8nDispatchIntegration::NAME);
 
         if (!$integration || !$integration->getIntegrationSettings()->isPublished()) {
-            $event->failAll('N8nDispatch: the N8n Dispatch integration is not configured/enabled.');
+            $event->failAll($this->failureReasons->translated(DispatchFailureReasons::INTEGRATION_DISABLED));
 
             return;
         }
@@ -152,7 +154,7 @@ class HsmCampaignTriggerSubscriber implements EventSubscriberInterface
         $webhookUrl = trim((string) ($keys['webhook_url'] ?? ''));
 
         if ('' === $webhookUrl) {
-            $event->failAll('N8nDispatch: webhook_url is not configured.');
+            $event->failAll($this->failureReasons->translated(DispatchFailureReasons::WEBHOOK_MISSING));
 
             return;
         }
@@ -200,7 +202,7 @@ class HsmCampaignTriggerSubscriber implements EventSubscriberInterface
         // real proxy — a contact opted out of SMS is treated as opted out
         // of HSM too, on request.
         if (DoNotContact::IS_CONTACTABLE !== $this->dncModel->isContactable($contact, 'sms')) {
-            $event->fail($log, 'N8nDispatch: contact is on the Do Not Contact list for sms.');
+            $event->fail($log, $this->failureReasons->translated(DispatchFailureReasons::DO_NOT_CONTACT, ['%channel%' => 'sms']));
 
             return;
         }
@@ -212,7 +214,7 @@ class HsmCampaignTriggerSubscriber implements EventSubscriberInterface
         // batch, see SmsCampaignTriggerSubscriber's own version of this
         // check.
         if ('' === $phone) {
-            $event->fail($log, 'N8nDispatch: contact has no phone number.');
+            $event->fail($log, $this->failureReasons->translated(DispatchFailureReasons::NO_PHONE));
 
             return;
         }
@@ -243,9 +245,9 @@ class HsmCampaignTriggerSubscriber implements EventSubscriberInterface
             // a failure too, not just statusCode >= 300, on request.
             if ($statusCode >= 300 || '' === trim($rawBody)) {
                 $reason = '' === trim($rawBody)
-                    ? 'n8n returned an empty response for hsm.send.'
+                    ? $this->failureReasons->text(DispatchFailureReasons::EMPTY_RESPONSE, ['%action%' => self::ACTION])
                     : $this->extractFailureReason($rawBody, $statusCode);
-                $event->fail($log, 'N8nDispatch: '.$reason);
+                $event->fail($log, $this->failureReasons->reason($reason));
 
                 return;
             }
@@ -253,7 +255,7 @@ class HsmCampaignTriggerSubscriber implements EventSubscriberInterface
             $event->pass($log);
         } catch (\Throwable $e) {
             $this->logger->error('N8nDispatch: HSM dispatch failed for contact '.$contact->getId().': '.$e->getMessage());
-            $event->fail($log, 'N8nDispatch: '.$e->getMessage());
+            $event->fail($log, $this->failureReasons->reason($e->getMessage()));
         }
     }
 
@@ -326,7 +328,7 @@ class HsmCampaignTriggerSubscriber implements EventSubscriberInterface
             return $body['error'];
         }
 
-        return 'webhook returned HTTP '.$statusCode.'.';
+        return $this->failureReasons->text(DispatchFailureReasons::HTTP_STATUS, ['%status%' => $statusCode]);
     }
 
     /**

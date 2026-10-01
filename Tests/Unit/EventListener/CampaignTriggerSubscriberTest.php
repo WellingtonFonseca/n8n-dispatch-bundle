@@ -28,6 +28,7 @@ use MauticPlugin\N8nDispatchBundle\EventListener\CampaignTriggerSubscriber;
 use MauticPlugin\N8nDispatchBundle\Integration\N8nDispatchIntegration;
 use MauticPlugin\N8nDispatchBundle\Resolver\VariableResolver;
 use MauticPlugin\N8nDispatchBundle\UnsubscribeVariable;
+use MauticPlugin\N8nDispatchBundle\Service\DispatchFailureReasons;
 use PHPUnit\Framework\TestCase;
 use Psr\Log\LoggerInterface;
 use Symfony\Contracts\HttpClient\HttpClientInterface;
@@ -98,6 +99,7 @@ class CampaignTriggerSubscriberTest extends TestCase
             $this->entityManager,
             $this->dncModel,
             $this->emailVariablesRepository,
+            new DispatchFailureReasons(new EnUsTranslator()),
         );
 
         $this->variableResolver->method('resolveAll')->willReturn(['foo' => 'bar']);
@@ -299,6 +301,7 @@ class CampaignTriggerSubscriberTest extends TestCase
             $this->entityManager,
             $this->dncModel,
             $this->emailVariablesRepository,
+            new DispatchFailureReasons(new EnUsTranslator()),
         );
 
         $this->httpClient->expects($this->never())->method('request');
