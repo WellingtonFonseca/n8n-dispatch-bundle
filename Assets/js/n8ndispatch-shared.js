@@ -119,6 +119,23 @@
         return '<div class="row" id="' + id + '-row"><div class="col-xs-12">' + buildPlainAlertHtml(id, text) + '</div></div>';
     }
 
+    // Whether a template text has a {{ ... }} placeholder that isn't only digits: the same rule as
+    // TemplateVariableScanner::findNonNumeric() in PHP, evaluated here so the alert can follow the text itself
+    // instead of waiting for a server answer.
+    function hasNonNumericPlaceholder(text) {
+        var pattern = /\{\{\s*([^{}]*?)\s*\}\}/g;
+        var source  = String(null == text ? '' : text);
+        var match;
+
+        while (null !== (match = pattern.exec(source))) {
+            if (!/^\d+$/.test(match[1])) {
+                return true;
+            }
+        }
+
+        return false;
+    }
+
     // The generic "variables must be numeric" alert of the HSM and SMS template forms, shown (or removed) between the
     // message text and the variable rows: that is where the user is when it matters, in the order the screen is filled
     // in. It goes right after the text field's row, and the variable rows are inserted after that same row
@@ -287,6 +304,7 @@
         buildUnmappedAlertHtml:      buildUnmappedAlertHtml,
         clearVariables:              clearVariables,
         findUnmapped:                findUnmapped,
+        hasNonNumericPlaceholder:    hasNonNumericPlaceholder,
         isEntrySet:                  isEntrySet,
         missingSenderFields:         missingSenderFields,
         noticeFor:                   noticeFor,
