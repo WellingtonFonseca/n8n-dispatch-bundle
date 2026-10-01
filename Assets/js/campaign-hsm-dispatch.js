@@ -7,17 +7,41 @@
     var DEBOUNCE_MS = 400;
     var debounceTimer;
 
+    var NUMERIC_ALERT_ID = 'n8ndispatch-hsm-numeric-alert';
+
+    // Yellow alert between the message text and the variable rows, while the text has placeholders that aren't
+    // numeric: that is where the user is when it matters, in the order they fill the screen in. Deliberately
+    // generic: it explains the pattern ({{1}}, {{2}}, ...) and doesn't point at the wrong ones. It goes right after
+    // the text field's row, and the variable rows are inserted after that same row (getContainer() in
+    // n8ndispatch-shared.js). Inserting "right after" puts the later one first, so the response handler below
+    // renders the variable rows first and the alert second, which leaves the alert above them.
+    function updateNumericAlert($textField, hasNonNumeric) {
+        mQuery('#' + NUMERIC_ALERT_ID + '-row').remove();
+
+        if (!hasNonNumeric) {
+            return;
+        }
+
+        var text = mQuery('#n8ndispatch-hsm-config').data('numeric-alert-text');
+
+        if (text) {
+            $textField.closest('.row').after(shared.buildRowAlertHtml(NUMERIC_ALERT_ID, text));
+        }
+    }
+
     function renderHsmVariables($textField) {
         var text = $textField.val();
 
         if (!text) {
             shared.clearVariables($textField);
+            updateNumericAlert($textField, false);
 
             return;
         }
 
         Mautic.ajaxActionRequest('plugin:N8nDispatch:getHsmVariables', {text: text}, function (response) {
             shared.renderVariablesFromResponse($textField, response);
+            updateNumericAlert($textField, !!response && 0 < (response.nonNumericVariables || []).length);
         });
     }
 

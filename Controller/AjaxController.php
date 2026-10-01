@@ -178,7 +178,17 @@ class AjaxController extends CommonAjaxController
         $customObjects = $this->buildCustomObjectsList($customObjectModel);
         $variables     = $variableScanner->extract($text);
 
-        return $this->sendJsonResponse(['success' => 1, 'variables' => $variables, 'fields' => $fields, 'customObjects' => $customObjects]);
+        // An HSM template only takes numeric placeholders ({{1}}, {{2}}, ...); the edit page warns about the
+        // others as the text is typed, before the user tries to save.
+        $nonNumericVariables = $variableScanner->findNonNumeric($text);
+
+        return $this->sendJsonResponse([
+            'success'             => 1,
+            'variables'           => $variables,
+            'nonNumericVariables' => $nonNumericVariables,
+            'fields'              => $fields,
+            'customObjects'       => $customObjects,
+        ]);
     }
 
     /**
