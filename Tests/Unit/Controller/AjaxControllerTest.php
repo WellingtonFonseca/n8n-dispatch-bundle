@@ -8,7 +8,12 @@ use Mautic\EmailBundle\Entity\Copy;
 use Mautic\EmailBundle\Entity\CopyRepository;
 use Mautic\EmailBundle\Model\EmailModel;
 use MauticPlugin\N8nDispatchBundle\Controller\AjaxController;
+use MauticPlugin\N8nDispatchBundle\Service\TemplateVariableScanner;
+use MauticPlugin\CustomObjectsBundle\Model\CustomObjectModel;
+use Mautic\LeadBundle\Model\FieldModel;
+use Mautic\EmailBundle\Entity\Email;
 use PHPUnit\Framework\TestCase;
+use Symfony\Component\HttpFoundation\JsonResponse;
 use Symfony\Component\HttpFoundation\Request;
 use Symfony\Component\HttpFoundation\Response;
 
@@ -99,4 +104,66 @@ class AjaxControllerTest extends TestCase
         $this->assertSame(Response::HTTP_NOT_FOUND, $response->getStatusCode());
     }
 
+    /**
+     * @return array<string, mixed>
+     */
+    private function emailVariablesResponse(Request $request, ?string $savedHtml): array
+    {
+        $email = $this->createMock(Email::class);
+        $email->method('getCustomHtml')->willReturn($savedHtml);
+
+        $emailModel = $this->createMock(EmailModel::class);
+        $emailModel->method('getEntity')->willReturn($email);
+
+        $fieldModel = $this->createMock(FieldModel::class);
+        $fieldModel->method('getFieldList')->willReturn([]);
+
+        $customObjectModel = $this->createMock(CustomObjectModel::class);
+        $customObjectModel->method('fetchAllPublishedEntities')->willReturn([]);
+
+        // sendJsonResponse() needs the container, so a plain JsonResponse stands in for it here.
+        $controller = new class() extends AjaxController {
+            public function __construct()
+            {
+            }
+
+            protected function sendJsonResponse($dataArray, $statusCode = null, $addIgnoreWdt = true): JsonResponse
+            {
+                return new JsonResponse($dataArray);
+            }
+        };
+
+        $response = $controller->getEmailVariablesAction(
+            $request,
+            $emailModel,
+            $fieldModel,
+            $customObjectModel,
+            new TemplateVariableScanner()
+        );
+
+        return json_decode((string) $response->getContent(), true);
+    }
+
+    public function testEmailVariablesListsTheOnesWithoutThePrefix(): void
+    {
+        $data = $this->emailVariablesResponse(new Request([], ['emailId' => 7]), '<p>{{n8n_nome}} {{curso}} {{ data }}</p>');
+
+        $this->assertSame(['n8n_nome', 'curso', 'data'], $data['variables']);
+        $this->assertSame(['curso', 'data'], $data['invalidVariables']);
+    }
+
+    public function testEmailVariablesHasNoInvalidOnesWhenEveryVariableHasThePrefix(): void
+    {
+        $data = $this->emailVariablesResponse(new Request([], ['emailId' => 7]), '<p>{{n8n_nome}}</p><a href="{{n8ndispatch_unsubscribe_url}}">x</a>');
+
+        $this->assertSame(['n8n_nome'], $data['variables']);
+        $this->assertSame([], $data['invalidVariables']);
+    }
+
+    public function testEmailVariablesChecksTheBuilderHtmlWhenItIsSent(): void
+    {
+        $data = $this->emailVariablesResponse(new Request([], ['emailId' => 7, 'html' => '<p>{{novo}}</p>']), '<p>{{n8n_nome}}</p>');
+
+        $this->assertSame(['novo'], $data['invalidVariables']);
+    }
 }

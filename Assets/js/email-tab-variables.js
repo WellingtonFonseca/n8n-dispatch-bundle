@@ -99,6 +99,58 @@
 
         var noneHtml = $el.html();
 
+        // Yellow alert above the tabs (outside any of them, so it shows whichever tab is open): a generic notice
+        // that some variables haven't been mapped yet. Core's Email form has no extension point above the tabs,
+        // so it's inserted into the DOM; if that markup ever changes the alert is simply not shown.
+        var alertTexts = {
+            text: $el.data('alert-text'),
+            tab:  $el.data('alert-tab'),
+        };
+        var prefixAlertTexts = {
+            text: $el.data('prefix-alert-text'),
+            tab:  $el.data('alert-tab'),
+        };
+        // How many of the template's variables lack the n8n_ prefix, as last reported by getEmailVariables.
+        var invalidPrefixCount = 0;
+        var $form   = mQuery(formEl || []);
+        var $hidden = $form.find('.n8ndispatch-variables-json');
+
+        function updateUnmappedAlert() {
+            mQuery('#n8ndispatch-unmapped-alert, #n8ndispatch-prefix-alert').remove();
+            $form.find('.n8ndispatch-tab-dot').remove();
+
+            var mapping = {};
+            try {
+                mapping = JSON.parse($hidden.val() || '{}');
+            } catch (e) {
+                mapping = {};
+            }
+
+            var names = [];
+            $el.find('.n8ndispatch-var-row').each(function () {
+                names.push(mQuery(this).data('var-name'));
+            });
+
+            var notice = shared.noticeFor(invalidPrefixCount, shared.findUnmapped(names, mapping).length);
+
+            if (null === notice) {
+                return;
+            }
+
+            // Pulsing dot on the tab's own header, so it stands out from the other tabs.
+            $form.find('a[href="#n8ndispatch-email-tab-container"]').append(shared.buildTabDotHtml());
+
+            var $tabs = $form.find('ul.nav-tabs-contained').first();
+
+            if (0 < $tabs.length) {
+                $tabs.before('prefix' === notice
+                    ? shared.buildPrefixAlertHtml(prefixAlertTexts)
+                    : shared.buildUnmappedAlertHtml(alertTexts));
+            }
+        }
+
+        $hidden.off('n8ndispatch:synced.n8nalert').on('n8ndispatch:synced.n8nalert', updateUnmappedAlert);
+
         function refreshVariables(html) {
             var data = {emailId: emailId};
 
@@ -111,6 +163,8 @@
                     return;
                 }
 
+                invalidPrefixCount = (response.invalidVariables || []).length;
+
                 // No {{variable}} placeholders found: show the translated
                 // "none found" message Twig rendered by default (Resources/
                 // views/SubscribedEvents/EmailTab/content.html.twig) and
@@ -118,6 +172,7 @@
                 if (!response.variables || 0 === response.variables.length) {
                     $el.html(noneHtml);
                     shared.clearVariables($el);
+                    updateUnmappedAlert();
                     return;
                 }
 
@@ -128,6 +183,16 @@
         refreshVariables();
         $el.data('n8ndispatchRefresh', refreshVariables);
     };
+
+    // The alert's link opens the "Variables N8N" tab. Delegated on document, bound once.
+    if (!Mautic.n8ndispatchOpenTabWired) {
+        Mautic.n8ndispatchOpenTabWired = true;
+
+        mQuery(document).on('click', '.n8ndispatch-open-variables-tab', function (e) {
+            e.preventDefault();
+            mQuery('a[href="#n8ndispatch-email-tab-container"]').tab('show');
+        });
+    }
 
     // Closing the GrapesJS builder (the check/"Close" button) copies the
     // new HTML into textarea.builder-html and then triggers 'builder:hide'

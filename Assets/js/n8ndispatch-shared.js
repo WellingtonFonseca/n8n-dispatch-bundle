@@ -62,6 +62,83 @@
 
     var DEFAULT_ENTRY = {source: 'static', value: '', field: '', customObject: '', customObjectField: ''};
 
+    // A variable row counts as "mapped" only when the user actually filled it in. Every variable found in a
+    // template gets a row with the default static + blank value (and that default is saved as-is), so merely
+    // having a key in the saved mapping says nothing.
+    function isEntrySet(entry) {
+        if (!entry || 'object' !== typeof entry) {
+            return false;
+        }
+
+        var source = entry.source || 'static';
+
+        if ('field' === source) {
+            return !!entry.field;
+        }
+
+        if ('custom_object' === source) {
+            return !!entry.customObject && !!entry.customObjectField;
+        }
+
+        return '' !== String(null == entry.value ? '' : entry.value).trim();
+    }
+
+    function findUnmapped(names, mapping) {
+        var saved = mapping || {};
+
+        return (names || []).filter(function (name) {
+            return !isEntrySet(saved[name]);
+        });
+    }
+
+    // Plain-string escape (no DOM), so the alert builder below stays testable outside a browser.
+    function escapePlain(str) {
+        return String(null == str ? '' : str)
+            .replace(/&/g, '&amp;')
+            .replace(/</g, '&lt;')
+            .replace(/>/g, '&gt;')
+            .replace(/"/g, '&quot;')
+            .replace(/'/g, '&#39;');
+    }
+
+    // Pulsing yellow dot appended to the "Variables N8N" tab's header while some variables are unmapped; the
+    // animation lives in Assets/css/campaign-status-badge.css (.n8ndispatch-tab-dot).
+    function buildTabDotHtml() {
+        return '<span class="n8ndispatch-tab-dot" aria-hidden="true"></span>';
+    }
+
+    // The notice about variables that don't start with the required prefix. Same shape as the unmapped one below
+    // ({text, tab}, %tab% replaced by the tab's name in bold), only the id differs.
+    function buildPrefixAlertHtml(texts) {
+        return buildTabAlertHtml('n8ndispatch-prefix-alert', texts);
+    }
+
+    // Which notice the edit page shows. A wrong prefix comes first: those names have to be renamed before mapping
+    // them matters (the save check works the same way).
+    function noticeFor(invalidPrefixCount, unmappedCount) {
+        if (0 < invalidPrefixCount) {
+            return 'prefix';
+        }
+
+        return 0 < unmappedCount ? 'unmapped' : null;
+    }
+
+    // texts = {text, tab}, both already translated by Twig (so they follow the system language). text carries a
+    // %tab% placeholder, replaced by the tab's name in bold, which opens that tab when clicked. Deliberately
+    // generic: it doesn't list the variables, the tab itself shows which ones are missing.
+    function buildTabAlertHtml(id, texts) {
+        var tab = '<a href="#n8ndispatch-email-tab-container" class="n8ndispatch-open-variables-tab"><b>'
+            + escapePlain(texts.tab) + '</b></a>';
+
+        return '<div class="alert alert-warning" id="' + id + '">'
+            + escapePlain(texts.text).replace('%tab%', function () { return tab; })
+            + '</div>';
+    }
+
+    function buildUnmappedAlertHtml(texts) {
+        return buildTabAlertHtml('n8ndispatch-unmapped-alert', texts);
+    }
+
     function variableRowHtml(name, existingEntry, fields, customObjects) {
         var entry  = mQuery.extend({}, DEFAULT_ENTRY, existingEntry || {});
         var source = entry.source || 'static';
@@ -146,7 +223,13 @@
     // HSM moved to templates (Entity/HsmTemplate.php) and dropped its
     // per-campaign variable picker outright.
     Mautic.n8ndispatchShared = {
+        buildPrefixAlertHtml:        buildPrefixAlertHtml,
+        buildTabDotHtml:             buildTabDotHtml,
+        buildUnmappedAlertHtml:      buildUnmappedAlertHtml,
         clearVariables:              clearVariables,
+        findUnmapped:                findUnmapped,
+        isEntrySet:                  isEntrySet,
+        noticeFor:                   noticeFor,
         renderVariablesFromResponse: renderVariablesFromResponse,
     };
 
@@ -202,5 +285,7 @@
         });
 
         $hidden.val(JSON.stringify(values));
+        // email-tab-variables.js listens to this to keep its "unmapped variables" alert up to date.
+        $hidden.trigger('n8ndispatch:synced');
     }
 })(window.Mautic, window.mQuery);

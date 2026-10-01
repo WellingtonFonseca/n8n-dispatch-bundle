@@ -8,6 +8,7 @@ use Mautic\CoreBundle\CoreEvents;
 use Mautic\CoreBundle\Event\CustomContentEvent;
 use Mautic\EmailBundle\Entity\Email;
 use MauticPlugin\N8nDispatchBundle\Entity\EmailVariablesRepository;
+use MauticPlugin\N8nDispatchBundle\Service\TemplateVariableScanner;
 use Symfony\Component\EventDispatcher\EventSubscriberInterface;
 
 /**
@@ -82,6 +83,7 @@ class EmailTabSubscriber implements EventSubscriberInterface
         $event->addTemplate('@N8nDispatch/SubscribedEvents/EmailTab/content.html.twig', [
             'emailId'            => $email->getId(),
             'savedVariablesJson' => $savedVariablesJson,
+            'requiredPrefix'     => TemplateVariableScanner::REQUIRED_PREFIX,
         ]);
     }
 }
