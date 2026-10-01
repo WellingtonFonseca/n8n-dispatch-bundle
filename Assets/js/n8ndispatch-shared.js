@@ -62,6 +62,57 @@
 
     var DEFAULT_ENTRY = {source: 'static', value: '', field: '', customObject: '', customObjectField: ''};
 
+    // A variable row counts as "mapped" only when the user actually filled it in. Every variable found in a
+    // template gets a row with the default static + blank value (and that default is saved as-is), so merely
+    // having a key in the saved mapping says nothing.
+    function isEntrySet(entry) {
+        if (!entry || 'object' !== typeof entry) {
+            return false;
+        }
+
+        var source = entry.source || 'static';
+
+        if ('field' === source) {
+            return !!entry.field;
+        }
+
+        if ('custom_object' === source) {
+            return !!entry.customObject && !!entry.customObjectField;
+        }
+
+        return '' !== String(null == entry.value ? '' : entry.value).trim();
+    }
+
+    function findUnmapped(names, mapping) {
+        var saved = mapping || {};
+
+        return (names || []).filter(function (name) {
+            return !isEntrySet(saved[name]);
+        });
+    }
+
+    // Plain-string escape (no DOM), so the alert builder below stays testable outside a browser.
+    function escapePlain(str) {
+        return String(null == str ? '' : str)
+            .replace(/&/g, '&amp;')
+            .replace(/</g, '&lt;')
+            .replace(/>/g, '&gt;')
+            .replace(/"/g, '&quot;')
+            .replace(/'/g, '&#39;');
+    }
+
+    // texts = {text, tab}, both already translated by Twig (so they follow the system language). text carries a
+    // %tab% placeholder, replaced by the tab's name in bold, which opens that tab when clicked. Deliberately
+    // generic: it doesn't list the variables, the tab itself shows which ones are missing.
+    function buildUnmappedAlertHtml(texts) {
+        var tab = '<a href="#n8ndispatch-email-tab-container" class="n8ndispatch-open-variables-tab"><b>'
+            + escapePlain(texts.tab) + '</b></a>';
+
+        return '<div class="alert alert-warning" id="n8ndispatch-unmapped-alert">'
+            + escapePlain(texts.text).replace('%tab%', function () { return tab; })
+            + '</div>';
+    }
+
     function variableRowHtml(name, existingEntry, fields, customObjects) {
         var entry  = mQuery.extend({}, DEFAULT_ENTRY, existingEntry || {});
         var source = entry.source || 'static';
@@ -146,7 +197,10 @@
     // HSM moved to templates (Entity/HsmTemplate.php) and dropped its
     // per-campaign variable picker outright.
     Mautic.n8ndispatchShared = {
+        buildUnmappedAlertHtml:      buildUnmappedAlertHtml,
         clearVariables:              clearVariables,
+        findUnmapped:                findUnmapped,
+        isEntrySet:                  isEntrySet,
         renderVariablesFromResponse: renderVariablesFromResponse,
     };
 
@@ -202,5 +256,7 @@
         });
 
         $hidden.val(JSON.stringify(values));
+        // email-tab-variables.js listens to this to keep its "unmapped variables" alert up to date.
+        $hidden.trigger('n8ndispatch:synced');
     }
 })(window.Mautic, window.mQuery);

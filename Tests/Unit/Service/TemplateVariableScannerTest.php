@@ -47,4 +47,30 @@ class TemplateVariableScannerTest extends TestCase
     {
         $this->assertSame([], $this->scanner->extract('<p>Plain text, no placeholders here.</p>'));
     }
+
+    public function testListsOnlyVariablesWithoutThePrefix(): void
+    {
+        $html = '<p>{{aluno_nome}} {{ n8n_curso }} {{n8n_data}} {{ matricula }}</p>';
+
+        $this->assertSame(['aluno_nome', 'matricula'], $this->scanner->extractWithoutPrefix($html));
+    }
+
+    public function testPrefixCheckIsExactAndCaseSensitive(): void
+    {
+        $html = '{{n8nx_nome}} {{N8N_nome}} {{n8n-nome}} {{n8n_nome}}';
+
+        $this->assertSame(['n8nx_nome', 'N8N_nome'], $this->scanner->extractWithoutPrefix($html));
+    }
+
+    public function testTheReservedUnsubscribeVariableIsNeverReportedWithoutPrefix(): void
+    {
+        $html = '<a href="{{n8ndispatch_unsubscribe_url}}">Unsubscribe</a> {{n8n_nome}}';
+
+        $this->assertSame([], $this->scanner->extractWithoutPrefix($html));
+    }
+
+    public function testNoVariablesWithoutPrefixInPlainHtml(): void
+    {
+        $this->assertSame([], $this->scanner->extractWithoutPrefix('<p>Hello</p>'));
+    }
 }
