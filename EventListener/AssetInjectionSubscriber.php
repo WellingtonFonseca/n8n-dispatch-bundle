@@ -9,7 +9,7 @@ use Mautic\CoreBundle\Event\CustomContentEvent;
 use Symfony\Component\EventDispatcher\EventSubscriberInterface;
 
 /**
- * Loads n8ndispatch-shared.js, email-tab-variables.js,
+ * Loads n8ndispatch-shared.js, email-tab-variables.js, email-sender-alert.js,
  * campaign-sms-dispatch.js, campaign-hsm-dispatch.js,
  * campaign-timeline-scheduled.js, campaign-preview-icons.js, and
  * campaign-status-badge.css globally,
@@ -48,6 +48,7 @@ class AssetInjectionSubscriber implements EventSubscriberInterface
 
         $sharedJsRelativePath      = 'Assets/js/n8ndispatch-shared.js';
         $emailTabJsRelativePath    = 'Assets/js/email-tab-variables.js';
+        $senderAlertJsRelativePath = 'Assets/js/email-sender-alert.js';
         $smsJsRelativePath         = 'Assets/js/campaign-sms-dispatch.js';
         $hsmJsRelativePath         = 'Assets/js/campaign-hsm-dispatch.js';
         $timelineJsRelativePath    = 'Assets/js/campaign-timeline-scheduled.js';
@@ -57,6 +58,7 @@ class AssetInjectionSubscriber implements EventSubscriberInterface
         $customContentEvent->addContent(
             '<script src="/plugins/N8nDispatchBundle/'.$sharedJsRelativePath.'?v='.$this->assetVersion($sharedJsRelativePath).'"></script>'
             .'<script src="/plugins/N8nDispatchBundle/'.$emailTabJsRelativePath.'?v='.$this->assetVersion($emailTabJsRelativePath).'"></script>'
+            .'<script src="/plugins/N8nDispatchBundle/'.$senderAlertJsRelativePath.'?v='.$this->assetVersion($senderAlertJsRelativePath).'"></script>'
             .'<script src="/plugins/N8nDispatchBundle/'.$smsJsRelativePath.'?v='.$this->assetVersion($smsJsRelativePath).'"></script>'
             .'<script src="/plugins/N8nDispatchBundle/'.$hsmJsRelativePath.'?v='.$this->assetVersion($hsmJsRelativePath).'"></script>'
             .'<script src="/plugins/N8nDispatchBundle/'.$timelineJsRelativePath.'?v='.$this->assetVersion($timelineJsRelativePath).'"></script>'

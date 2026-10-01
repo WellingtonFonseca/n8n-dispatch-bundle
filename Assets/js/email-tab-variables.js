@@ -117,7 +117,7 @@
 
         function updateUnmappedAlert() {
             mQuery('#n8ndispatch-unmapped-alert, #n8ndispatch-prefix-alert').remove();
-            $form.find('.n8ndispatch-tab-dot').remove();
+            $form.find('a[href="#n8ndispatch-email-tab-container"] .n8ndispatch-tab-dot').remove();
 
             var mapping = {};
             try {
@@ -184,13 +184,13 @@
         $el.data('n8ndispatchRefresh', refreshVariables);
     };
 
-    // The alert's link opens the "Variables N8N" tab. Delegated on document, bound once.
+    // The alerts' links open the tab they name (Variables N8N, Advanced). Delegated on document, bound once.
     if (!Mautic.n8ndispatchOpenTabWired) {
         Mautic.n8ndispatchOpenTabWired = true;
 
-        mQuery(document).on('click', '.n8ndispatch-open-variables-tab', function (e) {
+        mQuery(document).on('click', '.n8ndispatch-open-tab', function (e) {
             e.preventDefault();
-            mQuery('a[href="#n8ndispatch-email-tab-container"]').tab('show');
+            mQuery('a[data-toggle="tab"][href="' + mQuery(this).attr('href') + '"]').tab('show');
         });
     }
 

@@ -14,7 +14,9 @@ use MauticPlugin\N8nDispatchBundle\Service\VariableMappingChecker;
 use PHPUnit\Framework\MockObject\MockObject;
 use PHPUnit\Framework\TestCase;
 use Symfony\Component\Form\FormBuilderInterface;
+use Symfony\Component\Form\Exception\LogicException;
 use Symfony\Component\Form\FormError;
+use Symfony\Component\Form\FormErrorIterator;
 use Symfony\Component\Form\FormEvent;
 use Symfony\Component\Form\FormEvents;
 use Symfony\Component\Form\FormInterface;
@@ -139,12 +141,22 @@ class EmailVariableMappingExtensionTest extends TestCase
     {
         $this->repository->expects($this->never())->method('getVariablesJsonForEmail');
 
-        $customHtml = $this->createMock(FormInterface::class);
-        $customHtml->method('isValid')->willReturn(false);
+        $customHtml = $this->customHtml(1);
         $customHtml->expects($this->never())->method('addError');
         $this->flashBag->expects($this->never())->method('add');
 
         $this->submit(7, '<p>{{nome}}</p>', $customHtml);
+    }
+
+    public function testStillChecksWhenTheRequestLeavesCustomHtmlOut(): void
+    {
+        // An API PATCH of other fields never submits customHtml; the saved HTML is checked all the same.
+        $this->repository->method('getVariablesJsonForEmail')->willReturn(null);
+
+        $customHtml = $this->customHtml();
+        $customHtml->expects($this->once())->method('addError');
+
+        $this->submit(7, '<p>{{n8n_nome}}</p>', $customHtml);
     }
 
     public function testFlashesOnlyForTheUiNotForTheApi(): void
@@ -180,10 +192,18 @@ class EmailVariableMappingExtensionTest extends TestCase
         $extension->buildForm($builder, []);
     }
 
-    private function customHtml(): FormInterface&MockObject
+    /**
+     * Like the real field when the request leaves customHtml out (an API PATCH of other fields): never submitted,
+     * so isValid() throws; getErrors() is the call that works either way.
+     */
+    private function customHtml(int $errors = 0): FormInterface&MockObject
     {
+        $iterator = $this->createMock(FormErrorIterator::class);
+        $iterator->method('count')->willReturn($errors);
+
         $customHtml = $this->createMock(FormInterface::class);
-        $customHtml->method('isValid')->willReturn(true);
+        $customHtml->method('getErrors')->willReturn($iterator);
+        $customHtml->method('isValid')->willThrowException(new LogicException('Cannot check if an unsubmitted form is valid.'));
 
         return $customHtml;
     }
