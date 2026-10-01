@@ -62,7 +62,7 @@
     {% set cancelledAt = item.metadata.n8ndispatch_cancellation.cancelledAt is defined ? item.metadata.n8ndispatch_cancellation.cancelledAt : null %}
     {% set errors = errors ~ '<br/>' ~ ('mautic.n8ndispatch.timeline.cancelled_by'|trans({
         '%email%': item.metadata.n8ndispatch_cancellation.cancelledByEmail,
-        '%date%': cancelledAt ? dateToFullConcat(cancelledAt) : '',
+        '%date%': cancelledAt ? dateToFullConcat(cancelledAt, 'UTC') : '',
     })) %}
 {% endif %}
 
@@ -109,7 +109,7 @@
                         {% set rescheduledAt = item.metadata.n8ndispatch_reschedule.rescheduledAt is defined ? item.metadata.n8ndispatch_reschedule.rescheduledAt : null %}
                         <br/>{{ 'mautic.n8ndispatch.timeline.rescheduled_by'|trans({
                             '%email%': item.metadata.n8ndispatch_reschedule.rescheduledByEmail,
-                            '%date%': rescheduledAt ? dateToFullConcat(rescheduledAt) : '',
+                            '%date%': rescheduledAt ? dateToFullConcat(rescheduledAt, 'UTC') : '',
                         })|purify }}
                     {%- endif -%}
                 </span>
@@ -141,7 +141,7 @@
                         {% set cancelledAt = item.metadata.n8ndispatch_cancellation.cancelledAt is defined ? item.metadata.n8ndispatch_cancellation.cancelledAt : null %}
                         <br/>{{ 'mautic.n8ndispatch.timeline.cancelled_by'|trans({
                             '%email%': item.metadata.n8ndispatch_cancellation.cancelledByEmail,
-                            '%date%': cancelledAt ? dateToFullConcat(cancelledAt) : '',
+                            '%date%': cancelledAt ? dateToFullConcat(cancelledAt, 'UTC') : '',
                         })|purify }}
                     {%- endif -%}
                 </span>

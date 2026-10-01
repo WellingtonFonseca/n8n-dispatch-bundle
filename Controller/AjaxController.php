@@ -227,7 +227,7 @@ class AjaxController extends CommonAjaxController
         }
 
         $email = $this->getUserEmail($userHelper);
-        $at    = (new \DateTime())->format('Y-m-d H:i:s');
+        $at    = (new \DateTime('now', new \DateTimeZone('UTC')))->format('Y-m-d H:i:s');
 
         $metadata = $log->getMetadata();
         // A distinct top-level key, not nested under 'n8ndispatch' — that
@@ -281,7 +281,7 @@ class AjaxController extends CommonAjaxController
         }
 
         $email = $this->getUserEmail($userHelper);
-        $at    = (new \DateTime())->format('Y-m-d H:i:s');
+        $at    = (new \DateTime('now', new \DateTimeZone('UTC')))->format('Y-m-d H:i:s');
 
         $metadata                                                    = $log->getMetadata();
         $metadata['n8ndispatch_reschedule']['rescheduledByEmail'] = $email;
@@ -350,7 +350,9 @@ class AjaxController extends CommonAjaxController
 
         return $this->translator->trans($translationKey, [
             '%email%' => $email,
-            '%date%'  => $dateHelper->toFullConcat($at),
+            // $at is a UTC string; without the timezone the helper reads it as the system's local time and shows it
+            // shifted (3 hours ahead in America/Sao_Paulo).
+            '%date%'  => $dateHelper->toFullConcat($at, 'UTC'),
         ]);
     }
 
