@@ -119,6 +119,19 @@
         return '<div class="row" id="' + id + '-row"><div class="col-xs-12">' + buildPlainAlertHtml(id, text) + '</div></div>';
     }
 
+    // The generic "variables must be numeric" alert of the HSM and SMS template forms, shown (or removed) between the
+    // message text and the variable rows: that is where the user is when it matters, in the order the screen is filled
+    // in. It goes right after the text field's row, and the variable rows are inserted after that same row
+    // (getContainer() above). Inserting "right after" puts the later one first, so callers render the variable rows
+    // first and call this second, which leaves the alert above them.
+    function setNumericAlert($textField, id, text, show) {
+        mQuery('#' + id + '-row').remove();
+
+        if (show && text) {
+            $textField.closest('.row').after(buildRowAlertHtml(id, text));
+        }
+    }
+
     var VARIABLES_TAB = '#n8ndispatch-email-tab-container';
     var ADVANCED_TAB  = '#advanced-container';
 
@@ -278,6 +291,7 @@
         missingSenderFields:         missingSenderFields,
         noticeFor:                   noticeFor,
         renderVariablesFromResponse: renderVariablesFromResponse,
+        setNumericAlert:             setNumericAlert,
     };
 
     function wireVariableRowEvents($container, $hidden, customObjects) {

@@ -7,17 +7,27 @@
     var DEBOUNCE_MS = 400;
     var debounceTimer;
 
+    var NUMERIC_ALERT_ID = 'n8ndispatch-sms-numeric-alert';
+
+    // The alert text comes translated (system language) from the template's hidden config element
+    // (Resources/views/SmsTemplate/form.html.twig).
+    function updateNumericAlert($textField, hasNonNumeric) {
+        shared.setNumericAlert($textField, NUMERIC_ALERT_ID, mQuery('#n8ndispatch-sms-config').data('numeric-alert-text'), hasNonNumeric);
+    }
+
     function renderSmsVariables($textField) {
         var text = $textField.val();
 
         if (!text) {
             shared.clearVariables($textField);
+            updateNumericAlert($textField, false);
 
             return;
         }
 
         Mautic.ajaxActionRequest('plugin:N8nDispatch:getSmsVariables', {text: text}, function (response) {
             shared.renderVariablesFromResponse($textField, response);
+            updateNumericAlert($textField, !!response && 0 < (response.nonNumericVariables || []).length);
         });
     }
 
