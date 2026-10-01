@@ -12,10 +12,15 @@ use MauticPlugin\N8nDispatchBundle\Service\TemplateVariableScanner;
 use MauticPlugin\CustomObjectsBundle\Model\CustomObjectModel;
 use Mautic\LeadBundle\Model\FieldModel;
 use Mautic\EmailBundle\Entity\Email;
+use Mautic\CoreBundle\Helper\CoreParametersHelper;
+use Mautic\CoreBundle\Helper\DateTimeHelper;
+use Mautic\CoreBundle\Translation\Translator;
+use Mautic\CoreBundle\Twig\Helper\DateHelper;
 use PHPUnit\Framework\TestCase;
 use Symfony\Component\HttpFoundation\JsonResponse;
 use Symfony\Component\HttpFoundation\Request;
 use Symfony\Component\HttpFoundation\Response;
+use Symfony\Contracts\Translation\TranslatorInterface;
 
 /**
  * getTemplateCopyAction() doesn't touch any of the base AjaxController's own
@@ -254,5 +259,47 @@ class AjaxControllerTest extends TestCase
     public function testSmsVariablesHasNothingToFlagWhenEveryPlaceholderIsNumeric(): void
     {
         $this->assertSame([], $this->smsVariablesResponse('Hi {{1}}, {{2}}')['nonNumericVariables']);
+    }
+
+    /**
+     * The "cancelled by / rescheduled by" time is stored as a UTC string (Y-m-d H:i:s). The date helper reads a bare
+     * string in the system's "local" timezone by default, which showed that UTC clock time as if it were local: 3 hours
+     * ahead with the system in America/Sao_Paulo. A real DateHelper is used (the class is final), with the local
+     * timezone set the way the Mautic setting does it.
+     */
+    private function auditMessage(?string $email): ?string
+    {
+        $property = new \ReflectionProperty(DateTimeHelper::class, 'defaultLocalTimezone');
+        $previous = $property->getValue();
+        $property->setValue(null, 'America/Sao_Paulo');
+
+        try {
+            $dateHelper = new DateHelper('F j, Y g:i a', 'D, M d', 'F j, Y', 'g:i a', $this->createMock(TranslatorInterface::class), $this->createMock(CoreParametersHelper::class));
+
+            // The controller's $translator property is core's own Translator class, not the interface.
+            $translator = $this->createMock(Translator::class);
+            $translator->method('trans')->willReturnCallback(
+                fn (string $key, array $params): string => 'Cancelado por '.$params['%email%'].' em '.$params['%date%'].'.'
+            );
+
+            $controller = $this->buildController();
+            (new \ReflectionProperty($controller, 'translator'))->setValue($controller, $translator);
+
+            return (new \ReflectionMethod($controller, 'translateAuditMessage'))
+                ->invoke($controller, 'mautic.n8ndispatch.timeline.cancelled_by', $email, '2026-10-01 17:32:37', $dateHelper);
+        } finally {
+            $property->setValue(null, $previous);
+        }
+    }
+
+    public function testAuditMessageShowsTheStoredUtcTimeInTheSystemTimezone(): void
+    {
+        // 17:32 UTC is 14:32 in America/Sao_Paulo (UTC-3). Showing 5:32 pm would be the UTC time read as local.
+        $this->assertSame('Cancelado por a@b.c em October 1, 2026 2:32 pm.', $this->auditMessage('a@b.c'));
+    }
+
+    public function testAuditMessageIsNullWithoutAUserEmail(): void
+    {
+        $this->assertNull($this->auditMessage(null));
     }
 }
