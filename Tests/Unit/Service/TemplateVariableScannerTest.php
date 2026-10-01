@@ -73,4 +73,21 @@ class TemplateVariableScannerTest extends TestCase
     {
         $this->assertSame([], $this->scanner->extractWithoutPrefix('<p>Hello</p>'));
     }
+
+    public function testFindNonNumericAcceptsOnlyDigitPlaceholders(): void
+    {
+        $this->assertSame([], $this->scanner->findNonNumeric('Hello {{1}}, your class is {{ 2 }} at {{03}}.'));
+    }
+
+    public function testFindNonNumericListsEverythingElseInOrderWithoutDuplicates(): void
+    {
+        $text = '{{1}} {{valor}} {{ n8n_nome }} {{1a}} {{valor}} {{ nome completo }} {{}}';
+
+        $this->assertSame(['valor', 'n8n_nome', '1a', 'nome completo', ''], $this->scanner->findNonNumeric($text));
+    }
+
+    public function testFindNonNumericIgnoresTextWithoutPlaceholders(): void
+    {
+        $this->assertSame([], $this->scanner->findNonNumeric('No placeholders, just { braces } and {single}.'));
+    }
 }

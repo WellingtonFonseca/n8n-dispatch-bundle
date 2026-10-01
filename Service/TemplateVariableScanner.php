@@ -21,6 +21,11 @@ class TemplateVariableScanner
      */
     public const REQUIRED_PREFIX = 'n8n_';
 
+    /**
+     * Any {{ ... }} placeholder, whatever is inside it (unlike VARIABLE_PATTERN, which only recognizes names).
+     */
+    private const PLACEHOLDER_PATTERN = '/\{\{\s*([^{}]*?)\s*\}\}/';
+
     private const VARIABLE_PATTERN = '/\{\{\s*([a-zA-Z0-9_]+)\s*\}\}/';
 
     /**
@@ -45,5 +50,22 @@ class TemplateVariableScanner
             $this->extract($html),
             static fn (string $name): bool => !str_starts_with($name, self::REQUIRED_PREFIX)
         ));
+    }
+
+    /**
+     * The {{ ... }} placeholders whose content is not only digits, as written, without duplicates. An HSM template
+     * (WhatsApp) only accepts positional placeholders, {{1}}, {{2}}, ...; anything else, empty ones included,
+     * is listed here.
+     *
+     * @return list<string>
+     */
+    public function findNonNumeric(string $text): array
+    {
+        preg_match_all(self::PLACEHOLDER_PATTERN, $text, $matches);
+
+        return array_values(array_unique(array_filter(
+            $matches[1],
+            static fn (string $content): bool => 1 !== preg_match('/^\d+$/', $content)
+        )));
     }
 }

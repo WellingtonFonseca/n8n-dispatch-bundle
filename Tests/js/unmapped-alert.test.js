@@ -188,3 +188,22 @@ test('the sender alert escapes the labels and texts', () => {
     assert.match(html, /&lt;b&gt;x&lt;\/b&gt;/);
     assert.match(html, /<b>&lt;u&gt;t&lt;\/u&gt;<\/b>/);
 });
+
+test('buildPlainAlertHtml makes a yellow alert with the given id and the escaped text', () => {
+    assert.strictEqual(typeof shared.buildPlainAlertHtml, 'function');
+
+    const html = shared.buildPlainAlertHtml('n8ndispatch-hsm-numeric-alert', 'Variables are numeric, e.g. {{1}} <b>');
+
+    assert.match(html, /^<div class="alert alert-warning" id="n8ndispatch-hsm-numeric-alert">/);
+    assert.match(html, /Variables are numeric, e\.g\. \{\{1\}\} &lt;b&gt;<\/div>$/);
+});
+
+test('buildRowAlertHtml wraps the alert in the row/column markup form fields use, with a removable row id', () => {
+    assert.strictEqual(typeof shared.buildRowAlertHtml, 'function');
+
+    const html = shared.buildRowAlertHtml('n8ndispatch-hsm-numeric-alert', 'Numbers only, e.g. {{1}}');
+
+    assert.match(html, /^<div class="row" id="n8ndispatch-hsm-numeric-alert-row"><div class="col-xs-12">/);
+    assert.match(html, /<div class="alert alert-warning" id="n8ndispatch-hsm-numeric-alert">Numbers only, e\.g\. \{\{1\}\}<\/div>/);
+    assert.match(html, /<\/div><\/div>$/);
+});

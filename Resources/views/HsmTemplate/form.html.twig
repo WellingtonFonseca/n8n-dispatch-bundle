@@ -112,6 +112,10 @@
                                inserts the variable-source rows right after the
                                textarea's closest .row (see getContainer() in
                                n8ndispatch-shared.js). #}
+                            {# Read by Assets/js/campaign-hsm-dispatch.js: the alert text, translated in the system language. Same
+                               message (validators domain) as the error shown when the template is saved. #}
+                            <div class="hidden" id="n8ndispatch-hsm-config"
+                                 data-numeric-alert-text="{{ 'mautic.n8ndispatch.hsmtemplate.error.numeric_variables'|trans({}, 'validators') }}"></div>
                             <div class="row">
                                 <div class="col-xs-12">
                                     {{ form_row(form.text) }}

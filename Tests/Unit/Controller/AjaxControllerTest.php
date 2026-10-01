@@ -166,4 +166,51 @@ class AjaxControllerTest extends TestCase
 
         $this->assertSame(['novo'], $data['invalidVariables']);
     }
+
+    /**
+     * @return array<string, mixed>
+     */
+    private function hsmVariablesResponse(string $text): array
+    {
+        $fieldModel = $this->createMock(FieldModel::class);
+        $fieldModel->method('getFieldList')->willReturn([]);
+
+        $customObjectModel = $this->createMock(CustomObjectModel::class);
+        $customObjectModel->method('fetchAllPublishedEntities')->willReturn([]);
+
+        // sendJsonResponse() needs the container, so a plain JsonResponse stands in for it here.
+        $controller = new class() extends AjaxController {
+            public function __construct()
+            {
+            }
+
+            protected function sendJsonResponse($dataArray, $statusCode = null, $addIgnoreWdt = true): JsonResponse
+            {
+                return new JsonResponse($dataArray);
+            }
+        };
+
+        $response = $controller->getHsmVariablesAction(
+            new Request([], ['text' => $text]),
+            $fieldModel,
+            $customObjectModel,
+            new TemplateVariableScanner()
+        );
+
+        return json_decode((string) $response->getContent(), true);
+    }
+
+    public function testHsmVariablesFlagsPlaceholdersThatAreNotNumeric(): void
+    {
+        $data = $this->hsmVariablesResponse('Hi {{1}}, {{valor}}');
+
+        $this->assertSame(['valor'], $data['nonNumericVariables']);
+    }
+
+    public function testHsmVariablesHasNothingToFlagWhenEveryPlaceholderIsNumeric(): void
+    {
+        $data = $this->hsmVariablesResponse('Hi {{1}}, {{2}}');
+
+        $this->assertSame([], $data['nonNumericVariables']);
+    }
 }

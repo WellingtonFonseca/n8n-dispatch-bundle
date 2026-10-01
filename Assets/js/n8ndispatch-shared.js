@@ -107,6 +107,18 @@
         return '<span class="n8ndispatch-tab-dot" aria-hidden="true"></span>';
     }
 
+    // A yellow alert with the given id and an already-translated text, escaped, nothing else in it.
+    function buildPlainAlertHtml(id, text) {
+        return '<div class="alert alert-warning" id="' + id + '">' + escapePlain(text) + '</div>';
+    }
+
+    // The same alert inside the <div class="row"><div class="col-xs-12"> wrapper core's form_row puts around every
+    // field, which is what gives it the left/right gutter when it sits between two fields. The row's id is the
+    // alert's plus "-row", so removing the row removes the wrapper too.
+    function buildRowAlertHtml(id, text) {
+        return '<div class="row" id="' + id + '-row"><div class="col-xs-12">' + buildPlainAlertHtml(id, text) + '</div></div>';
+    }
+
     var VARIABLES_TAB = '#n8ndispatch-email-tab-container';
     var ADVANCED_TAB  = '#advanced-container';
 
@@ -254,7 +266,9 @@
     // HSM moved to templates (Entity/HsmTemplate.php) and dropped its
     // per-campaign variable picker outright.
     Mautic.n8ndispatchShared = {
+        buildPlainAlertHtml:         buildPlainAlertHtml,
         buildPrefixAlertHtml:        buildPrefixAlertHtml,
+        buildRowAlertHtml:           buildRowAlertHtml,
         buildSenderAlertHtml:        buildSenderAlertHtml,
         buildTabDotHtml:             buildTabDotHtml,
         buildUnmappedAlertHtml:      buildUnmappedAlertHtml,
