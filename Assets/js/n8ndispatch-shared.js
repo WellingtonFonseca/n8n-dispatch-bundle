@@ -101,6 +101,12 @@
             .replace(/'/g, '&#39;');
     }
 
+    // Pulsing yellow dot appended to the "Variables N8N" tab's header while some variables are unmapped; the
+    // animation lives in Assets/css/campaign-status-badge.css (.n8ndispatch-tab-dot).
+    function buildTabDotHtml() {
+        return '<span class="n8ndispatch-tab-dot" aria-hidden="true"></span>';
+    }
+
     // texts = {text, tab}, both already translated by Twig (so they follow the system language). text carries a
     // %tab% placeholder, replaced by the tab's name in bold, which opens that tab when clicked. Deliberately
     // generic: it doesn't list the variables, the tab itself shows which ones are missing.
@@ -197,6 +203,7 @@
     // HSM moved to templates (Entity/HsmTemplate.php) and dropped its
     // per-campaign variable picker outright.
     Mautic.n8ndispatchShared = {
+        buildTabDotHtml:             buildTabDotHtml,
         buildUnmappedAlertHtml:      buildUnmappedAlertHtml,
         clearVariables:              clearVariables,
         findUnmapped:                findUnmapped,

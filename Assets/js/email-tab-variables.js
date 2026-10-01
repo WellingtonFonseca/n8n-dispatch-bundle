@@ -111,6 +111,7 @@
 
         function updateUnmappedAlert() {
             mQuery('#n8ndispatch-unmapped-alert').remove();
+            $form.find('.n8ndispatch-tab-dot').remove();
 
             var mapping = {};
             try {
@@ -124,14 +125,18 @@
                 names.push(mQuery(this).data('var-name'));
             });
 
-            var unmapped = shared.findUnmapped(names, mapping);
-            var $tabs    = $form.find('ul.nav-tabs-contained').first();
-
-            if (0 === unmapped.length || 0 === $tabs.length) {
+            if (0 === shared.findUnmapped(names, mapping).length) {
                 return;
             }
 
-            $tabs.before(shared.buildUnmappedAlertHtml(alertTexts));
+            // Pulsing dot on the tab's own header, so it stands out from the other tabs.
+            $form.find('a[href="#n8ndispatch-email-tab-container"]').append(shared.buildTabDotHtml());
+
+            var $tabs = $form.find('ul.nav-tabs-contained').first();
+
+            if (0 < $tabs.length) {
+                $tabs.before(shared.buildUnmappedAlertHtml(alertTexts));
+            }
         }
 
         $hidden.off('n8ndispatch:synced.n8nalert').on('n8ndispatch:synced.n8nalert', updateUnmappedAlert);

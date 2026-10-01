@@ -103,3 +103,12 @@ test('the alert escapes the translated texts', () => {
     assert.match(html, /&lt;i&gt;&quot;q&quot;&lt;\/i&gt;/);
     assert.match(html, /<b>&lt;u&gt;t&lt;\/u&gt;<\/b>/);
 });
+
+test('the tab dot is a decorative element styled by n8ndispatch-tab-dot', () => {
+    assert.strictEqual(typeof shared.buildTabDotHtml, 'function');
+
+    const html = shared.buildTabDotHtml();
+
+    assert.match(html, /^<span class="n8ndispatch-tab-dot"/);
+    assert.match(html, /aria-hidden="true"/);
+});

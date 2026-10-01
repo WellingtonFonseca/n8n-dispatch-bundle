@@ -176,3 +176,48 @@
     white-space: pre;
     overflow-x: auto;
 }
+
+/*
+ * Pulsing yellow dot on the Email edit page's "Variables N8N" tab header while some of the template's variables
+ * are not mapped yet (added by Assets/js/email-tab-variables.js), pinned to the tab's top-right corner (Bootstrap's
+ * .nav > li > a is already position: relative). Lives in this file only because it is the one stylesheet the
+ * plugin already injects on every page.
+ */
+.n8ndispatch-tab-dot {
+    position: absolute;
+    top: 6px;
+    right: 6px;
+    width: 8px;
+    height: 8px;
+    border-radius: 50%;
+    background: #FDB933;
+    animation: n8ndispatch-tab-dot-pulse 1.6s infinite;
+}
+
+@keyframes n8ndispatch-tab-dot-pulse {
+    0% {
+        box-shadow: 0 0 0 0 rgba(253, 185, 51, 0.7);
+    }
+    70% {
+        box-shadow: 0 0 0 8px rgba(253, 185, 51, 0);
+    }
+    100% {
+        box-shadow: 0 0 0 0 rgba(253, 185, 51, 0);
+    }
+}
+
+/* "Reduce motion" (e.g. Windows with animations off): no expanding ring, just a slow fade, so it still reads as alive. */
+@media (prefers-reduced-motion: reduce) {
+    .n8ndispatch-tab-dot {
+        animation: n8ndispatch-tab-dot-fade 2s ease-in-out infinite;
+    }
+}
+
+@keyframes n8ndispatch-tab-dot-fade {
+    0%, 100% {
+        opacity: 1;
+    }
+    50% {
+        opacity: 0.35;
+    }
+}
