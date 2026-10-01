@@ -69,7 +69,9 @@ class EmailVariableMappingExtension extends AbstractTypeExtension
 
             $customHtml = $event->getForm()->get('customHtml');
 
-            if (!$customHtml->isValid()) {
+            // getErrors(), not isValid(): when the request leaves customHtml out (an API PATCH of other fields) the
+            // field is never submitted, and isValid() throws on an unsubmitted form.
+            if (count($customHtml->getErrors()) > 0) {
                 return;
             }
 
