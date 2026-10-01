@@ -88,6 +88,19 @@ Both template screens split their edit page into a **Template** tab and a
 **Campaigns** tab listing every campaign using the template, and a template
 in use can't be deleted (singly or in a batch).
 
+**Rules checked when a template is saved** (screen and API):
+
+- **Email**: every `{{variable}}` must start with `n8n_` and be mapped on the
+  *Variables N8N* tab (both from the second save on; the first save of a new
+  Email is never blocked), and *From name* and *From address* are required on
+  every save. The edit page shows a yellow alert above the tabs and a pulsing
+  dot on the tab to fix, and a warning after saving.
+- **HSM and SMS templates**: variables must be numbers only, `{{1}}`, `{{2}}`,
+  ... A yellow alert between the text and the variable rows says so while
+  typing.
+
+Messages follow the system language (`Translations/en_US`, `pt_BR`).
+
 Contacts on the Do Not Contact list for the channel are not sent to (SMS and
 HSM use the `sms` channel).
 
@@ -104,6 +117,13 @@ its "Current state" section.
 
 ```bash
 docker exec mautic-mautic_web-1 sh -c "cd /var/www/html/docroot/plugins/N8nDispatchBundle && /var/www/html/vendor/bin/phpunit"
+```
+
+The browser scripts have their own tests (Node's built-in runner, nothing to
+install, Node is already in the image):
+
+```bash
+docker exec mautic-mautic_web-1 sh -c "cd /var/www/html/docroot/plugins/N8nDispatchBundle && node --test 'Tests/js/*.test.js'"
 ```
 
 Requires `phpunit/phpunit` as a dev dependency on the image — see
