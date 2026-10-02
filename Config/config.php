@@ -7,7 +7,7 @@ use MauticPlugin\N8nDispatchBundle\Integration\N8nDispatchIntegration;
 return [
     'name'        => 'N8n Dispatch',
     'description' => 'Syncs Email templates to Mirror on save, and (later) dispatches Email/SMS/HSM sends via n8n',
-    'version'     => '0.5.0',
+    'version'     => '0.6.0',
     'author'      => 'Wellington Fonseca',
 
     'routes' => [

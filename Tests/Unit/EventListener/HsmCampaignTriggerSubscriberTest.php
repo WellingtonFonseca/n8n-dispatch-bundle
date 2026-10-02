@@ -21,6 +21,7 @@ use MauticPlugin\N8nDispatchBundle\Integration\N8nDispatchIntegration;
 use MauticPlugin\N8nDispatchBundle\Model\HsmTemplateModel;
 use MauticPlugin\N8nDispatchBundle\Resolver\VariableResolver;
 use MauticPlugin\N8nDispatchBundle\Service\DispatchFailureReasons;
+use MauticPlugin\N8nDispatchBundle\Service\StatusTracker;
 use PHPUnit\Framework\TestCase;
 use Psr\Log\LoggerInterface;
 use Symfony\Contracts\HttpClient\HttpClientInterface;
@@ -40,6 +41,8 @@ class HsmCampaignTriggerSubscriberTest extends TestCase
 
     private HsmTemplateModel $hsmTemplateModel;
 
+    private StatusTracker $statusTracker;
+
     private HsmCampaignTriggerSubscriber $subscriber;
 
     protected function setUp(): void
@@ -55,6 +58,8 @@ class HsmCampaignTriggerSubscriberTest extends TestCase
         $this->dncModel->method('isContactable')->willReturn(DoNotContact::IS_CONTACTABLE);
         $this->hsmTemplateModel = $this->createMock(HsmTemplateModel::class);
 
+        $this->statusTracker = $this->createMock(StatusTracker::class);
+
         $this->subscriber = new HsmCampaignTriggerSubscriber(
             $this->integrationHelper,
             $this->httpClient,
@@ -63,6 +68,7 @@ class HsmCampaignTriggerSubscriberTest extends TestCase
             $this->dncModel,
             $this->hsmTemplateModel,
             new DispatchFailureReasons(new EnUsTranslator()),
+            $this->statusTracker,
         );
 
         $this->variableResolver->method('resolveAll')->willReturn(['nome' => 'Wellington']);
@@ -380,6 +386,62 @@ class HsmCampaignTriggerSubscriberTest extends TestCase
         $metadata  = $passedLog->getMetadata();
         $this->assertSame(4242, $metadata['logSendHsmId']);
         $this->assertSame(['logSendHsmId' => 4242], $metadata['n8ndispatch']['response']);
+    }
+
+    public function testSuccessKeepsTheUuidAndRegistersBothHsmIdsForStatusTracking(): void
+    {
+        $pendingEvent = $this->buildPendingEvent(['router' => 'r1', 'hsmId' => 'h1', 'status' => 'production']);
+
+        $this->mockIntegration(true, ['webhook_url' => 'https://n8n.example.test/webhook/dispatch']);
+
+        $response = $this->createMock(ResponseInterface::class);
+        $response->method('getStatusCode')->willReturn(200);
+        $response->method('getContent')->with(false)->willReturn('{"uuid":"5c48a721-8cb1-43c7-ac46-048ce65b4233","logSendHsmId":4298591}');
+        $this->httpClient->method('request')->willReturn($response);
+
+        $this->statusTracker->expects($this->once())
+            ->method('register')
+            ->with('hsm', ['logSendHsmId' => 4298591, 'logSendHsmUuid' => '5c48a721-8cb1-43c7-ac46-048ce65b4233']);
+
+        $this->subscriber->onHsmSend($pendingEvent);
+
+        /** @var LeadEventLog $passedLog */
+        $passedLog = $pendingEvent->getSuccessful()->first();
+        $this->assertSame('5c48a721-8cb1-43c7-ac46-048ce65b4233', $passedLog->getMetadata()['logSendHsmUuid']);
+    }
+
+    public function testUuidAndIdAreAlsoReadFromTheNestedBody(): void
+    {
+        $pendingEvent = $this->buildPendingEvent(['router' => 'r1', 'hsmId' => 'h1', 'status' => 'production']);
+
+        $this->mockIntegration(true, ['webhook_url' => 'https://n8n.example.test/webhook/dispatch']);
+
+        $response = $this->createMock(ResponseInterface::class);
+        $response->method('getStatusCode')->willReturn(200);
+        $response->method('getContent')->with(false)->willReturn('{"body":{"uuid":"abc","logSendHsmId":7},"statusCode":200}');
+        $this->httpClient->method('request')->willReturn($response);
+
+        $this->statusTracker->expects($this->once())
+            ->method('register')
+            ->with('hsm', ['logSendHsmId' => 7, 'logSendHsmUuid' => 'abc']);
+
+        $this->subscriber->onHsmSend($pendingEvent);
+    }
+
+    public function testAFailedHsmDispatchIsNeverRegisteredForStatusTracking(): void
+    {
+        $pendingEvent = $this->buildPendingEvent(['router' => 'r1', 'hsmId' => 'h1', 'status' => 'production']);
+
+        $this->mockIntegration(true, ['webhook_url' => 'https://n8n.example.test/webhook/dispatch']);
+
+        $response = $this->createMock(ResponseInterface::class);
+        $response->method('getStatusCode')->willReturn(500);
+        $response->method('getContent')->with(false)->willReturn('{"uuid":"abc","logSendHsmId":7}');
+        $this->httpClient->method('request')->willReturn($response);
+
+        $this->statusTracker->expects($this->never())->method('register');
+
+        $this->subscriber->onHsmSend($pendingEvent);
     }
 
     public function testTemplateRouterHsmTemplateTypeAndVariablesAreUsedInsteadOfTheEventsOwnProperties(): void

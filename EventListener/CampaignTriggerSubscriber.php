@@ -18,11 +18,13 @@ use Mautic\LeadBundle\Entity\Lead;
 use Mautic\LeadBundle\Model\DoNotContact as DncModel;
 use Mautic\PluginBundle\Helper\IntegrationHelper;
 use MauticPlugin\N8nDispatchBundle\Entity\EmailVariablesRepository;
+use MauticPlugin\N8nDispatchBundle\Entity\DispatchTracking;
 use MauticPlugin\N8nDispatchBundle\Integration\N8nDispatchIntegration;
 use MauticPlugin\N8nDispatchBundle\N8nDispatchEvents;
 use MauticPlugin\N8nDispatchBundle\Resolver\LocaleConventions;
 use MauticPlugin\N8nDispatchBundle\Resolver\VariableResolver;
 use MauticPlugin\N8nDispatchBundle\Service\DispatchFailureReasons;
+use MauticPlugin\N8nDispatchBundle\Service\StatusTracker;
 use MauticPlugin\N8nDispatchBundle\UnsubscribeVariable;
 use Psr\Log\LoggerInterface;
 use Symfony\Component\EventDispatcher\EventSubscriberInterface;
@@ -70,6 +72,7 @@ class CampaignTriggerSubscriber implements EventSubscriberInterface
         private DncModel $dncModel,
         private EmailVariablesRepository $emailVariablesRepository,
         private DispatchFailureReasons $failureReasons,
+        private ?StatusTracker $statusTracker = null,
     ) {
     }
 
@@ -534,6 +537,12 @@ class CampaignTriggerSubscriber implements EventSubscriberInterface
 
         if (!empty($logId)) {
             $metadata['logSendEmailId'] = $logId;
+
+            // Only a dispatch n8n accepted is worth asking about later (see
+            // Service/StatusPoller.php).
+            if ($statusCode < 300) {
+                $this->statusTracker?->register(DispatchTracking::CHANNEL_EMAIL, [DispatchTracking::REF_EMAIL => $logId]);
+            }
         }
 
         $log->appendToMetadata($metadata);

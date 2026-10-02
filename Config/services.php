@@ -28,6 +28,10 @@ return function (ContainerConfigurator $configurator): void {
     $services->load('MauticPlugin\\N8nDispatchBundle\\Entity\\', '../Entity/*Repository.php')
         ->tag(Doctrine\Bundle\DoctrineBundle\DependencyInjection\Compiler\ServiceRepositoryCompilerPass::REPOSITORY_SERVICE_TAG);
 
+    // A plain string argument cannot be autowired.
+    $services->set(MauticPlugin\N8nDispatchBundle\Service\StatusPollLauncher::class)
+        ->args(['%kernel.project_dir%', null]);
+
     // Mautic's standard CRUD controller (Controller/SmsTemplateController.php,
     // Controller/HsmTemplateController.php) resolves its model by the
     // 'mautic.<bundle>.model.<name>' id convention.

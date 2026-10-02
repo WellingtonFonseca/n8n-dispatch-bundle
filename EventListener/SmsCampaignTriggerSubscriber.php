@@ -11,12 +11,14 @@ use Mautic\LeadBundle\Entity\DoNotContact;
 use Mautic\LeadBundle\Entity\Lead;
 use Mautic\LeadBundle\Model\DoNotContact as DncModel;
 use Mautic\PluginBundle\Helper\IntegrationHelper;
+use MauticPlugin\N8nDispatchBundle\Entity\DispatchTracking;
 use MauticPlugin\N8nDispatchBundle\Integration\N8nDispatchIntegration;
 use MauticPlugin\N8nDispatchBundle\Model\SmsTemplateModel;
 use MauticPlugin\N8nDispatchBundle\N8nDispatchEvents;
 use MauticPlugin\N8nDispatchBundle\Resolver\LocaleConventions;
 use MauticPlugin\N8nDispatchBundle\Resolver\VariableResolver;
 use MauticPlugin\N8nDispatchBundle\Service\DispatchFailureReasons;
+use MauticPlugin\N8nDispatchBundle\Service\StatusTracker;
 use Psr\Log\LoggerInterface;
 use Symfony\Component\EventDispatcher\EventSubscriberInterface;
 use Symfony\Contracts\HttpClient\HttpClientInterface;
@@ -80,6 +82,7 @@ class SmsCampaignTriggerSubscriber implements EventSubscriberInterface
         private DncModel $dncModel,
         private SmsTemplateModel $smsTemplateModel,
         private DispatchFailureReasons $failureReasons,
+        private ?StatusTracker $statusTracker = null,
     ) {
     }
 
@@ -350,6 +353,10 @@ class SmsCampaignTriggerSubscriber implements EventSubscriberInterface
 
         if (!empty($logId)) {
             $metadata['logSendSmsId'] = $logId;
+
+            if ($statusCode < 300) {
+                $this->statusTracker?->register(DispatchTracking::CHANNEL_SMS, [DispatchTracking::REF_SMS => $logId]);
+            }
         }
 
         $log->appendToMetadata($metadata);

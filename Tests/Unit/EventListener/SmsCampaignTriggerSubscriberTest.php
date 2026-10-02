@@ -21,6 +21,7 @@ use MauticPlugin\N8nDispatchBundle\Integration\N8nDispatchIntegration;
 use MauticPlugin\N8nDispatchBundle\Model\SmsTemplateModel;
 use MauticPlugin\N8nDispatchBundle\Resolver\VariableResolver;
 use MauticPlugin\N8nDispatchBundle\Service\DispatchFailureReasons;
+use MauticPlugin\N8nDispatchBundle\Service\StatusTracker;
 use PHPUnit\Framework\TestCase;
 use Psr\Log\LoggerInterface;
 use Symfony\Contracts\HttpClient\HttpClientInterface;
@@ -40,6 +41,8 @@ class SmsCampaignTriggerSubscriberTest extends TestCase
 
     private SmsTemplateModel $smsTemplateModel;
 
+    private StatusTracker $statusTracker;
+
     private SmsCampaignTriggerSubscriber $subscriber;
 
     protected function setUp(): void
@@ -55,6 +58,8 @@ class SmsCampaignTriggerSubscriberTest extends TestCase
         $this->dncModel->method('isContactable')->willReturn(DoNotContact::IS_CONTACTABLE);
         $this->smsTemplateModel = $this->createMock(SmsTemplateModel::class);
 
+        $this->statusTracker = $this->createMock(StatusTracker::class);
+
         $this->subscriber = new SmsCampaignTriggerSubscriber(
             $this->integrationHelper,
             $this->httpClient,
@@ -63,6 +68,7 @@ class SmsCampaignTriggerSubscriberTest extends TestCase
             $this->dncModel,
             $this->smsTemplateModel,
             new DispatchFailureReasons(new EnUsTranslator()),
+            $this->statusTracker,
         );
 
         $this->variableResolver->method('resolveAll')->willReturn(['foo' => 'bar']);
@@ -344,6 +350,40 @@ class SmsCampaignTriggerSubscriberTest extends TestCase
         $metadata  = $passedLog->getMetadata();
         $this->assertSame(9001, $metadata['logSendSmsId']);
         $this->assertSame(['logSendSmsId' => 9001], $metadata['n8ndispatch']['response']);
+    }
+
+    public function testSuccessRegistersTheLogSendSmsIdForStatusTracking(): void
+    {
+        $pendingEvent = $this->buildPendingEvent(['text' => 'Hi {{foo}}', 'status' => 'production']);
+
+        $this->mockIntegration(true, ['webhook_url' => 'https://n8n.example.test/webhook/dispatch']);
+
+        $response = $this->createMock(ResponseInterface::class);
+        $response->method('getStatusCode')->willReturn(200);
+        $response->method('getContent')->with(false)->willReturn('{"logSendSmsId":9001}');
+        $this->httpClient->method('request')->willReturn($response);
+
+        $this->statusTracker->expects($this->once())
+            ->method('register')
+            ->with('sms', ['logSendSmsId' => 9001]);
+
+        $this->subscriber->onSmsSend($pendingEvent);
+    }
+
+    public function testAFailedSmsDispatchIsNeverRegisteredForStatusTracking(): void
+    {
+        $pendingEvent = $this->buildPendingEvent(['text' => 'Hi {{foo}}', 'status' => 'production']);
+
+        $this->mockIntegration(true, ['webhook_url' => 'https://n8n.example.test/webhook/dispatch']);
+
+        $response = $this->createMock(ResponseInterface::class);
+        $response->method('getStatusCode')->willReturn(500);
+        $response->method('getContent')->with(false)->willReturn('{"logSendSmsId":9001}');
+        $this->httpClient->method('request')->willReturn($response);
+
+        $this->statusTracker->expects($this->never())->method('register');
+
+        $this->subscriber->onSmsSend($pendingEvent);
     }
 
     public function testTemplateTextAndVariablesAreUsedInsteadOfTheEventsOwnProperties(): void
