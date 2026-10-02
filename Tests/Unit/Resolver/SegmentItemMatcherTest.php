@@ -63,6 +63,28 @@ class SegmentItemMatcherTest extends TestCase
         return ['operator' => 'lt', 'filter_value' => '2026-10-01', 'field' => (string) $field, 'type' => 'date', 'cmo_filter' => $isObjectName];
     }
 
+    /**
+     * A multiselect keeps one row per selected option. The options of ONE item are
+     * joined together, so they cannot be mistaken for several items.
+     */
+    public function testOptionRowsAreGroupedPerItemInTheGivenOrder(): void
+    {
+        $rows = [
+            ['custom_item_id' => 3, 'value' => 'grad'],
+            ['custom_item_id' => 3, 'value' => 'pos'],
+            ['custom_item_id' => 5, 'value' => 'extensao'],
+            ['custom_item_id' => 8, 'value' => 'pos'],
+            ['custom_item_id' => 8, 'value' => 'extensao'],
+        ];
+
+        $this->assertSame(['grad, pos', 'extensao', 'pos, extensao'], SegmentItemMatcher::groupOptionValues($rows));
+    }
+
+    public function testNoOptionRowsGiveNoValues(): void
+    {
+        $this->assertSame([], SegmentItemMatcher::groupOptionValues([]));
+    }
+
     public function testMergedFilterWithAFieldOfTheObjectConcernsIt(): void
     {
         $filter = $this->mergedFilter([$this->criterion(3), $this->criterion(2)]);

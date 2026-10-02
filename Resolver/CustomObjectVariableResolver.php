@@ -146,7 +146,9 @@ class CustomObjectVariableResolver
             $this->itemMatcher->fetchFieldValues($itemIds, $targetField)
         );
 
-        return implode($separator, $values);
+        // An unfilled field is stored as '' or NULL: leave it out instead of
+        // producing an empty entry and a stray separator.
+        return implode($separator, array_filter($values, static fn (string $value): bool => '' !== $value));
     }
 
     /**

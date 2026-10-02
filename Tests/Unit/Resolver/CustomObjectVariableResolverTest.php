@@ -381,6 +381,21 @@ class CustomObjectVariableResolverTest extends TestCase
         $this->assertSame('', $this->resolver->resolve($this->contact, $campaign, 'disciplina', 'naoexiste'));
     }
 
+    /**
+     * An unfilled field is stored as '' or NULL: it must not leave an empty entry
+     * (and a stray separator) between or before the other values.
+     */
+    public function testEmptyValuesAreSkippedWhenJoining(): void
+    {
+        $posicao  = $this->fieldFilter(2);
+        $campaign = $this->campaignWithSegment([$posicao]);
+
+        $this->positiveMatches([[$posicao, [1, 2, 3]]]);
+        $this->expectValuesFetchedFor([1, 2, 3], 'nome', ['', 'a', '']);
+
+        $this->assertSame('a', $this->resolver->resolve($this->contact, $campaign, 'disciplina', 'nome'));
+    }
+
     public function testSeveralItemsAreJoinedWithTheGivenSeparator(): void
     {
         $posicao  = $this->fieldFilter(2);

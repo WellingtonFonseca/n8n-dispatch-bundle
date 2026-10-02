@@ -9,6 +9,7 @@ use Doctrine\ORM\EntityManagerInterface;
 use Mautic\LeadBundle\Entity\Lead;
 use Mautic\LeadBundle\Entity\LeadList;
 use Mautic\LeadBundle\Segment\ContactSegmentFilter;
+use MauticPlugin\CustomObjectsBundle\CustomFieldType\AbstractMultivalueType;
 use MauticPlugin\CustomObjectsBundle\Entity\CustomField;
 use MauticPlugin\CustomObjectsBundle\Helper\QueryFilterHelper;
 use MauticPlugin\CustomObjectsBundle\Provider\CustomFieldTypeProvider;
@@ -184,6 +185,25 @@ class SegmentItemMatcher
     }
 
     /**
+     * The option rows of a multiselect (one per selected option, already ordered
+     * by item) as one entry per item, its options joined with ', '. The options
+     * of one item then cannot be mistaken for several items.
+     *
+     * @param array<int, array{custom_item_id: int|string, value: string}> $rows
+     *
+     * @return string[]
+     */
+    public static function groupOptionValues(array $rows): array
+    {
+        $perItem = [];
+        foreach ($rows as $row) {
+            $perItem[(int) $row['custom_item_id']][] = (string) $row['value'];
+        }
+
+        return array_map(static fn (array $options): string => implode(', ', $options), array_values($perItem));
+    }
+
+    /**
      * Raw stored values of $field for the given items, ordered by item id.
      *
      * @param int[] $itemIds
@@ -193,6 +213,23 @@ class SegmentItemMatcher
     public function fetchFieldValues(array $itemIds, CustomField $field): array
     {
         $table = $this->customFieldTypeProvider->getType((string) $field->getType())->getTableName();
+
+        if (MAUTIC_TABLE_PREFIX.AbstractMultivalueType::TABLE_NAME === MAUTIC_TABLE_PREFIX.$table) {
+            // One row per selected option, in the order the options are defined.
+            return self::groupOptionValues($this->em->getConnection()->createQueryBuilder()
+                ->select('civ.custom_item_id', 'civ.value')
+                ->from(MAUTIC_TABLE_PREFIX.$table, 'civ')
+                ->leftJoin('civ', MAUTIC_TABLE_PREFIX.'custom_field_option', 'opt', 'opt.custom_field_id = civ.custom_field_id AND opt.value = civ.value')
+                ->where('civ.custom_field_id = :fieldId')
+                ->andWhere('civ.custom_item_id IN (:itemIds)')
+                ->orderBy('civ.custom_item_id')
+                ->addOrderBy('opt.option_order')
+                ->addOrderBy('civ.value')
+                ->setParameter('fieldId', $field->getId())
+                ->setParameter('itemIds', $itemIds, ArrayParameterType::INTEGER)
+                ->executeQuery()
+                ->fetchAllAssociative());
+        }
 
         $values = $this->em->getConnection()->createQueryBuilder()
             ->select('civ.value')
