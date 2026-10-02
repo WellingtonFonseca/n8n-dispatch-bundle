@@ -29,8 +29,10 @@ return [
                 'controller' => 'MauticPlugin\\N8nDispatchBundle\\Controller\\HsmTemplateController::executeAction',
             ],
             'mautic_n8ndispatch.dispatch_index' => [
-                'path'       => '/n8ndispatch/dispatches',
-                'controller' => 'MauticPlugin\\N8nDispatchBundle\\Controller\\DispatchController::indexAction',
+                'path'         => '/n8ndispatch/dispatches/{page}',
+                'defaults'     => ['page' => 1],
+                'requirements' => ['page' => '\\d+'],
+                'controller'   => 'MauticPlugin\\N8nDispatchBundle\\Controller\\DispatchController::indexAction',
             ],
         ],
     ],

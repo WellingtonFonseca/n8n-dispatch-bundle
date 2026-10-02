@@ -1,0 +1,81 @@
+{#
+  Dispatches table. Same layout as Resources/views/HsmTemplate/list.html.twig:
+  the first column is core's checkbox + options menu (select one, or all from
+  the header), then the template's name and the contact's name. The rows are
+  arrays, not entities, which list_actions.html.twig accepts (item.id, item.name).
+#}
+{% set isIndex = 'index' == tmpl ? true : false %}
+{% set tmpl = 'list' %}
+{% extends isIndex ? '@MauticCore/Default/content.html.twig' : '@MauticCore/Default/raw_output.html.twig' %}
+
+{% block mauticContent %}n8ndispatch.dispatch{% endblock %}
+
+{% block headerTitle %}{{ 'mautic.n8ndispatch.dispatch.header.index'|trans }}{% endblock %}
+
+{% block content %}
+    {% if isIndex %}
+    <div id="page-list-wrapper" class="panel panel-default">
+        <div class="page-list">
+            {{ block('listContent') }}
+        </div>
+    </div>
+    {% else %}
+        {{ block('listContent') }}
+    {% endif %}
+{% endblock %}
+
+{% block listContent %}
+    {% if items is defined and items is not empty %}
+        <div class="table-responsive">
+            <table class="table table-hover" id="dispatchTable">
+                <thead>
+                <tr>
+                    {{ include('@MauticCore/Helper/tableheader.html.twig', {
+                        'checkall': 'true',
+                        'target': '#dispatchTable',
+                        'langVar': 'n8ndispatch.dispatch',
+                        'routeBase': 'n8ndispatch.dispatch',
+                        'templateButtons': {},
+                    }) }}
+                    {{ include('@MauticCore/Helper/tableheader.html.twig', {
+                        'text': 'mautic.n8ndispatch.dispatch.column.template',
+                        'class': 'col-dispatch-template',
+                    }) }}
+                    {{ include('@MauticCore/Helper/tableheader.html.twig', {
+                        'text': 'mautic.n8ndispatch.dispatch.column.name',
+                        'class': 'col-dispatch-name',
+                    }) }}
+                </tr>
+                </thead>
+                <tbody>
+                {% for item in items %}
+                    <tr>
+                        <td>
+                            {{- include('@MauticCore/Helper/list_actions.html.twig', {
+                                'item': {'id': item.id, 'name': item.templateName},
+                                'templateButtons': {},
+                                'routeBase': 'n8ndispatch.dispatch',
+                                'langVar': 'n8ndispatch.dispatch',
+                                'translationBase': 'mautic.n8ndispatch.dispatch',
+                            }) -}}
+                        </td>
+                        <td>{{ item.templateName }}</td>
+                        <td>{{ item.contactName }}</td>
+                    </tr>
+                {% endfor %}
+                </tbody>
+            </table>
+        </div>
+        <div class="panel-footer">
+            {{- include('@MauticCore/Helper/pagination.html.twig', {
+                'totalItems': totalItems,
+                'page': page,
+                'limit': limit,
+                'baseUrl': path('mautic_n8ndispatch.dispatch_index'),
+                'sessionVar': 'n8ndispatch.dispatch',
+            }) -}}
+        </div>
+    {% else %}
+        {{ include('@MauticCore/Helper/noresults.html.twig') }}
+    {% endif %}
+{% endblock %}
