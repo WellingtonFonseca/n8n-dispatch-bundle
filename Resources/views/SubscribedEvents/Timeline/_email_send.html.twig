@@ -305,8 +305,10 @@
                         {{ ('mautic.n8ndispatch.timeline.callback.outcome.' ~ callback.outcome)|trans }}
                     </span>
                 </div>
+                {# Whenever n8n sent a message, whatever the outcome: the label sits inside the block, above the text (the <pre> keeps the line break). #}
                 {% if callback.message %}
-                <div class="n8ndispatch-callback-message">{{ callback.message }}</div>
+                <pre class="n8ndispatch-timeline-json n8ndispatch-callback-message">{{ 'mautic.n8ndispatch.timeline.callback.message'|trans }}:
+{{ callback.message }}</pre>
                 {% endif %}
                 {% if callback.history|length > 0 %}
                 <details class="n8ndispatch-callback-history">

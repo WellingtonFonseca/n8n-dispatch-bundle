@@ -132,8 +132,13 @@
     flex-wrap: wrap;
 }
 
-.n8ndispatch-callback-message {
+/* The error message sits in the same block as the JSON ones above
+   (.n8ndispatch-timeline-json, which also carries the dark theme colors),
+   but it is prose, so it wraps instead of scrolling sideways. */
+.n8ndispatch-timeline-json.n8ndispatch-callback-message {
     margin: 4px 0 0;
+    white-space: pre-wrap;
+    overflow-wrap: anywhere;
 }
 
 .n8ndispatch-callback-history {
