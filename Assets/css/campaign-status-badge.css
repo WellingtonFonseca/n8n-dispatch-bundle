@@ -141,14 +141,43 @@
     overflow-wrap: anywhere;
 }
 
+/* The History at the end of the card: a <details> whose title is the same
+   .n8ndispatch-timeline-label as 'Callback:', opening one table per callback. */
 .n8ndispatch-callback-history {
+    margin: 8px 0 0;
+}
+
+.n8ndispatch-callback-history > summary {
+    display: list-item;
+    cursor: pointer;
+}
+
+.n8ndispatch-callback-history-table {
+    width: 100%;
     margin: 4px 0 0;
+    border-collapse: collapse;
     font-size: 12px;
 }
 
-.n8ndispatch-callback-history ul {
-    margin: 4px 0 0;
-    padding-left: 18px;
+.n8ndispatch-callback-history-table th,
+.n8ndispatch-callback-history-table td {
+    padding: 6px 16px 6px 0;
+    border-bottom: 1px solid var(--border-subtle-01, #e0e0e0);
+    text-align: left;
+    vertical-align: top;
+}
+
+/* Status and Date take only what they need; Message gets the rest of the width and wraps. */
+.n8ndispatch-callback-history-table th:nth-child(1),
+.n8ndispatch-callback-history-table td:nth-child(1),
+.n8ndispatch-callback-history-table th:nth-child(2),
+.n8ndispatch-callback-history-table td:nth-child(2) {
+    width: 1%;
+    white-space: nowrap;
+}
+
+.n8ndispatch-callback-history-table td:nth-child(3) {
+    overflow-wrap: anywhere;
 }
 
 .n8ndispatch-timeline-label {

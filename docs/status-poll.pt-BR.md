@@ -146,11 +146,15 @@ distinguir entregue/lido:
 
 Abaixo de **Body** e **Response**, um bloco **Callback**:
 
-- Email e SMS: um selo (`Aguardando`, `Sucesso` ou `Erro`), a data da última
-  mudança, "verificado N vezes, última em …" e a mensagem do erro, se houver.
-- HSM: duas linhas, **Mirror** e **Meta**, cada uma com o seu selo.
-- Um "Histórico (N)" recolhível, quando houve mudança de resultado, com todas as
-  respostas anteriores.
+- **Callback:** "Verificado em *data e hora*" (da última verificação, no idioma e no
+  fuso do sistema) e, na linha de baixo, o selo (`Aguardando`, `Sucesso` ou `Erro`).
+  Se o n8n mandou uma `message`, ela aparece num bloco "Mensagem:", seja qual for o
+  resultado.
+- **HSM:** dois blocos, **Callback** (o `logSendHsmId`) e **Callback Meta** (o
+  `logSendHsmUuid`), cada um com o seu "Verificado em", o seu selo e a sua mensagem.
+- **Histórico:** no fim do card, um título "Histórico:" que abre ao clicar, com uma
+  tabela (Status, Data, Mensagem) por callback, da mais recente para a mais antiga.
+  Só existe se algum resultado já mudou.
 
 Isto **não altera** o status do evento da campanha nem o registro de envio do
 email: o evento continua como "passou" se a ida deu 2xx. O callback é só
