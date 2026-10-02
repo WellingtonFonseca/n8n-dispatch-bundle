@@ -18,8 +18,8 @@ const sharedCode = fs.readFileSync(path.join(__dirname, '../../Assets/js/n8ndisp
 
 // Loads one of the template scripts with just enough fake browser around it to drive its callbacks. The real shared
 // script is loaded for the pure rule (hasNonNumericPlaceholder); everything that touches the page is a recorder.
-function load(file, {text, attached}) {
-    const calls = {render: 0, ajax: 0, alerts: []};
+function load(file, {text, attached, unmapped = {value: false}}) {
+    const calls = {render: 0, ajax: 0, alerts: [], unmapped: []};
     let   ajaxCallback;
 
     const realShared = (() => {
@@ -34,6 +34,9 @@ function load(file, {text, attached}) {
         renderVariablesFromResponse: () => { calls.render++; },
         setNumericAlert:             (field, id, alertText, show) => { calls.alerts.push({id, alertText, show}); },
         hasNonNumericPlaceholder:    realShared.hasNonNumericPlaceholder,
+        setUnmappedAlert:            (field, id, alertText, show) => { calls.unmapped.push({id, alertText, show}); },
+        hasUnmappedVariables:        () => unmapped.value,
+        onMappingSynced:             (field, fn) => { calls.synced = fn; },
     };
     const Mautic = {
         n8ndispatchShared: shared,
@@ -117,5 +120,44 @@ for (const [file, init, onChange] of [
 
         assert.strictEqual(page.calls.ajax, 0);
         assert.strictEqual(page.calls.alerts.length, 0);
+    });
+}
+
+for (const [file, init] of [
+    ['campaign-hsm-dispatch.js', 'n8nDispatchInitHsmVariables'],
+    ['campaign-sms-dispatch.js', 'n8nDispatchInitSmsVariables'],
+]) {
+    test(`${file}: the unmapped alert is decided on load and again once the rows are rendered`, () => {
+        const page = load(file, {text: {value: 'Hi {{1}}'}, attached: {value: true}, unmapped: {value: true}});
+
+        page.Mautic[init]({});
+        assert.deepStrictEqual(page.calls.unmapped.map((a) => a.show), [true]);
+        assert.strictEqual(page.calls.unmapped[0].alertText, 'alert text');
+
+        page.answer({success: 1, variables: ['1']});
+        assert.deepStrictEqual(page.calls.unmapped.map((a) => a.show), [true, true]);
+    });
+
+    test(`${file}: filling in a row updates the unmapped alert without a save`, () => {
+        const unmapped = {value: true};
+        const page     = load(file, {text: {value: 'Hi {{1}}'}, attached: {value: true}, unmapped});
+
+        page.Mautic[init]({});
+        unmapped.value = false; // the user filled in the row
+        page.calls.synced();
+
+        assert.strictEqual(page.calls.unmapped[page.calls.unmapped.length - 1].show, false);
+    });
+
+    test(`${file}: a row change for a field that left the page does nothing`, () => {
+        const attached = {value: true};
+        const page     = load(file, {text: {value: 'Hi {{1}}'}, attached, unmapped: {value: true}});
+
+        page.Mautic[init]({});
+        const before = page.calls.unmapped.length;
+        attached.value = false;
+        page.calls.synced();
+
+        assert.strictEqual(page.calls.unmapped.length, before);
     });
 }

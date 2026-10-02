@@ -116,7 +116,8 @@
                             {# Read by Assets/js/campaign-sms-dispatch.js: the alert text, translated in the system language. Same
                                message (validators domain) as the error shown when the template is saved. #}
                             <div class="hidden" id="n8ndispatch-sms-config"
-                                 data-numeric-alert-text="{{ 'mautic.n8ndispatch.template.error.numeric_variables'|trans({}, 'validators') }}"></div>
+                                 data-numeric-alert-text="{{ 'mautic.n8ndispatch.template.error.numeric_variables'|trans({}, 'validators') }}"
+                                 data-unmapped-alert-text="{{ 'mautic.n8ndispatch.template.alert.unmapped_variables'|trans({}, 'validators') }}"></div>
                             <div class="row">
                                 <div class="col-xs-12">
                                     {{ form_row(form.text) }}
