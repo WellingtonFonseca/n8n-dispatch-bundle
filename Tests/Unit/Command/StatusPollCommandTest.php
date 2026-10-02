@@ -8,6 +8,7 @@ use MauticPlugin\N8nDispatchBundle\Command\StatusPollCommand;
 use MauticPlugin\N8nDispatchBundle\Entity\PollRun;
 use MauticPlugin\N8nDispatchBundle\Entity\PollRunRepository;
 use MauticPlugin\N8nDispatchBundle\Service\StatusPoller;
+use MauticPlugin\N8nDispatchBundle\Service\StatusPollSettings;
 use PHPUnit\Framework\MockObject\MockObject;
 use PHPUnit\Framework\TestCase;
 use Symfony\Component\Console\Tester\CommandTester;
@@ -26,7 +27,9 @@ class StatusPollCommandTest extends TestCase
     {
         $this->poller = $this->createMock(StatusPoller::class);
         $this->runs   = $this->createMock(PollRunRepository::class);
-        $this->tester = new CommandTester(new StatusPollCommand($this->poller, $this->runs));
+        $settings = $this->createMock(StatusPollSettings::class);
+        $settings->method('current')->willReturn(['enabled' => false, 'interval' => 60, 'batch' => 70, 'timeout' => 180, 'maxDuration' => 300]);
+        $this->tester = new CommandTester(new StatusPollCommand($this->poller, $this->runs, $settings));
     }
 
     private function summary(int $requested = 0, ?string $error = null): array
@@ -123,7 +126,7 @@ class StatusPollCommandTest extends TestCase
 
         $seen = [];
         $this->tester->execute([]);
-        $this->assertSame([[100, 1000], [100, 1000], [100, 1000]], $seen, 'defaults: batches of 100, a high cap');
+        $this->assertSame([[70, 1000], [70, 1000], [70, 1000]], $seen, 'with no --batch the batch size is the one on the settings screen; a high cap');
     }
 
     public function testTheOutputSaysHowManyCallsWereMade(): void

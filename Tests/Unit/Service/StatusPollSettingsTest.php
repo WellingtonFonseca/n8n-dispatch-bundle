@@ -12,7 +12,10 @@ class StatusPollSettingsTest extends TestCase
 {
     public function testIsOffByDefault(): void
     {
-        $this->assertSame(['enabled' => false, 'interval' => 60], StatusPollSettings::fromArray([]));
+        $this->assertSame(
+            ['enabled' => false, 'interval' => 60, 'batch' => 100, 'timeout' => 180, 'maxDuration' => 300],
+            StatusPollSettings::fromArray([])
+        );
     }
 
     /**
@@ -90,5 +93,71 @@ class StatusPollSettingsTest extends TestCase
     {
         $this->assertFalse(StatusPollSettings::isStale($this->runStartedAt('2026-10-02 09:30:00'), 5, new \DateTimeImmutable('2026-10-02 10:00:00')));
         $this->assertTrue(StatusPollSettings::isStale($this->runStartedAt('2026-10-02 08:30:00'), 5, new \DateTimeImmutable('2026-10-02 10:00:00')));
+    }
+
+    /**
+     * @dataProvider batches
+     */
+    public function testBatchSizeIsKeptInsideTheAllowedRange(mixed $stored, int $expected): void
+    {
+        $this->assertSame($expected, StatusPollSettings::fromArray([StatusPollSettings::KEY_BATCH => $stored])['batch']);
+    }
+
+    /**
+     * @return iterable<string, array{mixed, int}>
+     */
+    public static function batches(): iterable
+    {
+        yield 'default'       => [100, 100];
+        yield 'fifty'         => ['50', 50];
+        yield 'the minimum'   => [10, 10];
+        yield 'below minimum' => [1, 10];
+        yield 'zero'          => [0, 10];
+        yield 'the maximum'   => [1000, 1000];
+        yield 'above maximum' => [50000, 1000];
+        yield 'not a number'  => ['abc', 100];
+        yield 'null'          => [null, 100];
+    }
+
+    /**
+     * @dataProvider timeouts
+     */
+    public function testTimeoutIsKeptInsideTheAllowedRange(mixed $stored, int $expected): void
+    {
+        $this->assertSame($expected, StatusPollSettings::fromArray([StatusPollSettings::KEY_TIMEOUT => $stored])['timeout']);
+    }
+
+    /**
+     * @return iterable<string, array{mixed, int}>
+     */
+    public static function timeouts(): iterable
+    {
+        yield 'default'       => [180, 180];
+        yield 'two minutes'   => ['120', 120];
+        yield 'the minimum'   => [10, 10];
+        yield 'below minimum' => [2, 10];
+        yield 'negative'      => [-5, 10];
+        yield 'the maximum'   => [900, 900];
+        yield 'above maximum' => [99999, 900];
+        yield 'not a number'  => ['x', 180];
+        yield 'null'          => [null, 180];
+    }
+
+    public function testTheTotalDurationIsNeverShorterThanTheTimeout(): void
+    {
+        $settings = StatusPollSettings::fromArray([
+            StatusPollSettings::KEY_TIMEOUT      => 400,
+            StatusPollSettings::KEY_MAX_DURATION => 100,
+        ]);
+
+        $this->assertSame(400, $settings['timeout']);
+        $this->assertSame(400, $settings['maxDuration']);
+    }
+
+    public function testTheTotalDurationIsKeptInsideTheAllowedRange(): void
+    {
+        $this->assertSame(300, StatusPollSettings::fromArray([StatusPollSettings::KEY_MAX_DURATION => 'abc'])['maxDuration']);
+        $this->assertSame(1800, StatusPollSettings::fromArray([StatusPollSettings::KEY_MAX_DURATION => 99999])['maxDuration']);
+        $this->assertSame(240, StatusPollSettings::fromArray([StatusPollSettings::KEY_MAX_DURATION => 240])['maxDuration']);
     }
 }

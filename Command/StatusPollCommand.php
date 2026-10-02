@@ -8,6 +8,7 @@ use MauticPlugin\N8nDispatchBundle\Entity\DispatchTracking;
 use MauticPlugin\N8nDispatchBundle\Entity\PollRun;
 use MauticPlugin\N8nDispatchBundle\Entity\PollRunRepository;
 use MauticPlugin\N8nDispatchBundle\Service\StatusPoller;
+use MauticPlugin\N8nDispatchBundle\Service\StatusPollSettings;
 use Symfony\Component\Console\Attribute\AsCommand;
 use Symfony\Component\Console\Command\Command;
 use Symfony\Component\Console\Input\InputInterface;
@@ -24,7 +25,7 @@ use Symfony\Component\Console\Output\OutputInterface;
 #[AsCommand(name: 'n8ndispatch:status:poll', description: 'Asks n8n for the outcome of the Email/SMS/HSM dispatches still pending.')]
 class StatusPollCommand extends Command
 {
-    public function __construct(private StatusPoller $poller, private PollRunRepository $runs)
+    public function __construct(private StatusPoller $poller, private PollRunRepository $runs, private StatusPollSettings $settings)
     {
         parent::__construct();
     }
@@ -33,7 +34,7 @@ class StatusPollCommand extends Command
     {
         $this
             ->addOption('channel', null, InputOption::VALUE_REQUIRED, 'email, sms or hsm. Default: all three.')
-            ->addOption('batch', null, InputOption::VALUE_REQUIRED, 'Ids asked about per call to n8n.', '100')
+            ->addOption('batch', null, InputOption::VALUE_REQUIRED, "Ids asked about per call to n8n. Default: the one on the plugin's settings screen (100 unless changed).")
             ->addOption('max-calls', null, InputOption::VALUE_REQUIRED, 'Most calls per channel in one run (a safety net: the run goes on until the queue is empty).', (string) StatusPoller::MAX_CALLS)
             ->addOption('max-age-days', null, InputOption::VALUE_REQUIRED, 'Ids dispatched longer ago than this stop being asked about.', '7')
             ->addOption('outcome', null, InputOption::VALUE_REQUIRED, 'Which outcome to ask about: pending (default), or error to re-check failures.', DispatchTracking::OUTCOME_PENDING)
@@ -45,7 +46,7 @@ class StatusPollCommand extends Command
     {
         $channel = $input->getOption('channel');
         $outcome = (string) $input->getOption('outcome');
-        $batch   = filter_var($input->getOption('batch'), FILTER_VALIDATE_INT);
+        $batch   = null === $input->getOption('batch') ? $this->settings->current()['batch'] : filter_var($input->getOption('batch'), FILTER_VALIDATE_INT);
         $maxCalls = filter_var($input->getOption('max-calls'), FILTER_VALIDATE_INT);
         $maxAge  = (int) $input->getOption('max-age-days');
 

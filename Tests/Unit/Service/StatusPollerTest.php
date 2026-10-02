@@ -8,6 +8,7 @@ use Mautic\PluginBundle\Entity\Integration as IntegrationSettings;
 use Mautic\PluginBundle\Helper\IntegrationHelper;
 use MauticPlugin\N8nDispatchBundle\Entity\DispatchTracking;
 use MauticPlugin\N8nDispatchBundle\Integration\N8nDispatchIntegration;
+use MauticPlugin\N8nDispatchBundle\Service\StatusPollSettings;
 use MauticPlugin\N8nDispatchBundle\Service\StatusPoller;
 use MauticPlugin\N8nDispatchBundle\Service\StatusResponseParser;
 use MauticPlugin\N8nDispatchBundle\Service\StatusTracker;
@@ -28,6 +29,9 @@ class StatusPollerTest extends TestCase
     /** @var StatusTracker&MockObject */
     private StatusTracker $tracker;
 
+    /** @var StatusPollSettings&MockObject */
+    private StatusPollSettings $settings;
+
     private StatusPoller $poller;
 
     private \DateTimeImmutable $now;
@@ -37,12 +41,15 @@ class StatusPollerTest extends TestCase
         $this->integrationHelper = $this->createMock(IntegrationHelper::class);
         $this->httpClient        = $this->createMock(HttpClientInterface::class);
         $this->tracker           = $this->createMock(StatusTracker::class);
+        $this->settings          = $this->createMock(StatusPollSettings::class);
+        $this->settings->method('current')->willReturn(['enabled' => false, 'interval' => 60, 'batch' => 100, 'timeout' => 180, 'maxDuration' => 300]);
         $this->poller            = new StatusPoller(
             $this->integrationHelper,
             $this->httpClient,
             $this->tracker,
             new StatusResponseParser(),
             $this->createMock(LoggerInterface::class),
+            $this->settings,
         );
         $this->now = new \DateTimeImmutable('2026-10-02 10:00:00');
     }
@@ -338,18 +345,36 @@ class StatusPollerTest extends TestCase
         $this->poller->poll(DispatchTracking::CHANNEL_EMAIL, 2, 7, DispatchTracking::OUTCOME_PENDING, null, $this->now, 1);
     }
 
-    public function testEveryCallHasATimeoutSoAHungN8nCannotHoldTheRunForever(): void
+    public function testEveryCallHasTheConfiguredTimeoutSoAHungN8nCannotHoldTheRunForever(): void
     {
         $this->mockIntegration(true, ['webhook_url' => 'https://n8n.example.test/hook']);
         $this->tracker->method('pending')->willReturn([$this->row('email', 'logSendEmailId', '1', 'g', 1)]);
         $this->httpClient->expects($this->once())->method('request')
             ->with('POST', $this->anything(), $this->callback(
-                fn (array $options): bool => 60.0 === (float) $options['timeout'] && 120.0 === (float) $options['max_duration']
+                fn (array $options): bool => 180.0 === (float) $options['timeout'] && 300.0 === (float) $options['max_duration']
             ))
             ->willReturn($this->response(200, '{"items":[]}'));
         $this->tracker->method('apply')->willReturn(['changed' => 0, 'unchanged' => 1, 'unknown' => 0]);
 
         $this->poller->poll(DispatchTracking::CHANNEL_EMAIL, 100, 7, DispatchTracking::OUTCOME_PENDING, null, $this->now);
+    }
+
+    public function testTheTimeoutFollowsTheSettingsScreen(): void
+    {
+        $settings = $this->createMock(StatusPollSettings::class);
+        $settings->method('current')->willReturn(['enabled' => false, 'interval' => 60, 'batch' => 100, 'timeout' => 45, 'maxDuration' => 90]);
+        $poller = new StatusPoller($this->integrationHelper, $this->httpClient, $this->tracker, new StatusResponseParser(), $this->createMock(LoggerInterface::class), $settings);
+
+        $this->mockIntegration(true, ['webhook_url' => 'https://n8n.example.test/hook']);
+        $this->tracker->method('pending')->willReturn([$this->row('email', 'logSendEmailId', '1', 'g', 1)]);
+        $this->httpClient->expects($this->once())->method('request')
+            ->with('POST', $this->anything(), $this->callback(
+                fn (array $options): bool => 45.0 === (float) $options['timeout'] && 90.0 === (float) $options['max_duration']
+            ))
+            ->willReturn($this->response(200, '{"items":[]}'));
+        $this->tracker->method('apply')->willReturn(['changed' => 0, 'unchanged' => 1, 'unknown' => 0]);
+
+        $poller->poll(DispatchTracking::CHANNEL_EMAIL, 100, 7, DispatchTracking::OUTCOME_PENDING, null, $this->now);
     }
 
     public function testATimedOutCallEndsTheRunWithAnErrorAndKeepsTheEarlierBatches(): void
