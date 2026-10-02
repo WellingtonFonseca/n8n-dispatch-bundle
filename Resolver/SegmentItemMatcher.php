@@ -115,9 +115,9 @@ class SegmentItemMatcher
 
     /**
      * Items of the contact that satisfy ALL the criteria of a merged filter
-     * that are on $customObjectId, on the same item — the plugin's own
-     * createMergeFilterQuery() (the one the segment runs), restricted to
-     * this object's criteria and selecting the item id. Its operators are
+     * that are on $customObjectId, on the same item — the plugin's own merged
+     * query (the one the segment runs), restricted to this object's criteria,
+     * through its public createMergedItemIdsQuery(). Its operators are
      * applied as written (no NOT EXISTS), so there is nothing to negate.
      *
      * @param int[] $fieldIds
@@ -137,15 +137,7 @@ class SegmentItemMatcher
         $objectFilter                            = clone $filter;
         $objectFilter->contactSegmentFilterCrate = $crate;
 
-        $alias = self::ALIAS;
-        // 'cix' is the item-to-contact alias createMergeFilterQuery() uses; its
-        // WHERE compares cix.contact_id with "<leads alias>.id", so the leads
-        // table is joined under the alias given here.
-        $queryBuilder = $this->queryFilterHelper->createMergeFilterQuery($objectFilter, "{$alias}_lead");
-        $queryBuilder->select('DISTINCT cix.custom_item_id')
-            ->innerJoin('cix', MAUTIC_TABLE_PREFIX.'leads', "{$alias}_lead", "{$alias}_lead.id = cix.contact_id")
-            ->andWhere("{$alias}_lead.id = :n8ndContactId")
-            ->setParameter('n8ndContactId', $contact->getId());
+        $queryBuilder = $this->queryFilterHelper->createMergedItemIdsQuery($objectFilter, (int) $contact->getId());
 
         return array_map('intval', $queryBuilder->executeQuery()->fetchFirstColumn());
     }
