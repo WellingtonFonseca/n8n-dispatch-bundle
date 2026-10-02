@@ -196,6 +196,29 @@
     color: #8a6100;
 }
 
+/*
+ * Dark themes (Account > Appearance: dark and solarized-dark). The themes
+ * only change CSS variables (`:root[theme="..."]`), so the light colors
+ * hard-coded above never followed them: the Body/Response blocks kept
+ * their #f5f5f5 background while the text took the theme's light color
+ * (white on white), and the dark amber of the 'cancelled' line was
+ * unreadable on a dark card. Only the dark themes are overridden, with the
+ * theme's own variables; the light themes keep the look above. The
+ * :root[theme=...] prefix makes these rules win over the ones above no
+ * matter the stylesheet order.
+ */
+:root[theme="dark"] .n8ndispatch-timeline-json,
+:root[theme="solarized-dark"] .n8ndispatch-timeline-json {
+    background-color: var(--layer-01);
+    border-color: var(--border-subtle-01);
+    color: var(--text-primary);
+}
+
+:root[theme="dark"] .n8ndispatch-timeline-scheduled .text-warning,
+:root[theme="solarized-dark"] .n8ndispatch-timeline-scheduled .text-warning {
+    color: var(--support-warning);
+}
+
 .n8ndispatch-timeline-json {
     margin: 8px 0 0;
     padding: 10px 12px;
