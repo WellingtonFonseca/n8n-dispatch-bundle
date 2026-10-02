@@ -11,6 +11,8 @@ use Mautic\CoreBundle\Entity\CommonRepository;
  */
 class PollRunRepository extends CommonRepository
 {
+    public const RUNNING_STALE_MINUTES = 120;
+
     public function getTableAlias(): string
     {
         return 'pr';
@@ -33,14 +35,22 @@ class PollRunRepository extends CommonRepository
         $table      = $this->getTableName();
         $utc        = new \DateTimeZone('UTC');
         $threshold  = $now->modify('-'.max(0, $intervalMinutes * 60 - 60).' seconds');
+        $stale      = $now->modify('-'.self::RUNNING_STALE_MINUTES.' minutes');
 
+        // A run is also never started while the previous one is still going
+        // (a run empties the whole queue, so on a big one it can outlast the
+        // interval). One that has been "running" for longer than
+        // RUNNING_STALE_MINUTES is taken as dead — crashed, or killed before
+        // it could close itself — so it cannot block the schedule forever.
         $inserted = $connection->executeStatement(
             "INSERT INTO {$table} (started_at, status) SELECT :now, :status FROM DUAL "
-            ."WHERE NOT EXISTS (SELECT 1 FROM {$table} WHERE started_at > :threshold)",
+            ."WHERE NOT EXISTS (SELECT 1 FROM {$table} WHERE started_at > :threshold) "
+            ."AND NOT EXISTS (SELECT 1 FROM {$table} WHERE status = :status AND started_at > :stale)",
             [
                 'now'       => $now->setTimezone($utc)->format('Y-m-d H:i:s'),
                 'status'    => PollRun::STATUS_RUNNING,
                 'threshold' => $threshold->setTimezone($utc)->format('Y-m-d H:i:s'),
+                'stale'     => $stale->setTimezone($utc)->format('Y-m-d H:i:s'),
             ]
         );
 

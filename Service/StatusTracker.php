@@ -62,11 +62,13 @@ class StatusTracker
     }
 
     /**
+     * One batch of the queue: up to $limit rows with an id after $afterId.
+     *
      * @return list<DispatchTracking>
      */
-    public function pending(string $channel, string $outcome, int $limit, int $maxAgeDays, \DateTimeImmutable $now): array
+    public function pending(string $channel, string $outcome, int $limit, int $maxAgeDays, \DateTimeImmutable $now, int $afterId = 0): array
     {
-        return $this->trackings->findPending($channel, $outcome, $now->modify('-'.$maxAgeDays.' days'), $limit);
+        return $this->trackings->findPending($channel, $outcome, $now->modify('-'.$maxAgeDays.' days'), $limit, $afterId);
     }
 
     /**

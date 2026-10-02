@@ -33,7 +33,8 @@ class StatusPollCommand extends Command
     {
         $this
             ->addOption('channel', null, InputOption::VALUE_REQUIRED, 'email, sms or hsm. Default: all three.')
-            ->addOption('limit', null, InputOption::VALUE_REQUIRED, 'Most ids asked about per channel in one run.', '200')
+            ->addOption('batch', null, InputOption::VALUE_REQUIRED, 'Ids asked about per call to n8n.', '100')
+            ->addOption('max-calls', null, InputOption::VALUE_REQUIRED, 'Most calls per channel in one run (a safety net: the run goes on until the queue is empty).', (string) StatusPoller::MAX_CALLS)
             ->addOption('max-age-days', null, InputOption::VALUE_REQUIRED, 'Ids dispatched longer ago than this stop being asked about.', '7')
             ->addOption('outcome', null, InputOption::VALUE_REQUIRED, 'Which outcome to ask about: pending (default), or error to re-check failures.', DispatchTracking::OUTCOME_PENDING)
             ->addOption('webhook-url', null, InputOption::VALUE_REQUIRED, 'Call this URL instead of the configured webhook (for tests).')
@@ -44,7 +45,8 @@ class StatusPollCommand extends Command
     {
         $channel = $input->getOption('channel');
         $outcome = (string) $input->getOption('outcome');
-        $limit   = (int) $input->getOption('limit');
+        $batch   = filter_var($input->getOption('batch'), FILTER_VALIDATE_INT);
+        $maxCalls = filter_var($input->getOption('max-calls'), FILTER_VALIDATE_INT);
         $maxAge  = (int) $input->getOption('max-age-days');
 
         if (null !== $channel && !in_array($channel, DispatchTracking::CHANNELS, true)) {
@@ -53,8 +55,8 @@ class StatusPollCommand extends Command
             return Command::INVALID;
         }
 
-        if (!in_array($outcome, [DispatchTracking::OUTCOME_PENDING, DispatchTracking::OUTCOME_ERROR], true) || $limit < 1 || $maxAge < 1) {
-            $output->writeln('<error>--outcome must be pending or error; --limit and --max-age-days must be at least 1.</error>');
+        if (!in_array($outcome, [DispatchTracking::OUTCOME_PENDING, DispatchTracking::OUTCOME_ERROR], true) || false === $batch || $batch < 1 || false === $maxCalls || $maxCalls < 1 || $maxAge < 1) {
+            $output->writeln('<error>--outcome must be pending or error; --batch, --max-calls and --max-age-days must be whole numbers of at least 1.</error>');
 
             return Command::INVALID;
         }
@@ -67,7 +69,7 @@ class StatusPollCommand extends Command
 
         try {
             foreach (null === $channel ? DispatchTracking::CHANNELS : [$channel] as $name) {
-                $summary = $this->poller->poll($name, $limit, $maxAge, $outcome, is_string($override) ? $override : null, new \DateTimeImmutable());
+                $summary = $this->poller->poll($name, $batch, $maxAge, $outcome, is_string($override) ? $override : null, new \DateTimeImmutable(), $maxCalls);
 
                 if (null !== $summary['error']) {
                     $failed  = true;
@@ -78,13 +80,14 @@ class StatusPollCommand extends Command
                 }
 
                 $lines[] = sprintf(
-                    '%s: asked %d, changed %d, unchanged %d, unknown %d, invalid %d',
+                    '%s: asked %d, changed %d, unchanged %d, unknown %d, invalid %d, %d calls',
                     $name,
                     $summary['requested'],
                     $summary['changed'],
                     $summary['unchanged'],
                     $summary['unknown'],
                     $summary['invalid'],
+                    $summary['calls'],
                 );
                 $output->writeln($lines[array_key_last($lines)]);
             }

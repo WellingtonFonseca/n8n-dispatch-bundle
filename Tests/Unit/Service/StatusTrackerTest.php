@@ -178,10 +178,20 @@ class StatusTrackerTest extends TestCase
     {
         $this->trackings->expects($this->once())
             ->method('findPending')
-            ->with('email', 'pending', $this->equalTo(new \DateTimeImmutable('2026-09-25 10:00:00')), 200)
+            ->with('email', 'pending', $this->equalTo(new \DateTimeImmutable('2026-09-25 10:00:00')), 100, 0)
             ->willReturn([]);
 
-        $this->tracker->pending(DispatchTracking::CHANNEL_EMAIL, DispatchTracking::OUTCOME_PENDING, 200, 7, $this->now);
+        $this->tracker->pending(DispatchTracking::CHANNEL_EMAIL, DispatchTracking::OUTCOME_PENDING, 100, 7, $this->now);
+    }
+
+    public function testPendingContinuesAfterTheGivenId(): void
+    {
+        $this->trackings->expects($this->once())
+            ->method('findPending')
+            ->with('sms', 'pending', $this->anything(), 100, 250)
+            ->willReturn([]);
+
+        $this->tracker->pending(DispatchTracking::CHANNEL_SMS, DispatchTracking::OUTCOME_PENDING, 100, 7, $this->now, 250);
     }
 
     public function testViewForMetadataListsEachTrackedRefWithItsHistory(): void

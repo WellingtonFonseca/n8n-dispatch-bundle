@@ -27,14 +27,14 @@ class StatusPollNowTest extends TestCase
      */
     private function summary(int $requested = 0, ?string $error = null): array
     {
-        return ['requested' => $requested, 'changed' => 0, 'unchanged' => $requested, 'unknown' => 0, 'invalid' => 0, 'error' => $error];
+        return ['requested' => $requested, 'changed' => 0, 'unchanged' => $requested, 'unknown' => 0, 'invalid' => 0, 'calls' => $requested > 0 ? 1 : 0, 'error' => $error];
     }
 
-    public function testAsksTheThreeChannelsWithTheScheduledRunsDefaults(): void
+    public function testAsksTheThreeChannelsOnceEachInABatchOfOneHundred(): void
     {
         $asked = [];
-        $this->poller->method('poll')->willReturnCallback(function (string $channel, int $limit, int $maxAge, string $outcome, ?string $override) use (&$asked): array {
-            $asked[] = [$channel, $limit, $maxAge, $outcome, $override];
+        $this->poller->method('poll')->willReturnCallback(function (string $channel, int $limit, int $maxAge, string $outcome, ?string $override, \DateTimeImmutable $now, int $maxCalls) use (&$asked): array {
+            $asked[] = [$channel, $limit, $maxAge, $outcome, $override, $maxCalls];
 
             return $this->summary();
         });
@@ -42,9 +42,9 @@ class StatusPollNowTest extends TestCase
         $result = $this->now->run(new \DateTimeImmutable('2026-10-02 10:00:00'));
 
         $this->assertSame([
-            ['email', 200, 7, 'pending', null],
-            ['sms', 200, 7, 'pending', null],
-            ['hsm', 200, 7, 'pending', null],
+            ['email', 100, 7, 'pending', null, 1],
+            ['sms', 100, 7, 'pending', null, 1],
+            ['hsm', 100, 7, 'pending', null, 1],
         ], $asked);
         $this->assertSame(['email', 'sms', 'hsm'], array_keys($result['channels']));
     }

@@ -77,7 +77,14 @@ SMS usa `logSendSmsId`. No HSM, os dois ids do mesmo disparo vêm no mesmo item:
 
 - O item do HSM pode trazer **só um** dos dois ids (o outro já foi resolvido).
 - Números chegam como número e o uuid como texto.
-- Cada rodada pergunta no máximo 200 ids por canal (configurável).
+- **Lotes de 100 ids por chamada, várias chamadas seguidas.** A rodada pergunta **tudo o que
+  está pendente**, 100 ids por vez, uma chamada depois da outra (a próxima só sai quando a
+  anterior respondeu), até a fila acabar. Com 10 mil pendentes são 100 chamadas de 100. Cada
+  id é perguntado **uma vez só por rodada**. O n8n precisa dar vazão a esse ritmo; o tamanho de
+  100 serve para cada chamada responder rápido e liberar o workflow para os outros.
+- Cada chamada tem um **timeout**: 60 segundos sem resposta, ou 120 segundos no total. Se o n8n
+  travar, a chamada falha, a rodada para (o que já foi respondido antes fica gravado) e a próxima
+  rodada pergunta de novo.
 
 ## 3. A resposta do n8n (HTTP 200)
 
@@ -137,8 +144,9 @@ distinguir entregue/lido:
 - **Item que não veio na resposta:** continua pendente, sem erro.
 - **Id que o Mautic não conhece** ou **`outcome` inválido:** descartado e contado
   no resultado do comando; não derruba os outros itens do lote.
-- **HTTP 4xx/5xx, timeout ou corpo que não seja JSON com `items`:** o lote inteiro
-  é ignorado, nada muda e a próxima rodada pergunta de novo.
+- **HTTP 4xx/5xx, timeout ou corpo que não seja JSON com `items`:** aquela chamada é
+  ignorada, nada dela muda, a rodada **para** e a próxima rodada pergunta de novo. As
+  chamadas anteriores da mesma rodada, que já tinham dado certo, continuam gravadas.
 - Um id é perguntado por no máximo 7 dias depois do disparo (configurável). Depois
   disso, deixa de ser perguntado e fica pendente para sempre.
 
@@ -182,8 +190,8 @@ A configuração fica em **Settings > Plugins > N8n Dispatch > aba Features**:
 
 O botão **Verificar agora** serve para isso: com o liga/desliga ainda **desligado**, clique nele e
 o Mautic faz a pergunta de verdade ao seu webhook (mesma chamada de uma rodada agendada: ações
-`email.status`, `sms.status` e `hsm.status`, até 200 ids por canal, disparos dos últimos 7 dias).
-Você vê chegar no n8n, ajusta o workflow e clica de novo, quantas vezes precisar. Embaixo do
+`email.status`, `sms.status` e `hsm.status`, disparos dos últimos 7 dias).
+**O botão faz uma chamada só por canal, de até 100 ids**, e não esvazia a fila inteira como uma rodada agendada: assim você testa o workflow sem inundá-lo. Você vê chegar no n8n, ajusta o workflow e clica de novo, quantas vezes precisar. Embaixo do
 botão aparece, por canal, quantos ids foram perguntados e o que mudou, ou o erro (por exemplo
 `webhook returned HTTP 500.`), e uma linha avisando quando não havia nada pendente.
 
@@ -203,6 +211,9 @@ botão aparece, por canal, quantos ids foram perguntados e o que mudou, ou o err
 - **Aviso de cron parado:** se estiver ligado e não houver rodada há muito tempo
   (3 vezes o intervalo, no mínimo 1 hora), o campo "Última rodada" mostra um
   `ATENÇÃO`. Sem o cron do Mautic rodando também não há disparos de campanha.
+- **Uma rodada não começa enquanto a anterior ainda está rodando** (como a rodada esvazia a
+  fila inteira, numa fila grande ela pode durar mais que o intervalo). Uma rodada "rodando"
+  há mais de 2 horas é considerada morta e deixa de bloquear a seguinte.
 - Ligado e sem nenhuma rodada ainda: mostra "Ainda não rodou" (começa na próxima
   rodada do cron do Mautic).
 - Também é preciso que a integração N8n Dispatch esteja habilitada e com a
@@ -219,7 +230,8 @@ O comando **não depende** do liga/desliga: rodado à mão, ele sempre pergunta.
 | Opção | Padrão | Para quê |
 |---|---|---|
 | `--channel=email\|sms\|hsm` | os três | perguntar só de um canal |
-| `--limit=200` | 200 | máximo de ids por canal por rodada |
+| `--batch=100` | 100 | ids por chamada ao n8n |
+| `--max-calls=1000` | 1000 | máximo de chamadas por canal em uma rodada (só uma trava de segurança: a rodada vai até esvaziar a fila) |
 | `--max-age-days=7` | 7 | ignora disparos mais antigos que isso |
 | `--outcome=pending\|error` | `pending` | `error` refaz a pergunta dos que falharam |
 | `--webhook-url=URL` | o configurado | chama outra URL (para testes) |
@@ -265,7 +277,7 @@ outro, e o card mostra o callback também nos disparos antigos.
   `--since-days=30`. A ordem não importa para a varredura em si; o que importa é o poll
   chegar a perguntar antes de o prazo vencer.
 - A produção tem, no máximo, 100 disparos: a varredura é instantânea e o poll
-  (200 ids por canal por rodada) esvazia a fila numa rodada só.
+  (lotes de 100 ids por chamada, até esvaziar) esvazia a fila numa rodada só.
 - Saída de exemplo: `scanned 100, with ids 92, registered 120, already tracked 0, skipped 8`
   (o HSM conta dois ids por disparo).
 
