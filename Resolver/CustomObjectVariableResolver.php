@@ -46,7 +46,7 @@ class CustomObjectVariableResolver
     /**
      * Operators CustomFieldFilterQueryBuilder applies as NOT EXISTS.
      */
-    private const NEGATED_FIELD_OPERATORS = ['empty', 'neq', 'notLike', '!multiselect', '!between', 'notBetween'];
+    private const NEGATED_FIELD_OPERATORS = ['empty', 'neq', 'notLike', '!multiselect', 'notIn', '!between', 'notBetween'];
 
     /**
      * Operators CustomItemNameFilterQueryBuilder applies as NOT EXISTS.
