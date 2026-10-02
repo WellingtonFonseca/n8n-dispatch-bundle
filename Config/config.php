@@ -28,11 +28,27 @@ return [
                 'path'       => '/n8ndispatch/hsm-templates/{objectAction}/{objectId}',
                 'controller' => 'MauticPlugin\\N8nDispatchBundle\\Controller\\HsmTemplateController::executeAction',
             ],
+            'mautic_n8ndispatch.dispatch_index' => [
+                'path'       => '/n8ndispatch/dispatches',
+                'controller' => 'MauticPlugin\\N8nDispatchBundle\\Controller\\DispatchController::indexAction',
+            ],
         ],
     ],
 
     'menu' => [
         'main' => [
+            'mautic.n8ndispatch.menu.root' => [
+                'id'        => 'mautic_n8ndispatch_root',
+                'iconClass' => 'ri-send-plane-fill',
+                'access'    => 'plugin:plugins:manage',
+                'priority'  => 35,
+            ],
+            'mautic.n8ndispatch.dispatch.menu.index' => [
+                'route'    => 'mautic_n8ndispatch.dispatch_index',
+                'access'   => 'plugin:plugins:manage',
+                'parent'   => 'mautic.n8ndispatch.menu.root',
+                'priority' => 10,
+            ],
             'mautic.n8ndispatch.smstemplate.menu.index' => [
                 'route'    => 'mautic_n8ndispatch.smstemplate_index',
                 'access'   => 'sms:smses:viewown',
