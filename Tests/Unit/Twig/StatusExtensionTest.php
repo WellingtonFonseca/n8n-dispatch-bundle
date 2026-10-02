@@ -1,0 +1,109 @@
+<?php
+
+declare(strict_types=1);
+
+namespace MauticPlugin\N8nDispatchBundle\Tests\Unit\Twig;
+
+use Mautic\CoreBundle\Helper\DateTimeHelper;
+use MauticPlugin\N8nDispatchBundle\Service\StatusTracker;
+use MauticPlugin\N8nDispatchBundle\Twig\StatusExtension;
+use PHPUnit\Framework\TestCase;
+use Symfony\Contracts\Translation\LocaleAwareInterface;
+use Symfony\Contracts\Translation\TranslatorInterface;
+
+class StatusExtensionTest extends TestCase
+{
+    private function extension(string $locale): StatusExtension
+    {
+        $translator = $this->createMockForIntersectionOfInterfaces([TranslatorInterface::class, LocaleAwareInterface::class]);
+        $translator->method('getLocale')->willReturn($locale);
+
+        return new StatusExtension($this->createMock(StatusTracker::class), $translator);
+    }
+
+    /**
+     * What Mautic itself does with a stored UTC date: shown in its configured
+     * local time zone (the `default_timezone` setting, not PHP's), so the
+     * tests ask Mautic for that zone instead of assuming one.
+     */
+    private function local(string $utc, string $format): string
+    {
+        return (new DateTimeHelper($utc, 'Y-m-d H:i:s', 'UTC'))->toLocalString($format);
+    }
+
+    private function utc(string $when): \DateTimeImmutable
+    {
+        return new \DateTimeImmutable($when, new \DateTimeZone('UTC'));
+    }
+
+    /**
+     * @dataProvider locales
+     */
+    public function testTheDateFollowsTheSystemLanguage(string $locale, string $phpFormat): void
+    {
+        $this->assertSame(
+            $this->local('2026-10-02 13:35:09', $phpFormat),
+            $this->extension($locale)->date($this->utc('2026-10-02 13:35:09'))
+        );
+    }
+
+    /**
+     * @return iterable<string, array{string, string}>
+     */
+    public static function locales(): iterable
+    {
+        yield 'pt_BR'            => ['pt_BR', 'd/m/Y H:i'];
+        yield 'en'               => ['en', 'm/d/Y H:i'];
+        yield 'en_US'            => ['en_US', 'm/d/Y H:i'];
+        yield 'en_GB'            => ['en_GB', 'd/m/Y H:i'];
+        yield 'unknown language' => ['xx', 'd/m/Y H:i'];
+    }
+
+    public function testThePatternIsDayFirstInPortugueseAndMonthFirstInEnglish(): void
+    {
+        // 2 October, early enough that the local zone cannot change the day
+        $date = $this->utc('2026-10-02 12:00:00');
+
+        $this->assertStringStartsWith('02/10/2026', $this->extension('pt_BR')->date($date));
+        $this->assertStringStartsWith('10/02/2026', $this->extension('en')->date($date));
+    }
+
+    public function testThereIsNoMonthNameAndNoSeconds(): void
+    {
+        $text = $this->extension('pt_BR')->date($this->utc('2026-10-02 13:35:09'));
+
+        $this->assertMatchesRegularExpression('#^\d{2}/\d{2}/\d{4} \d{2}:\d{2}$#', $text);
+    }
+
+    public function testADateInAnotherTimeZoneIsTakenAsTheInstantItIs(): void
+    {
+        $inUtc       = $this->utc('2026-10-02 13:35:00');
+        $inSaoPaulo = new \DateTimeImmutable('2026-10-02 10:35:00', new \DateTimeZone('America/Sao_Paulo'));
+
+        $this->assertSame($this->extension('pt_BR')->date($inUtc), $this->extension('pt_BR')->date($inSaoPaulo));
+    }
+
+    public function testNothingToShowGivesAnEmptyText(): void
+    {
+        $this->assertSame('', $this->extension('pt_BR')->date(null));
+        $this->assertSame('', $this->extension('pt_BR')->date('not a date'));
+    }
+
+    public function testATranslatorWithoutALocaleFallsBackToTheDefaultLanguage(): void
+    {
+        $extension = new StatusExtension($this->createMock(StatusTracker::class), $this->createMock(TranslatorInterface::class));
+
+        $this->assertSame(
+            $this->local('2026-10-02 13:35:00', 'd/m/Y H:i'),
+            $extension->date($this->utc('2026-10-02 13:35:00'))
+        );
+    }
+
+    public function testExposesTheTwigFunctions(): void
+    {
+        $names = array_map(fn ($f) => $f->getName(), $this->extension('pt_BR')->getFunctions());
+
+        $this->assertContains('n8ndispatch_status', $names);
+        $this->assertContains('n8ndispatch_date', $names);
+    }
+}
