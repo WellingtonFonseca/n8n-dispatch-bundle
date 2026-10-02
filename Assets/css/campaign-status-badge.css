@@ -185,6 +185,11 @@
     overflow-wrap: anywhere;
 }
 
+/* The block of a message inside the table has no gap above it (the cell has its own padding). */
+.n8ndispatch-callback-history-table .n8ndispatch-timeline-json.n8ndispatch-callback-message {
+    margin: 0;
+}
+
 /* Titles of the Callback sections ('Callback', 'Callback Meta', 'Histórico'):
    extra air above, so each one reads as its own section and not as part of
    the block before it. The doubled class makes it win over the plain
