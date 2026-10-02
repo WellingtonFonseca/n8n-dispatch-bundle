@@ -63,4 +63,40 @@ class DispatchListReaderTest extends TestCase
         $this->assertSame('ana@x.com', DispatchListReader::contactName('', ' ', 'ana@x.com', 9));
         $this->assertSame('#9', DispatchListReader::contactName(null, null, null, 9));
     }
+
+    public function testTheDispatchDateIsReadAsUtc(): void
+    {
+        $date = DispatchListReader::dispatchedAt('2026-10-02 14:30:00');
+
+        $this->assertSame('2026-10-02 14:30:00', $date?->format('Y-m-d H:i:s'));
+        $this->assertSame('UTC', $date?->getTimezone()->getName());
+    }
+
+    public function testNoOrBadDateGivesNull(): void
+    {
+        $this->assertNull(DispatchListReader::dispatchedAt(null));
+        $this->assertNull(DispatchListReader::dispatchedAt(' '));
+        $this->assertNull(DispatchListReader::dispatchedAt('not a date'));
+    }
+
+    public function testEachChannelLinksToItsOwnTemplateScreen(): void
+    {
+        $this->assertSame(
+            ['name' => 'mautic_email_action', 'params' => ['objectAction' => 'view', 'objectId' => 5]],
+            DispatchListReader::templateRoute('email', 5)
+        );
+        $this->assertSame(
+            ['name' => 'mautic_n8ndispatch.smstemplate_action', 'params' => ['objectAction' => 'edit', 'objectId' => 6]],
+            DispatchListReader::templateRoute('sms', 6)
+        );
+        $this->assertSame(
+            ['name' => 'mautic_n8ndispatch.hsmtemplate_action', 'params' => ['objectAction' => 'edit', 'objectId' => 7]],
+            DispatchListReader::templateRoute('hsm', 7)
+        );
+    }
+
+    public function testAnUnknownChannelHasNoLink(): void
+    {
+        $this->assertNull(DispatchListReader::templateRoute('push', 1));
+    }
 }

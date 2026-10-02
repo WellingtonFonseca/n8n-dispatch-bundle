@@ -43,12 +43,12 @@ class DispatchListReader
     }
 
     /**
-     * @return list<array{id: int, channel: string, templateName: string, contactName: string}>
+     * @return list<array{id: int, channel: string, dispatchedAt: ?\DateTimeImmutable, templateName: string, templateRoute: array{name: string, params: array<string, int|string>}|null, contactName: string}>
      */
     public function read(int $page, int $limit): array
     {
         $rows = $this->baseQuery()
-            ->select('l.id, e.type, e.properties, l.lead_id, ld.firstname, ld.lastname, ld.email')
+            ->select('l.id, l.date_triggered, e.type, e.properties, l.lead_id, ld.firstname, ld.lastname, ld.email')
             ->orderBy('l.id', 'DESC')
             ->setFirstResult(max(0, ($page - 1) * $limit))
             ->setMaxResults($limit)
@@ -67,11 +67,15 @@ class DispatchListReader
             $ref     = $refs[$i];
             $channel = DispatchLogReader::channelOf((string) $row['type']) ?? '';
 
+            $found = null !== $ref && isset($names[$ref[0]][$ref[1]]);
+
             $items[] = [
-                'id'           => (int) $row['id'],
-                'channel'      => $channel,
-                'templateName' => null !== $ref ? ($names[$ref[0]][$ref[1]] ?? '#'.$ref[1]) : '-',
-                'contactName'  => self::contactName($row['firstname'], $row['lastname'], $row['email'], (int) $row['lead_id']),
+                'id'            => (int) $row['id'],
+                'channel'       => $channel,
+                'dispatchedAt'  => self::dispatchedAt($row['date_triggered']),
+                'templateName'  => null !== $ref ? ($names[$ref[0]][$ref[1]] ?? '#'.$ref[1]) : '-',
+                'templateRoute' => $found ? self::templateRoute($ref[0], $ref[1]) : null,
+                'contactName'   => self::contactName($row['firstname'], $row['lastname'], $row['email'], (int) $row['lead_id']),
             ];
         }
 
@@ -97,6 +101,39 @@ class DispatchListReader
         $id              = (int) ($data[$key] ?? 0);
 
         return $id > 0 ? [$channel, $id] : null;
+    }
+
+    /**
+     * Where the template's own screen is: the native Email view, and the
+     * plugin's edit page for an SMS or HSM template (their lists link there
+     * too). Null for an unknown channel.
+     *
+     * @return array{name: string, params: array<string, int|string>}|null
+     */
+    public static function templateRoute(string $channel, int $id): ?array
+    {
+        return match ($channel) {
+            DispatchTracking::CHANNEL_EMAIL => ['name' => 'mautic_email_action', 'params' => ['objectAction' => 'view', 'objectId' => $id]],
+            DispatchTracking::CHANNEL_SMS   => ['name' => 'mautic_n8ndispatch.smstemplate_action', 'params' => ['objectAction' => 'edit', 'objectId' => $id]],
+            DispatchTracking::CHANNEL_HSM   => ['name' => 'mautic_n8ndispatch.hsmtemplate_action', 'params' => ['objectAction' => 'edit', 'objectId' => $id]],
+            default                         => null,
+        };
+    }
+
+    /**
+     * The log's date_triggered is stored in UTC; null when it has none.
+     */
+    public static function dispatchedAt(?string $dateTriggered): ?\DateTimeImmutable
+    {
+        if (null === $dateTriggered || '' === trim($dateTriggered)) {
+            return null;
+        }
+
+        try {
+            return new \DateTimeImmutable($dateTriggered, new \DateTimeZone('UTC'));
+        } catch (\Exception) {
+            return null;
+        }
     }
 
     public static function contactName(?string $firstName, ?string $lastName, ?string $email, int $leadId): string
