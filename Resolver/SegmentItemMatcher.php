@@ -98,6 +98,73 @@ class SegmentItemMatcher
     }
 
     /**
+     * With the Custom Objects plugin's 'custom_object_merge_filter' ON,
+     * Mautic hands over ONE filter per group of AND conditions on Custom
+     * Objects; its criteria (operator, value, field id, type) are in the
+     * crate's merged property. True when at least one of them is on
+     * $customObjectId: a field of the object, or its item name (cmo_filter,
+     * where the "field" is the object id).
+     *
+     * @param int[] $fieldIds
+     */
+    public function mergedFilterConcernsObject(ContactSegmentFilter $filter, int $customObjectId, array $fieldIds): bool
+    {
+        return [] !== $this->mergedCriteriaOnObject($filter, $customObjectId, $fieldIds);
+    }
+
+    /**
+     * Items of the contact that satisfy ALL the criteria of a merged filter
+     * that are on $customObjectId, on the same item — the plugin's own
+     * createMergeFilterQuery() (the one the segment runs), restricted to
+     * this object's criteria and selecting the item id. Its operators are
+     * applied as written (no NOT EXISTS), so there is nothing to negate.
+     *
+     * @param int[] $fieldIds
+     *
+     * @return int[]
+     */
+    public function findMergedItemIds(ContactSegmentFilter $filter, Lead $contact, int $customObjectId, array $fieldIds): array
+    {
+        $criteria = $this->mergedCriteriaOnObject($filter, $customObjectId, $fieldIds);
+
+        if ([] === $criteria) {
+            return [];
+        }
+
+        $crate = clone $filter->contactSegmentFilterCrate;
+        $crate->setMergedProperty($criteria);
+        $objectFilter                            = clone $filter;
+        $objectFilter->contactSegmentFilterCrate = $crate;
+
+        $alias = self::ALIAS;
+        // 'cix' is the item-to-contact alias createMergeFilterQuery() uses; its
+        // WHERE compares cix.contact_id with "<leads alias>.id", so the leads
+        // table is joined under the alias given here.
+        $queryBuilder = $this->queryFilterHelper->createMergeFilterQuery($objectFilter, "{$alias}_lead");
+        $queryBuilder->select('DISTINCT cix.custom_item_id')
+            ->innerJoin('cix', MAUTIC_TABLE_PREFIX.'leads', "{$alias}_lead", "{$alias}_lead.id = cix.contact_id")
+            ->andWhere("{$alias}_lead.id = :n8ndContactId")
+            ->setParameter('n8ndContactId', $contact->getId());
+
+        return array_map('intval', $queryBuilder->executeQuery()->fetchFirstColumn());
+    }
+
+    /**
+     * @param int[] $fieldIds
+     *
+     * @return array<int, array<string, mixed>>
+     */
+    private function mergedCriteriaOnObject(ContactSegmentFilter $filter, int $customObjectId, array $fieldIds): array
+    {
+        return array_values(array_filter(
+            $filter->contactSegmentFilterCrate->getMergedProperty(),
+            static fn (array $criterion): bool => ($criterion['cmo_filter'] ?? false)
+                ? (int) $criterion['field'] === $customObjectId
+                : in_array((int) $criterion['field'], $fieldIds, true)
+        ));
+    }
+
+    /**
      * @return int[]
      */
     public function findAllItemIds(Lead $contact, int $customObjectId): array

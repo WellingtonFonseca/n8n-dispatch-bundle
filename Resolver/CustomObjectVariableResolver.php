@@ -106,7 +106,7 @@ class CustomObjectVariableResolver
                         continue;
                     }
 
-                    $conditionItemIds = $this->findItemIds($filter, $contact, $objectId);
+                    $conditionItemIds = $this->findItemIds($filter, $contact, $objectId, $fieldIds);
                     $groupItemIds     = null === $groupItemIds ? $conditionItemIds : array_intersect($groupItemIds, $conditionItemIds);
                 }
 
@@ -181,28 +181,24 @@ class CustomObjectVariableResolver
         return match ($filter->getQueryType()) {
             CustomFieldFilterQueryBuilder::getServiceId()        => in_array((int) $filter->getField(), $fieldIds, true),
             CustomItemNameFilterQueryBuilder::getServiceId()     => (int) $filter->getField() === $objectId,
-            CustomObjectMergedFilterQueryBuilder::getServiceId() => $this->warnMergedFilter(),
+            CustomObjectMergedFilterQueryBuilder::getServiceId() => $this->itemMatcher->mergedFilterConcernsObject($filter, $objectId, $fieldIds),
             default                                              => false,
         };
     }
 
     /**
-     * The Custom Objects plugin's 'custom_object_merge_filter' setting
-     * (off in this project) packs several conditions into one filter.
-     * Not supported here; logged so it doesn't fail silently if enabled.
-     */
-    private function warnMergedFilter(): bool
-    {
-        $this->logger->warning("N8nDispatch: merged Custom Object segment filters ('custom_object_merge_filter') are not supported for variable resolution; condition ignored.");
-
-        return false;
-    }
-
-    /**
+     * @param int[] $fieldIds
+     *
      * @return int[]
      */
-    private function findItemIds(ContactSegmentFilter $filter, Lead $contact, int $objectId): array
+    private function findItemIds(ContactSegmentFilter $filter, Lead $contact, int $objectId, array $fieldIds): array
     {
+        // Merged filter (custom_object_merge_filter ON): its criteria are applied
+        // as written, on the same item, so there is no positive set to negate.
+        if (CustomObjectMergedFilterQueryBuilder::getServiceId() === $filter->getQueryType()) {
+            return $this->itemMatcher->findMergedItemIds($filter, $contact, $objectId, $fieldIds);
+        }
+
         $positive = $this->itemMatcher->findPositiveItemIds($filter, $contact, $objectId);
 
         $negatedOperators = CustomItemNameFilterQueryBuilder::getServiceId() === $filter->getQueryType()

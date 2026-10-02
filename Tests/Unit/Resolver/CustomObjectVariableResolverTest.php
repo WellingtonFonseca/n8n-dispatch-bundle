@@ -16,6 +16,7 @@ use MauticPlugin\CustomObjectsBundle\Entity\CustomObject;
 use MauticPlugin\CustomObjectsBundle\Model\CustomObjectModel;
 use MauticPlugin\CustomObjectsBundle\Segment\Query\Filter\CustomFieldFilterQueryBuilder;
 use MauticPlugin\CustomObjectsBundle\Segment\Query\Filter\CustomItemNameFilterQueryBuilder;
+use MauticPlugin\CustomObjectsBundle\Segment\Query\Filter\CustomObjectMergedFilterQueryBuilder;
 use MauticPlugin\N8nDispatchBundle\Resolver\CustomObjectVariableResolver;
 use MauticPlugin\N8nDispatchBundle\Resolver\SegmentItemMatcher;
 use PHPUnit\Framework\TestCase;
@@ -99,6 +100,43 @@ class CustomObjectVariableResolverTest extends TestCase
     private function itemNameFilter(int $objectId, string $operator = 'eq', string $glue = 'and'): ContactSegmentFilter
     {
         return $this->segmentFilter(CustomItemNameFilterQueryBuilder::getServiceId(), $objectId, $operator, $glue);
+    }
+
+    private function mergedFilter(string $glue = 'and'): ContactSegmentFilter
+    {
+        return $this->segmentFilter(CustomObjectMergedFilterQueryBuilder::getServiceId(), 2, 'lt', $glue);
+    }
+
+    /**
+     * Declares which merged filters concern the resolved object and which
+     * items each of them matches (all of its criteria on the SAME item).
+     *
+     * @param array<int, array{0: ContactSegmentFilter, 1: bool, 2: int[]}> $map
+     */
+    private function mergedMatches(array $map): void
+    {
+        $this->itemMatcher->method('mergedFilterConcernsObject')->willReturnCallback(
+            static function (ContactSegmentFilter $filter) use ($map): bool {
+                foreach ($map as [$mappedFilter, $concerns]) {
+                    if ($mappedFilter === $filter) {
+                        return $concerns;
+                    }
+                }
+
+                return false;
+            }
+        );
+        $this->itemMatcher->method('findMergedItemIds')->willReturnCallback(
+            static function (ContactSegmentFilter $filter) use ($map): array {
+                foreach ($map as [$mappedFilter, , $ids]) {
+                    if ($mappedFilter === $filter) {
+                        return $ids;
+                    }
+                }
+
+                return [];
+            }
+        );
     }
 
     private function contactFieldFilter(string $glue = 'and'): ContactSegmentFilter
@@ -352,5 +390,68 @@ class CustomObjectVariableResolverTest extends TestCase
         $this->expectValuesFetchedFor([1, 2], 'nome', ['a', 'b']);
 
         $this->assertSame("a\nb", $this->resolver->resolve($this->contact, $campaign, 'disciplina', 'nome', "\n"));
+    }
+
+    public function testMergedFilterOnThisObjectUsesTheItemsItMatches(): void
+    {
+        // custom_object_merge_filter ON: "inicio < hoje AND fim > hoje" arrives as ONE merged filter.
+        $merged   = $this->mergedFilter();
+        $campaign = $this->campaignWithSegment([$merged]);
+
+        $this->mergedMatches([[$merged, true, [2]]]);
+        $this->logger->expects($this->never())->method('warning');
+        $this->expectValuesFetchedFor([2], 'nome', ['xxxx']);
+
+        $this->assertSame('xxxx', $this->resolver->resolve($this->contact, $campaign, 'disciplina', 'nome'));
+    }
+
+    public function testMergedFilterWithNoMatchingItemResolvesEmptyWithoutWarning(): void
+    {
+        $merged   = $this->mergedFilter();
+        $campaign = $this->campaignWithSegment([$merged]);
+
+        $this->mergedMatches([[$merged, true, []]]);
+        $this->logger->expects($this->never())->method('warning');
+        $this->itemMatcher->expects($this->never())->method('fetchFieldValues');
+
+        $this->assertSame('', $this->resolver->resolve($this->contact, $campaign, 'disciplina', 'nome'));
+    }
+
+    public function testMergedFilterOnAnotherObjectDoesNotNarrowTheItems(): void
+    {
+        $merged   = $this->mergedFilter();
+        $campaign = $this->campaignWithSegment([$merged]);
+
+        $this->mergedMatches([[$merged, false, [1, 2]]]);
+        $this->logger->expects($this->once())->method('warning');
+        $this->itemMatcher->expects($this->never())->method('fetchFieldValues');
+
+        $this->assertSame('', $this->resolver->resolve($this->contact, $campaign, 'disciplina', 'nome'));
+    }
+
+    public function testMergedFilterIsNarrowedByAnotherAndConditionOnTheSameItem(): void
+    {
+        $merged   = $this->mergedFilter();
+        $nome     = $this->fieldFilter(1);
+        $campaign = $this->campaignWithSegment([$merged, $nome]);
+
+        $this->mergedMatches([[$merged, true, [1, 2]]]);
+        $this->positiveMatches([[$nome, [2, 3]]]);
+        $this->expectValuesFetchedFor([2], 'nome', ['xxxx']);
+
+        $this->assertSame('xxxx', $this->resolver->resolve($this->contact, $campaign, 'disciplina', 'nome'));
+    }
+
+    public function testMergedFilterOrGroupAddsItsItemsToTheOtherGroup(): void
+    {
+        $posicao  = $this->fieldFilter(2);
+        $merged   = $this->mergedFilter('or');
+        $campaign = $this->campaignWithSegment([$posicao, $merged]);
+
+        $this->positiveMatches([[$posicao, [1]]]);
+        $this->mergedMatches([[$merged, true, [3]]]);
+        $this->expectValuesFetchedFor([1, 3], 'nome', ['a', 'c']);
+
+        $this->assertSame('a<br>c', $this->resolver->resolve($this->contact, $campaign, 'disciplina', 'nome'));
     }
 }
