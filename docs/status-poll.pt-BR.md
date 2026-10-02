@@ -176,6 +176,24 @@ A configuração fica em **Settings > Plugins > N8n Dispatch > aba Features**:
 | Verificar o status dos disparos (callback) | **Desligado** | Liga/desliga. Ligue para o Mautic começar a perguntar ao n8n. |
 | Verificar a cada (minutos) | 60 | `60` = 1 hora, `120` = 2 horas. Mínimo 5, máximo 1440. |
 | Última rodada | (só leitura) | Data, resultado (ok/erro) e o resumo da última rodada agendada. |
+| **Verificar agora** | (botão) | Pergunta ao n8n **uma vez, agora**, e mostra o resultado embaixo do botão. Funciona com o liga/desliga desligado. |
+
+### Montando e testando o workflow antes de ligar
+
+O botão **Verificar agora** serve para isso: com o liga/desliga ainda **desligado**, clique nele e
+o Mautic faz a pergunta de verdade ao seu webhook (mesma chamada de uma rodada agendada: ações
+`email.status`, `sms.status` e `hsm.status`, até 200 ids por canal, disparos dos últimos 7 dias).
+Você vê chegar no n8n, ajusta o workflow e clica de novo, quantas vezes precisar. Embaixo do
+botão aparece, por canal, quantos ids foram perguntados e o que mudou, ou o erro (por exemplo
+`webhook returned HTTP 500.`), e uma linha avisando quando não havia nada pendente.
+
+- Usa o webhook **já salvo** nas configurações do plugin: salve antes de clicar, se acabou de
+  alterar a URL ou o token.
+- É de verdade: as respostas do n8n são **gravadas** (o card e o histórico passam a mostrá-las), e
+  só pergunta por ids já acompanhados. Para ter o que perguntar, rode antes a varredura dos
+  disparos antigos (seção "Disparos que já existiam antes") ou espere um disparo novo.
+- Não mexe no agendamento nem na linha "Última rodada", que são das rodadas agendadas.
+- Exige a permissão de gerenciar plugins.
 
 - **Mudar o intervalo** é só editar o campo e salvar. Vale já no próximo ciclo do
   cron do Mautic, sem reiniciar nada.

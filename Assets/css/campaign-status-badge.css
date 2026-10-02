@@ -333,3 +333,23 @@
         opacity: 0.35;
     }
 }
+
+/* Result of the "Check now" button on the plugin's settings screen
+   (Assets/js/status-poll-check-now.js). Colors from the theme's own
+   variables, with light fallbacks. */
+.n8ndispatch-check-now-result {
+    margin-top: 10px;
+    font-size: 12px;
+}
+
+.n8ndispatch-check-now-line {
+    margin: 2px 0;
+}
+
+.n8ndispatch-check-now-line--error {
+    color: var(--text-error, #da1e28);
+}
+
+.n8ndispatch-check-now-line--info {
+    color: var(--text-secondary, #525252);
+}

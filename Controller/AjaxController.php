@@ -14,6 +14,7 @@ use Mautic\EmailBundle\Model\EmailModel;
 use Mautic\LeadBundle\Model\FieldModel;
 use MauticPlugin\CustomObjectsBundle\Model\CustomObjectModel;
 use MauticPlugin\N8nDispatchBundle\Entity\EmailVariablesRepository;
+use MauticPlugin\N8nDispatchBundle\Service\StatusPollNow;
 use MauticPlugin\N8nDispatchBundle\Service\TemplateVariableScanner;
 use Symfony\Component\HttpFoundation\JsonResponse;
 use Symfony\Component\HttpFoundation\Request;
@@ -137,6 +138,23 @@ class AjaxController extends CommonAjaxController
         }
 
         return $this->sendJsonResponse(['success' => 1, 'statuses' => $statuses]);
+    }
+
+    /**
+     * The "Check now" button of the plugin's settings screen (Assets/js/
+     * status-poll-check-now.js): asks n8n about the pending dispatches once,
+     * right away, and returns what happened per channel. Same permission as
+     * saving the plugin's settings.
+     */
+    public function runStatusPollAction(CorePermissions $security, StatusPollNow $runner): JsonResponse
+    {
+        if (!$security->isGranted('plugin:plugins:manage')) {
+            return new JsonResponse(['success' => 0], Response::HTTP_FORBIDDEN);
+        }
+
+        $result = $runner->run(new \DateTimeImmutable());
+
+        return new JsonResponse(['success' => 1, 'ok' => $result['ok'], 'channels' => $result['channels']]);
     }
 
     /**

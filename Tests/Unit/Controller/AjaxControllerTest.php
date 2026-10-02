@@ -7,7 +7,9 @@ namespace MauticPlugin\N8nDispatchBundle\Tests\Unit\Controller;
 use Mautic\EmailBundle\Entity\Copy;
 use Mautic\EmailBundle\Entity\CopyRepository;
 use Mautic\EmailBundle\Model\EmailModel;
+use Mautic\CoreBundle\Security\Permissions\CorePermissions;
 use MauticPlugin\N8nDispatchBundle\Controller\AjaxController;
+use MauticPlugin\N8nDispatchBundle\Service\StatusPollNow;
 use MauticPlugin\N8nDispatchBundle\Service\TemplateVariableScanner;
 use MauticPlugin\CustomObjectsBundle\Model\CustomObjectModel;
 use Mautic\LeadBundle\Model\FieldModel;
@@ -301,5 +303,35 @@ class AjaxControllerTest extends TestCase
     public function testAuditMessageIsNullWithoutAUserEmail(): void
     {
         $this->assertNull($this->auditMessage(null));
+    }
+
+    public function testRunStatusPollNeedsThePermissionToManagePlugins(): void
+    {
+        $security = $this->createMock(CorePermissions::class);
+        $security->method('isGranted')->with('plugin:plugins:manage')->willReturn(false);
+        $runner = $this->createMock(StatusPollNow::class);
+        $runner->expects($this->never())->method('run');
+
+        $response = $this->buildController()->runStatusPollAction($security, $runner);
+
+        $this->assertSame(Response::HTTP_FORBIDDEN, $response->getStatusCode());
+        $this->assertSame(0, json_decode((string) $response->getContent(), true)['success']);
+    }
+
+    public function testRunStatusPollReturnsWhatTheRunnerFound(): void
+    {
+        $security = $this->createMock(CorePermissions::class);
+        $security->method('isGranted')->with('plugin:plugins:manage')->willReturn(true);
+        $runner = $this->createMock(StatusPollNow::class);
+        $channels = ['email' => ['requested' => 3, 'changed' => 1, 'unchanged' => 2, 'unknown' => 0, 'invalid' => 0, 'error' => null]];
+        $runner->expects($this->once())->method('run')->willReturn(['ok' => true, 'channels' => $channels]);
+
+        $response = $this->buildController()->runStatusPollAction($security, $runner);
+
+        $this->assertSame(200, $response->getStatusCode());
+        $body = json_decode((string) $response->getContent(), true);
+        $this->assertSame(1, $body['success']);
+        $this->assertTrue($body['ok']);
+        $this->assertSame($channels, $body['channels']);
     }
 }
