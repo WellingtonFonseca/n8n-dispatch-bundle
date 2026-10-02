@@ -251,3 +251,21 @@ test('translate falls back to the English text when mauticLang has no such key o
     assert.strictEqual(loadSharedWithLang(undefined).translate('mautic.n8ndispatch.js.select_field', 'Select a field'), 'Select a field');
     assert.strictEqual(loadSharedWithLang({'mautic.n8ndispatch.js.select_field': ''}).translate('mautic.n8ndispatch.js.select_field', 'Select a field'), 'Select a field');
 });
+
+test('unmapped placeholders of an HSM/SMS text: same rule as the save check', () => {
+    const filled = JSON.stringify({1: {source: 'static', value: 'a'}, 2: {source: 'field', field: 'firstname'}});
+    const blank  = JSON.stringify({1: {source: 'static', value: ''}});
+
+    assert.strictEqual(shared.hasUnmappedPlaceholder('Hi {{1}} {{ 2 }}', filled), false);
+    assert.strictEqual(shared.hasUnmappedPlaceholder('Hi {{1}}', blank), true);
+    assert.strictEqual(shared.hasUnmappedPlaceholder('Hi {{1}}', '{}'), true);
+    assert.strictEqual(shared.hasUnmappedPlaceholder('Hi {{1}} {{3}}', filled), true);
+    assert.strictEqual(shared.hasUnmappedPlaceholder('Hi {{1}}', 'not json'), true);
+    assert.strictEqual(shared.hasUnmappedPlaceholder('Hi {{1}}', ''), true);
+});
+
+test('no placeholders, or a non-numeric one (the numeric alert is the one to show), means no unmapped alert', () => {
+    assert.strictEqual(shared.hasUnmappedPlaceholder('Just text', '{}'), false);
+    assert.strictEqual(shared.hasUnmappedPlaceholder('', '{}'), false);
+    assert.strictEqual(shared.hasUnmappedPlaceholder('{{1}} {{valor}}', '{}'), false);
+});

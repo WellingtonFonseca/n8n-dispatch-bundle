@@ -7,6 +7,7 @@ namespace MauticPlugin\N8nDispatchBundle\Entity;
 use Doctrine\ORM\Mapping as ORM;
 use Mautic\CoreBundle\Doctrine\Mapping\ClassMetadataBuilder;
 use Mautic\CoreBundle\Entity\FormEntity;
+use MauticPlugin\N8nDispatchBundle\Entity\Validation\MappedVariables;
 use MauticPlugin\N8nDispatchBundle\Entity\Validation\NumericVariables;
 use MauticPlugin\N8nDispatchBundle\Resolver\LocaleConventions;
 use Symfony\Component\Validator\Constraints as Assert;
@@ -146,6 +147,9 @@ class HsmTemplate extends FormEntity
 
         // WhatsApp only accepts positional placeholders, {{1}}, {{2}}, ...
         $metadata->addPropertyConstraint('text', new Assert\Callback([NumericVariables::class, 'validate']));
+
+        // Every placeholder needs a filled-in source on the variable rows below the text.
+        $metadata->addPropertyConstraint('text', new Assert\Callback([MappedVariables::class, 'validate']));
     }
 
     public function getId(): ?int

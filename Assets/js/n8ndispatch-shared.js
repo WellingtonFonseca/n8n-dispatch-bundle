@@ -158,6 +158,53 @@
         }
     }
 
+    // Whether a template text has numeric placeholders whose row in the saved mapping (the hidden field's JSON) is not
+    // filled in yet: the same rule as MappedVariables in PHP. It steps aside while the text still has a non-numeric
+    // placeholder (the numeric alert is the one to show then), like the save check does.
+    function hasUnmappedPlaceholder(text, mappingJson) {
+        var source = String(null == text ? '' : text);
+
+        if (hasNonNumericPlaceholder(source)) {
+            return false;
+        }
+
+        var mapping = {};
+        try {
+            mapping = JSON.parse(mappingJson || '{}') || {};
+        } catch (e) {
+            mapping = {};
+        }
+
+        var names   = [];
+        var pattern = /\{\{\s*(\d+)\s*\}\}/g;
+        var match;
+
+        while (null !== (match = pattern.exec(source))) {
+            if (-1 === names.indexOf(match[1])) {
+                names.push(match[1]);
+            }
+        }
+
+        return 0 < findUnmapped(names, mapping).length;
+    }
+
+    // The generic "every variable needs a value" alert of the HSM and SMS template forms. Same place as the numeric
+    // one (right after the text field's row, above the variable rows), so the same rules apply.
+    function setUnmappedAlert($textField, id, text, show) {
+        setNumericAlert($textField, id, text, show);
+    }
+
+    // Decided from the text field and the rows' hidden field, as they are right now.
+    function hasUnmappedVariables($textField) {
+        return hasUnmappedPlaceholder($textField.val(), getHiddenField($textField).val());
+    }
+
+    // Calls fn each time the variable rows change (syncHiddenField() triggers this on the hidden field, which bubbles
+    // up to the form). Bound again on every call without piling up handlers.
+    function onMappingSynced($textField, fn) {
+        $textField.closest('form').off('n8ndispatch:synced.templatealert').on('n8ndispatch:synced.templatealert', fn);
+    }
+
     var VARIABLES_TAB = '#n8ndispatch-email-tab-container';
     var ADVANCED_TAB  = '#advanced-container';
 
@@ -314,11 +361,15 @@
         clearVariables:              clearVariables,
         findUnmapped:                findUnmapped,
         hasNonNumericPlaceholder:    hasNonNumericPlaceholder,
+        hasUnmappedPlaceholder:      hasUnmappedPlaceholder,
+        hasUnmappedVariables:        hasUnmappedVariables,
         isEntrySet:                  isEntrySet,
         missingSenderFields:         missingSenderFields,
         noticeFor:                   noticeFor,
+        onMappingSynced:             onMappingSynced,
         renderVariablesFromResponse: renderVariablesFromResponse,
         setNumericAlert:             setNumericAlert,
+        setUnmappedAlert:            setUnmappedAlert,
         translate:                   translate,
     };
 
