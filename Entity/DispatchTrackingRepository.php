@@ -23,23 +23,26 @@ class DispatchTrackingRepository extends CommonRepository
 
     /**
      * The rows still waiting for an answer (or, with another $outcome, the
-     * ones to ask about again), dispatched since $since. Never-checked rows
-     * come first, then the ones checked longest ago, so a batch limit
-     * rotates through the whole queue instead of re-asking the same ids.
+     * ones to ask about again), dispatched since $since, oldest id first and
+     * only those after $afterId. The id cursor is what lets a run walk the
+     * whole queue in batches without ever asking about the same row twice,
+     * even about one n8n left out of its answer (which keeps its place in
+     * any other ordering).
      *
      * @return list<DispatchTracking>
      */
-    public function findPending(string $channel, string $outcome, \DateTimeInterface $since, int $limit): array
+    public function findPending(string $channel, string $outcome, \DateTimeInterface $since, int $limit, int $afterId = 0): array
     {
         return $this->createQueryBuilder('dt')
             ->where('dt.channel = :channel')
             ->andWhere('dt.outcome = :outcome')
             ->andWhere('dt.dispatchedAt >= :since')
+            ->andWhere('dt.id > :after')
             ->setParameter('channel', $channel)
             ->setParameter('outcome', $outcome)
             ->setParameter('since', $since, 'datetime_immutable')
-            ->orderBy('dt.lastCheckedAt', 'ASC')
-            ->addOrderBy('dt.id', 'ASC')
+            ->setParameter('after', $afterId)
+            ->orderBy('dt.id', 'ASC')
             ->setMaxResults($limit)
             ->getQuery()
             ->getResult();

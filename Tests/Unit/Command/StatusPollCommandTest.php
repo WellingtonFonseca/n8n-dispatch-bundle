@@ -31,7 +31,7 @@ class StatusPollCommandTest extends TestCase
 
     private function summary(int $requested = 0, ?string $error = null): array
     {
-        return ['requested' => $requested, 'changed' => 0, 'unchanged' => $requested, 'unknown' => 0, 'invalid' => 0, 'error' => $error];
+        return ['requested' => $requested, 'changed' => 0, 'unchanged' => $requested, 'unknown' => 0, 'invalid' => 0, 'calls' => $requested > 0 ? 1 : 0, 'error' => $error];
     }
 
     public function testPollsTheThreeChannelsByDefault(): void
@@ -107,5 +107,40 @@ class StatusPollCommandTest extends TestCase
         $this->poller->expects($this->never())->method('poll');
 
         $this->assertSame(2, $this->tester->execute(['--channel' => 'fax']));
+    }
+
+    public function testTheBatchAndTheCapGoToThePoller(): void
+    {
+        $seen = [];
+        $this->poller->method('poll')->willReturnCallback(function (string $channel, int $batch, int $maxAge, string $outcome, ?string $override, \DateTimeImmutable $now, int $maxCalls) use (&$seen): array {
+            $seen[] = [$batch, $maxCalls];
+
+            return $this->summary();
+        });
+
+        $this->tester->execute(['--batch' => '50', '--max-calls' => '7']);
+        $this->assertSame([[50, 7], [50, 7], [50, 7]], $seen);
+
+        $seen = [];
+        $this->tester->execute([]);
+        $this->assertSame([[100, 1000], [100, 1000], [100, 1000]], $seen, 'defaults: batches of 100, a high cap');
+    }
+
+    public function testTheOutputSaysHowManyCallsWereMade(): void
+    {
+        $this->poller->method('poll')->willReturn(['requested' => 250, 'changed' => 10, 'unchanged' => 240, 'unknown' => 0, 'invalid' => 0, 'calls' => 3, 'error' => null]);
+
+        $this->tester->execute(['--channel' => 'email']);
+
+        $this->assertStringContainsString('asked 250', $this->tester->getDisplay());
+        $this->assertStringContainsString('3 calls', $this->tester->getDisplay());
+    }
+
+    public function testRejectsAnInvalidBatchOrCap(): void
+    {
+        $this->poller->expects($this->never())->method('poll');
+
+        $this->assertSame(2, $this->tester->execute(['--batch' => '0']));
+        $this->assertSame(2, $this->tester->execute(['--max-calls' => 'abc']));
     }
 }

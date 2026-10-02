@@ -57,9 +57,15 @@ class StatusPollerTest extends TestCase
         $this->integrationHelper->method('getIntegrationObject')->willReturn($integration);
     }
 
-    private function row(string $channel, string $refType, string $refValue, string $group): DispatchTracking
+    private function row(string $channel, string $refType, string $refValue, string $group, ?int $id = null): DispatchTracking
     {
-        return DispatchTracking::create($channel, $refType, $refValue, $group, new \DateTimeImmutable('2026-10-02 09:00:00'));
+        $row = DispatchTracking::create($channel, $refType, $refValue, $group, new \DateTimeImmutable('2026-10-02 09:00:00'));
+
+        if (null !== $id) {
+            (new \ReflectionProperty($row, 'id'))->setValue($row, $id);
+        }
+
+        return $row;
     }
 
     private function response(int $status, string $body): ResponseInterface
@@ -77,7 +83,7 @@ class StatusPollerTest extends TestCase
         $this->tracker->method('pending')->willReturn([]);
         $this->httpClient->expects($this->never())->method('request');
 
-        $summary = $this->poller->poll(DispatchTracking::CHANNEL_EMAIL, 200, 7, DispatchTracking::OUTCOME_PENDING, null, $this->now);
+        $summary = $this->poller->poll(DispatchTracking::CHANNEL_EMAIL, 100, 7, DispatchTracking::OUTCOME_PENDING, null, $this->now);
 
         $this->assertSame(0, $summary['requested']);
         $this->assertNull($summary['error']);
@@ -86,7 +92,7 @@ class StatusPollerTest extends TestCase
     public function testSendsTheItemsWithTheStatusActionAndTheTokenThenAppliesTheResponse(): void
     {
         $this->mockIntegration(true, ['webhook_url' => 'https://n8n.example.test/hook', 'webhook_token' => 'secret']);
-        $this->tracker->method('pending')->with('email', 'pending', 200, 7, $this->now)->willReturn([
+        $this->tracker->method('pending')->with('email', 'pending', 100, 7, $this->now, 0)->willReturn([
             $this->row('email', 'logSendEmailId', '4298591', 'g1'),
             $this->row('email', 'logSendEmailId', '4298592', 'g2'),
         ]);
@@ -106,7 +112,7 @@ class StatusPollerTest extends TestCase
             ->with($this->callback(fn (array $items): bool => 2 === count($items)), $this->now)
             ->willReturn(['changed' => 1, 'unchanged' => 1, 'unknown' => 0]);
 
-        $summary = $this->poller->poll(DispatchTracking::CHANNEL_EMAIL, 200, 7, DispatchTracking::OUTCOME_PENDING, null, $this->now);
+        $summary = $this->poller->poll(DispatchTracking::CHANNEL_EMAIL, 100, 7, DispatchTracking::OUTCOME_PENDING, null, $this->now);
 
         $this->assertSame(2, $summary['requested']);
         $this->assertSame(1, $summary['changed']);
@@ -136,7 +142,7 @@ class StatusPollerTest extends TestCase
             ->willReturn($this->response(200, '{"items":[]}'));
         $this->tracker->method('apply')->willReturn(['changed' => 0, 'unchanged' => 0, 'unknown' => 0]);
 
-        $this->poller->poll(DispatchTracking::CHANNEL_HSM, 200, 7, DispatchTracking::OUTCOME_PENDING, null, $this->now);
+        $this->poller->poll(DispatchTracking::CHANNEL_HSM, 100, 7, DispatchTracking::OUTCOME_PENDING, null, $this->now);
     }
 
     public function testStopsWithAnErrorWhenTheIntegrationIsDisabled(): void
@@ -145,7 +151,7 @@ class StatusPollerTest extends TestCase
         $this->httpClient->expects($this->never())->method('request');
         $this->tracker->expects($this->never())->method('pending');
 
-        $summary = $this->poller->poll(DispatchTracking::CHANNEL_EMAIL, 200, 7, DispatchTracking::OUTCOME_PENDING, null, $this->now);
+        $summary = $this->poller->poll(DispatchTracking::CHANNEL_EMAIL, 100, 7, DispatchTracking::OUTCOME_PENDING, null, $this->now);
 
         $this->assertNotNull($summary['error']);
     }
@@ -155,7 +161,7 @@ class StatusPollerTest extends TestCase
         $this->mockIntegration(true, ['webhook_url' => '  ']);
         $this->httpClient->expects($this->never())->method('request');
 
-        $summary = $this->poller->poll(DispatchTracking::CHANNEL_EMAIL, 200, 7, DispatchTracking::OUTCOME_PENDING, null, $this->now);
+        $summary = $this->poller->poll(DispatchTracking::CHANNEL_EMAIL, 100, 7, DispatchTracking::OUTCOME_PENDING, null, $this->now);
 
         $this->assertNotNull($summary['error']);
     }
@@ -169,7 +175,7 @@ class StatusPollerTest extends TestCase
             ->willReturn($this->response(200, '{"items":[]}'));
         $this->tracker->method('apply')->willReturn(['changed' => 0, 'unchanged' => 0, 'unknown' => 0]);
 
-        $this->poller->poll(DispatchTracking::CHANNEL_EMAIL, 200, 7, DispatchTracking::OUTCOME_PENDING, 'http://127.0.0.1:8099/', $this->now);
+        $this->poller->poll(DispatchTracking::CHANNEL_EMAIL, 100, 7, DispatchTracking::OUTCOME_PENDING, 'http://127.0.0.1:8099/', $this->now);
     }
 
     public function testAnHttpErrorLeavesEverythingPending(): void
@@ -179,7 +185,7 @@ class StatusPollerTest extends TestCase
         $this->httpClient->method('request')->willReturn($this->response(500, '{"items":[{"logSendEmailId":1,"outcome":"success"}]}'));
         $this->tracker->expects($this->never())->method('apply');
 
-        $summary = $this->poller->poll(DispatchTracking::CHANNEL_EMAIL, 200, 7, DispatchTracking::OUTCOME_PENDING, null, $this->now);
+        $summary = $this->poller->poll(DispatchTracking::CHANNEL_EMAIL, 100, 7, DispatchTracking::OUTCOME_PENDING, null, $this->now);
 
         $this->assertNotNull($summary['error']);
         $this->assertSame(0, $summary['changed']);
@@ -192,7 +198,7 @@ class StatusPollerTest extends TestCase
         $this->httpClient->method('request')->willThrowException(new \RuntimeException('connection refused'));
         $this->tracker->expects($this->never())->method('apply');
 
-        $summary = $this->poller->poll(DispatchTracking::CHANNEL_EMAIL, 200, 7, DispatchTracking::OUTCOME_PENDING, null, $this->now);
+        $summary = $this->poller->poll(DispatchTracking::CHANNEL_EMAIL, 100, 7, DispatchTracking::OUTCOME_PENDING, null, $this->now);
 
         $this->assertStringContainsString('connection refused', (string) $summary['error']);
     }
@@ -204,7 +210,7 @@ class StatusPollerTest extends TestCase
         $this->httpClient->method('request')->willReturn($this->response(200, '<html>oops</html>'));
         $this->tracker->expects($this->never())->method('apply');
 
-        $summary = $this->poller->poll(DispatchTracking::CHANNEL_EMAIL, 200, 7, DispatchTracking::OUTCOME_PENDING, null, $this->now);
+        $summary = $this->poller->poll(DispatchTracking::CHANNEL_EMAIL, 100, 7, DispatchTracking::OUTCOME_PENDING, null, $this->now);
 
         $this->assertNotNull($summary['error']);
     }
@@ -221,9 +227,150 @@ class StatusPollerTest extends TestCase
             ->with($this->callback(fn (array $items): bool => 1 === count($items)), $this->now)
             ->willReturn(['changed' => 1, 'unchanged' => 0, 'unknown' => 0]);
 
-        $summary = $this->poller->poll(DispatchTracking::CHANNEL_EMAIL, 200, 7, DispatchTracking::OUTCOME_PENDING, null, $this->now);
+        $summary = $this->poller->poll(DispatchTracking::CHANNEL_EMAIL, 100, 7, DispatchTracking::OUTCOME_PENDING, null, $this->now);
 
         $this->assertSame(1, $summary['invalid']);
         $this->assertSame(1, $summary['changed']);
+    }
+
+    /**
+     * @param list<int> $ids
+     *
+     * @return list<DispatchTracking>
+     */
+    private function page(array $ids): array
+    {
+        return array_map(fn (int $id): DispatchTracking => $this->row('email', 'logSendEmailId', (string) (4000 + $id), 'g'.$id, $id), $ids);
+    }
+
+    public function testKeepsAskingInBatchesUntilTheQueueIsEmpty(): void
+    {
+        $this->mockIntegration(true, ['webhook_url' => 'https://n8n.example.test/hook']);
+        $cursors = [];
+        $this->tracker->method('pending')->willReturnCallback(function (string $c, string $o, int $limit, int $age, \DateTimeImmutable $now, int $after) use (&$cursors): array {
+            $cursors[] = $after;
+
+            return match ($after) {
+                0       => $this->page([1, 2]),
+                2       => $this->page([3, 4]),
+                4       => $this->page([5]),
+                default => [],
+            };
+        });
+        $this->httpClient->expects($this->exactly(3))->method('request')->willReturn($this->response(200, '{"items":[]}'));
+        $this->tracker->method('apply')->willReturn(['changed' => 1, 'unchanged' => 1, 'unknown' => 0]);
+
+        $summary = $this->poller->poll(DispatchTracking::CHANNEL_EMAIL, 2, 7, DispatchTracking::OUTCOME_PENDING, null, $this->now);
+
+        $this->assertSame([0, 2, 4], $cursors, 'each page starts after the last id of the one before, so nothing is asked twice');
+        $this->assertSame(3, $summary['calls']);
+        $this->assertSame(5, $summary['requested']);
+        $this->assertSame(3, $summary['changed']);
+        $this->assertSame(3, $summary['unchanged']);
+        $this->assertNull($summary['error']);
+    }
+
+    public function testAFullLastPageIsFollowedByOneMoreReadOfTheQueue(): void
+    {
+        $this->mockIntegration(true, ['webhook_url' => 'https://n8n.example.test/hook']);
+        $this->tracker->method('pending')->willReturnCallback(fn (string $c, string $o, int $limit, int $age, \DateTimeImmutable $now, int $after): array => 0 === $after ? $this->page([1, 2]) : []);
+        $this->httpClient->expects($this->once())->method('request')->willReturn($this->response(200, '{"items":[]}'));
+        $this->tracker->method('apply')->willReturn(['changed' => 0, 'unchanged' => 2, 'unknown' => 0]);
+
+        $summary = $this->poller->poll(DispatchTracking::CHANNEL_EMAIL, 2, 7, DispatchTracking::OUTCOME_PENDING, null, $this->now);
+
+        $this->assertSame(1, $summary['calls']);
+    }
+
+    public function testAFailureInTheMiddleStopsTheRunButKeepsWhatWasAlreadyApplied(): void
+    {
+        $this->mockIntegration(true, ['webhook_url' => 'https://n8n.example.test/hook']);
+        $this->tracker->method('pending')->willReturnCallback(fn (string $c, string $o, int $limit, int $age, \DateTimeImmutable $now, int $after): array => match ($after) {
+            0       => $this->page([1, 2]),
+            2       => $this->page([3, 4]),
+            default => $this->page([5, 6]),
+        });
+        $this->httpClient->expects($this->exactly(2))->method('request')->willReturnOnConsecutiveCalls(
+            $this->response(200, '{"items":[]}'),
+            $this->response(500, '{"error":"mirror down"}')
+        );
+        $this->tracker->expects($this->once())->method('apply')->willReturn(['changed' => 2, 'unchanged' => 0, 'unknown' => 0]);
+
+        $summary = $this->poller->poll(DispatchTracking::CHANNEL_EMAIL, 2, 7, DispatchTracking::OUTCOME_PENDING, null, $this->now);
+
+        $this->assertSame(2, $summary['changed'], 'the first batch stays applied');
+        $this->assertSame(1, $summary['calls'], 'only the answered call counts');
+        $this->assertNotNull($summary['error']);
+    }
+
+    public function testStopsWhenABatchMakesNoProgress(): void
+    {
+        $this->mockIntegration(true, ['webhook_url' => 'https://n8n.example.test/hook']);
+        $this->tracker->method('pending')->willReturnCallback(fn (string $c, string $o, int $limit, int $age, \DateTimeImmutable $now, int $after): array => $this->page([$after + 1, $after + 2]));
+        // n8n answers nothing usable: no item applied at all
+        $this->httpClient->expects($this->once())->method('request')->willReturn($this->response(200, '{"items":[]}'));
+        $this->tracker->method('apply')->willReturn(['changed' => 0, 'unchanged' => 0, 'unknown' => 0]);
+
+        $summary = $this->poller->poll(DispatchTracking::CHANNEL_EMAIL, 2, 7, DispatchTracking::OUTCOME_PENDING, null, $this->now);
+
+        $this->assertSame(1, $summary['calls']);
+    }
+
+    public function testTheCallCapStopsARunThatWouldNeverEnd(): void
+    {
+        $this->mockIntegration(true, ['webhook_url' => 'https://n8n.example.test/hook']);
+        $this->tracker->method('pending')->willReturnCallback(fn (string $c, string $o, int $limit, int $age, \DateTimeImmutable $now, int $after): array => $this->page([$after + 1, $after + 2]));
+        $this->httpClient->expects($this->exactly(3))->method('request')->willReturn($this->response(200, '{"items":[]}'));
+        $this->tracker->method('apply')->willReturn(['changed' => 0, 'unchanged' => 2, 'unknown' => 0]);
+
+        $summary = $this->poller->poll(DispatchTracking::CHANNEL_EMAIL, 2, 7, DispatchTracking::OUTCOME_PENDING, null, $this->now, 3);
+
+        $this->assertSame(3, $summary['calls']);
+    }
+
+    public function testOneCallOnlyWhenTheCapIsOne(): void
+    {
+        $this->mockIntegration(true, ['webhook_url' => 'https://n8n.example.test/hook']);
+        $this->tracker->method('pending')->willReturn($this->page([1, 2]));
+        $this->httpClient->expects($this->once())->method('request')->willReturn($this->response(200, '{"items":[]}'));
+        $this->tracker->method('apply')->willReturn(['changed' => 0, 'unchanged' => 2, 'unknown' => 0]);
+
+        $this->poller->poll(DispatchTracking::CHANNEL_EMAIL, 2, 7, DispatchTracking::OUTCOME_PENDING, null, $this->now, 1);
+    }
+
+    public function testEveryCallHasATimeoutSoAHungN8nCannotHoldTheRunForever(): void
+    {
+        $this->mockIntegration(true, ['webhook_url' => 'https://n8n.example.test/hook']);
+        $this->tracker->method('pending')->willReturn([$this->row('email', 'logSendEmailId', '1', 'g', 1)]);
+        $this->httpClient->expects($this->once())->method('request')
+            ->with('POST', $this->anything(), $this->callback(
+                fn (array $options): bool => 60.0 === (float) $options['timeout'] && 120.0 === (float) $options['max_duration']
+            ))
+            ->willReturn($this->response(200, '{"items":[]}'));
+        $this->tracker->method('apply')->willReturn(['changed' => 0, 'unchanged' => 1, 'unknown' => 0]);
+
+        $this->poller->poll(DispatchTracking::CHANNEL_EMAIL, 100, 7, DispatchTracking::OUTCOME_PENDING, null, $this->now);
+    }
+
+    public function testATimedOutCallEndsTheRunWithAnErrorAndKeepsTheEarlierBatches(): void
+    {
+        $this->mockIntegration(true, ['webhook_url' => 'https://n8n.example.test/hook']);
+        $this->tracker->method('pending')->willReturnCallback(fn (string $c, string $o, int $limit, int $age, \DateTimeImmutable $now, int $after): array => $this->page([$after + 1, $after + 2]));
+        $this->httpClient->expects($this->exactly(2))->method('request')->willReturnCallback(function (): ResponseInterface {
+            static $call = 0;
+
+            if (1 === ++$call) {
+                return $this->response(200, '{"items":[]}');
+            }
+
+            throw new \Symfony\Component\HttpClient\Exception\TimeoutException('Idle timeout reached for "https://n8n.example.test/hook".');
+        });
+        $this->tracker->method('apply')->willReturn(['changed' => 2, 'unchanged' => 0, 'unknown' => 0]);
+
+        $summary = $this->poller->poll(DispatchTracking::CHANNEL_EMAIL, 2, 7, DispatchTracking::OUTCOME_PENDING, null, $this->now);
+
+        $this->assertSame(1, $summary['calls']);
+        $this->assertSame(2, $summary['changed']);
+        $this->assertStringContainsString('timeout', strtolower((string) $summary['error']));
     }
 }
