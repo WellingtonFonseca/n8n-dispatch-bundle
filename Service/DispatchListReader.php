@@ -43,7 +43,7 @@ class DispatchListReader
     }
 
     /**
-     * @return list<array{id: int, channel: string, dispatchedAt: ?\DateTimeImmutable, templateName: string, templateRoute: array{name: string, params: array<string, int|string>}|null, contactName: string}>
+     * @return list<array{id: int, channel: string, dispatchedAt: ?\DateTimeImmutable, templateName: string, templateRoute: array{name: string, params: array<string, int|string>}|null, contactId: int, contactName: string}>
      */
     public function read(int $page, int $limit): array
     {
@@ -75,6 +75,7 @@ class DispatchListReader
                 'dispatchedAt'  => self::dispatchedAt($row['date_triggered']),
                 'templateName'  => null !== $ref ? ($names[$ref[0]][$ref[1]] ?? '#'.$ref[1]) : '-',
                 'templateRoute' => $found ? self::templateRoute($ref[0], $ref[1]) : null,
+                'contactId'     => (int) $row['lead_id'],
                 'contactName'   => self::contactName($row['firstname'], $row['lastname'], $row['email'], (int) $row['lead_id']),
             ];
         }
