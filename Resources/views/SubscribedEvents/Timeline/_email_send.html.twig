@@ -286,28 +286,23 @@
         #}
         {% set callbacks = n8ndispatch_status(item.metadata) %}
         {% if callbacks %}
-        <p class="n8ndispatch-timeline-label">{{ 'mautic.n8ndispatch.timeline.callback'|trans }}:</p>
         {% for callback in callbacks %}
             {% set badgeClass = {'success': 'success', 'error': 'failed', 'pending': 'pending'}[callback.outcome] %}
             {% set badgeIcon  = {'success': 'ri-check-line', 'error': 'ri-close-line', 'pending': 'ri-time-line'}[callback.outcome] %}
+            {# Email/SMS: 'Callback'. HSM: one block per id, 'Callback Mirror' and 'Callback Meta' — no plain 'Callback' title. #}
+            <p class="n8ndispatch-timeline-label">{{ (callback.refType == 'logSendHsmId' or callback.refType == 'logSendHsmUuid' ? 'mautic.n8ndispatch.timeline.callback.ref.' ~ callback.refType : 'mautic.n8ndispatch.timeline.callback')|trans }}:</p>
             <div class="n8ndispatch-callback">
+                <div class="n8ndispatch-callback-checked text-muted">
+                    {%- if callback.lastCheckedAt -%}
+                        {{ 'mautic.n8ndispatch.timeline.callback.checked'|trans({'%date%': n8ndispatch_date(callback.lastCheckedAt)}) }}
+                    {%- else -%}
+                        {{ 'mautic.n8ndispatch.timeline.callback.never_checked'|trans }}
+                    {%- endif -%}
+                </div>
                 <div class="n8ndispatch-callback-row">
-                    {% if callback.refType == 'logSendHsmId' or callback.refType == 'logSendHsmUuid' %}
-                    <strong>{{ ('mautic.n8ndispatch.timeline.callback.ref.' ~ callback.refType)|trans }}</strong>
-                    {% endif %}
                     <span class="n8ndispatch-timeline-badge n8ndispatch-timeline-badge--{{ badgeClass }}">
                         <i class="{{ badgeIcon }}"></i>
                         {{ ('mautic.n8ndispatch.timeline.callback.outcome.' ~ callback.outcome)|trans }}
-                    </span>
-                    <span class="text-muted">
-                        {%- if callback.changedAt -%}
-                            {{ 'mautic.n8ndispatch.timeline.callback.since'|trans({'%date%': n8ndispatch_date(callback.changedAt)}) }}
-                        {%- endif -%}
-                        {%- if callback.lastCheckedAt %}
-                            {{ callback.changedAt ? ' · ' : '' }}{{ 'mautic.n8ndispatch.timeline.callback.checked'|trans({'%count%': callback.checkCount, '%date%': n8ndispatch_date(callback.lastCheckedAt)}) }}
-                        {%- else -%}
-                            {{ 'mautic.n8ndispatch.timeline.callback.never_checked'|trans }}
-                        {%- endif -%}
                     </span>
                 </div>
                 {% if callback.message %}
