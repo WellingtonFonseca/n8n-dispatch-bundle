@@ -285,6 +285,23 @@ class CustomObjectVariableResolverTest extends TestCase
         $this->assertSame('a<br>d', $this->resolver->resolve($this->contact, $campaign, 'disciplina', 'nome'));
     }
 
+    /**
+     * The segment screen types a multiselect 'select', so core leaves "not in" as
+     * 'notIn' (it only becomes '!multiselect' for the type 'multiselect'). The
+     * segment negates it all the same, so the resolver must too.
+     */
+    public function testNotInOnAMultiselectKeepsTheItemsWithoutTheOptions(): void
+    {
+        $tipoNotIn = $this->fieldFilter(2, 'notIn');
+        $campaign  = $this->campaignWithSegment([$tipoNotIn]);
+
+        $this->positiveMatches([[$tipoNotIn, [2]]]); // the items that HAVE the option
+        $this->itemMatcher->method('findAllItemIds')->with($this->contact, self::OBJECT_ID)->willReturn([1, 2, 3]);
+        $this->expectValuesFetchedFor([1, 3], 'nome', ['a', 'c']);
+
+        $this->assertSame('a<br>c', $this->resolver->resolve($this->contact, $campaign, 'disciplina', 'nome'));
+    }
+
     public function testNegatedOperatorKeepsTheItemsThatDoNotMatchThePositiveCondition(): void
     {
         // posicao = 10 AND nome != 'x' — mirrors the segment's NOT EXISTS:
