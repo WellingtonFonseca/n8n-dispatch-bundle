@@ -14,9 +14,14 @@ namespace MauticPlugin\N8nDispatchBundle\Resolver;
  */
 final class DateFormatter
 {
-    private const SOURCE_FORMAT = [
-        'date'     => 'Y-m-d',
-        'datetime' => 'Y-m-d H:i:s',
+    /**
+     * Stored formats tried in order. Mautic's date column is a DATETIME, so a
+     * 'date' field comes back as 'Y-m-d 00:00:00' (the bare 'Y-m-d' is kept for
+     * contact fields and for storage that returns a plain date).
+     */
+    private const SOURCE_FORMATS = [
+        'date'     => ['Y-m-d', 'Y-m-d H:i:s'],
+        'datetime' => ['Y-m-d H:i:s'],
     ];
 
     /**
@@ -27,11 +32,19 @@ final class DateFormatter
      */
     public static function format(string $value, string $type, string $locale = LocaleConventions::DEFAULT_LOCALE): string
     {
-        if ('' === $value || !isset(self::SOURCE_FORMAT[$type])) {
+        if ('' === $value || !isset(self::SOURCE_FORMATS[$type])) {
             return $value;
         }
 
-        $date = \DateTime::createFromFormat(self::SOURCE_FORMAT[$type], $value);
+        $date = false;
+        foreach (self::SOURCE_FORMATS[$type] as $format) {
+            $date = \DateTime::createFromFormat('!'.$format, $value);
+
+            if (false !== $date && $date->format($format) === $value) {
+                break;
+            }
+            $date = false;
+        }
 
         if (false === $date) {
             return $value;

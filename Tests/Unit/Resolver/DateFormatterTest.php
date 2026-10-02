@@ -14,6 +14,15 @@ class DateFormatterTest extends TestCase
         $this->assertSame('21/09/2026', DateFormatter::format('2026-09-21', 'date'));
     }
 
+    /**
+     * Mautic's date column is a DATETIME: a date field is stored as 'Y-m-d 00:00:00'.
+     */
+    public function testFormatsADateValueStoredWithATime(): void
+    {
+        $this->assertSame('21/09/2026', DateFormatter::format('2026-09-21 00:00:00', 'date'));
+        $this->assertSame('09/21/2026', DateFormatter::format('2026-09-21 00:00:00', 'date', 'en_US'));
+    }
+
     public function testFormatsADatetimeValue(): void
     {
         $this->assertSame('21/09/2026 14:30:00', DateFormatter::format('2026-09-21 14:30:00', 'datetime'));
