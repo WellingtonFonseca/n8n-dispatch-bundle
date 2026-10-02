@@ -28,12 +28,17 @@ class StatusTracker
      * An empty id is skipped and an id already tracked is left alone, so
      * calling this twice for the same dispatch is harmless.
      *
+     * $now is the dispatch date the rows are given (the moment of the dispatch,
+     * or, for the backfill, when it was really made). Returns how many rows
+     * were created.
+     *
      * @param array<string, int|string|null> $refs refType => id value
      */
-    public function register(string $channel, array $refs, ?\DateTimeImmutable $now = null): void
+    public function register(string $channel, array $refs, ?\DateTimeImmutable $now = null): int
     {
         $now      = $now ?? new \DateTimeImmutable();
         $groupKey = bin2hex(random_bytes(8));
+        $created  = 0;
 
         foreach ($refs as $refType => $value) {
             if (null === $value || '' === (string) $value) {
@@ -45,7 +50,15 @@ class StatusTracker
             }
 
             $this->trackings->saveEntity(DispatchTracking::create($channel, $refType, (string) $value, $groupKey, $now));
+            ++$created;
         }
+
+        return $created;
+    }
+
+    public function isTracked(string $refType, string $value): bool
+    {
+        return null !== $this->trackings->findOneByRef($refType, $value);
     }
 
     /**

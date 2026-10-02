@@ -210,7 +210,48 @@ O comando **não depende** do liga/desliga: rodado à mão, ele sempre pergunta.
 Saída de exemplo: `email: asked 1, changed 1, unchanged 0, unknown 1, invalid 1`.
 Código de saída diferente de zero quando o webhook falha.
 
-## 7. Sugestão de workflow no n8n
+## 7. Disparos que já existiam antes (varredura)
+
+Os disparos feitos **antes** de subir esta versão não têm acompanhamento. Para trazê-los
+para o formato de callback, rode uma vez, depois de atualizar o plugin:
+
+```bash
+php bin/console n8ndispatch:status:backfill --dry-run   # só conta, não grava nada
+php bin/console n8ndispatch:status:backfill             # grava
+```
+
+O comando percorre os disparos de Email, SMS e HSM já registrados nas campanhas e
+começa a acompanhar o id de cada um (como `pending`, com a **data original do
+disparo**). Depois disso, o status poll pergunta ao n8n por eles como por qualquer
+outro, e o card mostra o callback também nos disparos antigos.
+
+| Opção | Padrão | Para quê |
+|---|---|---|
+| `--since-days=N` | 7 | até quantos dias para trás olhar |
+| `--batch=N` | 500 | quantos registros ler por vez |
+| `--dry-run` | | só conta o que seria registrado |
+
+- Só entram disparos **reais** (modo produção, com resposta 2xx do n8n e um id). Teste,
+  pausado, com erro na ida ou sem id ficam de fora.
+- **Pode rodar de novo à vontade:** o que já está acompanhado é ignorado.
+- **HSM:** o `uuid` da Meta nunca foi guardado à parte, mas a resposta completa do n8n
+  está salva em cada disparo, e o `uuid` é lido de lá. Só funciona se o n8n já devolvia o
+  `uuid` nessa resposta; se não, só o id do Mirror é acompanhado.
+- **Atenção ao prazo de 7 dias.** O poll só pergunta por disparos feitos nos últimos 7
+  dias (`--max-age-days`, contados a partir da data original do disparo). Depois disso o
+  disparo deixa de ser perguntado e fica `pending` para sempre, mesmo que a varredura o
+  tenha registrado. Na produção, os primeiros disparos foram na **terça, 29/09/2026**,
+  então eles saem da janela em **06/10/2026**. Por isso: suba o plugin e rode a varredura
+  **antes** dessa data. Se já tiver passado, rode o poll à mão com um prazo maior, por
+  exemplo `n8ndispatch:status:poll --max-age-days=30`, e a varredura com
+  `--since-days=30`. A ordem não importa para a varredura em si; o que importa é o poll
+  chegar a perguntar antes de o prazo vencer.
+- A produção tem, no máximo, 100 disparos: a varredura é instantânea e o poll
+  (200 ids por canal por rodada) esvazia a fila numa rodada só.
+- Saída de exemplo: `scanned 100, with ids 92, registered 120, already tracked 0, skipped 8`
+  (o HSM conta dois ids por disparo).
+
+## 8. Sugestão de workflow no n8n
 
 1. **Webhook** (o de sempre) → **Switch** pelo header `X-N8n-Dispatch-Action`:
    três saídas novas: `email.status`, `sms.status`, `hsm.status`.
@@ -224,13 +265,13 @@ Código de saída diferente de zero quando o webhook falha.
 Dica: se a consulta ao Mirror falhar para um id específico, **não o inclua** na
 resposta (ou responda `pending`); ele será perguntado de novo na próxima rodada.
 
-## 8. Como testar sem o n8n
+## 9. Como testar sem o n8n
 
-Dois scripts em `mautic/scripts/`. O `test-status-poll.sh` sobe um n8n falso (`fake-n8n-status.php`)
+Três scripts em `mautic/scripts/`. O `test-status-poll.sh` sobe um n8n falso (`fake-n8n-status.php`)
 dentro do contêiner do Mautic e passa por todo o ciclo para os três canais:
 pendente repetido sem encher o histórico, erro, sucesso depois do erro, HSM com
 Mirror e Meta, id desconhecido, item inválido, webhook fora do ar e disparo
-expirado. O `fake-n8n-status.php` também mostra, no código, as respostas de
+expirado. O `test-status-backfill.sh` testa a varredura dos disparos antigos. O `fake-n8n-status.php` também mostra, no código, as respostas de
 `email.send`, `sms.send` e `hsm.send` no formato acima.
 
 O `test-status-poll-schedule.sh` testa o agendamento: desligado não roda, ligado
@@ -239,5 +280,5 @@ depois dele, respeita 60/120 minutos e limpa rodadas antigas. Ele altera as
 configurações do plugin durante o teste e as restaura no fim.
 
 ```bash
-cd mautic && ./scripts/test-status-poll.sh && ./scripts/test-status-poll-schedule.sh
+cd mautic && ./scripts/test-status-poll.sh && ./scripts/test-status-poll-schedule.sh && ./scripts/test-status-backfill.sh
 ```
