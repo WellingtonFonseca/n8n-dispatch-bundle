@@ -180,6 +180,20 @@
     overflow-wrap: anywhere;
 }
 
+/* Titles of the Callback sections ('Callback', 'Callback Meta', 'Histórico'):
+   extra air above, so each one reads as its own section and not as part of
+   the block before it. The doubled class makes it win over the plain
+   .n8ndispatch-timeline-label margin below, whatever the order. */
+.n8ndispatch-timeline-label.n8ndispatch-callback-title {
+    margin-top: 24px;
+}
+
+/* Inside the open History, the titles of the tables (not the 'Histórico'
+   summary itself) only separate one table from the next. */
+.n8ndispatch-callback-history > p.n8ndispatch-timeline-label.n8ndispatch-callback-title {
+    margin-top: 16px;
+}
+
 .n8ndispatch-timeline-label {
     margin: 8px 0 0;
     font-size: 13px;

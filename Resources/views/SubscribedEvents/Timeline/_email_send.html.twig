@@ -290,7 +290,7 @@
             {% set badgeClass = {'success': 'success', 'error': 'failed', 'pending': 'pending'}[callback.outcome] %}
             {% set badgeIcon  = {'success': 'ri-check-line', 'error': 'ri-close-line', 'pending': 'ri-time-line'}[callback.outcome] %}
             {# Email/SMS: 'Callback'. HSM: one block per id, 'Callback' (the Mirror id) and 'Callback Meta'. #}
-            <p class="n8ndispatch-timeline-label">{{ (callback.refType == 'logSendHsmId' or callback.refType == 'logSendHsmUuid' ? 'mautic.n8ndispatch.timeline.callback.ref.' ~ callback.refType : 'mautic.n8ndispatch.timeline.callback')|trans }}:</p>
+            <p class="n8ndispatch-timeline-label n8ndispatch-callback-title">{{ (callback.refType == 'logSendHsmId' or callback.refType == 'logSendHsmUuid' ? 'mautic.n8ndispatch.timeline.callback.ref.' ~ callback.refType : 'mautic.n8ndispatch.timeline.callback')|trans }}:</p>
             <div class="n8ndispatch-callback">
                 <div class="n8ndispatch-callback-checked text-muted">
                     {%- if callback.lastCheckedAt -%}
@@ -321,9 +321,9 @@
         #}
         {% if callbacks|filter(c => c.history|length > 0)|length > 0 %}
         <details class="n8ndispatch-callback-history">
-            <summary class="n8ndispatch-timeline-label">{{ 'mautic.n8ndispatch.timeline.callback.history'|trans }}:</summary>
+            <summary class="n8ndispatch-timeline-label n8ndispatch-callback-title">{{ 'mautic.n8ndispatch.timeline.callback.history'|trans }}:</summary>
             {% for callback in callbacks|filter(c => c.history|length > 0) %}
-            <p class="n8ndispatch-timeline-label">{{ (callback.refType == 'logSendHsmId' or callback.refType == 'logSendHsmUuid' ? 'mautic.n8ndispatch.timeline.callback.ref.' ~ callback.refType : 'mautic.n8ndispatch.timeline.callback')|trans }}:</p>
+            <p class="n8ndispatch-timeline-label n8ndispatch-callback-title">{{ (callback.refType == 'logSendHsmId' or callback.refType == 'logSendHsmUuid' ? 'mautic.n8ndispatch.timeline.callback.ref.' ~ callback.refType : 'mautic.n8ndispatch.timeline.callback')|trans }}:</p>
             <table class="n8ndispatch-callback-history-table">
                 <thead>
                     <tr>
