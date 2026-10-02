@@ -154,6 +154,7 @@
 
 .n8ndispatch-callback-history-table {
     width: 100%;
+    table-layout: fixed;
     margin: 4px 0 0;
     border-collapse: collapse;
     font-size: 12px;
@@ -167,13 +168,16 @@
     vertical-align: top;
 }
 
-/* Status and Date take only what they need; Message gets the rest of the width and wraps. */
+/* Status and Date have a fixed width, wide enough for the badge and a full
+   date and time; Message gets the rest of the width and wraps. */
 .n8ndispatch-callback-history-table th:nth-child(1),
-.n8ndispatch-callback-history-table td:nth-child(1),
+.n8ndispatch-callback-history-table td:nth-child(1) {
+    width: 160px;
+}
+
 .n8ndispatch-callback-history-table th:nth-child(2),
 .n8ndispatch-callback-history-table td:nth-child(2) {
-    width: 1%;
-    white-space: nowrap;
+    width: 200px;
 }
 
 .n8ndispatch-callback-history-table td:nth-child(3) {
