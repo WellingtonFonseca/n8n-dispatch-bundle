@@ -12,12 +12,14 @@ use Mautic\LeadBundle\Entity\Lead;
 use Mautic\LeadBundle\Model\DoNotContact as DncModel;
 use Mautic\PluginBundle\Helper\IntegrationHelper;
 use MauticPlugin\N8nDispatchBundle\Entity\HsmTemplate;
+use MauticPlugin\N8nDispatchBundle\Entity\DispatchTracking;
 use MauticPlugin\N8nDispatchBundle\Integration\N8nDispatchIntegration;
 use MauticPlugin\N8nDispatchBundle\Model\HsmTemplateModel;
 use MauticPlugin\N8nDispatchBundle\N8nDispatchEvents;
 use MauticPlugin\N8nDispatchBundle\Resolver\LocaleConventions;
 use MauticPlugin\N8nDispatchBundle\Resolver\VariableResolver;
 use MauticPlugin\N8nDispatchBundle\Service\DispatchFailureReasons;
+use MauticPlugin\N8nDispatchBundle\Service\StatusTracker;
 use Psr\Log\LoggerInterface;
 use Symfony\Component\EventDispatcher\EventSubscriberInterface;
 use Symfony\Contracts\HttpClient\HttpClientInterface;
@@ -83,6 +85,7 @@ class HsmCampaignTriggerSubscriber implements EventSubscriberInterface
         private DncModel $dncModel,
         private HsmTemplateModel $hsmTemplateModel,
         private DispatchFailureReasons $failureReasons,
+        private ?StatusTracker $statusTracker = null,
     ) {
     }
 
@@ -345,6 +348,9 @@ class HsmCampaignTriggerSubscriber implements EventSubscriberInterface
         $body       = json_decode($rawBody, true);
         $nestedBody = is_array($body['body'] ?? null) ? $body['body'] : [];
         $logId      = is_array($body) ? ($body['logSendHsmId'] ?? $nestedBody['logSendHsmId'] ?? null) : null;
+        // The Meta broker's own id for the message — its status is separate
+        // from the Mirror's (logSendHsmId), so it's kept and tracked on its own.
+        $uuid = is_array($body) ? ($body['uuid'] ?? $nestedBody['uuid'] ?? null) : null;
 
         $n8ndispatch = $payload + [
             'response'       => is_array($body) ? $body : $rawBody,
@@ -355,6 +361,17 @@ class HsmCampaignTriggerSubscriber implements EventSubscriberInterface
 
         if (!empty($logId)) {
             $metadata['logSendHsmId'] = $logId;
+        }
+
+        if (!empty($uuid)) {
+            $metadata['logSendHsmUuid'] = $uuid;
+        }
+
+        if ($statusCode < 300 && (!empty($logId) || !empty($uuid))) {
+            $this->statusTracker?->register(DispatchTracking::CHANNEL_HSM, [
+                DispatchTracking::REF_HSM_ID   => $logId,
+                DispatchTracking::REF_HSM_UUID => $uuid,
+            ]);
         }
 
         $log->appendToMetadata($metadata);

@@ -8,8 +8,11 @@ use Doctrine\DBAL\Schema\Schema;
 use Mautic\CoreBundle\Factory\MauticFactory;
 use Mautic\PluginBundle\Bundle\PluginBundleBase;
 use Mautic\PluginBundle\Entity\Plugin;
+use MauticPlugin\N8nDispatchBundle\Entity\DispatchCallback;
+use MauticPlugin\N8nDispatchBundle\Entity\DispatchTracking;
 use MauticPlugin\N8nDispatchBundle\Entity\EmailVariables;
 use MauticPlugin\N8nDispatchBundle\Entity\HsmTemplate;
+use MauticPlugin\N8nDispatchBundle\Entity\PollRun;
 use MauticPlugin\N8nDispatchBundle\Entity\SmsTemplate;
 use MauticPlugin\N8nDispatchBundle\Resolver\LocaleConventions;
 
@@ -37,6 +40,12 @@ class N8nDispatchBundle extends PluginBundleBase
 
         if (!empty($metadata[EmailVariables::class]) && (null === $installedSchema || !$installedSchema->hasTable(EmailVariables::TABLE_NAME))) {
             $toInstall[] = $metadata[EmailVariables::class];
+        }
+
+        foreach ([DispatchTracking::class => DispatchTracking::TABLE_NAME, DispatchCallback::class => DispatchCallback::TABLE_NAME, PollRun::class => PollRun::TABLE_NAME] as $entity => $table) {
+            if (!empty($metadata[$entity]) && (null === $installedSchema || !$installedSchema->hasTable($table))) {
+                $toInstall[] = $metadata[$entity];
+            }
         }
 
         if ([] !== $toInstall) {

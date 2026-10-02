@@ -110,6 +110,38 @@
     background-color: #e53935;
 }
 
+.n8ndispatch-timeline-badge--pending {
+    background-color: #fb8c00;
+}
+
+/* Callback block of the Timeline card: one .n8ndispatch-callback per
+   tracked id (Email/SMS one, HSM two), see the Callback block in
+   _email_send.html.twig. */
+.n8ndispatch-callback {
+    margin: 6px 0 0;
+}
+
+.n8ndispatch-callback-row {
+    display: flex;
+    align-items: center;
+    gap: 10px;
+    flex-wrap: wrap;
+}
+
+.n8ndispatch-callback-message {
+    margin: 4px 0 0;
+}
+
+.n8ndispatch-callback-history {
+    margin: 4px 0 0;
+    font-size: 12px;
+}
+
+.n8ndispatch-callback-history ul {
+    margin: 4px 0 0;
+    padding-left: 18px;
+}
+
 .n8ndispatch-timeline-label {
     margin: 8px 0 0;
     font-size: 13px;

@@ -29,6 +29,7 @@ use MauticPlugin\N8nDispatchBundle\Integration\N8nDispatchIntegration;
 use MauticPlugin\N8nDispatchBundle\Resolver\VariableResolver;
 use MauticPlugin\N8nDispatchBundle\UnsubscribeVariable;
 use MauticPlugin\N8nDispatchBundle\Service\DispatchFailureReasons;
+use MauticPlugin\N8nDispatchBundle\Service\StatusTracker;
 use PHPUnit\Framework\TestCase;
 use Psr\Log\LoggerInterface;
 use Symfony\Contracts\HttpClient\HttpClientInterface;
@@ -55,6 +56,8 @@ class CampaignTriggerSubscriberTest extends TestCase
     private DncModel $dncModel;
 
     private EmailVariablesRepository $emailVariablesRepository;
+
+    private StatusTracker $statusTracker;
 
     private CampaignTriggerSubscriber $subscriber;
 
@@ -89,6 +92,8 @@ class CampaignTriggerSubscriberTest extends TestCase
         // of overriding a default.
         $this->emailVariablesRepository = $this->createMock(EmailVariablesRepository::class);
 
+        $this->statusTracker = $this->createMock(StatusTracker::class);
+
         $this->subscriber = new CampaignTriggerSubscriber(
             $this->integrationHelper,
             $this->httpClient,
@@ -100,6 +105,7 @@ class CampaignTriggerSubscriberTest extends TestCase
             $this->dncModel,
             $this->emailVariablesRepository,
             new DispatchFailureReasons(new EnUsTranslator()),
+            $this->statusTracker,
         );
 
         $this->variableResolver->method('resolveAll')->willReturn(['foo' => 'bar']);
@@ -532,6 +538,59 @@ class CampaignTriggerSubscriberTest extends TestCase
         $this->assertSame(6334025, $metadata['logSendEmailId']);
         $this->assertSame('production', $metadata['n8ndispatch']['status']);
         $this->assertSame(['logSendEmailId' => 6334025], $metadata['n8ndispatch']['response']);
+    }
+
+    public function testSuccessRegistersTheLogSendEmailIdForStatusTracking(): void
+    {
+        $pendingEvent = $this->buildPendingEvent(['email' => 1, 'status' => 'production']);
+
+        $this->emailModel->method('getEntity')->with(1)->willReturn(new Email());
+        $this->mockIntegration(true, ['webhook_url' => 'https://n8n.example.test/webhook/dispatch']);
+
+        $response = $this->createMock(ResponseInterface::class);
+        $response->method('getStatusCode')->willReturn(200);
+        $response->method('getContent')->with(false)->willReturn('{"body":{"logSendEmailId":6334029},"statusCode":200}');
+        $this->httpClient->method('request')->willReturn($response);
+
+        $this->statusTracker->expects($this->once())
+            ->method('register')
+            ->with('email', ['logSendEmailId' => 6334029]);
+
+        $this->subscriber->onEmailSend($pendingEvent);
+    }
+
+    public function testNothingIsRegisteredForStatusTrackingWithoutAnId(): void
+    {
+        $pendingEvent = $this->buildPendingEvent(['email' => 1, 'status' => 'production']);
+
+        $this->emailModel->method('getEntity')->with(1)->willReturn(new Email());
+        $this->mockIntegration(true, ['webhook_url' => 'https://n8n.example.test/webhook/dispatch']);
+
+        $response = $this->createMock(ResponseInterface::class);
+        $response->method('getStatusCode')->willReturn(200);
+        $response->method('getContent')->with(false)->willReturn('not valid json');
+        $this->httpClient->method('request')->willReturn($response);
+
+        $this->statusTracker->expects($this->never())->method('register');
+
+        $this->subscriber->onEmailSend($pendingEvent);
+    }
+
+    public function testAFailedDispatchIsNeverRegisteredForStatusTracking(): void
+    {
+        $pendingEvent = $this->buildPendingEvent(['email' => 1, 'status' => 'production']);
+
+        $this->emailModel->method('getEntity')->with(1)->willReturn(new Email());
+        $this->mockIntegration(true, ['webhook_url' => 'https://n8n.example.test/webhook/dispatch']);
+
+        $response = $this->createMock(ResponseInterface::class);
+        $response->method('getStatusCode')->willReturn(500);
+        $response->method('getContent')->with(false)->willReturn('{"logSendEmailId":1}');
+        $this->httpClient->method('request')->willReturn($response);
+
+        $this->statusTracker->expects($this->never())->method('register');
+
+        $this->subscriber->onEmailSend($pendingEvent);
     }
 
     public function testSuccessAttachesLogSendEmailIdToTheLogMetadataFromNestedBody(): void
