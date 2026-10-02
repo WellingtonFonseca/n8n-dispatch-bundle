@@ -4,6 +4,7 @@ declare(strict_types=1);
 
 namespace MauticPlugin\N8nDispatchBundle\Integration;
 
+use Mautic\CoreBundle\Form\Type\StandAloneButtonType;
 use Mautic\CoreBundle\Form\Type\YesNoButtonGroupType;
 use Mautic\PluginBundle\Integration\AbstractIntegration;
 use MauticPlugin\N8nDispatchBundle\Entity\PollRun;
@@ -84,6 +85,24 @@ class N8nDispatchIntegration extends AbstractIntegration
             'disabled'   => true,
             'required'   => false,
             'attr'       => ['class' => 'form-control'],
+        ]);
+
+        $this->addCheckNowButton($builder);
+    }
+
+    /**
+     * The "Check now" button (Assets/js/status-poll-check-now.js asks
+     * n8n right away and shows the result under it).
+     */
+    private function addCheckNowButton(\Symfony\Component\Form\FormBuilderInterface $builder): void
+    {
+        $builder->add('status_poll_check_now', StandAloneButtonType::class, [
+            'label' => 'mautic.n8ndispatch.settings.status_poll.check_now',
+            'attr'  => [
+                'class'   => 'btn btn-secondary',
+                'icon'    => 'ri-refresh-line',
+                'onclick' => 'Mautic.n8ndispatchCheckStatusNow(this)',
+            ],
         ]);
     }
 

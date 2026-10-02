@@ -28,7 +28,12 @@ final class LocaleConventions
     {
         $date = self::lookup($locale)['date'];
 
-        return 'datetime' === $type ? $date.' H:i:s' : $date;
+        return match ($type) {
+            'datetime'         => $date.' H:i:s',
+            // no seconds: the Timeline card's callback dates (StatusExtension)
+            'datetime_minutes' => $date.' H:i',
+            default            => $date,
+        };
     }
 
     public static function decimalSeparator(string $locale): string

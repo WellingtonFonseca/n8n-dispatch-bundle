@@ -146,11 +146,15 @@ distinguir entregue/lido:
 
 Abaixo de **Body** e **Response**, um bloco **Callback**:
 
-- Email e SMS: um selo (`Aguardando`, `Sucesso` ou `Erro`), a data da última
-  mudança, "verificado N vezes, última em …" e a mensagem do erro, se houver.
-- HSM: duas linhas, **Mirror** e **Meta**, cada uma com o seu selo.
-- Um "Histórico (N)" recolhível, quando houve mudança de resultado, com todas as
-  respostas anteriores.
+- **Callback:** "Verificado em *data e hora*" (da última verificação, no idioma e no
+  fuso do sistema) e, na linha de baixo, o selo (`Aguardando`, `Sucesso` ou `Erro`).
+  Se o n8n mandou uma `message`, ela aparece num bloco "Mensagem:", seja qual for o
+  resultado.
+- **HSM:** dois blocos, **Callback** (o `logSendHsmId`) e **Callback Meta** (o
+  `logSendHsmUuid`), cada um com o seu "Verificado em", o seu selo e a sua mensagem.
+- **Histórico:** no fim do card, um título "Histórico:" que abre ao clicar, com uma
+  tabela (Status, Data, Mensagem) por callback, da mais recente para a mais antiga.
+  Só existe se algum resultado já mudou.
 
 Isto **não altera** o status do evento da campanha nem o registro de envio do
 email: o evento continua como "passou" se a ida deu 2xx. O callback é só
@@ -172,6 +176,24 @@ A configuração fica em **Settings > Plugins > N8n Dispatch > aba Features**:
 | Verificar o status dos disparos (callback) | **Desligado** | Liga/desliga. Ligue para o Mautic começar a perguntar ao n8n. |
 | Verificar a cada (minutos) | 60 | `60` = 1 hora, `120` = 2 horas. Mínimo 5, máximo 1440. |
 | Última rodada | (só leitura) | Data, resultado (ok/erro) e o resumo da última rodada agendada. |
+| **Verificar agora** | (botão) | Pergunta ao n8n **uma vez, agora**, e mostra o resultado embaixo do botão. Funciona com o liga/desliga desligado. |
+
+### Montando e testando o workflow antes de ligar
+
+O botão **Verificar agora** serve para isso: com o liga/desliga ainda **desligado**, clique nele e
+o Mautic faz a pergunta de verdade ao seu webhook (mesma chamada de uma rodada agendada: ações
+`email.status`, `sms.status` e `hsm.status`, até 200 ids por canal, disparos dos últimos 7 dias).
+Você vê chegar no n8n, ajusta o workflow e clica de novo, quantas vezes precisar. Embaixo do
+botão aparece, por canal, quantos ids foram perguntados e o que mudou, ou o erro (por exemplo
+`webhook returned HTTP 500.`), e uma linha avisando quando não havia nada pendente.
+
+- Usa o webhook **já salvo** nas configurações do plugin: salve antes de clicar, se acabou de
+  alterar a URL ou o token.
+- É de verdade: as respostas do n8n são **gravadas** (o card e o histórico passam a mostrá-las), e
+  só pergunta por ids já acompanhados. Para ter o que perguntar, rode antes a varredura dos
+  disparos antigos (seção "Disparos que já existiam antes") ou espere um disparo novo.
+- Não mexe no agendamento nem na linha "Última rodada", que são das rodadas agendadas.
+- Exige a permissão de gerenciar plugins.
 
 - **Mudar o intervalo** é só editar o campo e salvar. Vale já no próximo ciclo do
   cron do Mautic, sem reiniciar nada.
@@ -206,7 +228,48 @@ O comando **não depende** do liga/desliga: rodado à mão, ele sempre pergunta.
 Saída de exemplo: `email: asked 1, changed 1, unchanged 0, unknown 1, invalid 1`.
 Código de saída diferente de zero quando o webhook falha.
 
-## 7. Sugestão de workflow no n8n
+## 7. Disparos que já existiam antes (varredura)
+
+Os disparos feitos **antes** de subir esta versão não têm acompanhamento. Para trazê-los
+para o formato de callback, rode uma vez, depois de atualizar o plugin:
+
+```bash
+php bin/console n8ndispatch:status:backfill --dry-run   # só conta, não grava nada
+php bin/console n8ndispatch:status:backfill             # grava
+```
+
+O comando percorre os disparos de Email, SMS e HSM já registrados nas campanhas e
+começa a acompanhar o id de cada um (como `pending`, com a **data original do
+disparo**). Depois disso, o status poll pergunta ao n8n por eles como por qualquer
+outro, e o card mostra o callback também nos disparos antigos.
+
+| Opção | Padrão | Para quê |
+|---|---|---|
+| `--since-days=N` | 7 | até quantos dias para trás olhar |
+| `--batch=N` | 500 | quantos registros ler por vez |
+| `--dry-run` | | só conta o que seria registrado |
+
+- Só entram disparos **reais** (modo produção, com resposta 2xx do n8n e um id). Teste,
+  pausado, com erro na ida ou sem id ficam de fora.
+- **Pode rodar de novo à vontade:** o que já está acompanhado é ignorado.
+- **HSM:** o `uuid` da Meta nunca foi guardado à parte, mas a resposta completa do n8n
+  está salva em cada disparo, e o `uuid` é lido de lá. Só funciona se o n8n já devolvia o
+  `uuid` nessa resposta; se não, só o id do Mirror é acompanhado.
+- **Atenção ao prazo de 7 dias.** O poll só pergunta por disparos feitos nos últimos 7
+  dias (`--max-age-days`, contados a partir da data original do disparo). Depois disso o
+  disparo deixa de ser perguntado e fica `pending` para sempre, mesmo que a varredura o
+  tenha registrado. Na produção, os primeiros disparos foram na **terça, 29/09/2026**,
+  então eles saem da janela em **06/10/2026**. Por isso: suba o plugin e rode a varredura
+  **antes** dessa data. Se já tiver passado, rode o poll à mão com um prazo maior, por
+  exemplo `n8ndispatch:status:poll --max-age-days=30`, e a varredura com
+  `--since-days=30`. A ordem não importa para a varredura em si; o que importa é o poll
+  chegar a perguntar antes de o prazo vencer.
+- A produção tem, no máximo, 100 disparos: a varredura é instantânea e o poll
+  (200 ids por canal por rodada) esvazia a fila numa rodada só.
+- Saída de exemplo: `scanned 100, with ids 92, registered 120, already tracked 0, skipped 8`
+  (o HSM conta dois ids por disparo).
+
+## 8. Sugestão de workflow no n8n
 
 1. **Webhook** (o de sempre) → **Switch** pelo header `X-N8n-Dispatch-Action`:
    três saídas novas: `email.status`, `sms.status`, `hsm.status`.
@@ -220,13 +283,13 @@ Código de saída diferente de zero quando o webhook falha.
 Dica: se a consulta ao Mirror falhar para um id específico, **não o inclua** na
 resposta (ou responda `pending`); ele será perguntado de novo na próxima rodada.
 
-## 8. Como testar sem o n8n
+## 9. Como testar sem o n8n
 
-Dois scripts em `mautic/scripts/`. O `test-status-poll.sh` sobe um n8n falso (`fake-n8n-status.php`)
+Três scripts em `mautic/scripts/`. O `test-status-poll.sh` sobe um n8n falso (`fake-n8n-status.php`)
 dentro do contêiner do Mautic e passa por todo o ciclo para os três canais:
 pendente repetido sem encher o histórico, erro, sucesso depois do erro, HSM com
 Mirror e Meta, id desconhecido, item inválido, webhook fora do ar e disparo
-expirado. O `fake-n8n-status.php` também mostra, no código, as respostas de
+expirado. O `test-status-backfill.sh` testa a varredura dos disparos antigos. O `fake-n8n-status.php` também mostra, no código, as respostas de
 `email.send`, `sms.send` e `hsm.send` no formato acima.
 
 O `test-status-poll-schedule.sh` testa o agendamento: desligado não roda, ligado
@@ -235,5 +298,5 @@ depois dele, respeita 60/120 minutos e limpa rodadas antigas. Ele altera as
 configurações do plugin durante o teste e as restaura no fim.
 
 ```bash
-cd mautic && ./scripts/test-status-poll.sh && ./scripts/test-status-poll-schedule.sh
+cd mautic && ./scripts/test-status-poll.sh && ./scripts/test-status-poll-schedule.sh && ./scripts/test-status-backfill.sh
 ```

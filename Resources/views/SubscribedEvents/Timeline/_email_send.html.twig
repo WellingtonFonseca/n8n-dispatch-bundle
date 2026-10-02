@@ -279,56 +279,77 @@
           n8ndispatch:status:poll command). One row per tracked id — Email
           and SMS have one, HSM has two (Mirror and Meta), each with its
           own outcome. The badge is the current outcome; an id never
-          answered stays 'pending'. 'history' only has an entry when the
+          answered stays 'pending'. 'history' (shown once, at the end of the card) only has an entry when the
           outcome actually changed, so an id that went error -> success
-          shows both. Dates are stored in UTC, same as the cancel/reschedule
-          dates above.
+          shows both. Dates are stored in UTC and printed by n8ndispatch_date()
+          in the system language (Twig/StatusExtension.php).
         #}
         {% set callbacks = n8ndispatch_status(item.metadata) %}
         {% if callbacks %}
-        <p class="n8ndispatch-timeline-label">{{ 'mautic.n8ndispatch.timeline.callback'|trans }}:</p>
         {% for callback in callbacks %}
             {% set badgeClass = {'success': 'success', 'error': 'failed', 'pending': 'pending'}[callback.outcome] %}
             {% set badgeIcon  = {'success': 'ri-check-line', 'error': 'ri-close-line', 'pending': 'ri-time-line'}[callback.outcome] %}
+            {# Email/SMS: 'Callback'. HSM: one block per id, 'Callback' (the Mirror id) and 'Callback Meta'. #}
+            <p class="n8ndispatch-timeline-label n8ndispatch-callback-title">{{ (callback.refType == 'logSendHsmId' or callback.refType == 'logSendHsmUuid' ? 'mautic.n8ndispatch.timeline.callback.ref.' ~ callback.refType : 'mautic.n8ndispatch.timeline.callback')|trans }}:</p>
             <div class="n8ndispatch-callback">
+                <div class="n8ndispatch-callback-checked text-muted">
+                    {%- if callback.lastCheckedAt -%}
+                        {{ 'mautic.n8ndispatch.timeline.callback.checked'|trans({'%date%': n8ndispatch_date(callback.lastCheckedAt)}) }}
+                    {%- else -%}
+                        {{ 'mautic.n8ndispatch.timeline.callback.never_checked'|trans }}
+                    {%- endif -%}
+                </div>
                 <div class="n8ndispatch-callback-row">
-                    {% if callback.refType == 'logSendHsmId' or callback.refType == 'logSendHsmUuid' %}
-                    <strong>{{ ('mautic.n8ndispatch.timeline.callback.ref.' ~ callback.refType)|trans }}</strong>
-                    {% endif %}
                     <span class="n8ndispatch-timeline-badge n8ndispatch-timeline-badge--{{ badgeClass }}">
                         <i class="{{ badgeIcon }}"></i>
                         {{ ('mautic.n8ndispatch.timeline.callback.outcome.' ~ callback.outcome)|trans }}
                     </span>
-                    <span class="text-muted">
-                        {%- if callback.changedAt -%}
-                            {{ 'mautic.n8ndispatch.timeline.callback.since'|trans({'%date%': dateToFullConcat(callback.changedAt.format('Y-m-d H:i:s'), 'UTC')}) }}
-                        {%- endif -%}
-                        {%- if callback.lastCheckedAt %}
-                            {{ callback.changedAt ? ' · ' : '' }}{{ 'mautic.n8ndispatch.timeline.callback.checked'|trans({'%count%': callback.checkCount, '%date%': dateToFullConcat(callback.lastCheckedAt.format('Y-m-d H:i:s'), 'UTC')}) }}
-                        {%- else -%}
-                            {{ 'mautic.n8ndispatch.timeline.callback.never_checked'|trans }}
-                        {%- endif -%}
-                    </span>
                 </div>
+                {# Whenever n8n sent a message, whatever the outcome: the label sits inside the block, above the text (the <pre> keeps the line break). #}
                 {% if callback.message %}
-                <div class="n8ndispatch-callback-message">{{ callback.message }}</div>
-                {% endif %}
-                {% if callback.history|length > 0 %}
-                <details class="n8ndispatch-callback-history">
-                    <summary>{{ 'mautic.n8ndispatch.timeline.callback.history'|trans({'%count%': callback.history|length}) }}</summary>
-                    <ul>
-                    {% for entry in callback.history|reverse %}
-                        <li>
-                            {{ ('mautic.n8ndispatch.timeline.callback.outcome.' ~ entry.outcome)|trans }}
-                            · {{ dateToFullConcat(entry.receivedAt.format('Y-m-d H:i:s'), 'UTC') }}
-                            {%- if entry.message %} — {{ entry.message }}{% endif %}
-                        </li>
-                    {% endfor %}
-                    </ul>
-                </details>
+                <pre class="n8ndispatch-timeline-json n8ndispatch-callback-message">{{ 'mautic.n8ndispatch.timeline.callback.message'|trans }}:
+{{ callback.message }}</pre>
                 {% endif %}
             </div>
         {% endfor %}
+
+        {#
+          History, once, at the very end of the card: a title like 'Callback:'
+          that opens, on click, one table per callback (Email/SMS one, HSM
+          Mirror and Meta), newest first. Only the callbacks whose outcome
+          ever changed have rows; with none, no History at all.
+        #}
+        {% if callbacks|filter(c => c.history|length > 0)|length > 0 %}
+        <details class="n8ndispatch-callback-history">
+            <summary class="n8ndispatch-timeline-label n8ndispatch-callback-title">{{ 'mautic.n8ndispatch.timeline.callback.history'|trans }}:</summary>
+            {% for callback in callbacks|filter(c => c.history|length > 0) %}
+            <p class="n8ndispatch-timeline-label n8ndispatch-callback-title">{{ (callback.refType == 'logSendHsmId' or callback.refType == 'logSendHsmUuid' ? 'mautic.n8ndispatch.timeline.callback.ref.' ~ callback.refType : 'mautic.n8ndispatch.timeline.callback')|trans }}:</p>
+            <table class="n8ndispatch-callback-history-table">
+                <thead>
+                    <tr>
+                        <th>{{ 'mautic.n8ndispatch.timeline.callback.history.status'|trans }}</th>
+                        <th>{{ 'mautic.n8ndispatch.timeline.callback.history.date'|trans }}</th>
+                        <th>{{ 'mautic.n8ndispatch.timeline.callback.history.message'|trans }}</th>
+                    </tr>
+                </thead>
+                <tbody>
+                {% for entry in callback.history|reverse %}
+                    <tr>
+                        <td>
+                            <span class="n8ndispatch-timeline-badge n8ndispatch-timeline-badge--{{ {'success': 'success', 'error': 'failed', 'pending': 'pending'}[entry.outcome] }}">
+                                <i class="{{ {'success': 'ri-check-line', 'error': 'ri-close-line', 'pending': 'ri-time-line'}[entry.outcome] }}"></i>
+                                {{ ('mautic.n8ndispatch.timeline.callback.outcome.' ~ entry.outcome)|trans }}
+                            </span>
+                        </td>
+                        <td>{{ n8ndispatch_date(entry.receivedAt) }}</td>
+                        <td>{{ entry.message }}</td>
+                    </tr>
+                {% endfor %}
+                </tbody>
+            </table>
+            {% endfor %}
+        </details>
+        {% endif %}
         {% endif %}
     </div>
 {% endif %}

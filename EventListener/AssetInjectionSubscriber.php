@@ -53,6 +53,7 @@ class AssetInjectionSubscriber implements EventSubscriberInterface
         $hsmJsRelativePath         = 'Assets/js/campaign-hsm-dispatch.js';
         $timelineJsRelativePath    = 'Assets/js/campaign-timeline-scheduled.js';
         $previewIconsJsRelativePath = 'Assets/js/campaign-preview-icons.js';
+        $checkNowJsRelativePath    = 'Assets/js/status-poll-check-now.js';
         $cssRelativePath           = 'Assets/css/campaign-status-badge.css';
 
         $customContentEvent->addContent(
@@ -63,6 +64,7 @@ class AssetInjectionSubscriber implements EventSubscriberInterface
             .'<script src="/plugins/N8nDispatchBundle/'.$hsmJsRelativePath.'?v='.$this->assetVersion($hsmJsRelativePath).'"></script>'
             .'<script src="/plugins/N8nDispatchBundle/'.$timelineJsRelativePath.'?v='.$this->assetVersion($timelineJsRelativePath).'"></script>'
             .'<script src="/plugins/N8nDispatchBundle/'.$previewIconsJsRelativePath.'?v='.$this->assetVersion($previewIconsJsRelativePath).'"></script>'
+            .'<script src="/plugins/N8nDispatchBundle/'.$checkNowJsRelativePath.'?v='.$this->assetVersion($checkNowJsRelativePath).'"></script>'
             .'<link rel="stylesheet" href="/plugins/N8nDispatchBundle/'.$cssRelativePath.'?v='.$this->assetVersion($cssRelativePath).'">'
         );
     }

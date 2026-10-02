@@ -47,7 +47,7 @@
 }
 
 .n8ndispatch-status-badge--test {
-    background-color: #b39ddb;
+    background-color: #7e57c2;
 }
 
 .n8ndispatch-status-badge--production {
@@ -79,7 +79,7 @@
 }
 
 .n8ndispatch-timeline-badge--test {
-    background-color: #b39ddb;
+    background-color: #7e57c2;
 }
 
 .n8ndispatch-timeline-badge--production {
@@ -121,6 +121,10 @@
     margin: 6px 0 0;
 }
 
+.n8ndispatch-callback-checked {
+    margin: 0 0 4px;
+}
+
 .n8ndispatch-callback-row {
     display: flex;
     align-items: center;
@@ -128,18 +132,71 @@
     flex-wrap: wrap;
 }
 
-.n8ndispatch-callback-message {
-    margin: 4px 0 0;
+/* The error message sits in the same block as the JSON ones above
+   (.n8ndispatch-timeline-json, which also carries the dark theme colors),
+   but it is prose, so it wraps instead of scrolling sideways. */
+.n8ndispatch-timeline-json.n8ndispatch-callback-message {
+    /* same gap above as the Body/Response blocks have under their titles */
+    margin: 8px 0 0;
+    white-space: pre-wrap;
+    overflow-wrap: anywhere;
 }
 
+/* The History at the end of the card: a <details> whose title is the same
+   .n8ndispatch-timeline-label as 'Callback:', opening one table per callback. */
 .n8ndispatch-callback-history {
+    margin: 8px 0 0;
+}
+
+.n8ndispatch-callback-history > summary {
+    display: list-item;
+    cursor: pointer;
+}
+
+.n8ndispatch-callback-history-table {
+    width: 100%;
+    table-layout: fixed;
     margin: 4px 0 0;
+    border-collapse: collapse;
     font-size: 12px;
 }
 
-.n8ndispatch-callback-history ul {
-    margin: 4px 0 0;
-    padding-left: 18px;
+.n8ndispatch-callback-history-table th,
+.n8ndispatch-callback-history-table td {
+    padding: 6px 16px 6px 0;
+    border-bottom: 1px solid var(--border-subtle-01, #e0e0e0);
+    text-align: left;
+    vertical-align: top;
+}
+
+/* Status and Date have a fixed width, wide enough for the badge and a full
+   date and time; Message gets the rest of the width and wraps. */
+.n8ndispatch-callback-history-table th:nth-child(1),
+.n8ndispatch-callback-history-table td:nth-child(1) {
+    width: 160px;
+}
+
+.n8ndispatch-callback-history-table th:nth-child(2),
+.n8ndispatch-callback-history-table td:nth-child(2) {
+    width: 200px;
+}
+
+.n8ndispatch-callback-history-table td:nth-child(3) {
+    overflow-wrap: anywhere;
+}
+
+/* Titles of the Callback sections ('Callback', 'Callback Meta', 'Histórico'):
+   extra air above, so each one reads as its own section and not as part of
+   the block before it. The doubled class makes it win over the plain
+   .n8ndispatch-timeline-label margin below, whatever the order. */
+.n8ndispatch-timeline-label.n8ndispatch-callback-title {
+    margin-top: 24px;
+}
+
+/* Inside the open History, the titles of the tables (not the 'Histórico'
+   summary itself) only separate one table from the next. */
+.n8ndispatch-callback-history > p.n8ndispatch-timeline-label.n8ndispatch-callback-title {
+    margin-top: 16px;
 }
 
 .n8ndispatch-timeline-label {
@@ -194,6 +251,29 @@
  */
 .n8ndispatch-timeline-scheduled .text-warning {
     color: #8a6100;
+}
+
+/*
+ * Dark themes (Account > Appearance: dark and solarized-dark). The themes
+ * only change CSS variables (`:root[theme="..."]`), so the light colors
+ * hard-coded above never followed them: the Body/Response blocks kept
+ * their #f5f5f5 background while the text took the theme's light color
+ * (white on white), and the dark amber of the 'cancelled' line was
+ * unreadable on a dark card. Only the dark themes are overridden, with the
+ * theme's own variables; the light themes keep the look above. The
+ * :root[theme=...] prefix makes these rules win over the ones above no
+ * matter the stylesheet order.
+ */
+:root[theme="dark"] .n8ndispatch-timeline-json,
+:root[theme="solarized-dark"] .n8ndispatch-timeline-json {
+    background-color: var(--layer-01);
+    border-color: var(--border-subtle-01);
+    color: var(--text-primary);
+}
+
+:root[theme="dark"] .n8ndispatch-timeline-scheduled .text-warning,
+:root[theme="solarized-dark"] .n8ndispatch-timeline-scheduled .text-warning {
+    color: var(--support-warning);
 }
 
 .n8ndispatch-timeline-json {
@@ -252,4 +332,24 @@
     50% {
         opacity: 0.35;
     }
+}
+
+/* Result of the "Check now" button on the plugin's settings screen
+   (Assets/js/status-poll-check-now.js). Colors from the theme's own
+   variables, with light fallbacks. */
+.n8ndispatch-check-now-result {
+    margin-top: 10px;
+    font-size: 12px;
+}
+
+.n8ndispatch-check-now-line {
+    margin: 2px 0;
+}
+
+.n8ndispatch-check-now-line--error {
+    color: var(--text-error, #da1e28);
+}
+
+.n8ndispatch-check-now-line--info {
+    color: var(--text-secondary, #525252);
 }

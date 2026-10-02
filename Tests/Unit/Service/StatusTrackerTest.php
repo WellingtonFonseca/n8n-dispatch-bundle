@@ -82,6 +82,44 @@ class StatusTrackerTest extends TestCase
         $this->tracker->register(DispatchTracking::CHANNEL_EMAIL, [DispatchTracking::REF_EMAIL => 4298591], $this->now);
     }
 
+    public function testRegisterReturnsHowManyRowsItCreated(): void
+    {
+        $this->trackings->method('findOneByRef')->willReturnCallback(
+            fn (string $type, string $value) => 'logSendHsmId' === $type ? $this->existing($type, $value) : null
+        );
+
+        $created = $this->tracker->register(DispatchTracking::CHANNEL_HSM, [
+            DispatchTracking::REF_HSM_ID   => 4298591,
+            DispatchTracking::REF_HSM_UUID => 'abc',
+        ], $this->now);
+
+        $this->assertSame(1, $created);
+    }
+
+    public function testRegisterUsesTheGivenDateAsTheDispatchDate(): void
+    {
+        $saved = [];
+        $this->trackings->method('findOneByRef')->willReturn(null);
+        $this->trackings->method('saveEntity')->willReturnCallback(function (DispatchTracking $t) use (&$saved): void {
+            $saved[] = $t;
+        });
+        $earlier = new \DateTimeImmutable('2026-09-29 14:00:00');
+
+        $this->tracker->register(DispatchTracking::CHANNEL_EMAIL, [DispatchTracking::REF_EMAIL => 4001], $earlier);
+
+        $this->assertEquals($earlier, $saved[0]->getDispatchedAt());
+    }
+
+    public function testIsTrackedAsksTheRepository(): void
+    {
+        $this->trackings->method('findOneByRef')->willReturnCallback(
+            fn (string $type, string $value) => '1' === $value ? $this->existing($type, $value) : null
+        );
+
+        $this->assertTrue($this->tracker->isTracked('logSendEmailId', '1'));
+        $this->assertFalse($this->tracker->isTracked('logSendEmailId', '2'));
+    }
+
     public function testApplyCountsAnUnknownRefAndSavesNothing(): void
     {
         $this->trackings->method('findOneByRef')->willReturn(null);
