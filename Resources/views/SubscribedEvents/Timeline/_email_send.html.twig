@@ -342,7 +342,8 @@
                             </span>
                         </td>
                         <td>{{ n8ndispatch_date(entry.receivedAt) }}</td>
-                        <td>{{ entry.message }}</td>
+                        {# Same block as the JSONs and the message above, with no label: the column already says what it is. #}
+                        <td>{% if entry.message %}<pre class="n8ndispatch-timeline-json n8ndispatch-callback-message">{{ entry.message }}</pre>{% endif %}</td>
                     </tr>
                 {% endfor %}
                 </tbody>

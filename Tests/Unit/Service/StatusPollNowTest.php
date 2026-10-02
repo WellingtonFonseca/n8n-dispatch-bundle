@@ -5,6 +5,7 @@ declare(strict_types=1);
 namespace MauticPlugin\N8nDispatchBundle\Tests\Unit\Service;
 
 use MauticPlugin\N8nDispatchBundle\Service\StatusPoller;
+use MauticPlugin\N8nDispatchBundle\Service\StatusPollSettings;
 use MauticPlugin\N8nDispatchBundle\Service\StatusPollNow;
 use PHPUnit\Framework\MockObject\MockObject;
 use PHPUnit\Framework\TestCase;
@@ -14,12 +15,17 @@ class StatusPollNowTest extends TestCase
     /** @var StatusPoller&MockObject */
     private StatusPoller $poller;
 
+    /** @var StatusPollSettings&MockObject */
+    private StatusPollSettings $settings;
+
     private StatusPollNow $now;
 
     protected function setUp(): void
     {
         $this->poller = $this->createMock(StatusPoller::class);
-        $this->now    = new StatusPollNow($this->poller);
+        $this->settings = $this->createMock(StatusPollSettings::class);
+        $this->settings->method('current')->willReturn(['enabled' => false, 'interval' => 60, 'batch' => 100, 'timeout' => 180, 'maxDuration' => 300]);
+        $this->now      = new StatusPollNow($this->poller, $this->settings);
     }
 
     /**
@@ -81,5 +87,21 @@ class StatusPollNowTest extends TestCase
         $this->assertFalse($result['ok']);
         $this->assertSame('database gone', $result['channels']['email']['error']);
         $this->assertSame(0, $result['channels']['email']['requested']);
+    }
+
+    public function testTheBatchSizeFollowsTheSettingsScreen(): void
+    {
+        $settings = $this->createMock(StatusPollSettings::class);
+        $settings->method('current')->willReturn(['enabled' => false, 'interval' => 60, 'batch' => 40, 'timeout' => 180, 'maxDuration' => 300]);
+        $batches = [];
+        $this->poller->method('poll')->willReturnCallback(function (string $channel, int $batch) use (&$batches): array {
+            $batches[] = $batch;
+
+            return $this->summary();
+        });
+
+        (new StatusPollNow($this->poller, $settings))->run(new \DateTimeImmutable());
+
+        $this->assertSame([40, 40, 40], $batches);
     }
 }

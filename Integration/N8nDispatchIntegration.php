@@ -77,6 +77,45 @@ class N8nDispatchIntegration extends AbstractIntegration
             'constraints' => [new Range(min: StatusPollSettings::MIN_INTERVAL, max: StatusPollSettings::MAX_INTERVAL)],
         ]);
 
+        $builder->add(StatusPollSettings::KEY_BATCH, IntegerType::class, [
+            'label'       => 'mautic.n8ndispatch.settings.status_poll.batch',
+            'data'        => $current['batch'],
+            'label_attr'  => ['class' => 'control-label'],
+            'attr'        => [
+                'class'   => 'form-control',
+                'tooltip' => 'mautic.n8ndispatch.settings.status_poll.batch.tooltip',
+                'min'     => StatusPollSettings::MIN_BATCH,
+                'max'     => StatusPollSettings::MAX_BATCH,
+            ],
+            'constraints' => [new Range(min: StatusPollSettings::MIN_BATCH, max: StatusPollSettings::MAX_BATCH)],
+        ]);
+
+        $builder->add(StatusPollSettings::KEY_TIMEOUT, IntegerType::class, [
+            'label'       => 'mautic.n8ndispatch.settings.status_poll.timeout',
+            'data'        => $current['timeout'],
+            'label_attr'  => ['class' => 'control-label'],
+            'attr'        => [
+                'class'   => 'form-control',
+                'tooltip' => 'mautic.n8ndispatch.settings.status_poll.timeout.tooltip',
+                'min'     => StatusPollSettings::MIN_TIMEOUT,
+                'max'     => StatusPollSettings::MAX_TIMEOUT,
+            ],
+            'constraints' => [new Range(min: StatusPollSettings::MIN_TIMEOUT, max: StatusPollSettings::MAX_TIMEOUT)],
+        ]);
+
+        $builder->add(StatusPollSettings::KEY_MAX_DURATION, IntegerType::class, [
+            'label'       => 'mautic.n8ndispatch.settings.status_poll.max_duration',
+            'data'        => $current['maxDuration'],
+            'label_attr'  => ['class' => 'control-label'],
+            'attr'        => [
+                'class'   => 'form-control',
+                'tooltip' => 'mautic.n8ndispatch.settings.status_poll.max_duration.tooltip',
+                'min'     => StatusPollSettings::MIN_TIMEOUT,
+                'max'     => StatusPollSettings::MAX_MAX_DURATION,
+            ],
+            'constraints' => [new Range(min: StatusPollSettings::MIN_TIMEOUT, max: StatusPollSettings::MAX_MAX_DURATION)],
+        ]);
+
         $builder->add('status_poll_last_run', TextType::class, [
             'label'      => 'mautic.n8ndispatch.settings.status_poll.last_run',
             'label_attr' => ['class' => 'control-label'],

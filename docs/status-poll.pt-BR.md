@@ -77,32 +77,18 @@ SMS usa `logSendSmsId`. No HSM, os dois ids do mesmo disparo vêm no mesmo item:
 
 - O item do HSM pode trazer **só um** dos dois ids (o outro já foi resolvido).
 - Números chegam como número e o uuid como texto.
-- **Lotes de 100 ids por chamada, várias chamadas seguidas.** A rodada pergunta **tudo o que
-  está pendente**, 100 ids por vez, uma chamada depois da outra (a próxima só sai quando a
-  anterior respondeu), até a fila acabar. Com 10 mil pendentes são 100 chamadas de 100. Cada
-  id é perguntado **uma vez só por rodada**. O n8n precisa dar vazão a esse ritmo; o tamanho de
-  100 serve para cada chamada responder rápido e liberar o workflow para os outros.
-- Cada chamada tem um **timeout**: 60 segundos sem resposta, ou 120 segundos no total. Se o n8n
-  travar, a chamada falha, a rodada para (o que já foi respondido antes fica gravado) e a próxima
-  rodada pergunta de novo.
-
-## 3. A resposta do n8n (HTTP 200)
-
-```json
-{ "items": [
-  { "logSendEmailId": 4298591, "outcome": "success" },
-  { "logSendEmailId": 4298592, "outcome": "error", "message": "caixa cheia" },
-  { "logSendEmailId": 4298593, "outcome": "pending" }
-] }
-```
-
-| Campo | Regra |
-|---|---|
-| id (`logSendEmailId`, `logSendSmsId`, `logSendHsmId` ou `logSendHsmUuid`) | **Obrigatório.** O mesmo valor que o Mautic enviou. |
-| `outcome` | **Obrigatório:** `success`, `error` ou `pending`. |
-| `message` | Opcional. Motivo, mostrado no card (útil no `error`). |
-| outros campos | Opcionais. São guardados junto, mas não aparecem no card. |
-
+- **Lotes, várias chamadas seguidas.** A rodada pergunta **tudo o que está pendente**, em
+  lotes de **100 ids por chamada** (ajustável na tela do plugin), uma chamada depois da outra
+  (a próxima só sai quando a anterior respondeu), até a fila acabar. Com 10 mil pendentes são
+  100 chamadas de 100. Cada id é perguntado **uma vez só por rodada**. O n8n precisa dar vazão
+  a esse ritmo; lotes menores respondem mais rápido e liberam o workflow para os outros.
+- Cada chamada tem um **timeout**, ajustável na tela do plugin: por padrão, **180 segundos sem
+  resposta** e **300 segundos no total**. Se o n8n travar, a chamada falha, a rodada para (o que já
+  foi respondido antes fica gravado) e a próxima rodada pergunta de novo. Se o workflow só
+  responde no fim, o tempo sem resposta é o tempo da chamada inteira: mantenha o timeout bem
+  acima do que o n8n leva para responder um lote (se um lote leva 51 s, 60 s é pouco). Cuidado:
+  se **todo** lote passar do timeout, a fila nunca anda, porque a rodada falha sempre no mesmo
+  ponto; nesse caso aumente o timeout ou diminua o tamanho do lote.
 - **Devolva sempre o estado atual**, mesmo que seja o mesmo da vez anterior
   (`pending` de novo, por exemplo). O n8n não precisa lembrar o que já respondeu.
 - Também é aceito com a lista dentro de `body`: `{ "body": { "items": [...] } }`.
@@ -183,6 +169,9 @@ A configuração fica em **Settings > Plugins > N8n Dispatch > aba Features**:
 |---|---|---|
 | Verificar o status dos disparos (callback) | **Desligado** | Liga/desliga. Ligue para o Mautic começar a perguntar ao n8n. |
 | Verificar a cada (minutos) | 60 | `60` = 1 hora, `120` = 2 horas. Mínimo 5, máximo 1440. |
+| Ids por chamada ao n8n | 100 | Tamanho do lote (de 10 a 1000). Também vale para o botão **Verificar agora** e para o comando, quando não se passa `--batch`. |
+| Timeout sem resposta (segundos) | 180 | Quanto o Mautic espera o n8n responder uma chamada (de 10 a 900). |
+| Duração máxima de uma chamada (segundos) | 300 | O máximo que uma chamada inteira pode durar (até 1800); nunca menor que o timeout. |
 | Última rodada | (só leitura) | Data, resultado (ok/erro) e o resumo da última rodada agendada. |
 | **Verificar agora** | (botão) | Pergunta ao n8n **uma vez, agora**, e mostra o resultado embaixo do botão. Funciona com o liga/desliga desligado. |
 
@@ -191,7 +180,7 @@ A configuração fica em **Settings > Plugins > N8n Dispatch > aba Features**:
 O botão **Verificar agora** serve para isso: com o liga/desliga ainda **desligado**, clique nele e
 o Mautic faz a pergunta de verdade ao seu webhook (mesma chamada de uma rodada agendada: ações
 `email.status`, `sms.status` e `hsm.status`, disparos dos últimos 7 dias).
-**O botão faz uma chamada só por canal, de até 100 ids**, e não esvazia a fila inteira como uma rodada agendada: assim você testa o workflow sem inundá-lo. Você vê chegar no n8n, ajusta o workflow e clica de novo, quantas vezes precisar. Embaixo do
+**O botão faz uma chamada só por canal, com o tamanho de lote da tela (100 por padrão)**, e não esvazia a fila inteira como uma rodada agendada: assim você testa o workflow sem inundá-lo. Você vê chegar no n8n, ajusta o workflow e clica de novo, quantas vezes precisar. Embaixo do
 botão aparece, por canal, quantos ids foram perguntados e o que mudou, ou o erro (por exemplo
 `webhook returned HTTP 500.`), e uma linha avisando quando não havia nada pendente.
 
@@ -230,7 +219,7 @@ O comando **não depende** do liga/desliga: rodado à mão, ele sempre pergunta.
 | Opção | Padrão | Para quê |
 |---|---|---|
 | `--channel=email\|sms\|hsm` | os três | perguntar só de um canal |
-| `--batch=100` | 100 | ids por chamada ao n8n |
+| `--batch=N` | o da tela (100) | ids por chamada ao n8n |
 | `--max-calls=1000` | 1000 | máximo de chamadas por canal em uma rodada (só uma trava de segurança: a rodada vai até esvaziar a fila) |
 | `--max-age-days=7` | 7 | ignora disparos mais antigos que isso |
 | `--outcome=pending\|error` | `pending` | `error` refaz a pergunta dos que falharam |

@@ -26,16 +26,13 @@ class StatusPoller
     /** Ceiling of calls in one run per channel: 100,000 ids at 100 a call. Only there so a bug can never loop forever. */
     public const MAX_CALLS = 1000;
 
-    /** Seconds without a byte from n8n before a call is given up; and the most a whole call may last. */
-    public const REQUEST_TIMEOUT      = 60;
-    public const REQUEST_MAX_DURATION = 120;
-
     public function __construct(
         private IntegrationHelper $integrationHelper,
         private HttpClientInterface $httpClient,
         private StatusTracker $tracker,
         private StatusResponseParser $parser,
         private LoggerInterface $logger,
+        private StatusPollSettings $settings,
     ) {
     }
 
@@ -83,6 +80,7 @@ class StatusPoller
             $headers['X-N8n-Dispatch-Token'] = $token;
         }
 
+        $limits  = $this->settings->current();
         $afterId = 0;
 
         while ($summary['calls'] < $maxCalls) {
@@ -100,10 +98,11 @@ class StatusPoller
                     'headers'      => $headers,
                     'json'         => ['items' => $items],
                     // An n8n that hangs must not hold the run (and, through it,
-                    // the next scheduled ones) forever: the call fails like any
+                    // the next scheduled ones) forever; the limits are the ones on
+                    // the plugin's settings screen: the call fails like any
                     // other, the run stops, and the next run asks again.
-                    'timeout'      => self::REQUEST_TIMEOUT,
-                    'max_duration' => self::REQUEST_MAX_DURATION,
+                    'timeout'      => $limits['timeout'],
+                    'max_duration' => $limits['maxDuration'],
                 ]);
 
                 // Symfony's HttpClient sends lazily — see the dispatch
