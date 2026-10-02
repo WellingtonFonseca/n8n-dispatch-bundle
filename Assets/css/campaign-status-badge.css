@@ -136,7 +136,8 @@
    (.n8ndispatch-timeline-json, which also carries the dark theme colors),
    but it is prose, so it wraps instead of scrolling sideways. */
 .n8ndispatch-timeline-json.n8ndispatch-callback-message {
-    margin: 4px 0 0;
+    /* same gap above as the Body/Response blocks have under their titles */
+    margin: 8px 0 0;
     white-space: pre-wrap;
     overflow-wrap: anywhere;
 }
