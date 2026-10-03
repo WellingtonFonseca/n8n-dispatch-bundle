@@ -318,6 +318,23 @@ class AjaxControllerTest extends TestCase
         $this->assertSame(0, json_decode((string) $response->getContent(), true)['success']);
     }
 
+    public function testResendNeedsTheCampaignsFullPermissionAndSendsNothingWithout(): void
+    {
+        $security = $this->createMock(CorePermissions::class);
+        $security->method('isGranted')->with('campaign:campaigns:full')->willReturn(false);
+        $resender = $this->createMock(\MauticPlugin\N8nDispatchBundle\Service\DispatchResender::class);
+        $resender->expects($this->never())->method('resend');
+
+        $response = $this->buildController()->resendDispatchAction(
+            new \Symfony\Component\HttpFoundation\Request([], ['logId' => '5']),
+            $security,
+            $this->createMock(\Mautic\CoreBundle\Helper\UserHelper::class),
+            $resender
+        );
+
+        $this->assertSame(Response::HTTP_FORBIDDEN, $response->getStatusCode());
+    }
+
     public function testRunStatusPollReturnsWhatTheRunnerFound(): void
     {
         $security = $this->createMock(CorePermissions::class);

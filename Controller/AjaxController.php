@@ -163,7 +163,8 @@ class AjaxController extends CommonAjaxController
      * "Reenviar" on the Dispatches screen (Assets/js/dispatch-resend.js):
      * calls n8n again for the dispatch of the given campaign log. The
      * resender checks it is a production dispatch in error; its answer goes
-     * back as a flash message.
+     * back as a flash message. Needs Campaigns > Full, like the screen itself
+     * (DispatchController::PERMISSION).
      */
     public function resendDispatchAction(
         Request $request,
@@ -171,7 +172,7 @@ class AjaxController extends CommonAjaxController
         UserHelper $userHelper,
         DispatchResender $resender
     ): JsonResponse {
-        if (!$security->isGranted('plugin:plugins:manage')) {
+        if (!$security->isGranted('campaign:campaigns:full')) {
             return new JsonResponse(['success' => 0], Response::HTTP_FORBIDDEN);
         }
 

@@ -117,6 +117,8 @@ distinguir entregue/lido:
 
 ## 4. O que o Mautic faz com a resposta
 
+- **Todo disparo começa o histórico com um `pending`** ("Aguardando", com a data
+  do disparo). Os disparos antigos, de antes disso, não têm essa primeira linha.
 - **Mudou o `outcome`** (por exemplo `pending` → `error`): grava uma linha no
   histórico e atualiza o card.
 - **Mesmo `outcome` de antes** (por exemplo `pending` de novo): **não grava nada
@@ -148,7 +150,7 @@ Abaixo de **Body** e **Response**, um bloco **Callback**:
   `logSendHsmUuid`), cada um com o seu "Verificado em", o seu selo e a sua mensagem.
 - **Histórico:** no fim do card, um título "Histórico:" que abre ao clicar, com uma
   tabela (Status, Data, Mensagem) por callback, da mais recente para a mais antiga.
-  Só existe se algum resultado já mudou.
+  Todo disparo tem pelo menos a primeira linha, "Aguardando".
 
 Isto **não altera** o status do evento da campanha nem o registro de envio do
 email: o evento continua como "passou" se a ida deu 2xx. O callback é só

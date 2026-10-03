@@ -47,12 +47,12 @@ return [
             'mautic.n8ndispatch.menu.root' => [
                 'id'        => 'mautic_n8ndispatch_root',
                 'iconClass' => 'ri-send-plane-fill',
-                'access'    => 'plugin:plugins:manage',
+                'access'    => 'campaign:campaigns:full',
                 'priority'  => 35,
             ],
             'mautic.n8ndispatch.dispatch.menu.index' => [
                 'route'    => 'mautic_n8ndispatch.dispatch_index',
-                'access'   => 'plugin:plugins:manage',
+                'access'   => 'campaign:campaigns:full',
                 'parent'   => 'mautic.n8ndispatch.menu.root',
                 'priority' => 10,
             ],
