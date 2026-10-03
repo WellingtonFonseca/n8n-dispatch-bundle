@@ -15,40 +15,65 @@
 {% block content %}
     {% if isIndex %}
     <div id="page-list-wrapper" class="panel panel-default">
-        {# Filter bar: a plain GET form (the filters live in the query string, which the pagination links and the resend reload keep). #}
-        <form method="get" action="{{ path('mautic_n8ndispatch.dispatch_index') }}" class="form-inline n8ndispatch-filters" style="padding: 10px 15px;">
-            <select name="campaign" class="form-control input-sm" aria-label="{{ 'mautic.n8ndispatch.dispatch.filter.campaign'|trans }}">
-                <option value="">{{ 'mautic.n8ndispatch.dispatch.filter.campaign'|trans }}</option>
-                {% for id, name in options.campaigns %}
-                    <option value="{{ id }}"{{ filters.campaign is defined and filters.campaign == id ? ' selected' : '' }}>{{ name }}</option>
-                {% endfor %}
-            </select>
-            <select name="template" class="form-control input-sm" aria-label="{{ 'mautic.n8ndispatch.dispatch.filter.template'|trans }}">
-                <option value="">{{ 'mautic.n8ndispatch.dispatch.filter.template'|trans }}</option>
-                {% for channel, names in options.templates %}
-                    <optgroup label="{{ ('mautic.n8ndispatch.dispatch.filter.channel.' ~ channel)|trans }}">
-                        {% for key, name in names %}
-                            <option value="{{ key }}"{{ filters.template is defined and filters.template == key ? ' selected' : '' }}>{{ name }}</option>
-                        {% endfor %}
-                    </optgroup>
-                {% endfor %}
-            </select>
-            <label class="text-muted" style="font-weight: normal;">{{ 'mautic.n8ndispatch.dispatch.filter.from'|trans }}
-                <input type="date" name="from" value="{{ filters.from|default('') }}" class="form-control input-sm">
-            </label>
-            <label class="text-muted" style="font-weight: normal;">{{ 'mautic.n8ndispatch.dispatch.filter.to'|trans }}
-                <input type="date" name="to" value="{{ filters.to|default('') }}" class="form-control input-sm">
-            </label>
-            <select name="status" class="form-control input-sm" aria-label="{{ 'mautic.n8ndispatch.dispatch.filter.status'|trans }}">
-                <option value="">{{ 'mautic.n8ndispatch.dispatch.filter.status'|trans }}</option>
-                {% for status in statuses %}
-                    <option value="{{ status }}"{{ filters.status is defined and filters.status == status ? ' selected' : '' }}>{{ ('mautic.n8ndispatch.dispatch.filter.status.' ~ status)|trans }}</option>
-                {% endfor %}
-            </select>
-            <button type="submit" class="btn btn-primary btn-sm"><i class="ri-filter-line"></i> {{ 'mautic.n8ndispatch.dispatch.filter.apply'|trans }}</button>
-            {% if hasFilters %}
-                <a href="{{ path('mautic_n8ndispatch.dispatch_index') }}" class="btn btn-ghost btn-sm">{{ 'mautic.n8ndispatch.dispatch.filter.clear'|trans }}</a>
-            {% endif %}
+        {# Filter bar: a plain GET form (the filters live in the query string, which the pagination links and the resend reload keep). Same field pattern as the template forms: a label with the field under it. #}
+        <form method="get" action="{{ path('mautic_n8ndispatch.dispatch_index') }}" class="n8ndispatch-filters" style="padding: 15px 15px 0;">
+            <div class="row">
+                <div class="col-md-3">
+                    <div class="form-group">
+                        <label class="control-label" for="dispatch-filter-campaign">{{ 'mautic.n8ndispatch.dispatch.filter.campaign'|trans }}</label>
+                        <select id="dispatch-filter-campaign" name="campaign" class="form-control">
+                            <option value="">{{ 'mautic.n8ndispatch.dispatch.filter.all'|trans }}</option>
+                            {% for id, name in options.campaigns %}
+                                <option value="{{ id }}"{{ filters.campaign is defined and filters.campaign == id ? ' selected' : '' }}>{{ name }}</option>
+                            {% endfor %}
+                        </select>
+                    </div>
+                </div>
+                <div class="col-md-3">
+                    <div class="form-group">
+                        <label class="control-label" for="dispatch-filter-template">{{ 'mautic.n8ndispatch.dispatch.filter.template'|trans }}</label>
+                        <select id="dispatch-filter-template" name="template" class="form-control">
+                            <option value="">{{ 'mautic.n8ndispatch.dispatch.filter.all'|trans }}</option>
+                            {% for channel, names in options.templates %}
+                                <optgroup label="{{ ('mautic.n8ndispatch.dispatch.filter.channel.' ~ channel)|trans }}">
+                                    {% for key, name in names %}
+                                        <option value="{{ key }}"{{ filters.template is defined and filters.template == key ? ' selected' : '' }}>{{ name }}</option>
+                                    {% endfor %}
+                                </optgroup>
+                            {% endfor %}
+                        </select>
+                    </div>
+                </div>
+                <div class="col-md-2">
+                    <div class="form-group">
+                        <label class="control-label" for="dispatch-filter-from">{{ 'mautic.n8ndispatch.dispatch.filter.from'|trans }}</label>
+                        <input type="date" id="dispatch-filter-from" name="from" value="{{ filters.from|default('') }}" class="form-control">
+                    </div>
+                </div>
+                <div class="col-md-2">
+                    <div class="form-group">
+                        <label class="control-label" for="dispatch-filter-to">{{ 'mautic.n8ndispatch.dispatch.filter.to'|trans }}</label>
+                        <input type="date" id="dispatch-filter-to" name="to" value="{{ filters.to|default('') }}" class="form-control">
+                    </div>
+                </div>
+                <div class="col-md-2">
+                    <div class="form-group">
+                        <label class="control-label" for="dispatch-filter-status">{{ 'mautic.n8ndispatch.dispatch.filter.status'|trans }}</label>
+                        <select id="dispatch-filter-status" name="status" class="form-control">
+                            <option value="">{{ 'mautic.n8ndispatch.dispatch.filter.all'|trans }}</option>
+                            {% for status in statuses %}
+                                <option value="{{ status }}"{{ filters.status is defined and filters.status == status ? ' selected' : '' }}>{{ ('mautic.n8ndispatch.dispatch.filter.status.' ~ status)|trans }}</option>
+                            {% endfor %}
+                        </select>
+                    </div>
+                </div>
+            </div>
+            <div class="form-group">
+                <button type="submit" class="btn btn-primary"><i class="ri-filter-line"></i> {{ 'mautic.n8ndispatch.dispatch.filter.apply'|trans }}</button>
+                {% if hasFilters %}
+                    <a href="{{ path('mautic_n8ndispatch.dispatch_index') }}" class="btn btn-ghost">{{ 'mautic.n8ndispatch.dispatch.filter.clear'|trans }}</a>
+                {% endif %}
+            </div>
         </form>
         {% if capped %}
             <div class="alert alert-warning" style="margin: 0 15px 10px;">{{ 'mautic.n8ndispatch.dispatch.filter.capped'|trans({'%limit%': scanLimit}) }}</div>
