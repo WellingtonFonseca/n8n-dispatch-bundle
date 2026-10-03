@@ -36,28 +36,86 @@ class DispatchListReader
     ) {
     }
 
-    public function count(): int
-    {
-        return (int) $this->baseQuery()
-            ->select('COUNT(l.id)')
-            ->executeQuery()
-            ->fetchOne();
-    }
+    /**
+     * Candidates read into memory when the status filter is on (it depends on
+     * the tracking rows, which the log's serialized metadata does not let SQL
+     * join). Past this, the screen asks the user to narrow the dates.
+     */
+    public const STATUS_SCAN_LIMIT = 5000;
 
     /**
-     * @return list<array{id: int, channel: string, dispatchedAt: ?\DateTimeImmutable, campaignId: int, campaignName: string, templateName: string, templateRoute: array{name: string, params: array<string, int|string>}|null, contactId: int, contactEmail: string, contactName: string, failed: bool, metadata: array<string, mixed>}>
+     * One page of the table and the total that matches the filters.
+     *
+     * @return array{items: list<array<string, mixed>>, total: int, capped: bool}
      */
-    public function read(int $page, int $limit): array
+    public function search(DispatchFilters $filters, int $page, int $limit): array
     {
-        $rows = $this->baseQuery()
+        $offset = max(0, ($page - 1) * $limit);
+
+        if (null === $filters->status) {
+            $total = (int) $this->filtered($filters)->select('COUNT(l.id)')->executeQuery()->fetchOne();
+            $rows  = $this->filtered($filters)
+                ->select(self::COLUMNS)
+                ->orderBy('l.id', 'DESC')
+                ->setFirstResult($offset)
+                ->setMaxResults($limit)
+                ->executeQuery()
+                ->fetchAllAssociative();
+
+            return ['items' => $this->mapRows($rows), 'total' => $total, 'capped' => false];
+        }
+
+        $rows = $this->filtered($filters)
             ->select(self::COLUMNS)
             ->orderBy('l.id', 'DESC')
-            ->setFirstResult(max(0, ($page - 1) * $limit))
-            ->setMaxResults($limit)
+            ->setMaxResults(self::STATUS_SCAN_LIMIT + 1)
             ->executeQuery()
             ->fetchAllAssociative();
 
-        return $this->mapRows($rows);
+        $capped = count($rows) > self::STATUS_SCAN_LIMIT;
+        $rows   = array_slice($rows, 0, self::STATUS_SCAN_LIMIT);
+        $rows   = $this->withStatus($rows, $filters->status);
+
+        return ['items' => $this->mapRows(array_slice($rows, $offset, $limit)), 'total' => count($rows), 'capped' => $capped];
+    }
+
+    /**
+     * What the filter bar offers: the campaigns and templates that have
+     * dispatches steps, ready for <select>s.
+     *
+     * @return array{campaigns: array<int, string>, templates: array<string, array<string, string>>} templates by channel, "<channel>:<id>" => name
+     */
+    public function filterOptions(): array
+    {
+        $events = $this->em->getConnection()->createQueryBuilder()
+            ->select('e.type, e.properties, c.id AS campaign_id, c.name AS campaign_name')
+            ->from(MAUTIC_TABLE_PREFIX.'campaign_events', 'e')
+            ->innerJoin('e', MAUTIC_TABLE_PREFIX.'campaigns', 'c', 'c.id = e.campaign_id')
+            ->where('e.type IN (:types)')
+            ->setParameter('types', DispatchLogReader::eventTypes(), ArrayParameterType::STRING)
+            ->executeQuery()
+            ->fetchAllAssociative();
+
+        $campaigns = [];
+        $refs      = [];
+
+        foreach ($events as $event) {
+            $campaigns[(int) $event['campaign_id']] = (string) $event['campaign_name'];
+            $refs[]                                 = self::templateRef((string) $event['type'], (string) $event['properties']);
+        }
+
+        asort($campaigns, SORT_NATURAL | SORT_FLAG_CASE);
+
+        $templates = [];
+        foreach ($this->templateNames($refs) as $channel => $names) {
+            asort($names, SORT_NATURAL | SORT_FLAG_CASE);
+
+            foreach ($names as $id => $name) {
+                $templates[$channel][$channel.':'.$id] = $name;
+            }
+        }
+
+        return ['campaigns' => $campaigns, 'templates' => $templates];
     }
 
     /**
@@ -194,6 +252,118 @@ class DispatchListReader
         }
 
         return '' !== trim((string) $email) ? trim((string) $email) : '#'.$leadId;
+    }
+
+    private function filtered(DispatchFilters $filters): \Doctrine\DBAL\Query\QueryBuilder
+    {
+        $qb = $this->baseQuery();
+
+        if (null !== $filters->campaignId) {
+            $qb->andWhere('e.campaign_id = :campaignId')->setParameter('campaignId', $filters->campaignId);
+        }
+
+        if (null !== $filters->template) {
+            $ids = $this->eventIdsOfTemplate($filters->template[0], $filters->template[1]);
+
+            // No step points at it: nothing can match.
+            $qb->andWhere([] === $ids ? '1 = 0' : 'e.id IN (:eventIds)');
+
+            if ([] !== $ids) {
+                $qb->setParameter('eventIds', $ids, ArrayParameterType::INTEGER);
+            }
+        }
+
+        if (null !== $filters->from) {
+            $qb->andWhere('l.date_triggered >= :from')->setParameter('from', $filters->from->format('Y-m-d H:i:s'));
+        }
+
+        if (null !== $filters->to) {
+            $qb->andWhere('l.date_triggered <= :to')->setParameter('to', $filters->to->format('Y-m-d H:i:s'));
+        }
+
+        return $qb;
+    }
+
+    /**
+     * @return list<int> ids of the campaign steps that send with the template
+     */
+    private function eventIdsOfTemplate(string $channel, int $templateId): array
+    {
+        $type = array_search($channel, array_map(static fn (array $entry): string => $entry[0], self::TEMPLATE_KEY), true);
+
+        if (false === $type) {
+            return [];
+        }
+
+        $rows = $this->em->getConnection()->createQueryBuilder()
+            ->select('e.id, e.properties')
+            ->from(MAUTIC_TABLE_PREFIX.'campaign_events', 'e')
+            ->where('e.type = :type')
+            ->setParameter('type', $type)
+            ->executeQuery()
+            ->fetchAllAssociative();
+
+        $ids = [];
+        foreach ($rows as $row) {
+            if ([$channel, $templateId] === self::templateRef((string) $type, (string) $row['properties'])) {
+                $ids[] = (int) $row['id'];
+            }
+        }
+
+        return $ids;
+    }
+
+    /**
+     * Keeps the rows whose callback column would show the given status.
+     *
+     * @param list<array<string, mixed>> $rows
+     *
+     * @return list<array<string, mixed>>
+     */
+    private function withStatus(array $rows, string $status): array
+    {
+        $metadata = [];
+        $values   = [];
+
+        foreach ($rows as $i => $row) {
+            $metadata[$i] = self::metadataOf($row['metadata']);
+            $channel      = DispatchLogReader::channelOf((string) $row['type']) ?? '';
+            $refType      = DispatchFilters::shownRefType($channel);
+
+            if (null !== $refType && isset($metadata[$i][$refType]) && '' !== (string) $metadata[$i][$refType]) {
+                $values[$refType][(string) $metadata[$i][$refType]] = true;
+            }
+        }
+
+        $outcomes = [];
+        foreach ($values as $refType => $refValues) {
+            foreach (array_chunk(array_keys($refValues), 1000) as $chunk) {
+                $found = $this->em->getConnection()->createQueryBuilder()
+                    ->select('ref_value, outcome')
+                    ->from(MAUTIC_TABLE_PREFIX.DispatchTracking::TABLE_NAME)
+                    ->where('ref_type = :type')
+                    ->andWhere('ref_value IN (:values)')
+                    ->setParameter('type', $refType)
+                    ->setParameter('values', array_map('strval', $chunk), ArrayParameterType::STRING)
+                    ->executeQuery()
+                    ->fetchAllKeyValue();
+
+                foreach ($found as $value => $outcome) {
+                    $outcomes[$refType.'|'.$value] = (string) $outcome;
+                }
+            }
+        }
+
+        $kept = [];
+        foreach ($rows as $i => $row) {
+            $channel = DispatchLogReader::channelOf((string) $row['type']) ?? '';
+
+            if ($status === DispatchFilters::statusOf($channel, $metadata[$i], $outcomes)) {
+                $kept[] = $row;
+            }
+        }
+
+        return $kept;
     }
 
     private function baseQuery(): \Doctrine\DBAL\Query\QueryBuilder
