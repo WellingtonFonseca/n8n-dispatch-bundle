@@ -64,4 +64,27 @@ class DispatchFiltersTest extends TestCase
         $this->assertNull(DispatchFilters::statusOf('sms', [], $outcomes));
         $this->assertNull(DispatchFilters::statusOf('email', ['logSendEmailId' => 77], $outcomes));
     }
+
+    public function testDatesAreTypedInTheSystemLanguagesFormat(): void
+    {
+        $br = DispatchFilters::fromQuery(['from' => '02/10/2026', 'to' => '03/10/2026'], $this->sp, 'd/m/Y');
+        $us = DispatchFilters::fromQuery(['from' => '10/02/2026'], $this->sp, 'm/d/Y');
+
+        $this->assertSame('2026-10-02 03:00:00', $br->from?->format('Y-m-d H:i:s'));
+        $this->assertSame('2026-10-04 02:59:59', $br->to?->format('Y-m-d H:i:s'));
+        $this->assertSame('2026-10-02 03:00:00', $us->from?->format('Y-m-d H:i:s'));
+    }
+
+    public function testAnImpossibleDateIsIgnoredNotRolledOver(): void
+    {
+        $this->assertTrue(DispatchFilters::fromQuery(['from' => '31/02/2026'], $this->sp, 'd/m/Y')->isEmpty());
+        $this->assertTrue(DispatchFilters::fromQuery(['from' => '2026-10-02'], $this->sp, 'd/m/Y')->isEmpty());
+    }
+
+    public function testItGoesBackToTheQueryStringInTheTypedFormat(): void
+    {
+        $query = ['from' => '02/10/2026', 'to' => '03/10/2026'];
+
+        $this->assertSame($query, DispatchFilters::fromQuery($query, $this->sp, 'd/m/Y')->toQuery($this->sp, 'd/m/Y'));
+    }
 }

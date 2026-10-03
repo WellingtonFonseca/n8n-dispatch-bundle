@@ -6,10 +6,12 @@ namespace MauticPlugin\N8nDispatchBundle\Controller;
 
 use Mautic\CoreBundle\Controller\CommonController;
 use Mautic\CoreBundle\Helper\CoreParametersHelper;
+use MauticPlugin\N8nDispatchBundle\Resolver\LocaleConventions;
 use MauticPlugin\N8nDispatchBundle\Service\DispatchFilters;
 use MauticPlugin\N8nDispatchBundle\Service\DispatchListReader;
 use Symfony\Component\HttpFoundation\Request;
 use Symfony\Component\HttpFoundation\Response;
+use Symfony\Contracts\Translation\TranslatorInterface;
 
 /**
  * N8n Dispatch (main menu) > Disparos: the table of dispatches the three n8n
@@ -22,7 +24,7 @@ class DispatchController extends CommonController
     private const SESSION_VAR   = 'n8ndispatch.dispatch';
     private const DEFAULT_LIMIT = 30;
 
-    public function indexAction(Request $request, DispatchListReader $reader, CoreParametersHelper $params, int $page = 1): Response
+    public function indexAction(Request $request, DispatchListReader $reader, CoreParametersHelper $params, TranslatorInterface $translator, int $page = 1): Response
     {
         if (!$this->security->isGranted('plugin:plugins:manage')) {
             return $this->accessDenied();
@@ -32,8 +34,10 @@ class DispatchController extends CommonController
         $limit    = (int) $session->get('mautic.'.self::SESSION_VAR.'.limit', self::DEFAULT_LIMIT);
         $limit    = $limit > 0 ? $limit : self::DEFAULT_LIMIT;
         $timeZone = new \DateTimeZone((string) ($params->get('default_timezone') ?: 'UTC'));
-        $filters  = DispatchFilters::fromQuery($request->query->all(), $timeZone);
-        $query    = $filters->toQuery($timeZone);
+        // Dates are typed in the system language's format (dd/mm/yyyy in pt_BR), like the rest of the screen.
+        $dateFormat = LocaleConventions::dateFormat($translator->getLocale(), 'date');
+        $filters    = DispatchFilters::fromQuery($request->query->all(), $timeZone, $dateFormat);
+        $query      = $filters->toQuery($timeZone, $dateFormat);
 
         $result = $reader->search($filters, $page, $limit);
 
@@ -54,6 +58,7 @@ class DispatchController extends CommonController
                 'limit'       => $limit,
                 'tmpl'        => $request->get('tmpl', 'index'),
                 'filters'     => $query,
+                'dateFormat'  => $dateFormat,
                 'hasFilters'  => !$filters->isEmpty(),
                 'queryString' => [] === $query ? '' : '&'.http_build_query($query),
                 'options'     => $reader->filterOptions(),
