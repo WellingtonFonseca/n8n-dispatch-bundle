@@ -25,6 +25,10 @@
     <p class="text-danger mt-0 mb-10"><i class="ri-alert-line"></i> {{ 'mautic.campaign.event.last_error'|trans }}:<br/>{{ errors|purify }}</p>
 {% endif %}
 
+{% if item.metadata.n8ndispatch_resend is defined and item.metadata.n8ndispatch_resend %}
+    <p class="text-muted mt-0 mb-10"><i class="ri-send-plane-line"></i> {{ item.metadata.n8ndispatch_resend|nl2br }}</p>
+{% endif %}
+
 {% set n8n = item.metadata.n8ndispatch is defined ? item.metadata.n8ndispatch : null %}
 {% if n8n %}
     {% set statusIcon = {
@@ -40,7 +44,7 @@
             </span>
 
             {% if n8n.httpStatusCode is defined %}
-                {% if n8n.httpStatusCode < 300 %}
+                {% if n8n.httpStatusCode >= 200 and n8n.httpStatusCode < 300 %}
                 <span class="n8ndispatch-timeline-badge n8ndispatch-timeline-badge--success">
                     <i class="ri-check-line"></i>
                     {{ 'mautic.n8ndispatch.timeline.status.success'|trans }}
