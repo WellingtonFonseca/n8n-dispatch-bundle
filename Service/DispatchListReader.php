@@ -43,12 +43,12 @@ class DispatchListReader
     }
 
     /**
-     * @return list<array{id: int, channel: string, dispatchedAt: ?\DateTimeImmutable, templateName: string, templateRoute: array{name: string, params: array<string, int|string>}|null, contactId: int, contactName: string}>
+     * @return list<array{id: int, channel: string, dispatchedAt: ?\DateTimeImmutable, templateName: string, templateRoute: array{name: string, params: array<string, int|string>}|null, contactId: int, contactName: string, metadata: array<string, mixed>}>
      */
     public function read(int $page, int $limit): array
     {
         $rows = $this->baseQuery()
-            ->select('l.id, l.date_triggered, e.type, e.properties, l.lead_id, ld.firstname, ld.lastname, ld.email')
+            ->select('l.id, l.date_triggered, l.metadata, e.type, e.properties, l.lead_id, ld.firstname, ld.lastname, ld.email')
             ->orderBy('l.id', 'DESC')
             ->setFirstResult(max(0, ($page - 1) * $limit))
             ->setMaxResults($limit)
@@ -77,6 +77,7 @@ class DispatchListReader
                 'templateRoute' => $found ? self::templateRoute($ref[0], $ref[1]) : null,
                 'contactId'     => (int) $row['lead_id'],
                 'contactName'   => self::contactName($row['firstname'], $row['lastname'], $row['email'], (int) $row['lead_id']),
+                'metadata'      => self::metadataOf($row['metadata']),
             ];
         }
 
@@ -135,6 +136,19 @@ class DispatchListReader
         } catch (\Exception) {
             return null;
         }
+    }
+
+    /**
+     * The log's metadata is a PHP-serialized array; the Timeline's callback
+     * lookup (n8ndispatch_status) reads the tracked ids out of it.
+     *
+     * @return array<string, mixed>
+     */
+    public static function metadataOf(?string $metadata): array
+    {
+        $data = null === $metadata || '' === $metadata ? null : @unserialize($metadata, ['allowed_classes' => false]);
+
+        return is_array($data) ? $data : [];
     }
 
     public static function contactName(?string $firstName, ?string $lastName, ?string $email, int $leadId): string
