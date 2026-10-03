@@ -2,8 +2,8 @@
   Dispatches table. Same layout as Resources/views/HsmTemplate/list.html.twig,
   minus the row selection: the first column is only the options menu, so a
   dispatch can only be resent one at a time, never by a stray multi-select.
-  Then the dispatch date and time, the callback badge, the campaign, the
-  template and the contact (the last three are links that open in a new tab).
+  Then the dispatch date and time, the callback badge, the step's status, the
+  campaign, the template and the contact (the last three are links that open in a new tab).
   The rows are arrays, not entities.
 #}
 {% set isIndex = 'index' == tmpl ? true : false %}
@@ -105,6 +105,10 @@
                         'class': 'col-dispatch-callback',
                     }) }}
                     {{ include('@MauticCore/Helper/tableheader.html.twig', {
+                        'text': 'mautic.n8ndispatch.dispatch.column.step_status',
+                        'class': 'col-dispatch-step-status',
+                    }) }}
+                    {{ include('@MauticCore/Helper/tableheader.html.twig', {
                         'text': 'mautic.n8ndispatch.dispatch.column.campaign',
                         'class': 'col-dispatch-campaign',
                     }) }}
@@ -194,6 +198,14 @@
                                     -
                                 {% endif %}
                             {% endfor %}
+                        </td>
+                        <td>
+                            {# The mode the campaign step is in now (the same badge as the campaign builder and the card): only 'production' can be resent. #}
+                            {% set stepIcon = {'test': 'ri-bug-line', 'production': 'ri-play-fill', 'paused': 'ri-pause-fill'}[item.stepStatus] %}
+                            <span class="n8ndispatch-timeline-badge n8ndispatch-timeline-badge--{{ item.stepStatus }}">
+                                <i class="{{ stepIcon }}"></i>
+                                {{ ('mautic.n8ndispatch.campaign.event.status.' ~ item.stepStatus)|trans }}
+                            </span>
                         </td>
                         <td>
                             <a href="{{ path('mautic_campaign_action', {'objectAction': 'view', 'objectId': item.campaignId}) }}" target="_blank" rel="noopener">{{ item.campaignName }}</a>
