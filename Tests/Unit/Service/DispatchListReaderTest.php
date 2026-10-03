@@ -112,4 +112,18 @@ class DispatchListReaderTest extends TestCase
         $this->assertSame([], DispatchListReader::metadataOf('not serialized'));
         $this->assertSame([], DispatchListReader::metadataOf(serialize(new \ArrayObject([1]))));
     }
+
+    public function testTheStepModeIsReadFromItsStatusProperty(): void
+    {
+        $this->assertSame('production', DispatchListReader::stepStatus(serialize(['status' => 'production'])));
+        $this->assertSame('paused', DispatchListReader::stepStatus(serialize(['status' => 'paused'])));
+        $this->assertSame('test', DispatchListReader::stepStatus(serialize(['status' => 'test'])));
+    }
+
+    public function testAStepWithNoOrUnknownStatusCountsAsTest(): void
+    {
+        $this->assertSame('test', DispatchListReader::stepStatus(serialize(['email' => 1])));
+        $this->assertSame('test', DispatchListReader::stepStatus(serialize(['status' => 'weird'])));
+        $this->assertSame('test', DispatchListReader::stepStatus('not serialized'));
+    }
 }

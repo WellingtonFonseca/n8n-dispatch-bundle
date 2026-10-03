@@ -122,7 +122,7 @@ class DispatchListReader
      * One dispatch of the table by its log id, for the details modal; null
      * when it is not one of them (another event type, no dispatch attempted).
      *
-     * @return array{id: int, channel: string, dispatchedAt: ?\DateTimeImmutable, campaignId: int, campaignName: string, templateName: string, templateRoute: array{name: string, params: array<string, int|string>}|null, contactId: int, contactEmail: string, contactName: string, failed: bool, metadata: array<string, mixed>}|null
+     * @return array{id: int, channel: string, dispatchedAt: ?\DateTimeImmutable, campaignId: int, campaignName: string, stepStatus: string, templateName: string, templateRoute: array{name: string, params: array<string, int|string>}|null, contactId: int, contactEmail: string, contactName: string, failed: bool, metadata: array<string, mixed>}|null
      */
     public function find(int $id): ?array
     {
@@ -139,7 +139,7 @@ class DispatchListReader
     /**
      * @param list<array<string, mixed>> $rows
      *
-     * @return list<array{id: int, channel: string, dispatchedAt: ?\DateTimeImmutable, campaignId: int, campaignName: string, templateName: string, templateRoute: array{name: string, params: array<string, int|string>}|null, contactId: int, contactEmail: string, contactName: string, failed: bool, metadata: array<string, mixed>}>
+     * @return list<array{id: int, channel: string, dispatchedAt: ?\DateTimeImmutable, campaignId: int, campaignName: string, stepStatus: string, templateName: string, templateRoute: array{name: string, params: array<string, int|string>}|null, contactId: int, contactEmail: string, contactName: string, failed: bool, metadata: array<string, mixed>}>
      */
     private function mapRows(array $rows): array
     {
@@ -163,6 +163,7 @@ class DispatchListReader
                 'dispatchedAt'  => self::dispatchedAt($row['date_triggered']),
                 'campaignId'    => (int) $row['campaign_id'],
                 'campaignName'  => (string) $row['campaign_name'],
+                'stepStatus'    => self::stepStatus((string) $row['properties']),
                 'templateName'  => null !== $ref ? ($names[$ref[0]][$ref[1]] ?? '#'.$ref[1]) : '-',
                 'templateRoute' => $found ? self::templateRoute($ref[0], $ref[1]) : null,
                 'contactId'     => (int) $row['lead_id'],
@@ -174,6 +175,19 @@ class DispatchListReader
         }
 
         return $items;
+    }
+
+    /**
+     * The mode the campaign step is in ('test', 'production' or 'paused'), the
+     * 'status' property its builder dropdown writes; 'test' when it has none
+     * (what the dispatch listeners do).
+     */
+    public static function stepStatus(string $properties): string
+    {
+        $data = @unserialize($properties, ['allowed_classes' => false]);
+        $status = is_array($data) ? ($data['status'] ?? null) : null;
+
+        return in_array($status, ['test', 'production', 'paused'], true) ? $status : 'test';
     }
 
     /**
