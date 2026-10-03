@@ -29,7 +29,7 @@ class DispatchListReader
         'n8ndispatch.hsm.send'   => [DispatchTracking::CHANNEL_HSM, 'hsmTemplateId'],
     ];
 
-    private const COLUMNS = 'l.id, l.date_triggered, l.metadata, e.type, e.properties, l.lead_id, ld.firstname, ld.lastname, ld.email';
+    private const COLUMNS = 'l.id, l.date_triggered, l.metadata, e.type, e.properties, c.name AS campaign_name, l.lead_id, ld.firstname, ld.lastname, ld.email';
 
     public function __construct(
         private EntityManagerInterface $em,
@@ -45,7 +45,7 @@ class DispatchListReader
     }
 
     /**
-     * @return list<array{id: int, channel: string, dispatchedAt: ?\DateTimeImmutable, templateName: string, templateRoute: array{name: string, params: array<string, int|string>}|null, contactId: int, contactName: string, metadata: array<string, mixed>}>
+     * @return list<array{id: int, channel: string, dispatchedAt: ?\DateTimeImmutable, campaignName: string, templateName: string, templateRoute: array{name: string, params: array<string, int|string>}|null, contactId: int, contactName: string, metadata: array<string, mixed>}>
      */
     public function read(int $page, int $limit): array
     {
@@ -64,7 +64,7 @@ class DispatchListReader
      * One dispatch of the table by its log id, for the details modal; null
      * when it is not one of them (another event type, no dispatch attempted).
      *
-     * @return array{id: int, channel: string, dispatchedAt: ?\DateTimeImmutable, templateName: string, templateRoute: array{name: string, params: array<string, int|string>}|null, contactId: int, contactName: string, metadata: array<string, mixed>}|null
+     * @return array{id: int, channel: string, dispatchedAt: ?\DateTimeImmutable, campaignName: string, templateName: string, templateRoute: array{name: string, params: array<string, int|string>}|null, contactId: int, contactName: string, metadata: array<string, mixed>}|null
      */
     public function find(int $id): ?array
     {
@@ -81,7 +81,7 @@ class DispatchListReader
     /**
      * @param list<array<string, mixed>> $rows
      *
-     * @return list<array{id: int, channel: string, dispatchedAt: ?\DateTimeImmutable, templateName: string, templateRoute: array{name: string, params: array<string, int|string>}|null, contactId: int, contactName: string, metadata: array<string, mixed>}>
+     * @return list<array{id: int, channel: string, dispatchedAt: ?\DateTimeImmutable, campaignName: string, templateName: string, templateRoute: array{name: string, params: array<string, int|string>}|null, contactId: int, contactName: string, metadata: array<string, mixed>}>
      */
     private function mapRows(array $rows): array
     {
@@ -103,6 +103,7 @@ class DispatchListReader
                 'id'            => (int) $row['id'],
                 'channel'       => $channel,
                 'dispatchedAt'  => self::dispatchedAt($row['date_triggered']),
+                'campaignName'  => (string) $row['campaign_name'],
                 'templateName'  => null !== $ref ? ($names[$ref[0]][$ref[1]] ?? '#'.$ref[1]) : '-',
                 'templateRoute' => $found ? self::templateRoute($ref[0], $ref[1]) : null,
                 'contactId'     => (int) $row['lead_id'],
@@ -197,6 +198,7 @@ class DispatchListReader
         return $this->em->getConnection()->createQueryBuilder()
             ->from(MAUTIC_TABLE_PREFIX.'campaign_lead_event_log', 'l')
             ->innerJoin('l', MAUTIC_TABLE_PREFIX.'campaign_events', 'e', 'e.id = l.event_id')
+            ->innerJoin('e', MAUTIC_TABLE_PREFIX.'campaigns', 'c', 'c.id = e.campaign_id')
             ->innerJoin('l', MAUTIC_TABLE_PREFIX.'leads', 'ld', 'ld.id = l.lead_id')
             ->where('e.type IN (:types)')
             ->andWhere('l.metadata LIKE :marker')
