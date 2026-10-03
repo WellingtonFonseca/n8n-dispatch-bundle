@@ -1,7 +1,7 @@
 {#
   Dispatches table. Same layout as Resources/views/HsmTemplate/list.html.twig:
   the first column is core's checkbox + options menu (select one, or all from
-  the header), then the dispatch date and time, the template's name and the contact's name, both links that open in a new tab. The rows are
+  the header), then the dispatch date and time, the callback badge, the template's name and the contact's name, both links that open in a new tab. The rows are
   arrays, not entities, which list_actions.html.twig accepts (item.id, item.name).
 #}
 {% set isIndex = 'index' == tmpl ? true : false %}
@@ -42,6 +42,10 @@
                         'class': 'col-dispatch-date',
                     }) }}
                     {{ include('@MauticCore/Helper/tableheader.html.twig', {
+                        'text': 'mautic.n8ndispatch.dispatch.column.callback',
+                        'class': 'col-dispatch-callback',
+                    }) }}
+                    {{ include('@MauticCore/Helper/tableheader.html.twig', {
                         'text': 'mautic.n8ndispatch.dispatch.column.template',
                         'class': 'col-dispatch-template',
                     }) }}
@@ -54,16 +58,67 @@
                 <tbody>
                 {% for item in items %}
                     <tr>
+                        {#
+                          Same callbacks the badge column shows (HSM: Meta's only). Resend is
+                          offered only when one of them ended in error; every row keeps its options menu. The options menu is
+                          core's list_actions markup written out here, because that helper
+                          only knows edit/clone/delete.
+                        #}
+                        {% set callbacks = n8ndispatch_status(item.metadata)|filter(c => c.refType != 'logSendHsmId') %}
+                        {% set canResend = callbacks|filter(c => c.outcome == 'error')|length > 0 %}
                         <td>
-                            {{- include('@MauticCore/Helper/list_actions.html.twig', {
-                                'item': {'id': item.id, 'name': item.templateName},
-                                'templateButtons': {},
-                                'routeBase': 'n8ndispatch.dispatch',
-                                'langVar': 'n8ndispatch.dispatch',
-                                'translationBase': 'mautic.n8ndispatch.dispatch',
-                            }) -}}
+                            <div class="input-group input-group-sm">
+                                <span class="input-group-addon">
+                                    <input type="checkbox" data-target="tbody" data-toggle="selectrow" class="list-checkbox" name="cb{{ item.id }}" value="{{ item.id }}"/>
+                                </span>
+                                <div class="ml-xs">
+                                    {% include '@MauticCore/Helper/button.html.twig' with {
+                                        buttons: [
+                                            {
+                                                label: 'mautic.core.options',
+                                                size: 'sm',
+                                                variant: 'ghost',
+                                                icon: 'ri-more-2-line',
+                                                icon_only: true,
+                                                spin: false,
+                                                attributes: {
+                                                    'data-toggle': 'dropdown',
+                                                    'type': 'button'
+                                                }
+                                            }
+                                        ]
+                                    } %}
+                                    <ul class="pull-left page-list-actions dropdown-menu" role="menu">
+                                        {% if canResend %}
+                                        <li>
+                                            <a href="#" data-dispatch-resend="{{ item.id }}">
+                                                <i class="ri-send-plane-line"></i> {{ 'mautic.n8ndispatch.dispatch.action.resend'|trans }}
+                                            </a>
+                                        </li>
+                                        {% endif %}
+                                    </ul>
+                                </div>
+                            </div>
                         </td>
                         <td>{{ n8ndispatch_date(item.dispatchedAt) }}</td>
+                        <td>
+                            {#
+                              Same badges as the Timeline card (css loaded on every page by
+                              AssetInjectionSubscriber): the current outcome of the tracked id.
+                              HSM has two, Mirror and Meta, and only Meta's is shown. No ids
+                              (test, paused or failed dispatch) shows a dash.
+                            #}
+                            {% for callback in callbacks %}
+                                {% set badgeClass = {'success': 'success', 'error': 'failed', 'pending': 'pending'}[callback.outcome] %}
+                                {% set badgeIcon  = {'success': 'ri-check-line', 'error': 'ri-close-line', 'pending': 'ri-time-line'}[callback.outcome] %}
+                                <span class="n8ndispatch-timeline-badge n8ndispatch-timeline-badge--{{ badgeClass }}"{% if callback.message %} title="{{ callback.message }}"{% endif %}>
+                                    <i class="{{ badgeIcon }}"></i>
+                                    {{ ('mautic.n8ndispatch.timeline.callback.outcome.' ~ callback.outcome)|trans }}
+                                </span>
+                            {% else %}
+                                -
+                            {% endfor %}
+                        </td>
                         <td>
                             {% if item.templateRoute %}
                                 <a href="{{ path(item.templateRoute.name, item.templateRoute.params) }}" target="_blank" rel="noopener">{{ item.templateName }}</a>

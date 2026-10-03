@@ -99,4 +99,17 @@ class DispatchListReaderTest extends TestCase
     {
         $this->assertNull(DispatchListReader::templateRoute('push', 1));
     }
+
+    public function testTheMetadataIsReadBackAsAnArray(): void
+    {
+        $this->assertSame(['logSendEmailId' => 9], DispatchListReader::metadataOf(serialize(['logSendEmailId' => 9])));
+    }
+
+    public function testMissingOrBadMetadataIsEmpty(): void
+    {
+        $this->assertSame([], DispatchListReader::metadataOf(null));
+        $this->assertSame([], DispatchListReader::metadataOf(''));
+        $this->assertSame([], DispatchListReader::metadataOf('not serialized'));
+        $this->assertSame([], DispatchListReader::metadataOf(serialize(new \ArrayObject([1]))));
+    }
 }
