@@ -1,7 +1,7 @@
 {#
   Dispatches table. Same layout as Resources/views/HsmTemplate/list.html.twig:
   the first column is core's checkbox + options menu (select one, or all from
-  the header), then the dispatch date and time, the callback badge, the campaign's name, the template's name and the contact's name, both links that open in a new tab. The rows are
+  the header), then the dispatch date and time, the callback badge, the campaign's name, the template's name and the contact's name, all links that open in a new tab. The rows are
   arrays, not entities, which list_actions.html.twig accepts (item.id, item.name).
 #}
 {% set isIndex = 'index' == tmpl ? true : false %}
@@ -128,7 +128,9 @@
                                 -
                             {% endfor %}
                         </td>
-                        <td>{{ item.campaignName }}</td>
+                        <td>
+                            <a href="{{ path('mautic_campaign_action', {'objectAction': 'view', 'objectId': item.campaignId}) }}" target="_blank" rel="noopener">{{ item.campaignName }}</a>
+                        </td>
                         <td>
                             {% if item.templateRoute %}
                                 <a href="{{ path(item.templateRoute.name, item.templateRoute.params) }}" target="_blank" rel="noopener">{{ item.templateName }}</a>
