@@ -1,8 +1,10 @@
 {#
-  Dispatches table. Same layout as Resources/views/HsmTemplate/list.html.twig:
-  the first column is core's checkbox + options menu (select one, or all from
-  the header), then the dispatch date and time, the callback badge, the campaign's name, the template's name and the contact's name, all links that open in a new tab. The rows are
-  arrays, not entities, which list_actions.html.twig accepts (item.id, item.name).
+  Dispatches table. Same layout as Resources/views/HsmTemplate/list.html.twig,
+  minus the row selection: the first column is only the options menu, so a
+  dispatch can only be resent one at a time, never by a stray multi-select.
+  Then the dispatch date and time, the callback badge, the campaign, the
+  template and the contact (the last three are links that open in a new tab).
+  The rows are arrays, not entities.
 #}
 {% set isIndex = 'index' == tmpl ? true : false %}
 {% set tmpl = 'list' %}
@@ -47,13 +49,13 @@
                 <div class="col-md-2">
                     <div class="form-group">
                         <label class="control-label" for="dispatch-filter-from">{{ 'mautic.n8ndispatch.dispatch.filter.from'|trans }}</label>
-                        <input type="date" id="dispatch-filter-from" name="from" value="{{ filters.from|default('') }}" class="form-control">
+                        <input type="text" id="dispatch-filter-from" name="from" value="{{ filters.from|default('') }}" class="form-control" data-toggle="date" data-format="{{ dateFormat }}" autocomplete="off">
                     </div>
                 </div>
                 <div class="col-md-2">
                     <div class="form-group">
                         <label class="control-label" for="dispatch-filter-to">{{ 'mautic.n8ndispatch.dispatch.filter.to'|trans }}</label>
-                        <input type="date" id="dispatch-filter-to" name="to" value="{{ filters.to|default('') }}" class="form-control">
+                        <input type="text" id="dispatch-filter-to" name="to" value="{{ filters.to|default('') }}" class="form-control" data-toggle="date" data-format="{{ dateFormat }}" autocomplete="off">
                     </div>
                 </div>
                 <div class="col-md-2">
@@ -93,13 +95,7 @@
             <table class="table table-hover" id="dispatchTable">
                 <thead>
                 <tr>
-                    {{ include('@MauticCore/Helper/tableheader.html.twig', {
-                        'checkall': 'true',
-                        'target': '#dispatchTable',
-                        'langVar': 'n8ndispatch.dispatch',
-                        'routeBase': 'n8ndispatch.dispatch',
-                        'templateButtons': {},
-                    }) }}
+                    <th class="col-actions"></th>
                     {{ include('@MauticCore/Helper/tableheader.html.twig', {
                         'text': 'mautic.n8ndispatch.dispatch.column.date',
                         'class': 'col-dispatch-date',
@@ -135,9 +131,6 @@
                         {% set canResend = item.failed or callbacks|filter(c => c.outcome == 'error')|length > 0 %}
                         <td>
                             <div class="input-group input-group-sm">
-                                <span class="input-group-addon">
-                                    <input type="checkbox" data-target="tbody" data-toggle="selectrow" class="list-checkbox" name="cb{{ item.id }}" value="{{ item.id }}"/>
-                                </span>
                                 <div class="ml-xs">
                                     {% include '@MauticCore/Helper/button.html.twig' with {
                                         buttons: [

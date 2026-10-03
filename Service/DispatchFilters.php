@@ -35,8 +35,9 @@ final class DispatchFilters
 
     /**
      * @param array<string, mixed> $query
+     * @param string               $dateFormat how the user types dates (the system language's: d/m/Y, m/d/Y, ...)
      */
-    public static function fromQuery(array $query, \DateTimeZone $timeZone): self
+    public static function fromQuery(array $query, \DateTimeZone $timeZone, string $dateFormat = 'Y-m-d'): self
     {
         $campaign = (int) ($query['campaign'] ?? 0);
 
@@ -50,8 +51,8 @@ final class DispatchFilters
         return new self(
             $campaign > 0 ? $campaign : null,
             $template,
-            self::dayStart($query['from'] ?? null, $timeZone),
-            self::dayEnd($query['to'] ?? null, $timeZone),
+            self::dayStart($query['from'] ?? null, $timeZone, $dateFormat),
+            self::dayEnd($query['to'] ?? null, $timeZone, $dateFormat),
             is_string($status) && in_array($status, self::STATUSES, true) ? $status : null,
         );
     }
@@ -63,17 +64,17 @@ final class DispatchFilters
 
     /**
      * The same filters as query-string parameters (for the pagination links),
-     * dates as the user typed them.
+     * dates in the format the user types them.
      *
      * @return array<string, string|int>
      */
-    public function toQuery(\DateTimeZone $timeZone): array
+    public function toQuery(\DateTimeZone $timeZone, string $dateFormat = 'Y-m-d'): array
     {
         return array_filter([
             'campaign' => $this->campaignId,
             'template' => null !== $this->template ? $this->template[0].':'.$this->template[1] : null,
-            'from'     => $this->from?->setTimezone($timeZone)->format('Y-m-d'),
-            'to'       => $this->to?->setTimezone($timeZone)->format('Y-m-d'),
+            'from'     => $this->from?->setTimezone($timeZone)->format($dateFormat),
+            'to'       => $this->to?->setTimezone($timeZone)->format($dateFormat),
             'status'   => $this->status,
         ], static fn ($value): bool => null !== $value);
     }
@@ -115,28 +116,25 @@ final class DispatchFilters
         return $outcomes[$refType.'|'.$value] ?? null;
     }
 
-    private static function dayStart(mixed $value, \DateTimeZone $timeZone): ?\DateTimeImmutable
+    private static function dayStart(mixed $value, \DateTimeZone $timeZone, string $format): ?\DateTimeImmutable
     {
-        $day = self::day($value, $timeZone);
-
-        return $day?->setTime(0, 0, 0)->setTimezone(new \DateTimeZone('UTC'));
+        return self::day($value, $timeZone, $format)?->setTime(0, 0, 0)->setTimezone(new \DateTimeZone('UTC'));
     }
 
-    private static function dayEnd(mixed $value, \DateTimeZone $timeZone): ?\DateTimeImmutable
+    private static function dayEnd(mixed $value, \DateTimeZone $timeZone, string $format): ?\DateTimeImmutable
     {
-        $day = self::day($value, $timeZone);
-
-        return $day?->setTime(23, 59, 59)->setTimezone(new \DateTimeZone('UTC'));
+        return self::day($value, $timeZone, $format)?->setTime(23, 59, 59)->setTimezone(new \DateTimeZone('UTC'));
     }
 
-    private static function day(mixed $value, \DateTimeZone $timeZone): ?\DateTimeImmutable
+    private static function day(mixed $value, \DateTimeZone $timeZone, string $format): ?\DateTimeImmutable
     {
-        if (!is_string($value) || 1 !== preg_match('/^\d{4}-\d{2}-\d{2}$/', $value)) {
+        if (!is_string($value)) {
             return null;
         }
 
-        $day = \DateTimeImmutable::createFromFormat('!Y-m-d', $value, $timeZone);
+        $day = \DateTimeImmutable::createFromFormat('!'.$format, $value, $timeZone);
 
-        return false === $day || $day->format('Y-m-d') !== $value ? null : $day;
+        // Strict: "31/02/2026" must not roll over to March.
+        return false === $day || $day->format($format) !== $value ? null : $day;
     }
 }
