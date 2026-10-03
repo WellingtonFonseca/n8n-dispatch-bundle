@@ -34,6 +34,11 @@ return [
                 'requirements' => ['page' => '\\d+'],
                 'controller'   => 'MauticPlugin\\N8nDispatchBundle\\Controller\\DispatchController::indexAction',
             ],
+            'mautic_n8ndispatch.dispatch_details' => [
+                'path'         => '/n8ndispatch/dispatches/details/{id}',
+                'requirements' => ['id' => '\\d+'],
+                'controller'   => 'MauticPlugin\\N8nDispatchBundle\\Controller\\DispatchController::detailsAction',
+            ],
         ],
     ],
 
