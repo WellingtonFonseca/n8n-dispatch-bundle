@@ -1,11 +1,15 @@
 {#
-  Body of the details modal opened from the Dispatches table: who/what/when
-  of the dispatch, then the same card the contact's History shows
-  (SubscribedEvents/Timeline/_dispatch_details.html.twig), so both stay equal.
+  Body of the details modal opened from the Dispatches table: when, which
+  campaign, which template and which contact, then the same card the
+  contact's History shows (SubscribedEvents/Timeline/_dispatch_details.html.twig),
+  so both stay equal.
 #}
 <div class="n8ndispatch-details">
-    <p class="text-muted">
-        {{ dispatch.templateName }} &middot; {{ dispatch.contactName }}{% if dispatch.dispatchedAt %} &middot; {{ n8ndispatch_date(dispatch.dispatchedAt) }}{% endif %}
+    <p>
+        <strong>{{ 'mautic.n8ndispatch.dispatch.details.date'|trans }}:</strong> {{ dispatch.dispatchedAt ? n8ndispatch_date(dispatch.dispatchedAt) : '-' }}<br/>
+        <strong>{{ 'mautic.n8ndispatch.dispatch.details.campaign'|trans }}:</strong> {{ dispatch.campaignName }}<br/>
+        <strong>{{ 'mautic.n8ndispatch.dispatch.details.template'|trans }}:</strong> {{ dispatch.templateName }}<br/>
+        <strong>{{ 'mautic.n8ndispatch.dispatch.details.contact'|trans }}:</strong> {{ dispatch.contactEmail ?: '-' }}
     </p>
     {% include '@N8nDispatch/SubscribedEvents/Timeline/_dispatch_details.html.twig' with {'item': {'metadata': dispatch.metadata, 'isScheduled': false}} %}
 </div>
