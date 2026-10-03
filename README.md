@@ -75,6 +75,7 @@ All calls go to the configured `webhook_url`; n8n tells them apart by the
 | **Send via n8n (HSM)** — pick an HSM Template | Campaign Action | `hsm.send` |
 | **SMS Templates (n8n)** — message text + variable mapping, reused by many campaigns | Channels menu | — |
 | **HSM Templates (n8n)** — router, WhatsApp-side template reference, send type, and `{{variable}}` mapping, reused by many campaigns | Channels menu | — |
+| **Dispatches** — every dispatch the three actions made, with filters, details and **Resend** for the ones in error | N8n Dispatch menu (needs Campaigns > Full) | — (resend: the original's) |
 
 Each campaign step has a **status**: `test` (records the payload on the
 contact's Timeline without calling n8n), `production` (real call), or
@@ -108,6 +109,17 @@ A campaign step held back by an hour/day restriction shows its real
 scheduled time on the contact's Timeline (not a blank card), with buttons to
 reschedule or cancel it — cancelling asks for confirmation first, and both
 actions record who did it and when, shown right on the card.
+
+**Dispatches screen** (main menu > N8n Dispatch > Disparos, needs Campaigns >
+Full): one row per dispatch, with the callback badge (HSM: Meta's), the status
+of the campaign step, links to the campaign, template and contact, and a
+details modal with the same card as the contact's History. Filter by
+campaign, template, dates and callback status. **Resend** (options menu, only
+on a dispatch whose callback ended in error or whose call was refused) sends
+the same saved body to n8n again, one at a time, and replaces the dispatch's
+response, tracking and callback history with the new ones, with a note of who
+resent it and when; a refused attempt is recorded too. It needs the step to
+be in production, and honours the Do Not Contact list.
 
 Full architecture, payload formats, and implementation history:
 [wiki/n8n-dispatch-plugin.md](../wiki/n8n-dispatch-plugin.md) — start with

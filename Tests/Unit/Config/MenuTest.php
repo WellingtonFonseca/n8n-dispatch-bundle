@@ -4,6 +4,7 @@ declare(strict_types=1);
 
 namespace MauticPlugin\N8nDispatchBundle\Tests\Unit\Config;
 
+use MauticPlugin\N8nDispatchBundle\Controller\DispatchController;
 use PHPUnit\Framework\TestCase;
 
 /**
@@ -43,5 +44,14 @@ class MenuTest extends TestCase
 
         $this->assertSame('mautic.core.channels', $main['mautic.n8ndispatch.smstemplate.menu.index']['parent']);
         $this->assertSame('mautic.core.channels', $main['mautic.n8ndispatch.hsmtemplate.menu.index']['parent']);
+    }
+
+    public function testTheMenuAsksForTheSamePermissionAsTheScreen(): void
+    {
+        $main = $this->config['menu']['main'];
+
+        $this->assertSame('campaign:campaigns:full', DispatchController::PERMISSION);
+        $this->assertSame(DispatchController::PERMISSION, $main['mautic.n8ndispatch.menu.root']['access']);
+        $this->assertSame(DispatchController::PERMISSION, $main['mautic.n8ndispatch.dispatch.menu.index']['access']);
     }
 }

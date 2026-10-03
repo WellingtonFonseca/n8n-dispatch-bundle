@@ -21,12 +21,15 @@ use Symfony\Contracts\Translation\TranslatorInterface;
  */
 class DispatchController extends CommonController
 {
+    /** Campaigns > Full: who sees the screen, its details and may resend (the menu in Config/config.php asks for the same). */
+    public const PERMISSION = 'campaign:campaigns:full';
+
     private const SESSION_VAR   = 'n8ndispatch.dispatch';
     private const DEFAULT_LIMIT = 30;
 
     public function indexAction(Request $request, DispatchListReader $reader, CoreParametersHelper $params, TranslatorInterface $translator, int $page = 1): Response
     {
-        if (!$this->security->isGranted('plugin:plugins:manage')) {
+        if (!$this->security->isGranted(self::PERMISSION)) {
             return $this->accessDenied();
         }
 
@@ -79,7 +82,7 @@ class DispatchController extends CommonController
      */
     public function detailsAction(DispatchListReader $reader, int $id): Response
     {
-        if (!$this->security->isGranted('plugin:plugins:manage')) {
+        if (!$this->security->isGranted(self::PERMISSION)) {
             return $this->accessDenied();
         }
 
