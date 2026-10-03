@@ -100,7 +100,13 @@
                                         </li>
                                         {% if canResend %}
                                         <li>
-                                            <a href="#" data-dispatch-resend="{{ item.id }}">
+                                            <a href="#" data-dispatch-resend="{{ item.id }}"
+                                               onclick="Mautic.showConfirmation(this); return false;"
+                                               data-message="{{ 'mautic.n8ndispatch.dispatch.resend.confirm'|trans }}"
+                                               data-confirm-text="{{ 'mautic.n8ndispatch.dispatch.resend.confirm_btn'|trans }}"
+                                               data-cancel-text="{{ 'mautic.n8ndispatch.dispatch.resend.cancel_btn'|trans }}"
+                                               data-confirm-callback="n8ndispatchConfirmResend"
+                                               data-confirm-btn-class="btn btn-primary">
                                                 <i class="ri-send-plane-line"></i> {{ 'mautic.n8ndispatch.dispatch.action.resend'|trans }}
                                             </a>
                                         </li>

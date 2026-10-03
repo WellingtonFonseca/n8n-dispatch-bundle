@@ -14,6 +14,8 @@ use Mautic\EmailBundle\Model\EmailModel;
 use Mautic\LeadBundle\Model\FieldModel;
 use MauticPlugin\CustomObjectsBundle\Model\CustomObjectModel;
 use MauticPlugin\N8nDispatchBundle\Entity\EmailVariablesRepository;
+use Mautic\CoreBundle\Service\FlashBag;
+use MauticPlugin\N8nDispatchBundle\Service\DispatchResender;
 use MauticPlugin\N8nDispatchBundle\Service\StatusPollNow;
 use MauticPlugin\N8nDispatchBundle\Service\TemplateVariableScanner;
 use Symfony\Component\HttpFoundation\JsonResponse;
@@ -155,6 +157,29 @@ class AjaxController extends CommonAjaxController
         $result = $runner->run(new \DateTimeImmutable());
 
         return new JsonResponse(['success' => 1, 'ok' => $result['ok'], 'channels' => $result['channels']]);
+    }
+
+    /**
+     * "Reenviar" on the Dispatches screen (Assets/js/dispatch-resend.js):
+     * calls n8n again for the dispatch of the given campaign log. The
+     * resender checks it is a production dispatch in error; its answer goes
+     * back as a flash message.
+     */
+    public function resendDispatchAction(
+        Request $request,
+        CorePermissions $security,
+        UserHelper $userHelper,
+        DispatchResender $resender
+    ): JsonResponse {
+        if (!$security->isGranted('plugin:plugins:manage')) {
+            return new JsonResponse(['success' => 0], Response::HTTP_FORBIDDEN);
+        }
+
+        $result = $resender->resend((int) $request->request->get('logId'), $this->getUserEmail($userHelper));
+
+        $this->addFlashMessage($result['message'], [], $result['ok'] ? FlashBag::LEVEL_NOTICE : FlashBag::LEVEL_ERROR);
+
+        return $this->sendJsonResponse(['success' => $result['ok'] ? 1 : 0]);
     }
 
     /**

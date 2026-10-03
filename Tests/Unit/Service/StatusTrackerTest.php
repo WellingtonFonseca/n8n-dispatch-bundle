@@ -63,6 +63,57 @@ class StatusTrackerTest extends TestCase
         $this->assertSame($saved[0]->getGroupKey(), $saved[1]->getGroupKey());
     }
 
+    public function testRegisterStartsTheHistoryWithAPendingEntryAtTheDispatchDate(): void
+    {
+        $history = [];
+        $this->trackings->method('findOneByRef')->willReturn(null);
+        $this->callbacks->method('saveEntity')->willReturnCallback(function (DispatchCallback $c) use (&$history): void {
+            $history[] = $c;
+        });
+        $earlier = new \DateTimeImmutable('2026-09-29 14:00:00');
+
+        $this->tracker->register(DispatchTracking::CHANNEL_EMAIL, [DispatchTracking::REF_EMAIL => 4001], $earlier);
+
+        $this->assertCount(1, $history);
+        $this->assertSame(DispatchTracking::OUTCOME_PENDING, $history[0]->getOutcome());
+        $this->assertNull($history[0]->getMessage());
+        $this->assertEquals($earlier, $history[0]->getReceivedAt());
+    }
+
+    public function testForgetDeletesTheRowsAndTheirHistory(): void
+    {
+        $row = $this->existing(DispatchTracking::REF_EMAIL, '4001', 7);
+        $old = DispatchCallback::create(7, 'pending', null, [], $this->now);
+        $this->trackings->method('findByRefs')->with(['logSendEmailId' => '4001'])->willReturn([$row]);
+        $this->callbacks->method('findByTrackingIds')->with([7])->willReturn([$old]);
+        $this->callbacks->expects($this->once())->method('deleteEntities')->with([$old]);
+        $this->trackings->expects($this->once())->method('deleteEntities')->with([$row]);
+
+        $this->tracker->forget(['logSendEmailId' => 4001, 'other' => 'x']);
+    }
+
+    public function testForgetWithNoIdsTouchesNothing(): void
+    {
+        $this->trackings->method('findByRefs')->willReturn([]);
+        $this->callbacks->expects($this->never())->method('deleteEntities');
+        $this->trackings->expects($this->never())->method('deleteEntities');
+
+        $this->tracker->forget([]);
+    }
+
+    public function testAnnotateWritesTheNoteOnTheRowAndOnItsFirstHistoryEntry(): void
+    {
+        $row   = $this->existing(DispatchTracking::REF_EMAIL, '4001', 7);
+        $first = DispatchCallback::create(7, 'pending', null, [], $this->now);
+        $this->trackings->method('findByRefs')->willReturn([$row]);
+        $this->callbacks->method('findByTrackingIds')->willReturn([$first]);
+
+        $this->tracker->annotate(['logSendEmailId' => 4001], "Reenvio feito em 02/10/2026 16:30\nPor a@b.com");
+
+        $this->assertSame("Reenvio feito em 02/10/2026 16:30\nPor a@b.com", $row->getMessage());
+        $this->assertSame("Reenvio feito em 02/10/2026 16:30\nPor a@b.com", $first->getMessage());
+    }
+
     public function testRegisterSkipsAnEmptyRef(): void
     {
         $this->trackings->method('findOneByRef')->willReturn(null);
