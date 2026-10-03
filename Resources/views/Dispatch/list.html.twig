@@ -64,12 +64,12 @@
                     <tr>
                         {#
                           Same callbacks the badge column shows (HSM: Meta's only). Resend is
-                          offered only when one of them ended in error; every row has its options menu, with the details modal. The options menu is
+                          offered when one of them ended in error or the call itself was refused; every row has its options menu, with the details modal. The options menu is
                           core's list_actions markup written out here, because that helper
                           only knows edit/clone/delete.
                         #}
                         {% set callbacks = n8ndispatch_status(item.metadata)|filter(c => c.refType != 'logSendHsmId') %}
-                        {% set canResend = callbacks|filter(c => c.outcome == 'error')|length > 0 %}
+                        {% set canResend = item.failed or callbacks|filter(c => c.outcome == 'error')|length > 0 %}
                         <td>
                             <div class="input-group input-group-sm">
                                 <span class="input-group-addon">
@@ -131,7 +131,12 @@
                                     {{ ('mautic.n8ndispatch.timeline.callback.outcome.' ~ callback.outcome)|trans }}
                                 </span>
                             {% else %}
-                                -
+                                {# No callback: either nothing to ask about, or the call itself was refused. #}
+                                {% if item.failed %}
+                                    <span class="n8ndispatch-timeline-badge n8ndispatch-timeline-badge--failed"><i class="ri-close-line"></i> {{ 'mautic.n8ndispatch.timeline.status.failed'|trans }}</span>
+                                {% else %}
+                                    -
+                                {% endif %}
                             {% endfor %}
                         </td>
                         <td>

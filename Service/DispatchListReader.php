@@ -45,7 +45,7 @@ class DispatchListReader
     }
 
     /**
-     * @return list<array{id: int, channel: string, dispatchedAt: ?\DateTimeImmutable, campaignId: int, campaignName: string, templateName: string, templateRoute: array{name: string, params: array<string, int|string>}|null, contactId: int, contactEmail: string, contactName: string, metadata: array<string, mixed>}>
+     * @return list<array{id: int, channel: string, dispatchedAt: ?\DateTimeImmutable, campaignId: int, campaignName: string, templateName: string, templateRoute: array{name: string, params: array<string, int|string>}|null, contactId: int, contactEmail: string, contactName: string, failed: bool, metadata: array<string, mixed>}>
      */
     public function read(int $page, int $limit): array
     {
@@ -64,7 +64,7 @@ class DispatchListReader
      * One dispatch of the table by its log id, for the details modal; null
      * when it is not one of them (another event type, no dispatch attempted).
      *
-     * @return array{id: int, channel: string, dispatchedAt: ?\DateTimeImmutable, campaignId: int, campaignName: string, templateName: string, templateRoute: array{name: string, params: array<string, int|string>}|null, contactId: int, contactEmail: string, contactName: string, metadata: array<string, mixed>}|null
+     * @return array{id: int, channel: string, dispatchedAt: ?\DateTimeImmutable, campaignId: int, campaignName: string, templateName: string, templateRoute: array{name: string, params: array<string, int|string>}|null, contactId: int, contactEmail: string, contactName: string, failed: bool, metadata: array<string, mixed>}|null
      */
     public function find(int $id): ?array
     {
@@ -81,7 +81,7 @@ class DispatchListReader
     /**
      * @param list<array<string, mixed>> $rows
      *
-     * @return list<array{id: int, channel: string, dispatchedAt: ?\DateTimeImmutable, campaignId: int, campaignName: string, templateName: string, templateRoute: array{name: string, params: array<string, int|string>}|null, contactId: int, contactEmail: string, contactName: string, metadata: array<string, mixed>}>
+     * @return list<array{id: int, channel: string, dispatchedAt: ?\DateTimeImmutable, campaignId: int, campaignName: string, templateName: string, templateRoute: array{name: string, params: array<string, int|string>}|null, contactId: int, contactEmail: string, contactName: string, failed: bool, metadata: array<string, mixed>}>
      */
     private function mapRows(array $rows): array
     {
@@ -110,6 +110,7 @@ class DispatchListReader
                 'contactId'     => (int) $row['lead_id'],
                 'contactEmail'  => trim((string) $row['email']),
                 'contactName'   => self::contactName($row['firstname'], $row['lastname'], $row['email'], (int) $row['lead_id']),
+                'failed'        => DispatchResender::isFailed(self::metadataOf($row['metadata'])),
                 'metadata'      => self::metadataOf($row['metadata']),
             ];
         }
