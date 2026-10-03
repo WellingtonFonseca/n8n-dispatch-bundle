@@ -50,4 +50,29 @@ class DispatchController extends CommonController
             ],
         ]);
     }
+
+    /**
+     * Body of the details modal: the dispatch's card, opened by
+     * data-toggle="ajaxmodal" from the table's options menu.
+     */
+    public function detailsAction(DispatchListReader $reader, int $id): Response
+    {
+        if (!$this->security->isGranted('plugin:plugins:manage')) {
+            return $this->accessDenied();
+        }
+
+        $dispatch = $reader->find($id);
+
+        if (null === $dispatch) {
+            return $this->notFound();
+        }
+
+        return $this->delegateView([
+            'viewParameters'  => ['dispatch' => $dispatch],
+            'contentTemplate' => '@N8nDispatch/Dispatch/details.html.twig',
+            'passthroughVars' => [
+                'route' => false,
+            ],
+        ]);
+    }
 }

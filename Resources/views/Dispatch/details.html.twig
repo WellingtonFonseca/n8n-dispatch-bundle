@@ -1,0 +1,11 @@
+{#
+  Body of the details modal opened from the Dispatches table: who/what/when
+  of the dispatch, then the same card the contact's History shows
+  (SubscribedEvents/Timeline/_dispatch_details.html.twig), so both stay equal.
+#}
+<div class="n8ndispatch-details">
+    <p class="text-muted">
+        {{ dispatch.templateName }} &middot; {{ dispatch.contactName }}{% if dispatch.dispatchedAt %} &middot; {{ n8ndispatch_date(dispatch.dispatchedAt) }}{% endif %}
+    </p>
+    {% include '@N8nDispatch/SubscribedEvents/Timeline/_dispatch_details.html.twig' with {'item': {'metadata': dispatch.metadata, 'isScheduled': false}} %}
+</div>

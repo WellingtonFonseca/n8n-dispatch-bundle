@@ -60,7 +60,7 @@
                     <tr>
                         {#
                           Same callbacks the badge column shows (HSM: Meta's only). Resend is
-                          offered only when one of them ended in error; every row keeps its options menu. The options menu is
+                          offered only when one of them ended in error; every row has its options menu, with the details modal. The options menu is
                           core's list_actions markup written out here, because that helper
                           only knows edit/clone/delete.
                         #}
@@ -89,6 +89,11 @@
                                         ]
                                     } %}
                                     <ul class="pull-left page-list-actions dropdown-menu" role="menu">
+                                        <li>
+                                            <a href="{{ path('mautic_n8ndispatch.dispatch_details', {'id': item.id}) }}" data-toggle="ajaxmodal" data-target="#MauticSharedModal" data-header="{{ 'mautic.n8ndispatch.dispatch.details.title'|trans }}">
+                                                <i class="ri-eye-line"></i> {{ 'mautic.n8ndispatch.dispatch.action.details'|trans }}
+                                            </a>
+                                        </li>
                                         {% if canResend %}
                                         <li>
                                             <a href="#" data-dispatch-resend="{{ item.id }}">

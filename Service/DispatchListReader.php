@@ -29,6 +29,8 @@ class DispatchListReader
         'n8ndispatch.hsm.send'   => [DispatchTracking::CHANNEL_HSM, 'hsmTemplateId'],
     ];
 
+    private const COLUMNS = 'l.id, l.date_triggered, l.metadata, e.type, e.properties, l.lead_id, ld.firstname, ld.lastname, ld.email';
+
     public function __construct(
         private EntityManagerInterface $em,
     ) {
@@ -48,13 +50,41 @@ class DispatchListReader
     public function read(int $page, int $limit): array
     {
         $rows = $this->baseQuery()
-            ->select('l.id, l.date_triggered, l.metadata, e.type, e.properties, l.lead_id, ld.firstname, ld.lastname, ld.email')
+            ->select(self::COLUMNS)
             ->orderBy('l.id', 'DESC')
             ->setFirstResult(max(0, ($page - 1) * $limit))
             ->setMaxResults($limit)
             ->executeQuery()
             ->fetchAllAssociative();
 
+        return $this->mapRows($rows);
+    }
+
+    /**
+     * One dispatch of the table by its log id, for the details modal; null
+     * when it is not one of them (another event type, no dispatch attempted).
+     *
+     * @return array{id: int, channel: string, dispatchedAt: ?\DateTimeImmutable, templateName: string, templateRoute: array{name: string, params: array<string, int|string>}|null, contactId: int, contactName: string, metadata: array<string, mixed>}|null
+     */
+    public function find(int $id): ?array
+    {
+        $rows = $this->baseQuery()
+            ->select(self::COLUMNS)
+            ->andWhere('l.id = :id')
+            ->setParameter('id', $id)
+            ->executeQuery()
+            ->fetchAllAssociative();
+
+        return $this->mapRows($rows)[0] ?? null;
+    }
+
+    /**
+     * @param list<array<string, mixed>> $rows
+     *
+     * @return list<array{id: int, channel: string, dispatchedAt: ?\DateTimeImmutable, templateName: string, templateRoute: array{name: string, params: array<string, int|string>}|null, contactId: int, contactName: string, metadata: array<string, mixed>}>
+     */
+    private function mapRows(array $rows): array
+    {
         $refs = [];
         foreach ($rows as $i => $row) {
             $refs[$i] = self::templateRef((string) $row['type'], (string) $row['properties']);
