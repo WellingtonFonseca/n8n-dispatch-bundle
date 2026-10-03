@@ -182,6 +182,13 @@ class DispatchTracking
         return $this->outcome;
     }
 
+    public function setMessage(?string $message): self
+    {
+        $this->message = $message;
+
+        return $this;
+    }
+
     public function getMessage(): ?string
     {
         return $this->message;

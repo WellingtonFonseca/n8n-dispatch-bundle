@@ -49,11 +49,64 @@ class StatusTracker
                 continue;
             }
 
-            $this->trackings->saveEntity(DispatchTracking::create($channel, $refType, (string) $value, $groupKey, $now));
+            $tracking = DispatchTracking::create($channel, $refType, (string) $value, $groupKey, $now);
+            $this->trackings->saveEntity($tracking);
+
+            // The first entry of every history: the dispatch itself, waiting for its answer.
+            $this->callbacks->saveEntity(DispatchCallback::create((int) $tracking->getId(), DispatchTracking::OUTCOME_PENDING, null, [], $now));
             ++$created;
         }
 
         return $created;
+    }
+
+    /**
+     * Drops the tracking rows of a dispatch (found by the ids in the log's
+     * metadata) and their history, when a resend replaces that dispatch.
+     *
+     * @param array<string, mixed> $metadata
+     */
+    public function forget(array $metadata): void
+    {
+        $rows = $this->trackings->findByRefs($this->refsIn($metadata));
+
+        if ([] === $rows) {
+            return;
+        }
+
+        $this->callbacks->deleteEntities($this->callbacks->findByTrackingIds(array_map(fn (DispatchTracking $t): int => (int) $t->getId(), $rows)));
+        $this->trackings->deleteEntities($rows);
+    }
+
+    /**
+     * Puts a note on a dispatch still waiting for its answer: on the row
+     * (what the card shows while it waits) and on its first history entry
+     * (what stays once the answer replaces the row's message).
+     *
+     * @param array<string, mixed> $metadata
+     */
+    public function annotate(array $metadata, string $message): void
+    {
+        $rows = $this->trackings->findByRefs($this->refsIn($metadata));
+
+        if ([] === $rows) {
+            return;
+        }
+
+        $first = [];
+        foreach ($this->callbacks->findByTrackingIds(array_map(fn (DispatchTracking $t): int => (int) $t->getId(), $rows)) as $callback) {
+            $first[$callback->getTrackingId()] ??= $callback;
+        }
+
+        foreach ($rows as $row) {
+            $row->setMessage($message);
+            $this->trackings->saveEntity($row);
+
+            if (isset($first[(int) $row->getId()])) {
+                $first[(int) $row->getId()]->setMessage($message);
+                $this->callbacks->saveEntity($first[(int) $row->getId()]);
+            }
+        }
     }
 
     public function isTracked(string $refType, string $value): bool
@@ -121,17 +174,7 @@ class StatusTracker
      */
     public function viewForMetadata(array $metadata): array
     {
-        $refs = [];
-
-        foreach (DispatchTracking::REFS_BY_CHANNEL as $refTypes) {
-            foreach ($refTypes as $refType) {
-                $value = $metadata[$refType] ?? null;
-
-                if ((is_int($value) || is_string($value)) && '' !== (string) $value) {
-                    $refs[$refType] = (string) $value;
-                }
-            }
-        }
+        $refs = $this->refsIn($metadata);
 
         if ([] === $refs) {
             return [];
@@ -167,5 +210,27 @@ class StatusTracker
         }
 
         return $view;
+    }
+
+    /**
+     * @param array<string, mixed> $metadata
+     *
+     * @return array<string, string> refType => id found in the log's metadata
+     */
+    private function refsIn(array $metadata): array
+    {
+        $refs = [];
+
+        foreach (DispatchTracking::REFS_BY_CHANNEL as $refTypes) {
+            foreach ($refTypes as $refType) {
+                $value = $metadata[$refType] ?? null;
+
+                if ((is_int($value) || is_string($value)) && '' !== (string) $value) {
+                    $refs[$refType] = (string) $value;
+                }
+            }
+        }
+
+        return $refs;
     }
 }
