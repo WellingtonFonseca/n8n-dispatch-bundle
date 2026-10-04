@@ -160,4 +160,56 @@ class StatusPollSettingsTest extends TestCase
         $this->assertSame(1800, StatusPollSettings::fromArray([StatusPollSettings::KEY_MAX_DURATION => 99999])['maxDuration']);
         $this->assertSame(240, StatusPollSettings::fromArray([StatusPollSettings::KEY_MAX_DURATION => 240])['maxDuration']);
     }
+
+    public function testTheLastRunBlockIsJsonWithOneObjectPerChannel(): void
+    {
+        $json = StatusPollSettings::lastRunJson(
+            new \DateTimeImmutable('2026-10-04 03:29:00', new \DateTimeZone('UTC')),
+            'OK',
+            "email: asked 1, changed 1, unchanged 0, unknown 0, invalid 0, 1 calls\nsms: asked 0, changed 0, unchanged 0, unknown 0, invalid 0, 0 calls",
+            null
+        );
+
+        $this->assertSame([
+            'date'   => '2026-10-04 03:29 UTC',
+            'status' => 'OK',
+            'email'  => ['asked' => 1, 'changed' => 1, 'unchanged' => 0, 'unknown' => 0, 'invalid' => 0, 'calls' => 1],
+            'sms'    => ['asked' => 0, 'changed' => 0, 'unchanged' => 0, 'unknown' => 0, 'invalid' => 0, 'calls' => 0],
+        ], json_decode($json, true));
+        $this->assertStringContainsString("\n    \"email\": {", $json, 'written out, one key per line');
+    }
+
+    public function testAChannelThatFailedShowsItsError(): void
+    {
+        $json = StatusPollSettings::lastRunJson(
+            new \DateTimeImmutable('2026-10-04 03:29:00', new \DateTimeZone('UTC')),
+            'Erro',
+            "email: asked 1, changed 1, unchanged 0, unknown 0, invalid 0, 1 calls\nsms: webhook returned HTTP 500.",
+            null
+        );
+
+        $this->assertSame(['error' => 'webhook returned HTTP 500.'], json_decode($json, true)['sms']);
+    }
+
+    public function testALineThatIsNotAChannelIsKeptAsAMessage(): void
+    {
+        $json = StatusPollSettings::lastRunJson(new \DateTimeImmutable('2026-10-04 03:29:00', new \DateTimeZone('UTC')), 'Erro', 'boom', null);
+
+        $this->assertSame('boom', json_decode($json, true)['message']);
+    }
+
+    public function testARunWithNoSummaryHasOnlyTheDateAndTheStatus(): void
+    {
+        $json = StatusPollSettings::lastRunJson(new \DateTimeImmutable('2026-10-04 03:29:00', new \DateTimeZone('UTC')), 'Rodando', null, null);
+
+        $this->assertSame(['date' => '2026-10-04 03:29 UTC', 'status' => 'Rodando'], json_decode($json, true));
+    }
+
+    public function testAStaleRunCarriesTheWarningRightAfterTheStatus(): void
+    {
+        $json = StatusPollSettings::lastRunJson(new \DateTimeImmutable('2026-10-04 03:29:00', new \DateTimeZone('UTC')), 'OK', null, 'ATENÇÃO: sem rodadas há muito tempo.');
+
+        $this->assertSame(['date', 'status', 'warning'], array_keys(json_decode($json, true)));
+        $this->assertStringContainsString('ATENÇÃO', $json, 'unicode is not escaped');
+    }
 }

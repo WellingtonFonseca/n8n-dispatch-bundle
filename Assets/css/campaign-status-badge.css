@@ -364,6 +364,23 @@
     margin: 2px 0;
 }
 
+/* The JSON of the check: same look as the read-only "Last run" block above it. */
+.n8ndispatch-json-pre {
+    display: block;
+    width: 100%;
+    box-sizing: border-box;
+    margin: 0 0 6px;
+    padding: 8px 12px;
+    font-family: ui-monospace, SFMono-Regular, Menlo, Consolas, monospace;
+    font-size: 12px;
+    white-space: pre;
+    overflow: auto;
+    background: var(--layer-01, #f4f4f4);
+    border: 1px solid var(--border-subtle-01, #e0e0e0);
+    border-radius: 2px;
+    color: inherit;
+}
+
 .n8ndispatch-check-now-line--error {
     color: var(--text-error, #da1e28);
 }
@@ -378,4 +395,17 @@
 .modal-dialog:has(.n8ndispatch-details) {
     width: 1100px;
     max-width: 95vw;
+}
+
+/* A read-only block of JSON on the plugin settings screen (the status poll's last run): monospace,
+   lines kept as written, never wrapped. */
+textarea.n8ndispatch-json-block {
+    display: block;
+    width: 100%;
+    box-sizing: border-box;
+    font-family: ui-monospace, SFMono-Regular, Menlo, Consolas, monospace;
+    font-size: 12px;
+    white-space: pre;
+    overflow: auto;
+    resize: vertical;
 }
