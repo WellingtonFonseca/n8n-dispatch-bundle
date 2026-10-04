@@ -101,4 +101,16 @@ class DispatchTrackingTest extends TestCase
 
         $this->tracking()->applyOutcome('entregue', null, new \DateTimeImmutable());
     }
+
+    public function testTheCampaignLogIdIsOptionalAndCanBeSetLater(): void
+    {
+        $tracking = $this->tracking();
+        $this->assertNull($tracking->getCampaignLogId());
+
+        $tracking->setCampaignLogId(55);
+        $this->assertSame(55, $tracking->getCampaignLogId());
+
+        $withLog = DispatchTracking::create('email', 'logSendEmailId', '1', 'g', new \DateTimeImmutable(), 9);
+        $this->assertSame(9, $withLog->getCampaignLogId());
+    }
 }

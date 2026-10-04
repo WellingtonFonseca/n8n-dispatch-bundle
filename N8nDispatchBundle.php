@@ -76,6 +76,40 @@ class N8nDispatchBundle extends PluginBundleBase
             }
         }
 
+        // 0.7.0: the history is tied to the campaign log and holds the dispatch attempts too, so
+        // it survives a resend. Existing rows keep working: kind defaults to 'callback', the log id
+        // stays empty until `n8ndispatch:status:backfill` fills it, tracking_id may now be empty.
+        if ($installedSchema instanceof Schema && $installedSchema->hasTable(DispatchCallback::TABLE_NAME)) {
+            $table      = $installedSchema->getTable(DispatchCallback::TABLE_NAME);
+            $connection = $factory->getDatabase();
+            $name       = DispatchCallback::TABLE_NAME;
+
+            if (!$table->hasColumn('campaign_log_id')) {
+                $connection->executeQuery("ALTER TABLE {$name} ADD COLUMN campaign_log_id INT NULL");
+                $connection->executeQuery("CREATE INDEX n8n_dispatch_callback_log ON {$name} (campaign_log_id)");
+            }
+
+            if (!$table->hasColumn('kind')) {
+                $connection->executeQuery("ALTER TABLE {$name} ADD COLUMN kind VARCHAR(191) NOT NULL DEFAULT '".DispatchCallback::KIND_CALLBACK."'");
+            }
+
+            if (!$table->hasColumn('ref_type')) {
+                $connection->executeQuery("ALTER TABLE {$name} ADD COLUMN ref_type VARCHAR(191) NULL");
+            }
+
+            if (!$table->hasColumn('ref_value')) {
+                $connection->executeQuery("ALTER TABLE {$name} ADD COLUMN ref_value VARCHAR(191) NULL");
+            }
+
+            if ($table->getColumn('tracking_id')->getNotnull()) {
+                $connection->executeQuery("ALTER TABLE {$name} MODIFY tracking_id INT NULL");
+            }
+        }
+
+        if ($installedSchema instanceof Schema && $installedSchema->hasTable(DispatchTracking::TABLE_NAME) && !$installedSchema->getTable(DispatchTracking::TABLE_NAME)->hasColumn('campaign_log_id')) {
+            $factory->getDatabase()->executeQuery('ALTER TABLE '.DispatchTracking::TABLE_NAME.' ADD COLUMN campaign_log_id INT NULL');
+        }
+
         if ($installedSchema instanceof Schema && $installedSchema->hasTable(HsmTemplate::TABLE_NAME)) {
             $table = $installedSchema->getTable(HsmTemplate::TABLE_NAME);
 

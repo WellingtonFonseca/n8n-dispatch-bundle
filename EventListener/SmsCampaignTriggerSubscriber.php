@@ -272,6 +272,9 @@ class SmsCampaignTriggerSubscriber implements EventSubscriberInterface
 
         $log->appendToMetadata(['n8ndispatch' => $payload]);
 
+        // Nothing is sent, but the log's History says it was a test / a pause.
+        $this->statusTracker?->recordSimulated($log->getId(), $status);
+
         $event->pass($log);
     }
 
@@ -351,11 +354,16 @@ class SmsCampaignTriggerSubscriber implements EventSubscriberInterface
 
         $metadata = ['n8ndispatch' => $n8ndispatch];
 
+        // See CampaignTriggerSubscriber::recordDispatchOutcome(): the log's own id ties the history to it.
+        $campaignLogId = $log->getId();
+
+        $this->statusTracker?->recordDispatch($campaignLogId, $statusCode < 300, [DispatchTracking::REF_SMS => $logId], $statusCode < 300 ? null : ('' !== trim($rawBody) ? trim($rawBody) : 'HTTP '.$statusCode));
+
         if (!empty($logId)) {
             $metadata['logSendSmsId'] = $logId;
 
             if ($statusCode < 300) {
-                $this->statusTracker?->register(DispatchTracking::CHANNEL_SMS, [DispatchTracking::REF_SMS => $logId]);
+                $this->statusTracker?->register(DispatchTracking::CHANNEL_SMS, [DispatchTracking::REF_SMS => $logId], null, $campaignLogId);
             }
         }
 

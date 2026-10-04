@@ -67,11 +67,13 @@ class StatusBackfill
                 }
 
                 ++$summary['eligible'];
-                $created = $dryRun ? $this->countUntracked($refs) : $this->tracker->register(
-                    $channel,
-                    $refs,
-                    new \DateTimeImmutable((string) $row['date_triggered'], $utc)
-                );
+                $when    = new \DateTimeImmutable((string) $row['date_triggered'], $utc);
+                $created = $dryRun ? $this->countUntracked($refs) : $this->tracker->register($channel, $refs, $when, (int) $row['id']);
+
+                if (!$dryRun) {
+                    // Dispatches tracked before the link to the log existed get it (and their 'dispatch' entry) now.
+                    $this->tracker->adopt((int) $row['id'], $refs, $when);
+                }
 
                 $summary['registered'] += $created;
                 $summary['alreadyTracked'] += count($refs) - $created;

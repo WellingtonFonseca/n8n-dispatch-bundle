@@ -32,9 +32,12 @@ class StatusTracker
      * or, for the backfill, when it was really made). Returns how many rows
      * were created.
      *
+     * $campaignLogId (the contact's History entry, when known) ties the rows
+     * and their history to that log, so the history survives a resend.
+     *
      * @param array<string, int|string|null> $refs refType => id value
      */
-    public function register(string $channel, array $refs, ?\DateTimeImmutable $now = null): int
+    public function register(string $channel, array $refs, ?\DateTimeImmutable $now = null, ?int $campaignLogId = null): int
     {
         $now      = $now ?? new \DateTimeImmutable();
         $groupKey = bin2hex(random_bytes(8));
@@ -49,11 +52,11 @@ class StatusTracker
                 continue;
             }
 
-            $tracking = DispatchTracking::create($channel, $refType, (string) $value, $groupKey, $now);
+            $tracking = DispatchTracking::create($channel, $refType, (string) $value, $groupKey, $now, $campaignLogId);
             $this->trackings->saveEntity($tracking);
 
             // The first entry of every history: the dispatch itself, waiting for its answer.
-            $this->callbacks->saveEntity(DispatchCallback::create((int) $tracking->getId(), DispatchTracking::OUTCOME_PENDING, null, [], $now));
+            $this->callbacks->saveEntity(DispatchCallback::create((int) $tracking->getId(), DispatchTracking::OUTCOME_PENDING, null, [], $now)->withLog($campaignLogId, $refType, (string) $value));
             ++$created;
         }
 
@@ -62,11 +65,14 @@ class StatusTracker
 
     /**
      * Drops the tracking rows of a dispatch (found by the ids in the log's
-     * metadata) and their history, when a resend replaces that dispatch.
+     * metadata), when a resend replaces that dispatch, so the poll stops
+     * asking about ids that no longer belong to it. Their history is kept:
+     * an entry from before the link to the log existed is tied to
+     * $campaignLogId first, so it still shows up in that log's history.
      *
      * @param array<string, mixed> $metadata
      */
-    public function forget(array $metadata): void
+    public function forget(array $metadata, ?int $campaignLogId = null): void
     {
         $rows = $this->trackings->findByRefs($this->refsIn($metadata));
 
@@ -74,8 +80,103 @@ class StatusTracker
             return;
         }
 
-        $this->callbacks->deleteEntities($this->callbacks->findByTrackingIds(array_map(fn (DispatchTracking $t): int => (int) $t->getId(), $rows)));
+        if (null !== $campaignLogId) {
+            $this->linkHistory($rows, $campaignLogId);
+        }
+
         $this->trackings->deleteEntities($rows);
+    }
+
+    /**
+     * Writes one 'dispatch' entry: an attempt to send to n8n, accepted or
+     * refused, in the history of the campaign log. The id shown is the first
+     * one n8n returned (the Mirror's, for HSM). Without a log id there is
+     * nothing to attach it to, so nothing is written.
+     *
+     * @param array<string, int|string|null> $refs refType => id value
+     */
+    public function recordDispatch(?int $campaignLogId, bool $accepted, array $refs, ?string $message, ?\DateTimeImmutable $now = null): void
+    {
+        if (null === $campaignLogId) {
+            return;
+        }
+
+        $refType  = null;
+        $refValue = null;
+
+        foreach ($refs as $type => $value) {
+            if (null !== $value && '' !== (string) $value) {
+                $refType  = $type;
+                $refValue = (string) $value;
+
+                break;
+            }
+        }
+
+        $this->callbacks->saveEntity(DispatchCallback::createDispatch($campaignLogId, $accepted, $refType, $refValue, $message, $now ?? new \DateTimeImmutable()));
+    }
+
+    /**
+     * Writes the 'dispatch' entry of a step in 'test' or 'paused' mode: nothing
+     * was sent to n8n, and the History says so. Any other mode writes nothing.
+     */
+    public function recordSimulated(?int $campaignLogId, string $mode, ?\DateTimeImmutable $now = null): void
+    {
+        if (null === $campaignLogId || !in_array($mode, ['test', 'paused'], true)) {
+            return;
+        }
+
+        $this->callbacks->saveEntity(DispatchCallback::createSimulated($campaignLogId, $mode, $now ?? new \DateTimeImmutable()));
+    }
+
+    /**
+     * Ties a dispatch made before the link existed to its campaign log: the
+     * tracking rows and their history entries get the log id, and the
+     * 'dispatch' entry it never had is created, dated $dispatchedAt.
+     * Harmless to repeat.
+     *
+     * @param array<string, int|string|null> $refs refType => id value
+     */
+    public function adopt(int $campaignLogId, array $refs, \DateTimeImmutable $dispatchedAt): void
+    {
+        $rows = $this->trackings->findByRefs(array_map('strval', array_filter($refs, fn ($v): bool => null !== $v && '' !== (string) $v)));
+
+        foreach ($rows as $row) {
+            if (null === $row->getCampaignLogId()) {
+                $row->setCampaignLogId($campaignLogId);
+                $this->trackings->saveEntity($row);
+            }
+        }
+
+        if ([] !== $rows) {
+            $this->linkHistory($rows, $campaignLogId);
+        }
+
+        foreach ($this->callbacks->findByCampaignLogId($campaignLogId) as $entry) {
+            if (DispatchCallback::KIND_DISPATCH === $entry->getKind()) {
+                return;
+            }
+        }
+
+        $this->recordDispatch($campaignLogId, true, $refs, null, $dispatchedAt);
+    }
+
+    /**
+     * The whole history of one campaign log, newest first: every attempt to
+     * send ('dispatch') and every change of outcome n8n reported ('callback').
+     *
+     * @return list<array{kind: string, outcome: string, refType: ?string, refValue: ?string, message: ?string, receivedAt: \DateTimeImmutable}>
+     */
+    public function historyForLog(int $campaignLogId): array
+    {
+        return array_map(fn (DispatchCallback $entry): array => [
+            'kind'       => $entry->getKind(),
+            'outcome'    => $entry->getOutcome(),
+            'refType'    => $entry->getRefType(),
+            'refValue'   => $entry->getRefValue(),
+            'message'    => $entry->getMessage(),
+            'receivedAt' => $entry->getReceivedAt(),
+        ], $this->callbacks->findByCampaignLogId($campaignLogId));
     }
 
     /**
@@ -155,7 +256,7 @@ class StatusTracker
                 continue;
             }
 
-            $this->callbacks->saveEntity(DispatchCallback::create((int) $tracking->getId(), $item['outcome'], $item['message'], $item['body'], $now));
+            $this->callbacks->saveEntity(DispatchCallback::create((int) $tracking->getId(), $item['outcome'], $item['message'], $item['body'], $now)->withLog($tracking->getCampaignLogId(), $tracking->getRefType(), $tracking->getRefValue()));
             ++$summary['changed'];
         }
 
@@ -210,6 +311,29 @@ class StatusTracker
         }
 
         return $view;
+    }
+
+    /**
+     * Ties the history entries of these rows that have no log yet to the log.
+     *
+     * @param list<DispatchTracking> $rows
+     */
+    private function linkHistory(array $rows, int $campaignLogId): void
+    {
+        $byId = [];
+        foreach ($rows as $row) {
+            $byId[(int) $row->getId()] = $row;
+        }
+
+        foreach ($this->callbacks->findByTrackingIds(array_keys($byId)) as $entry) {
+            if (null !== $entry->getCampaignLogId() || !isset($byId[(int) $entry->getTrackingId()])) {
+                continue;
+            }
+
+            $row = $byId[(int) $entry->getTrackingId()];
+            $entry->withLog($campaignLogId, $row->getRefType(), $row->getRefValue());
+            $this->callbacks->saveEntity($entry);
+        }
     }
 
     /**
