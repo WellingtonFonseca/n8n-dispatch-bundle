@@ -116,5 +116,14 @@
         });
     };
 
-    Mautic.n8ndispatchStatusPoll = {buildResult: buildResult};
+    // data-onload-callback of the read-only "Last run" field (N8nDispatchIntegration::appendToForm()): the form can only
+    // draw it as a (disabled) textarea, so once the page is up it is swapped for a <pre> block, like the other JSON blocks.
+    // Disabled, it is never submitted, so nothing is lost by replacing it.
+    Mautic.n8ndispatchBlockFromTextarea = function (element) {
+        var $field = window.mQuery(element);
+
+        $field.replaceWith(window.mQuery('<pre class="n8ndispatch-json-pre n8ndispatch-last-run"></pre>').text($field.val()));
+    };
+
+    Mautic.n8ndispatchStatusPoll = {buildResult: buildResult, blockFromTextarea: Mautic.n8ndispatchBlockFromTextarea};
 }(window));

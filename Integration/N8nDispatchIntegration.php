@@ -127,7 +127,7 @@ class N8nDispatchIntegration extends AbstractIntegration
 
         $lastRun = $this->describeLastRun($current['interval']);
 
-        // A read-only block, not a one-line input: the last run is JSON, one object per channel.
+        // A read-only block, not a one-line input: the last run is JSON, one object per channel (a <pre> once the page is up).
         $builder->add('status_poll_last_run', TextareaType::class, [
             'label'      => 'mautic.n8ndispatch.settings.status_poll.last_run',
             'label_attr' => ['class' => 'control-label'],
@@ -135,7 +135,12 @@ class N8nDispatchIntegration extends AbstractIntegration
             'mapped'     => false,
             'disabled'   => true,
             'required'   => false,
-            'attr'       => ['class' => 'form-control n8ndispatch-json-block', 'rows' => max(2, substr_count($lastRun, "\n") + 1)],
+            'attr'       => [
+                'class'                => 'form-control n8ndispatch-json-block',
+                'rows'                 => max(2, substr_count($lastRun, "\n") + 1),
+                // Drawn as a textarea by the form; Assets/js/status-poll-check-now.js swaps it for a <pre> block.
+                'data-onload-callback' => 'n8ndispatchBlockFromTextarea',
+            ],
         ]);
 
         $this->addCheckNowButton($builder);
