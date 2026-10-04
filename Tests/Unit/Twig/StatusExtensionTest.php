@@ -17,6 +17,10 @@ class StatusExtensionTest extends TestCase
     {
         $translator = $this->createMockForIntersectionOfInterfaces([TranslatorInterface::class, LocaleAwareInterface::class]);
         $translator->method('getLocale')->willReturn($locale);
+        $translator->method('trans')->willReturnCallback(fn (string $id, array $params = []): string => strtr(
+            ['mautic.n8ndispatch.dispatch.resend.note.date' => 'Resent on %date%', 'mautic.n8ndispatch.dispatch.resend.note.by' => 'By %email%'][$id] ?? $id,
+            $params
+        ));
 
         return new StatusExtension($this->createMock(StatusTracker::class), $translator);
     }
@@ -105,5 +109,39 @@ class StatusExtensionTest extends TestCase
 
         $this->assertContains('n8ndispatch_status', $names);
         $this->assertContains('n8ndispatch_date', $names);
+    }
+
+    public function testDispatchTextIsTheStoredJsonWithTheMomentInTheSystemLanguage(): void
+    {
+        $text = $this->extension('en')->dispatchText([
+            'resend'   => ['por' => 'a@b.com', 'em' => '2026-10-03 23:19'],
+            'response' => ['error' => 'boom'],
+        ]);
+
+        $this->assertSame(
+            ['reenvio' => ['por' => 'a@b.com', 'em' => $this->local('2026-10-03 23:19:00', 'm/d/Y H:i')], 'response' => ['error' => 'boom']],
+            json_decode($text, true)
+        );
+        $this->assertStringContainsString("\n    \"reenvio\": {", $text, 'written out, one key per line');
+    }
+
+    public function testDispatchTextOfAFirstDispatchHasOnlyTheResponse(): void
+    {
+        $this->assertSame(['response' => ['ok' => true]], json_decode($this->extension('en')->dispatchText(['resend' => null, 'response' => ['ok' => true]]), true));
+        $this->assertSame(['response' => 'Connection refused'], json_decode($this->extension('en')->dispatchText(['resend' => null, 'response' => 'Connection refused']), true));
+    }
+
+    public function testDispatchTextWithNothingToShowIsEmpty(): void
+    {
+        $this->assertSame('', $this->extension('en')->dispatchText(['resend' => null, 'response' => null]));
+        $this->assertSame('', $this->extension('en')->dispatchText([]));
+    }
+
+    public function testDispatchTextOfAResendWithoutAUserOmitsWho(): void
+    {
+        $this->assertSame(
+            ['reenvio' => ['em' => $this->local('2026-10-03 23:19:00', 'm/d/Y H:i')]],
+            json_decode($this->extension('en')->dispatchText(['resend' => ['em' => '2026-10-03 23:19'], 'response' => null]), true)
+        );
     }
 }

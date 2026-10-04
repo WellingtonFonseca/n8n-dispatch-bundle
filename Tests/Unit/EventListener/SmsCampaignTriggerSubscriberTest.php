@@ -563,4 +563,20 @@ class SmsCampaignTriggerSubscriberTest extends TestCase
         $passedLog = $pendingEvent->getSuccessful()->first();
         $this->assertSame('pt_BR', $passedLog->getMetadata()['n8ndispatch']['language']);
     }
+
+    public function testOnlyTheResponseIsKeptInTheHistoryWhetherItSucceedsOrFails(): void
+    {
+        foreach ([[200, true, '{"logSendSmsId":7,"extra":"kept"}', ['logSendSmsId' => 7, 'extra' => 'kept']], [500, false, '{"error":"boom"}', ['error' => 'boom']]] as [$status, $accepted, $raw, $expected]) {
+            $this->setUp();
+            $this->mockIntegration(true, ['webhook_url' => 'https://n8n.example.test/webhook/dispatch']);
+            $response = $this->createMock(ResponseInterface::class);
+            $response->method('getStatusCode')->willReturn($status);
+            $response->method('getContent')->with(false)->willReturn($raw);
+            $this->httpClient->method('request')->willReturn($response);
+
+            $this->statusTracker->expects($this->once())->method('recordDispatch')->with(null, $accepted, $this->anything(), $expected);
+
+            $this->subscriber->onSmsSend($this->buildPendingEvent(['text' => 'Hi {{foo}}', 'status' => 'production']));
+        }
+    }
 }

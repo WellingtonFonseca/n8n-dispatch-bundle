@@ -46,13 +46,40 @@ class DispatchCallbackTest extends TestCase
         $this->assertEquals($this->at, $dispatch->getReceivedAt());
     }
 
-    public function testARefusedDispatchEntryIsFailedAndKeepsTheMessage(): void
+    public function testARefusedDispatchEntryIsFailedAndKeepsOnlyTheResponse(): void
     {
-        $dispatch = DispatchCallback::createDispatch(55, false, null, null, 'HTTP 500: boom', $this->at);
+        $dispatch = DispatchCallback::createDispatch(55, false, null, null, ['error' => 'boom'], $this->at);
 
         $this->assertSame(DispatchCallback::DISPATCH_FAILED, $dispatch->getOutcome());
-        $this->assertSame('HTTP 500: boom', $dispatch->getMessage());
+        $this->assertSame(['error' => 'boom'], $dispatch->getResponse());
+        $this->assertNull($dispatch->getResend());
+        $this->assertNull($dispatch->getMessage());
         $this->assertNull($dispatch->getRefValue());
+        $this->assertSame('{"response":{"error":"boom"}}', $dispatch->getBodyJson());
+    }
+
+    public function testADispatchEntryWithNoResponseStoresNoJsonAtAll(): void
+    {
+        $dispatch = DispatchCallback::createDispatch(55, true, 'logSendEmailId', '4001', null, $this->at);
+
+        $this->assertNull($dispatch->getBodyJson());
+        $this->assertNull($dispatch->getResponse());
+    }
+
+    public function testAResendEntryKeepsWhoAndWhenApartFromTheResponse(): void
+    {
+        $dispatch = DispatchCallback::createDispatch(55, true, 'logSendHsmId', '777', ['logSendHsmId' => 777], $this->at, ['por' => 'a@b.com', 'em' => '2026-10-03 23:19']);
+
+        $this->assertSame(['por' => 'a@b.com', 'em' => '2026-10-03 23:19'], $dispatch->getResend());
+        $this->assertSame(['logSendHsmId' => 777], $dispatch->getResponse());
+        $this->assertSame('{"reenvio":{"por":"a@b.com","em":"2026-10-03 23:19"},"response":{"logSendHsmId":777}}', $dispatch->getBodyJson());
+    }
+
+    public function testAResponseThatIsNotJsonIsKeptAsText(): void
+    {
+        $dispatch = DispatchCallback::createDispatch(55, false, null, null, 'Connection refused', $this->at);
+
+        $this->assertSame('Connection refused', $dispatch->getResponse());
     }
 
     public function testASimulatedDispatchEntryKeepsTheModeAndHasNoId(): void

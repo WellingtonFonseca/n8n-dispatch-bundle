@@ -4,8 +4,26 @@ declare(strict_types=1);
 
 namespace MauticPlugin\N8nDispatchBundle\Tests\Unit\Service;
 
+use Doctrine\ORM\EntityManagerInterface;
+use Mautic\CampaignBundle\Entity\Campaign;
+use Mautic\CampaignBundle\Entity\Event;
+use Mautic\CampaignBundle\Entity\LeadEventLog;
+use Mautic\LeadBundle\Entity\DoNotContact;
+use Mautic\LeadBundle\Entity\Lead;
+use Mautic\LeadBundle\Model\DoNotContact as DncModel;
+use Mautic\PluginBundle\Entity\Integration as IntegrationSettings;
+use Mautic\PluginBundle\Helper\IntegrationHelper;
+use MauticPlugin\N8nDispatchBundle\Integration\N8nDispatchIntegration;
+use MauticPlugin\N8nDispatchBundle\Service\DispatchFailureReasons;
 use MauticPlugin\N8nDispatchBundle\Service\DispatchResender;
+use MauticPlugin\N8nDispatchBundle\Service\StatusTracker;
+use MauticPlugin\N8nDispatchBundle\Tests\Unit\EventListener\EnUsTranslator;
+use MauticPlugin\N8nDispatchBundle\Twig\StatusExtension;
+use PHPUnit\Framework\MockObject\MockObject;
 use PHPUnit\Framework\TestCase;
+use Psr\Log\LoggerInterface;
+use Symfony\Contracts\HttpClient\HttpClientInterface;
+use Symfony\Contracts\HttpClient\ResponseInterface;
 
 /**
  * The rule that decides who can be resent. The resend itself runs the
@@ -133,16 +151,109 @@ class DispatchResenderTest extends TestCase
         $this->assertFalse(DispatchResender::isFailed($new));
     }
 
-    public function testRefusalMessageIsTheNoteABlankLineAndN8nsWholeAnswer(): void
+    public function testResendInfoSaysWhoAndWhenInUtc(): void
     {
         $this->assertSame(
-            "Reenvio feito em 03/10/2026 23:19\nPor tester@example.com\n\n{\"error\":\"template invalido\"}",
-            DispatchResender::refusalMessage("Reenvio feito em 03/10/2026 23:19\nPor tester@example.com", ' {"error":"template invalido"} ', 'HTTP 400')
+            ['por' => 'tester@example.com', 'em' => '2026-10-03 23:19'],
+            DispatchResender::resendInfo('tester@example.com', new \DateTimeImmutable('2026-10-03 23:19:42', new \DateTimeZone('UTC')))
         );
     }
 
-    public function testRefusalMessageFallsBackToTheReasonWhenN8nSentNoBody(): void
+    public function testResendInfoLeavesOutWhoWhenThereIsNoUser(): void
     {
-        $this->assertSame("nota\n\nHTTP 500", DispatchResender::refusalMessage('nota', '  ', 'HTTP 500'));
+        $this->assertSame(['em' => '2026-10-03 23:19'], DispatchResender::resendInfo(null, new \DateTimeImmutable('2026-10-03 23:19:42', new \DateTimeZone('UTC'))));
+        $this->assertSame(['em' => '2026-10-03 23:19'], DispatchResender::resendInfo('', new \DateTimeImmutable('2026-10-03 23:19:42', new \DateTimeZone('UTC'))));
+    }
+
+    public function testResponseOfDecodesJsonKeepsTextAndDropsEmpty(): void
+    {
+        $this->assertSame(['error' => 'x'], DispatchResender::responseOf(' {"error":"x"} '));
+        $this->assertSame('Connection refused', DispatchResender::responseOf('Connection refused'));
+        $this->assertNull(DispatchResender::responseOf('   '));
+    }
+
+    /**
+     * @return array{DispatchResender, MockObject, LeadEventLog} the resender, its tracker, the log
+     */
+    private function resenderAnswering(int $status, string $rawBody): array
+    {
+        $log = new LeadEventLog();
+        (new \ReflectionProperty($log, 'id'))->setValue($log, 140);
+        $event = new Event();
+        $event->setCampaign(new Campaign());
+        $event->setType('n8ndispatch.hsm.send');
+        $event->setProperties(['status' => 'production']);
+        $log->setEvent($event);
+        $log->setLead(new Lead());
+        $log->setMetadata(['logSendHsmId' => 1, 'n8ndispatch' => ['status' => 'production', 'hsm_router' => 'r', 'response' => ['x' => 1], 'httpStatusCode' => 200]]);
+
+        $em = $this->createMock(EntityManagerInterface::class);
+        $em->method('find')->willReturn($log);
+
+        $settings = $this->createMock(IntegrationSettings::class);
+        $settings->method('isPublished')->willReturn(true);
+        $integration = $this->createMock(N8nDispatchIntegration::class);
+        $integration->method('getIntegrationSettings')->willReturn($settings);
+        $integration->method('getKeys')->willReturn(['webhook_url' => 'https://n8n.example.test/hook']);
+        $integrations = $this->createMock(IntegrationHelper::class);
+        $integrations->method('getIntegrationObject')->willReturn($integration);
+
+        $response = $this->createMock(ResponseInterface::class);
+        $response->method('getStatusCode')->willReturn($status);
+        $response->method('getContent')->willReturn($rawBody);
+        $http = $this->createMock(HttpClientInterface::class);
+        $http->method('request')->willReturn($response);
+
+        $dnc = $this->createMock(DncModel::class);
+        $dnc->method('isContactable')->willReturn(DoNotContact::IS_CONTACTABLE);
+
+        $tracker = $this->createMock(StatusTracker::class);
+        $tracker->method('viewForMetadata')->willReturn([['refType' => 'logSendHsmUuid', 'outcome' => 'error']]);
+
+        $resender = new DispatchResender(
+            $em,
+            $integrations,
+            $http,
+            $dnc,
+            $tracker,
+            $this->createMock(StatusExtension::class),
+            new DispatchFailureReasons(new EnUsTranslator()),
+            new EnUsTranslator(),
+            $this->createMock(LoggerInterface::class),
+        );
+
+        return [$resender, $tracker, $log];
+    }
+
+    public function testARefusedResendKeepsWhoDidItAndTheWholeAnswer(): void
+    {
+        [$resender, $tracker] = $this->resenderAnswering(400, '{"body":{"error":"Missing header"},"statusCode":400}');
+
+        $tracker->expects($this->once())->method('recordDispatch')->with(
+            140,
+            false,
+            [],
+            ['body' => ['error' => 'Missing header'], 'statusCode' => 400],
+            null,
+            $this->callback(fn (array $resend): bool => 'admin@example.com' === ($resend['por'] ?? null) && 1 === preg_match('/^\d{4}-\d{2}-\d{2} \d{2}:\d{2}$/', $resend['em'] ?? ''))
+        );
+
+        $this->assertFalse($resender->resend(140, 'admin@example.com')['ok']);
+    }
+
+    public function testAnAcceptedResendKeepsWhoDidItAndTheWholeAnswer(): void
+    {
+        [$resender, $tracker] = $this->resenderAnswering(200, '{"logSendHsmId":777,"uuid":"u-777"}');
+
+        $tracker->expects($this->once())->method('recordDispatch')->with(
+            140,
+            true,
+            ['logSendHsmId' => 777, 'logSendHsmUuid' => 'u-777'],
+            ['logSendHsmId' => 777, 'uuid' => 'u-777'],
+            null,
+            $this->callback(fn (array $resend): bool => 'admin@example.com' === ($resend['por'] ?? null))
+        );
+
+        $this->assertTrue($resender->resend(140, 'admin@example.com')['ok']);
     }
 }

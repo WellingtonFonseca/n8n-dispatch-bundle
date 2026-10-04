@@ -543,8 +543,8 @@ class CampaignTriggerSubscriber implements EventSubscriberInterface
         // History entry (a resend reuses the same log).
         $campaignLogId = $log->getId();
 
-        // Every attempt goes in the log's history, accepted or not.
-        $this->statusTracker?->recordDispatch($campaignLogId, $statusCode < 300, [DispatchTracking::REF_EMAIL => $logId], $statusCode < 300 ? null : $this->failureMessage($rawBody, $statusCode));
+        // Every attempt goes in the log's history, accepted or not, with only n8n's answer (kept in case it has to be reprocessed).
+        $this->statusTracker?->recordDispatch($campaignLogId, $statusCode < 300, [DispatchTracking::REF_EMAIL => $logId], is_array($body) ? $body : ('' !== trim($rawBody) ? trim($rawBody) : null));
 
         if (!empty($logId)) {
             $metadata['logSendEmailId'] = $logId;
@@ -557,14 +557,5 @@ class CampaignTriggerSubscriber implements EventSubscriberInterface
         }
 
         $log->appendToMetadata($metadata);
-    }
-
-    /**
-     * What the history keeps of a refused call: n8n's whole answer, or the
-     * status when it sent none.
-     */
-    private function failureMessage(string $rawBody, int $statusCode): string
-    {
-        return '' !== trim($rawBody) ? trim($rawBody) : 'HTTP '.$statusCode;
     }
 }
