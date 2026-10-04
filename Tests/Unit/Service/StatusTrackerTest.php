@@ -466,4 +466,74 @@ class StatusTrackerTest extends TestCase
         $this->tracker->recordSimulated(55, 'production', $this->now);
         $this->tracker->recordSimulated(null, 'test', $this->now);
     }
+
+    public function testResetDeletesEveryHistoryEntryAndEveryTrackingRow(): void
+    {
+        $this->callbacks->expects($this->once())->method('deleteAll');
+        $this->trackings->expects($this->once())->method('deleteAll');
+
+        $this->tracker->reset();
+    }
+
+    public function testAdoptKeepsTheResponseOnTheDispatchEntryItCreates(): void
+    {
+        $this->trackings->method('findByRefs')->willReturn([]);
+        $this->callbacks->method('findByCampaignLogId')->willReturn([]);
+        $saved = [];
+        $this->callbacks->method('saveEntity')->willReturnCallback(function (DispatchCallback $c) use (&$saved): void {
+            $saved[] = $c;
+        });
+
+        $this->tracker->adopt(55, [DispatchTracking::REF_EMAIL => '4001'], $this->now, 'production', true, ['logSendEmailId' => 4001]);
+
+        $this->assertCount(1, $saved);
+        $this->assertSame(DispatchCallback::DISPATCH_SUCCESS, $saved[0]->getOutcome());
+        $this->assertSame(['logSendEmailId' => 4001], $saved[0]->getResponse());
+    }
+
+    public function testAdoptOfARefusedCallCreatesAFailedEntryWithItsResponse(): void
+    {
+        $this->trackings->method('findByRefs')->willReturn([]);
+        $this->callbacks->method('findByCampaignLogId')->willReturn([]);
+        $saved = null;
+        $this->callbacks->method('saveEntity')->willReturnCallback(function (DispatchCallback $c) use (&$saved): void {
+            $saved = $c;
+        });
+
+        $this->tracker->adopt(55, [], $this->now, 'production', false, ['error' => 'x']);
+
+        $this->assertSame(DispatchCallback::DISPATCH_FAILED, $saved->getOutcome());
+        $this->assertSame(['error' => 'x'], $saved->getResponse());
+    }
+
+    public function testAdoptOfATestStepCreatesASimulatedEntry(): void
+    {
+        $this->trackings->method('findByRefs')->willReturn([]);
+        $this->callbacks->method('findByCampaignLogId')->willReturn([]);
+        $saved = null;
+        $this->callbacks->method('saveEntity')->willReturnCallback(function (DispatchCallback $c) use (&$saved): void {
+            $saved = $c;
+        });
+
+        $this->tracker->adopt(55, [], $this->now, 'test');
+
+        $this->assertSame(DispatchCallback::DISPATCH_TEST, $saved->getOutcome());
+    }
+
+    public function testApplyKeepsAMessageThatIsAnObjectAndShowsItAsTextOnTheRow(): void
+    {
+        $row = $this->existing(DispatchTracking::REF_EMAIL, '4001', 7);
+        $saved = null;
+        $this->trackings->method('findOneByRef')->willReturn($row);
+        $this->callbacks->method('saveEntity')->willReturnCallback(function (DispatchCallback $c) use (&$saved): void {
+            $saved = $c;
+        });
+
+        $this->tracker->apply([
+            ['refType' => 'logSendEmailId', 'refValue' => '4001', 'outcome' => 'error', 'message' => ['code' => 400], 'body' => []],
+        ], $this->now);
+
+        $this->assertSame(['code' => 400], $saved->getMessage());
+        $this->assertSame("{\n    \"code\": 400\n}", $row->getMessage());
+    }
 }

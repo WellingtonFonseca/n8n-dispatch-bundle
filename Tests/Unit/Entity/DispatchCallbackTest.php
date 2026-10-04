@@ -55,14 +55,14 @@ class DispatchCallbackTest extends TestCase
         $this->assertNull($dispatch->getResend());
         $this->assertNull($dispatch->getMessage());
         $this->assertNull($dispatch->getRefValue());
-        $this->assertSame('{"response":{"error":"boom"}}', $dispatch->getBodyJson());
+        $this->assertSame(['response' => ['error' => 'boom']], $dispatch->getBodyArray());
     }
 
     public function testADispatchEntryWithNoResponseStoresNoJsonAtAll(): void
     {
         $dispatch = DispatchCallback::createDispatch(55, true, 'logSendEmailId', '4001', null, $this->at);
 
-        $this->assertNull($dispatch->getBodyJson());
+        $this->assertSame([], $dispatch->getBodyArray());
         $this->assertNull($dispatch->getResponse());
     }
 
@@ -72,7 +72,7 @@ class DispatchCallbackTest extends TestCase
 
         $this->assertSame(['por' => 'a@b.com', 'em' => '2026-10-03 23:19'], $dispatch->getResend());
         $this->assertSame(['logSendHsmId' => 777], $dispatch->getResponse());
-        $this->assertSame('{"reenvio":{"por":"a@b.com","em":"2026-10-03 23:19"},"response":{"logSendHsmId":777}}', $dispatch->getBodyJson());
+        $this->assertSame(['reenvio' => ['por' => 'a@b.com', 'em' => '2026-10-03 23:19'], 'response' => ['logSendHsmId' => 777]], $dispatch->getBodyArray());
     }
 
     public function testAResponseThatIsNotJsonIsKeptAsText(): void
@@ -93,5 +93,27 @@ class DispatchCallbackTest extends TestCase
         $this->assertNull($test->getRefValue());
         $this->assertNull($test->getTrackingId());
         $this->assertSame(55, $test->getCampaignLogId());
+    }
+
+    public function testTheMessageIsKeptAsAJsonObjectWhateverShapeN8nSent(): void
+    {
+        $text   = DispatchCallback::create(7, 'error', 'caixa cheia', [], $this->at);
+        $object = DispatchCallback::create(7, 'error', ['code' => 400, 'detail' => 'x'], [], $this->at);
+        $list   = DispatchCallback::create(7, 'error', ['a', 'b'], [], $this->at);
+        $none   = DispatchCallback::create(7, 'pending', null, [], $this->at);
+
+        $this->assertSame('caixa cheia', $text->getMessage());
+        $this->assertSame(['code' => 400, 'detail' => 'x'], $object->getMessage());
+        $this->assertSame(['a', 'b'], $list->getMessage());
+        $this->assertNull($none->getMessage());
+        $this->assertSame(['message' => 'caixa cheia'], $text->getStoredMessage(), 'the column holds {"message": ...}');
+        $this->assertNull($none->getStoredMessage());
+    }
+
+    public function testTheMessageAsTextIsTheTextOrTheJsonWrittenOut(): void
+    {
+        $this->assertSame('caixa cheia', DispatchCallback::create(7, 'error', 'caixa cheia', [], $this->at)->getMessageText());
+        $this->assertSame("{\n    \"code\": 400\n}", DispatchCallback::create(7, 'error', ['code' => 400], [], $this->at)->getMessageText());
+        $this->assertNull(DispatchCallback::create(7, 'pending', null, [], $this->at)->getMessageText());
     }
 }

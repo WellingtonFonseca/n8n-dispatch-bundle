@@ -118,4 +118,22 @@ class StatusResponseParserTest extends TestCase
         yield 'no items key'   => ['{"logSendEmailId":1}'];
         yield 'items not list' => ['{"items":"x"}'];
     }
+
+    public function testAMessageThatIsAnObjectOrAListIsKeptAsIs(): void
+    {
+        $parser = new StatusResponseParser();
+        $result = $parser->parse('email', json_encode([
+            'items' => [
+                ['logSendEmailId' => 1, 'outcome' => 'error', 'message' => ['code' => 400, 'detail' => 'x']],
+                ['logSendEmailId' => 2, 'outcome' => 'error', 'message' => ['a', 'b']],
+                ['logSendEmailId' => 3, 'outcome' => 'error', 'message' => []],
+                ['logSendEmailId' => 4, 'outcome' => 'error', 'message' => ''],
+            ],
+        ]));
+
+        $this->assertSame(['code' => 400, 'detail' => 'x'], $result['items'][0]['message']);
+        $this->assertSame(['a', 'b'], $result['items'][1]['message']);
+        $this->assertNull($result['items'][2]['message']);
+        $this->assertNull($result['items'][3]['message']);
+    }
 }

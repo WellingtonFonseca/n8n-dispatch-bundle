@@ -19,7 +19,7 @@ use MauticPlugin\N8nDispatchBundle\Entity\DispatchTracking;
 class StatusResponseParser
 {
     /**
-     * @return array{items: list<array{refType: string, refValue: string, outcome: string, message: ?string, body: array<string, mixed>}>, invalid: int}|null
+     * @return array{items: list<array{refType: string, refValue: string, outcome: string, message: mixed, body: array<string, mixed>}>, invalid: int}|null
      *                                                                                                                                                       null when the body is not JSON or has no items list at all
      */
     public function parse(string $channel, string $rawBody): ?array
@@ -59,7 +59,7 @@ class StatusResponseParser
      * @param list<string>         $refTypes
      * @param array<string, mixed> $item
      *
-     * @return array{refType: string, refValue: string, outcome: string, message: ?string, body: array<string, mixed>}|null
+     * @return array{refType: string, refValue: string, outcome: string, message: mixed, body: array<string, mixed>}|null
      */
     private function parseItem(array $refTypes, array $item): ?array
     {
@@ -79,7 +79,7 @@ class StatusResponseParser
                     'refType'  => $refType,
                     'refValue' => (string) $value,
                     'outcome'  => $outcome,
-                    'message'  => is_string($message) && '' !== $message ? $message : null,
+                    'message'  => (is_string($message) && '' !== $message) || (is_array($message) && [] !== $message) || is_int($message) || is_float($message) ? $message : null,
                     'body'     => $item,
                 ];
             }

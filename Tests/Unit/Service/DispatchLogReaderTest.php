@@ -128,4 +128,56 @@ class DispatchLogReaderTest extends TestCase
             $this->reader->refs(DispatchTracking::CHANNEL_EMAIL, ['logSendEmailId' => 1, 'n8ndispatch' => ['status' => 'production']])
         );
     }
+
+    public function testDispatchOfAnAcceptedProductionCallKeepsTheResponseAndTheIds(): void
+    {
+        $d = $this->reader->dispatchOf(DispatchTracking::CHANNEL_HSM, [
+            'logSendHsmId' => 4307097, 'logSendHsmUuid' => 'u',
+            'n8ndispatch'  => ['status' => 'production', 'httpStatusCode' => 200, 'response' => ['logSendHsmId' => 4307097, 'uuid' => 'u']],
+        ]);
+
+        $this->assertSame('production', $d['mode']);
+        $this->assertTrue($d['accepted']);
+        $this->assertSame(['logSendHsmId' => 4307097, 'uuid' => 'u'], $d['response']);
+        $this->assertSame(['logSendHsmId' => 4307097, 'logSendHsmUuid' => 'u'], $d['refs']);
+    }
+
+    public function testDispatchOfARefusedProductionCallKeepsTheResponseAndNoIds(): void
+    {
+        $d = $this->reader->dispatchOf(DispatchTracking::CHANNEL_EMAIL, [
+            'logSendEmailId' => 1,
+            'n8ndispatch'    => ['status' => 'production', 'httpStatusCode' => 404, 'response' => ['body' => ['error' => 'x']]],
+        ]);
+
+        $this->assertFalse($d['accepted']);
+        $this->assertSame(['body' => ['error' => 'x']], $d['response']);
+        $this->assertSame([], $d['refs']);
+    }
+
+    public function testDispatchOfATextResponseOrNoneIsKeptAsIsOrNull(): void
+    {
+        $text = $this->reader->dispatchOf(DispatchTracking::CHANNEL_SMS, ['n8ndispatch' => ['status' => 'production', 'httpStatusCode' => 502, 'response' => 'Bad gateway']]);
+        $none = $this->reader->dispatchOf(DispatchTracking::CHANNEL_SMS, ['n8ndispatch' => ['status' => 'production', 'httpStatusCode' => 200, 'response' => '']]);
+
+        $this->assertSame('Bad gateway', $text['response']);
+        $this->assertNull($none['response']);
+    }
+
+    public function testDispatchOfATestOrPausedStepIsSimulatedWithNothingSent(): void
+    {
+        foreach (['test', 'paused'] as $mode) {
+            $d = $this->reader->dispatchOf(DispatchTracking::CHANNEL_EMAIL, ['logSendEmailId' => 1, 'n8ndispatch' => ['status' => $mode]]);
+
+            $this->assertSame($mode, $d['mode']);
+            $this->assertNull($d['response']);
+            $this->assertSame([], $d['refs']);
+        }
+    }
+
+    public function testDispatchOfALogThatIsNotADispatchIsNull(): void
+    {
+        $this->assertNull($this->reader->dispatchOf(DispatchTracking::CHANNEL_EMAIL, []));
+        $this->assertNull($this->reader->dispatchOf(DispatchTracking::CHANNEL_EMAIL, ['errors' => ['cancelled'], 'n8ndispatch_cancellation' => ['x' => 1]]));
+        $this->assertNull($this->reader->dispatchOf(DispatchTracking::CHANNEL_EMAIL, ['n8ndispatch' => ['status' => 'weird']]));
+    }
 }

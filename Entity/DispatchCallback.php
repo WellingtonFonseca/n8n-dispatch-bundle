@@ -51,9 +51,11 @@ class DispatchCallback
 
     private string $outcome;
 
-    private ?string $message = null;
+    /** @var array{message: mixed}|null a JSON column: {"message": <what n8n sent: text, object or list>} */
+    private ?array $message = null;
 
-    private ?string $bodyJson = null;
+    /** @var array<string, mixed>|null a JSON column (body_json): what n8n answered to the poll, or what a dispatch entry keeps */
+    private ?array $bodyJson = null;
 
     private \DateTimeImmutable $receivedAt;
 
@@ -75,8 +77,8 @@ class DispatchCallback
         $builder->addNamedField('refType', 'string', 'ref_type', true);
         $builder->createField('refValue', 'string')->columnName('ref_value')->length(191)->nullable()->build();
         $builder->addNamedField('outcome', 'string', 'outcome', false);
-        $builder->addNamedField('message', 'text', 'message', true);
-        $builder->addNamedField('bodyJson', 'text', 'body_json', true);
+        $builder->addNamedField('message', 'json', 'message', true);
+        $builder->addNamedField('bodyJson', 'json', 'body_json', true);
         $builder->addNamedField('receivedAt', 'datetime_immutable', 'received_at', false);
 
         $builder->addIndex(['tracking_id'], 'n8n_dispatch_callback_tracking');
@@ -86,13 +88,13 @@ class DispatchCallback
     /**
      * @param array<string, mixed> $body
      */
-    public static function create(int $trackingId, string $outcome, ?string $message, array $body, \DateTimeInterface $now): self
+    public static function create(int $trackingId, string $outcome, mixed $message, array $body, \DateTimeInterface $now): self
     {
         $callback = new self();
         $callback->setTrackingId($trackingId);
         $callback->setOutcome($outcome);
         $callback->setMessage($message);
-        $callback->bodyJson = json_encode($body, JSON_UNESCAPED_UNICODE | JSON_UNESCAPED_SLASHES) ?: null;
+        $callback->bodyJson = [] === $body ? null : $body;
         $callback->setReceivedAt($now);
 
         return $callback;
@@ -126,7 +128,7 @@ class DispatchCallback
         $dispatch->outcome       = $accepted ? self::DISPATCH_SUCCESS : self::DISPATCH_FAILED;
         $dispatch->refType       = $refType;
         $dispatch->refValue      = $refValue;
-        $dispatch->bodyJson      = [] === $payload ? null : (json_encode($payload, JSON_UNESCAPED_UNICODE | JSON_UNESCAPED_SLASHES) ?: null);
+        $dispatch->bodyJson      = [] === $payload ? null : $payload;
         $dispatch->setReceivedAt($now);
 
         return $dispatch;
@@ -208,14 +210,42 @@ class DispatchCallback
         return $this;
     }
 
-    public function getMessage(): ?string
+    /**
+     * What n8n sent as the message, as it sent it (text, object or list); null
+     * when it sent none.
+     */
+    public function getMessage(): mixed
+    {
+        return $this->message['message'] ?? null;
+    }
+
+    /**
+     * The column as stored: {"message": ...}, or null.
+     *
+     * @return array{message: mixed}|null
+     */
+    public function getStoredMessage(): ?array
     {
         return $this->message;
     }
 
-    public function setMessage(?string $message): self
+    /**
+     * The message for a place that wants text: the text itself, or an object / list written out.
+     */
+    public function getMessageText(): ?string
     {
-        $this->message = $message;
+        $message = $this->getMessage();
+
+        if (null === $message || '' === $message) {
+            return null;
+        }
+
+        return is_string($message) ? $message : (string) json_encode($message, JSON_PRETTY_PRINT | JSON_UNESCAPED_UNICODE | JSON_UNESCAPED_SLASHES);
+    }
+
+    public function setMessage(mixed $message): self
+    {
+        $this->message = null === $message || '' === $message ? null : ['message' => $message];
 
         return $this;
     }
@@ -225,14 +255,7 @@ class DispatchCallback
      */
     public function getBodyArray(): array
     {
-        $decoded = null === $this->bodyJson ? null : json_decode($this->bodyJson, true);
-
-        return is_array($decoded) ? $decoded : [];
-    }
-
-    public function getBodyJson(): ?string
-    {
-        return $this->bodyJson;
+        return $this->bodyJson ?? [];
     }
 
     /**

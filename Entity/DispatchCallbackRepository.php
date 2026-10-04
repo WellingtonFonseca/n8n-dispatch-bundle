@@ -53,4 +53,12 @@ class DispatchCallbackRepository extends CommonRepository
             ->getQuery()
             ->getResult();
     }
+
+    /**
+     * Deletes every row of the table (the backfill's --reset).
+     */
+    public function deleteAll(): void
+    {
+        $this->getEntityManager()->createQuery('DELETE FROM '.DispatchCallback::class)->execute();
+    }
 }

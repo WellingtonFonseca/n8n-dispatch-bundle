@@ -31,7 +31,7 @@ class StatusBackfill
      * @return array{scanned: int, eligible: int, registered: int, alreadyTracked: int, skipped: int}
      *                                                                                                 'registered' is what would be registered, on a dry run
      */
-    public function run(int $sinceDays, int $batchSize, bool $dryRun, \DateTimeImmutable $now): array
+    public function run(int $sinceDays, int $batchSize, bool $dryRun, \DateTimeImmutable $now, bool $reset = false): array
     {
         $summary    = ['scanned' => 0, 'eligible' => 0, 'registered' => 0, 'alreadyTracked' => 0, 'skipped' => 0];
         $connection = $this->em->getConnection();
@@ -49,6 +49,11 @@ class StatusBackfill
 
         $last = 0;
 
+        // --reset: the whole history goes first and is rebuilt from the logs below.
+        if ($reset && !$dryRun) {
+            $this->tracker->reset();
+        }
+
         do {
             $rows = $connection->fetchAllAssociative($sql, ['since' => $since, 'last' => $last]);
 
@@ -58,9 +63,9 @@ class StatusBackfill
 
                 $channel  = DispatchLogReader::channelOf((string) $row['type']);
                 $metadata = $this->decode($row['metadata']);
-                $refs     = null !== $channel && null !== $metadata ? $this->reader->refs($channel, $metadata) : [];
+                $dispatch = null !== $channel && null !== $metadata ? $this->reader->dispatchOf($channel, $metadata) : null;
 
-                if ([] === $refs) {
+                if (null === $dispatch) {
                     ++$summary['skipped'];
 
                     continue;
@@ -68,11 +73,16 @@ class StatusBackfill
 
                 ++$summary['eligible'];
                 $when    = new \DateTimeImmutable((string) $row['date_triggered'], $utc);
-                $created = $dryRun ? $this->countUntracked($refs) : $this->tracker->register($channel, $refs, $when, (int) $row['id']);
+                $refs    = $dispatch['refs'];
+                $created = 0;
 
                 if (!$dryRun) {
-                    // Dispatches tracked before the link to the log existed get it (and their 'dispatch' entry) now.
-                    $this->tracker->adopt((int) $row['id'], $refs, $when);
+                    // The ids n8n gave start 'pending' at the moment of the dispatch.
+                    $created = [] === $refs ? 0 : $this->tracker->register($channel, $refs, $when, (int) $row['id']);
+                    // The dispatch itself is the first entry of the log's history (and links dispatches tracked before the link existed).
+                    $this->tracker->adopt((int) $row['id'], $refs, $when, $dispatch['mode'], $dispatch['accepted'], $dispatch['response']);
+                } else {
+                    $created = $this->countUntracked($refs);
                 }
 
                 $summary['registered'] += $created;

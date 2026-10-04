@@ -71,4 +71,12 @@ class DispatchTrackingRepository extends CommonRepository
 
         return $qb->where($or)->orderBy('dt.id', 'ASC')->getQuery()->getResult();
     }
+
+    /**
+     * Deletes every row of the table (the backfill's --reset).
+     */
+    public function deleteAll(): void
+    {
+        $this->getEntityManager()->createQuery('DELETE FROM '.DispatchTracking::class)->execute();
+    }
 }
