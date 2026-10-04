@@ -8,10 +8,13 @@ use Mautic\CoreBundle\Form\Type\StandAloneButtonType;
 use Mautic\CoreBundle\Form\Type\YesNoButtonGroupType;
 use Mautic\PluginBundle\Integration\AbstractIntegration;
 use MauticPlugin\N8nDispatchBundle\Entity\PollRun;
+use MauticPlugin\N8nDispatchBundle\Form\Type\VisiblePasswordType;
 use MauticPlugin\N8nDispatchBundle\Service\StatusPollSettings;
 use Symfony\Component\Form\Extension\Core\Type\IntegerType;
 use Symfony\Component\Form\Extension\Core\Type\TextType;
+use Symfony\Component\Validator\Constraints\Callback;
 use Symfony\Component\Validator\Constraints\Range;
+use Symfony\Component\Validator\Context\ExecutionContextInterface;
 
 /**
  * Gives this plugin a "Settings > Plugins > N8n Dispatch" screen with two
@@ -52,6 +55,12 @@ class N8nDispatchIntegration extends AbstractIntegration
      */
     public function appendToForm(&$builder, $data, $formArea): void
     {
+        if ('keys' === $formArea) {
+            $this->tokenAsPassword($builder, $data);
+
+            return;
+        }
+
         if ('features' !== $formArea) {
             return;
         }
@@ -183,5 +192,49 @@ class N8nDispatchIntegration extends AbstractIntegration
             'webhook_url'   => 'mautic.integration.n8ndispatch.webhook_url',
             'webhook_token' => 'mautic.integration.n8ndispatch.webhook_token',
         ];
+    }
+
+    /**
+     * The auth token is drawn as a password input (dots) but keeps its value in
+     * the field, so it can be looked at and checked later (a "reveal" in the
+     * browser, or the page source): core's own secret-key fields (and Symfony's
+     * PasswordType) come up blank and cannot be read back, which is more than
+     * this token needs. Replaces the
+     * plain text field core already added for the key. Still required while the
+     * integration is published, as before.
+     *
+     * @param \Symfony\Component\Form\FormBuilderInterface $builder
+     * @param array<string, mixed>|null                     $data    the saved keys, decrypted
+     */
+    private function tokenAsPassword($builder, $data): void
+    {
+        $builder->add('webhook_token', VisiblePasswordType::class, [
+            'label'         => 'mautic.integration.n8ndispatch.webhook_token',
+            'label_attr'    => ['class' => 'control-label'],
+            'attr'          => [
+                'class'          => 'form-control',
+                'autocomplete'   => 'off',
+                // The eye at the end of the field (core's "postaddon"): click to show / hide the token.
+                'postaddon'      => 'ri-eye-line',
+                'postaddon_attr' => [
+                    'style'   => 'cursor:pointer',
+                    'title'   => 'Mostrar / ocultar',
+                    'onclick' => "var i=this.parentNode.querySelector('input');var s='password'===i.type;i.type=s?'text':'password';this.firstElementChild.className=s?'ri-eye-off-line':'ri-eye-line';",
+                ],
+            ],
+            'required'      => false,
+            'data'          => is_array($data) && is_string($data['webhook_token'] ?? null) ? $data['webhook_token'] : null,
+            'error_bubbling' => false,
+            'constraints'   => [
+                new Callback(static function ($value, ExecutionContextInterface $context): void {
+                    $root      = $context->getRoot();
+                    $published = !$root instanceof \Symfony\Component\Form\FormInterface || !$root->has('isPublished') || (bool) $root->get('isPublished')->getData();
+
+                    if (empty($value) && $published) {
+                        $context->buildViolation('mautic.core.value.required')->addViolation();
+                    }
+                }),
+            ],
+        ]);
     }
 }
