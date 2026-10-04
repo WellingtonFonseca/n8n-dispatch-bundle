@@ -25,10 +25,6 @@
     <p class="text-danger mt-0 mb-10"><i class="ri-alert-line"></i> {{ 'mautic.campaign.event.last_error'|trans }}:<br/>{{ errors|purify }}</p>
 {% endif %}
 
-{% if item.metadata.n8ndispatch_resend is defined and item.metadata.n8ndispatch_resend %}
-    <p class="text-muted mt-0 mb-10"><i class="ri-send-plane-line"></i> {{ item.metadata.n8ndispatch_resend|nl2br }}</p>
-{% endif %}
-
 {% set n8n = item.metadata.n8ndispatch is defined ? item.metadata.n8ndispatch : null %}
 {% if n8n %}
     {% set statusIcon = {
@@ -57,6 +53,11 @@
                 {% endif %}
             {% endif %}
         </div>
+
+        {# Who resent it and when: a block of its own under the status badges, above the Body. #}
+        {% if item.metadata.n8ndispatch_resend is defined and item.metadata.n8ndispatch_resend %}
+        <pre class="n8ndispatch-timeline-json">{{ item.metadata.n8ndispatch_resend }}</pre>
+        {% endif %}
 
         {% set jsonOptions = constant('JSON_PRETTY_PRINT') b-or constant('JSON_UNESCAPED_UNICODE') b-or constant('JSON_UNESCAPED_SLASHES') %}
         {% set metaKeys = ['response', 'httpStatusCode', 'templateCopyHash'] %}
