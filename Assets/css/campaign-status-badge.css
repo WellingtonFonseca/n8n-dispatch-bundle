@@ -370,3 +370,11 @@
 .n8ndispatch-check-now-line--info {
     color: var(--text-secondary, #525252);
 }
+
+/* The details modal of the Dispatches screen (Dispatch/details.html.twig) is core's shared modal,
+   which is narrow by default; the History table needs the room. Only a modal that holds this
+   body is widened (:has), every other use of the shared modal keeps its size. */
+.modal-dialog:has(.n8ndispatch-details) {
+    width: 1100px;
+    max-width: 95vw;
+}
