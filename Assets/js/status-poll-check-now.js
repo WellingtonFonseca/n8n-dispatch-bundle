@@ -2,7 +2,7 @@
  * The "Check now" button on Settings > Plugins > N8n Dispatch > Features
  * (N8nDispatchIntegration::addCheckNowButton()). Asks n8n about the pending
  * dispatches once, right away (AjaxController::runStatusPollAction), and
- * shows what happened per channel under the button — so the n8n workflow can
+ * shows what happened per channel, as a JSON block, under the button — so the n8n workflow can
  * be built and fixed before the schedule is switched on.
  *
  * The texts come from the plugin's javascript.ini in the system language
@@ -26,15 +26,17 @@
     }
 
     /**
-     * What to show for a runStatusPollAction response: one {level, text} per
-     * channel, plus a note when nothing was pending at all.
+     * What to show for a runStatusPollAction response: a JSON block with one
+     * object per channel (the counts of that check, or its error), plus notes
+     * under it — when nothing was pending at all, or when the request was refused
+     * (then there is no block).
      */
-    function buildResultLines(response) {
+    function buildResult(response) {
         if (!response || !response.success) {
-            return [{level: 'error', text: translate('mautic.n8ndispatch.js.check_now.denied', 'It could not run: you may not have permission to.')}];
+            return {json: null, notes: [{level: 'error', text: translate('mautic.n8ndispatch.js.check_now.denied', 'It could not run: you may not have permission to.')}]};
         }
 
-        var lines = [];
+        var block = {};
         var anythingAsked = false;
         var anyError = false;
 
@@ -45,55 +47,57 @@
                 return;
             }
 
-            var label = channel.toUpperCase();
-
             if (summary.error) {
                 anyError = true;
-                lines.push({level: 'error', text: label + ': ' + summary.error});
+                block[channel] = {error: summary.error};
 
                 return;
             }
 
             anythingAsked = anythingAsked || summary.requested > 0;
-            lines.push({
-                level: 'ok',
-                text: translate(
-                    'mautic.n8ndispatch.js.check_now.line',
-                    '%channel%: asked %requested%, changed %changed%, unchanged %unchanged%, unknown %unknown%, invalid %invalid%',
-                    {
-                        channel: label,
-                        requested: summary.requested,
-                        changed: summary.changed,
-                        unchanged: summary.unchanged,
-                        unknown: summary.unknown,
-                        invalid: summary.invalid
-                    }
-                )
-            });
+            block[channel] = {
+                asked: summary.requested,
+                changed: summary.changed,
+                unchanged: summary.unchanged,
+                unknown: summary.unknown,
+                invalid: summary.invalid
+            };
         });
 
+        var notes = [];
+
         if (!anythingAsked && !anyError) {
-            lines.push({level: 'info', text: translate('mautic.n8ndispatch.js.check_now.nothing', 'Nothing pending to ask about. Run the backfill for the old dispatches, or wait for a new one.')});
+            notes.push({level: 'info', text: translate('mautic.n8ndispatch.js.check_now.nothing', 'Nothing pending to ask about. Run the backfill for the old dispatches, or wait for a new one.')});
         }
 
-        return lines;
+        return {json: JSON.stringify(block, null, 4), notes: notes};
     }
 
     function escapeHtml(text) {
         return window.mQuery('<div>').text(text == null ? '' : text).html();
     }
 
-    function render($button, lines) {
-        var $parent = $button.parent();
+    function renderNotes(notes) {
+        return notes.map(function (line) {
+            return '<div class="n8ndispatch-check-now-line n8ndispatch-check-now-line--' + line.level + '">' + escapeHtml(line.text) + '</div>';
+        }).join('');
+    }
+
+    // result: {json, notes}; the JSON goes in a block of its own, like the other JSON blocks of the plugin.
+    function render($button, result) {
+        // The button sits in a half-width column (core's standalone button row); the result goes in its own
+        // full-width column of the same row, so the JSON block takes the whole width of the form.
+        var $row = $button.closest('.row');
+        var $parent = $row.length ? $row : $button.parent();
         var $result = $parent.find('.n8ndispatch-check-now-result');
 
         if (!$result.length) {
-            $result = window.mQuery('<div class="n8ndispatch-check-now-result" role="status"></div>').appendTo($parent);
+            $result = window.mQuery('<div class="n8ndispatch-check-now-result' + ($row.length ? ' col-xs-12' : '') + '" role="status"></div>').appendTo($parent);
         }
 
-        $result.html(lines.map(function (line) {
-            return '<div class="n8ndispatch-check-now-line n8ndispatch-check-now-line--' + line.level + '">' + escapeHtml(line.text) + '</div>';
-        }).join(''));
+        $result.html(
+            (result.json ? '<pre class="n8ndispatch-json-pre">' + escapeHtml(result.json) + '</pre>' : '') + renderNotes(result.notes)
+        );
     }
 
     // onclick of the button. The webhook used is the one already SAVED in the plugin's settings.
@@ -101,16 +105,16 @@
         var $button = window.mQuery(button);
 
         $button.prop('disabled', true);
-        render($button, [{level: 'info', text: translate('mautic.n8ndispatch.js.check_now.running', 'Asking n8n…')}]);
+        render($button, {json: null, notes: [{level: 'info', text: translate('mautic.n8ndispatch.js.check_now.running', 'Asking n8n…')}]});
 
         Mautic.ajaxActionRequest('plugin:N8nDispatch:runStatusPoll', {}, function (response) {
-            render($button, buildResultLines(response));
+            render($button, buildResult(response));
             $button.prop('disabled', false);
         }, function () {
-            render($button, [{level: 'error', text: translate('mautic.n8ndispatch.js.check_now.failed', 'Could not run the check. Try again.')}]);
+            render($button, {json: null, notes: [{level: 'error', text: translate('mautic.n8ndispatch.js.check_now.failed', 'Could not run the check. Try again.')}]});
             $button.prop('disabled', false);
         });
     };
 
-    Mautic.n8ndispatchStatusPoll = {buildResultLines: buildResultLines};
+    Mautic.n8ndispatchStatusPoll = {buildResult: buildResult};
 }(window));

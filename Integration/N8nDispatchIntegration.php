@@ -11,7 +11,7 @@ use MauticPlugin\N8nDispatchBundle\Entity\PollRun;
 use MauticPlugin\N8nDispatchBundle\Form\Type\VisiblePasswordType;
 use MauticPlugin\N8nDispatchBundle\Service\StatusPollSettings;
 use Symfony\Component\Form\Extension\Core\Type\IntegerType;
-use Symfony\Component\Form\Extension\Core\Type\TextType;
+use Symfony\Component\Form\Extension\Core\Type\TextareaType;
 use Symfony\Component\Validator\Constraints\Callback;
 use Symfony\Component\Validator\Constraints\Range;
 use Symfony\Component\Validator\Context\ExecutionContextInterface;
@@ -125,14 +125,17 @@ class N8nDispatchIntegration extends AbstractIntegration
             'constraints' => [new Range(min: StatusPollSettings::MIN_TIMEOUT, max: StatusPollSettings::MAX_MAX_DURATION)],
         ]);
 
-        $builder->add('status_poll_last_run', TextType::class, [
+        $lastRun = $this->describeLastRun($current['interval']);
+
+        // A read-only block, not a one-line input: the last run is JSON, one object per channel.
+        $builder->add('status_poll_last_run', TextareaType::class, [
             'label'      => 'mautic.n8ndispatch.settings.status_poll.last_run',
             'label_attr' => ['class' => 'control-label'],
-            'data'       => $this->describeLastRun($current['interval']),
+            'data'       => $lastRun,
             'mapped'     => false,
             'disabled'   => true,
             'required'   => false,
-            'attr'       => ['class' => 'form-control'],
+            'attr'       => ['class' => 'form-control n8ndispatch-json-block', 'rows' => max(2, substr_count($lastRun, "\n") + 1)],
         ]);
 
         $this->addCheckNowButton($builder);
@@ -155,8 +158,8 @@ class N8nDispatchIntegration extends AbstractIntegration
     }
 
     /**
-     * The text of the read-only "Last run" field. Never allowed to break the
-     * settings screen — e.g. before the plugin's tables exist.
+     * The JSON of the read-only "Last run" block (see StatusPollSettings::lastRunJson()).
+     * Never allowed to break the settings screen — e.g. before the plugin's tables exist.
      */
     private function describeLastRun(int $intervalMinutes): string
     {
@@ -170,17 +173,14 @@ class N8nDispatchIntegration extends AbstractIntegration
             return $this->translator->trans('mautic.n8ndispatch.settings.status_poll.last_run.never');
         }
 
-        $text = $this->translator->trans('mautic.n8ndispatch.settings.status_poll.last_run.line', [
-            '%date%'    => $latest->getStartedAt()->format('Y-m-d H:i').' UTC',
-            '%status%'  => $this->translator->trans('mautic.n8ndispatch.settings.status_poll.status.'.$latest->getStatus()),
-            '%summary%' => str_replace("\n", ' | ', (string) $latest->getSummary()),
-        ]);
+        $stale = StatusPollSettings::isStale($latest, $intervalMinutes, new \DateTimeImmutable());
 
-        if (StatusPollSettings::isStale($latest, $intervalMinutes, new \DateTimeImmutable())) {
-            $text = $this->translator->trans('mautic.n8ndispatch.settings.status_poll.last_run.stale').' '.$text;
-        }
-
-        return trim($text);
+        return StatusPollSettings::lastRunJson(
+            $latest->getStartedAt(),
+            $this->translator->trans('mautic.n8ndispatch.settings.status_poll.status.'.$latest->getStatus()),
+            $latest->getSummary(),
+            $stale ? $this->translator->trans('mautic.n8ndispatch.settings.status_poll.last_run.stale') : null
+        );
     }
 
     /**

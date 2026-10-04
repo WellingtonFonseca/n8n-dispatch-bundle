@@ -5,6 +5,7 @@ declare(strict_types=1);
 namespace MauticPlugin\N8nDispatchBundle\Service;
 
 use Mautic\PluginBundle\Helper\IntegrationHelper;
+use MauticPlugin\N8nDispatchBundle\Entity\DispatchTracking;
 use MauticPlugin\N8nDispatchBundle\Entity\PollRun;
 use MauticPlugin\N8nDispatchBundle\Integration\N8nDispatchIntegration;
 
@@ -95,5 +96,50 @@ class StatusPollSettings
         $limitMinutes = max(3 * $intervalMinutes, 60);
 
         return $latest->getStartedAt() < $now->modify('-'.$limitMinutes.' minutes');
+    }
+
+    /**
+     * The settings screen's read-only "Last run" block, as JSON: when it
+     * started, how it ended, a warning when the cron seems stopped, and one
+     * object per channel with the counts of that run. The run's stored summary
+     * is one text line per channel (what the command printed), read back here:
+     * "email: asked 1, changed 1, ..." gives the counts, "sms: <text>" an
+     * error, and any other line a message.
+     */
+    public static function lastRunJson(\DateTimeInterface $startedAt, string $statusLabel, ?string $summary, ?string $warning): string
+    {
+        $block = [
+            'date'   => \DateTimeImmutable::createFromInterface($startedAt)->setTimezone(new \DateTimeZone('UTC'))->format('Y-m-d H:i').' UTC',
+            'status' => $statusLabel,
+        ];
+
+        if (null !== $warning && '' !== $warning) {
+            $block['warning'] = $warning;
+        }
+
+        foreach (preg_split('/\R/', (string) $summary) ?: [] as $line) {
+            $line = trim($line);
+
+            if ('' === $line) {
+                continue;
+            }
+
+            if (1 === preg_match('/^(\w+): asked (\d+), changed (\d+), unchanged (\d+), unknown (\d+), invalid (\d+), (\d+) calls?$/', $line, $m)) {
+                $block[$m[1]] = [
+                    'asked'     => (int) $m[2],
+                    'changed'   => (int) $m[3],
+                    'unchanged' => (int) $m[4],
+                    'unknown'   => (int) $m[5],
+                    'invalid'   => (int) $m[6],
+                    'calls'     => (int) $m[7],
+                ];
+            } elseif (1 === preg_match('/^(\w+): (.+)$/', $line, $m) && in_array($m[1], DispatchTracking::CHANNELS, true)) {
+                $block[$m[1]] = ['error' => $m[2]];
+            } else {
+                $block['message'] = isset($block['message']) ? $block['message']."\n".$line : $line;
+            }
+        }
+
+        return (string) json_encode($block, JSON_PRETTY_PRINT | JSON_UNESCAPED_UNICODE | JSON_UNESCAPED_SLASHES);
     }
 }
