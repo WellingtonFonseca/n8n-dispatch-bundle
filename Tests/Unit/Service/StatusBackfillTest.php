@@ -91,19 +91,99 @@ class StatusBackfillTest extends TestCase
         $this->assertSame(1, $summary['alreadyTracked']);
     }
 
-    public function testRowsThatAreNotRealDispatchesOrCannotBeReadAreSkipped(): void
+    public function testRowsThatAreNotDispatchesOrCannotBeReadAreSkipped(): void
     {
         $this->connection->method('fetchAllAssociative')->willReturnOnConsecutiveCalls([
-            $this->row(1, 'n8ndispatch.email.send', ['logSendEmailId' => 1, 'n8ndispatch' => ['status' => 'test']]),
             ['id' => '2', 'type' => 'n8ndispatch.email.send', 'date_triggered' => '2026-09-29 14:00:00', 'metadata' => 'not serialized at all'],
             ['id' => '3', 'type' => 'n8ndispatch.email.send', 'date_triggered' => '2026-09-29 14:00:00', 'metadata' => null],
             $this->row(4, 'something.else', $this->emailMeta(7)),
+            $this->row(5, 'n8ndispatch.email.send', ['errors' => ['cancelled']]),
         ], []);
         $this->tracker->expects($this->never())->method('register');
+        $this->tracker->expects($this->never())->method('adopt');
 
         $summary = $this->backfill->run(7, 500, false, $this->now);
 
         $this->assertSame(['scanned' => 4, 'eligible' => 0, 'registered' => 0, 'alreadyTracked' => 0, 'skipped' => 4], $summary);
+    }
+
+    public function testATestOrPausedStepIsRecordedAsSimulatedAndTracksNothing(): void
+    {
+        $this->connection->method('fetchAllAssociative')->willReturnOnConsecutiveCalls([
+            $this->row(1, 'n8ndispatch.email.send', ['n8ndispatch' => ['status' => 'test']]),
+            $this->row(2, 'n8ndispatch.sms.send', ['n8ndispatch' => ['status' => 'paused']], '2026-09-30 09:30:00'),
+        ], []);
+        $this->tracker->expects($this->never())->method('register');
+
+        $calls = [];
+        $this->tracker->method('adopt')->willReturnCallback(function (int $logId, array $refs, \DateTimeImmutable $at, string $mode) use (&$calls): void {
+            $calls[] = [$logId, $refs, $mode];
+        });
+
+        $summary = $this->backfill->run(7, 500, false, $this->now);
+
+        $this->assertSame([[1, [], 'test'], [2, [], 'paused']], $calls);
+        $this->assertSame(2, $summary['eligible']);
+    }
+
+    public function testARefusedProductionCallIsRecordedWithItsResponseAndTracksNothing(): void
+    {
+        $this->connection->method('fetchAllAssociative')->willReturnOnConsecutiveCalls([
+            $this->row(1, 'n8ndispatch.email.send', ['logSendEmailId' => 1, 'n8ndispatch' => ['status' => 'production', 'httpStatusCode' => 404, 'response' => ['error' => 'x']]]),
+        ], []);
+        $this->tracker->expects($this->never())->method('register');
+
+        $calls = [];
+        $this->tracker->method('adopt')->willReturnCallback(function (int $logId, array $refs, \DateTimeImmutable $at, string $mode, bool $accepted, mixed $response) use (&$calls): void {
+            $calls[] = [$logId, $refs, $mode, $accepted, $response];
+        });
+
+        $this->backfill->run(7, 500, false, $this->now);
+
+        $this->assertSame([[1, [], 'production', false, ['error' => 'x']]], $calls);
+    }
+
+    public function testTheAcceptedCallsResponseGoesToTheDispatchEntry(): void
+    {
+        $this->connection->method('fetchAllAssociative')->willReturnOnConsecutiveCalls([
+            $this->row(1, 'n8ndispatch.email.send', ['logSendEmailId' => 6431264, 'n8ndispatch' => ['status' => 'production', 'httpStatusCode' => 200, 'response' => ['logSendEmailId' => 6431264]]]),
+        ], []);
+        $this->tracker->method('register')->willReturn(1);
+
+        $calls = [];
+        $this->tracker->method('adopt')->willReturnCallback(function (int $logId, array $refs, \DateTimeImmutable $at, string $mode, bool $accepted, mixed $response) use (&$calls): void {
+            $calls[] = [$refs, $accepted, $response];
+        });
+
+        $this->backfill->run(7, 500, false, $this->now);
+
+        $this->assertSame([[['logSendEmailId' => 6431264], true, ['logSendEmailId' => 6431264]]], $calls);
+    }
+
+    public function testResetWipesTheHistoryBeforeReadingAnyLog(): void
+    {
+        $order = [];
+        $this->tracker->expects($this->once())->method('reset')->willReturnCallback(function () use (&$order): void {
+            $order[] = 'reset';
+        });
+        $this->connection->method('fetchAllAssociative')->willReturnCallback(function () use (&$order): array {
+            $order[] = 'read';
+
+            return [];
+        });
+
+        $this->backfill->run(7, 500, false, $this->now, true);
+
+        $this->assertSame(['reset', 'read'], $order);
+    }
+
+    public function testNoResetByDefaultAndNeverOnADryRun(): void
+    {
+        $this->connection->method('fetchAllAssociative')->willReturn([]);
+        $this->tracker->expects($this->never())->method('reset');
+
+        $this->backfill->run(7, 500, false, $this->now);
+        $this->backfill->run(7, 500, true, $this->now, true);
     }
 
     public function testDryRunWritesNothingAndCountsWhatWouldBeRegistered(): void

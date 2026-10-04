@@ -173,8 +173,8 @@
                         </td>
                         <td>{{ entry.refValue }}</td>
                         <td>{{ n8ndispatch_date(entry.receivedAt) }}</td>
-                        {# Same block as the JSONs and the message above, with no label: the column already says what it is. A callback shows n8n's message; a dispatch shows the JSON it keeps: who resent it and when (a resend only) and n8n's answer. #}
-                        {% set cellText = isDispatch ? n8ndispatch_dispatch_text(entry) : entry.message %}
+                        {# Same block as the JSONs and the message above, with no label: the column already says what it is. Both kinds show the JSON they keep: a callback {message: ...} (what n8n sent, as it sent it); a dispatch who resent it and when (a resend only) and n8n's answer. #}
+                        {% set cellText = n8ndispatch_history_text(entry) %}
                         <td>{% if cellText %}<pre class="n8ndispatch-timeline-json n8ndispatch-callback-message">{{ cellText }}</pre>{% endif %}</td>
                     </tr>
                 {% endfor %}

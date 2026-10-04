@@ -144,4 +144,19 @@ class StatusExtensionTest extends TestCase
             json_decode($this->extension('en')->dispatchText(['resend' => ['em' => '2026-10-03 23:19'], 'response' => null]), true)
         );
     }
+
+    public function testHistoryTextOfACallbackIsTheMessageAsJson(): void
+    {
+        $ext = $this->extension('en');
+
+        $this->assertSame(['message' => 'caixa cheia'], json_decode($ext->historyText(['kind' => 'callback', 'message' => 'caixa cheia']), true));
+        $this->assertSame(['message' => ['code' => 400]], json_decode($ext->historyText(['kind' => 'callback', 'message' => ['code' => 400]]), true));
+        $this->assertSame(['message' => ['a', 'b']], json_decode($ext->historyText(['kind' => 'callback', 'message' => ['a', 'b']]), true));
+        $this->assertSame('', $ext->historyText(['kind' => 'callback', 'message' => null]));
+    }
+
+    public function testHistoryTextOfADispatchIsItsStoredJson(): void
+    {
+        $this->assertSame(['response' => ['ok' => true]], json_decode($this->extension('en')->historyText(['kind' => 'dispatch', 'resend' => null, 'response' => ['ok' => true]]), true));
+    }
 }

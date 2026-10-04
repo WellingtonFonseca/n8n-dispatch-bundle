@@ -133,14 +133,25 @@ class StatusTracker
     }
 
     /**
+     * Deletes the whole history: every tracking row and every entry. The
+     * backfill's --reset, to rebuild it from the campaign logs.
+     */
+    public function reset(): void
+    {
+        $this->callbacks->deleteAll();
+        $this->trackings->deleteAll();
+    }
+
+    /**
      * Ties a dispatch made before the link existed to its campaign log: the
      * tracking rows and their history entries get the log id, and the
-     * 'dispatch' entry it never had is created, dated $dispatchedAt.
-     * Harmless to repeat.
+     * 'dispatch' entry it never had is created, dated $dispatchedAt: what the
+     * log says of the call ($mode 'production' with $accepted and n8n's
+     * $response, or a 'test' / 'paused' step that sent nothing). Harmless to repeat.
      *
      * @param array<string, int|string|null> $refs refType => id value
      */
-    public function adopt(int $campaignLogId, array $refs, \DateTimeImmutable $dispatchedAt): void
+    public function adopt(int $campaignLogId, array $refs, \DateTimeImmutable $dispatchedAt, string $mode = 'production', bool $accepted = true, mixed $response = null): void
     {
         $rows = $this->trackings->findByRefs(array_map('strval', array_filter($refs, fn ($v): bool => null !== $v && '' !== (string) $v)));
 
@@ -161,14 +172,18 @@ class StatusTracker
             }
         }
 
-        $this->recordDispatch($campaignLogId, true, $refs, null, $dispatchedAt);
+        if ('production' === $mode) {
+            $this->recordDispatch($campaignLogId, $accepted, $refs, $response, $dispatchedAt);
+        } else {
+            $this->recordSimulated($campaignLogId, $mode, $dispatchedAt);
+        }
     }
 
     /**
      * The whole history of one campaign log, newest first: every attempt to
      * send ('dispatch') and every change of outcome n8n reported ('callback').
      *
-     * @return list<array{kind: string, outcome: string, refType: ?string, refValue: ?string, message: ?string, response: mixed, resend: ?array<string, string>, receivedAt: \DateTimeImmutable}>
+     * @return list<array{kind: string, outcome: string, refType: ?string, refValue: ?string, message: mixed, response: mixed, resend: ?array<string, string>, receivedAt: \DateTimeImmutable}>
      */
     public function historyForLog(int $campaignLogId): array
     {
@@ -235,7 +250,7 @@ class StatusTracker
      * tracked is only counted. A known id always gets its check recorded;
      * only an outcome different from the stored one adds a history row.
      *
-     * @param list<array{refType: string, refValue: string, outcome: string, message: ?string, body: array<string, mixed>}> $items
+     * @param list<array{refType: string, refValue: string, outcome: string, message: mixed, body: array<string, mixed>}> $items
      *
      * @return array{changed: int, unchanged: int, unknown: int}
      */
@@ -252,7 +267,8 @@ class StatusTracker
                 continue;
             }
 
-            $changed = $tracking->applyOutcome($item['outcome'], $item['message'], $now);
+            // The row keeps the message as text (the card's top block); the history keeps it as n8n sent it.
+            $changed = $tracking->applyOutcome($item['outcome'], DispatchCallback::create(0, $item['outcome'], $item['message'], [], $now)->getMessageText(), $now);
             $this->trackings->saveEntity($tracking);
 
             if (!$changed) {
@@ -296,7 +312,7 @@ class StatusTracker
         foreach ($this->callbacks->findByTrackingIds(array_map(fn (DispatchTracking $t): int => (int) $t->getId(), $rows)) as $callback) {
             $historyByTracking[$callback->getTrackingId()][] = [
                 'outcome'    => $callback->getOutcome(),
-                'message'    => $callback->getMessage(),
+                'message'    => $callback->getMessageText(),
                 'receivedAt' => $callback->getReceivedAt(),
             ];
         }

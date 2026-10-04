@@ -76,4 +76,38 @@ class DispatchLogReader
             static fn ($value): bool => (is_int($value) || is_string($value)) && '' !== (string) $value
         );
     }
+
+    /**
+     * What a campaign log says about its dispatch, for the backfill: the mode
+     * the step was in ('production', 'test' or 'paused'), whether n8n accepted
+     * the call, n8n's answer (decoded JSON, or the text; null when empty) and
+     * the ids to track. Null when the log is not a dispatch (a cancelled row, or
+     * one with no 'n8ndispatch' block).
+     *
+     * @param array<string, mixed> $metadata
+     *
+     * @return array{mode: string, accepted: bool, response: mixed, refs: array<string, int|string>}|null
+     */
+    public function dispatchOf(string $channel, array $metadata): ?array
+    {
+        $n8n = $metadata['n8ndispatch'] ?? null;
+        $mode = is_array($n8n) ? ($n8n['status'] ?? null) : null;
+
+        if (!in_array($mode, ['production', 'test', 'paused'], true)) {
+            return null;
+        }
+
+        if ('production' !== $mode) {
+            return ['mode' => $mode, 'accepted' => true, 'response' => null, 'refs' => []];
+        }
+
+        $response = $n8n['response'] ?? null;
+
+        return [
+            'mode'     => 'production',
+            'accepted' => !(isset($n8n['httpStatusCode']) && (int) $n8n['httpStatusCode'] >= 300),
+            'response' => is_array($response) || (is_string($response) && '' !== trim($response)) ? $response : null,
+            'refs'     => $this->refs($channel, $metadata),
+        ];
+    }
 }

@@ -106,6 +106,25 @@ class N8nDispatchBundle extends PluginBundleBase
             }
         }
 
+        // 0.9.0: body_json and message are real JSON columns (they were text). body_json: whatever is in
+        // it that is not valid JSON (nothing should be) is emptied first, or the ALTER would refuse.
+        // message: the old text of each row is wrapped as {"message": "<text>"}, the shape it has now.
+        if ($installedSchema instanceof Schema && $installedSchema->hasTable(DispatchCallback::TABLE_NAME)) {
+            $callbackTable = $installedSchema->getTable(DispatchCallback::TABLE_NAME);
+            $connection    = $factory->getDatabase();
+            $name          = DispatchCallback::TABLE_NAME;
+
+            if ($callbackTable->hasColumn('body_json') && !($callbackTable->getColumn('body_json')->getType() instanceof \Doctrine\DBAL\Types\JsonType)) {
+                $connection->executeQuery("UPDATE {$name} SET body_json = NULL WHERE body_json IS NOT NULL AND NOT JSON_VALID(body_json)");
+                $connection->executeQuery("ALTER TABLE {$name} MODIFY body_json JSON NULL");
+            }
+
+            if ($callbackTable->hasColumn('message') && !($callbackTable->getColumn('message')->getType() instanceof \Doctrine\DBAL\Types\JsonType)) {
+                $connection->executeQuery("UPDATE {$name} SET message = JSON_OBJECT('message', message) WHERE message IS NOT NULL");
+                $connection->executeQuery("ALTER TABLE {$name} MODIFY message JSON NULL");
+            }
+        }
+
         if ($installedSchema instanceof Schema && $installedSchema->hasTable(DispatchTracking::TABLE_NAME) && !$installedSchema->getTable(DispatchTracking::TABLE_NAME)->hasColumn('campaign_log_id')) {
             $factory->getDatabase()->executeQuery('ALTER TABLE '.DispatchTracking::TABLE_NAME.' ADD COLUMN campaign_log_id INT NULL');
         }

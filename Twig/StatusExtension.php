@@ -32,6 +32,7 @@ class StatusExtension extends AbstractExtension
             new TwigFunction('n8ndispatch_status', [$this, 'status']),
             new TwigFunction('n8ndispatch_history', [$this, 'history']),
             new TwigFunction('n8ndispatch_dispatch_text', [$this, 'dispatchText']),
+            new TwigFunction('n8ndispatch_history_text', [$this, 'historyText']),
             new TwigFunction('n8ndispatch_date', [$this, 'date']),
         ];
     }
@@ -55,6 +56,28 @@ class StatusExtension extends AbstractExtension
     public function history(mixed $campaignLogId): array
     {
         return is_numeric($campaignLogId) && (int) $campaignLogId > 0 ? $this->tracker->historyForLog((int) $campaignLogId) : [];
+    }
+
+    /**
+     * The text of one entry of the History: its stored JSON, written out. A
+     * 'dispatch' entry keeps {"reenvio": ..., "response": ...}; a 'callback'
+     * keeps {"message": <what n8n sent: text, object or list>}.
+     *
+     * @param array<string, mixed> $entry as StatusTracker::historyForLog() returns it
+     */
+    public function historyText(array $entry): string
+    {
+        if ('dispatch' === ($entry['kind'] ?? null)) {
+            return $this->dispatchText($entry);
+        }
+
+        $message = $entry['message'] ?? null;
+
+        if (null === $message || '' === $message) {
+            return '';
+        }
+
+        return (string) json_encode(['message' => $message], JSON_PRETTY_PRINT | JSON_UNESCAPED_UNICODE | JSON_UNESCAPED_SLASHES);
     }
 
     /**
