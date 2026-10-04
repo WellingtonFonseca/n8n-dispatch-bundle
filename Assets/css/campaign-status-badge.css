@@ -164,7 +164,8 @@
 .n8ndispatch-callback-history-table th,
 .n8ndispatch-callback-history-table td {
     padding: 6px 16px 6px 0;
-    border-bottom: 1px solid var(--border-subtle-01, #e0e0e0);
+    /* --table-line is the Light theme's darker row line (MauticPatchesBundle); the faint --border-subtle-01 vanished on a hovered row. */
+    border-bottom: 1px solid var(--table-line, var(--border-subtle-02, #c6c6c6));
     text-align: left;
     vertical-align: middle;
 }
