@@ -117,4 +117,15 @@ class N8nDispatchIntegrationTest extends TestCase
         $this->assertStringContainsString("i.type=s?'text':'password'", $attr['postaddon_attr']['onclick']);
         $this->assertStringNotContainsString('"', $attr['postaddon_attr']['onclick'], 'single quotes only, it sits inside an attribute');
     }
+
+    public function testTheLastRunFieldAsksToBeSwappedForAPreBlock(): void
+    {
+        $builder = $this->factory()->createBuilder(FormType::class);
+        $this->integration()->appendToForm($builder, [], 'features');
+
+        $attr = $builder->getForm()->createView()['status_poll_last_run']->vars['attr'];
+
+        $this->assertSame('n8ndispatchBlockFromTextarea', $attr['data-onload-callback']);
+        $this->assertStringContainsString('n8ndispatch-json-block', $attr['class']);
+    }
 }

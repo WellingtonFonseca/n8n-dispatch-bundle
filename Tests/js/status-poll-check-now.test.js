@@ -90,3 +90,23 @@ test('the note comes in the system language when it has it', () => {
 
     assert.strictEqual(result.notes[0].text, 'Nenhum disparo pendente.');
 });
+
+test('the last run textarea is swapped for a pre block holding the same text', () => {
+    const swaps = [];
+    const stub  = (arg) => {
+        if (typeof arg === 'string') {
+            return {text: (value) => ({html: arg, text: value})};
+        }
+
+        return {val: () => '{\n    "status": "OK"\n}', replaceWith: (replacement) => swaps.push(replacement)};
+    };
+    const window = {Mautic: {}, mauticLang: {}, mQuery: stub};
+    const code   = fs.readFileSync(path.join(__dirname, '../../Assets/js/status-poll-check-now.js'), 'utf8');
+
+    vm.runInNewContext(code, {window, Mautic: window.Mautic, mQuery: stub});
+    window.Mautic.n8ndispatchBlockFromTextarea({});
+
+    assert.strictEqual(swaps.length, 1);
+    assert.match(swaps[0].html, /^<pre class="n8ndispatch-json-pre/);
+    assert.strictEqual(swaps[0].text, '{\n    "status": "OK"\n}');
+});
