@@ -15,7 +15,7 @@ use Twig\TwigFunction;
 /**
  * Gives the Timeline card (Resources/views/SubscribedEvents/Timeline/
  * _email_send.html.twig) the callback status of one campaign log:
- * {{ n8ndispatch_status(item.metadata) }}, and the date to print for each of
+ * {{ n8ndispatch_status(item.metadata) }}, its history {{ n8ndispatch_history(item.log_id) }}, and the date to print for each of
  * its entries: {{ n8ndispatch_date(entry.receivedAt) }}.
  */
 class StatusExtension extends AbstractExtension
@@ -30,6 +30,7 @@ class StatusExtension extends AbstractExtension
     {
         return [
             new TwigFunction('n8ndispatch_status', [$this, 'status']),
+            new TwigFunction('n8ndispatch_history', [$this, 'history']),
             new TwigFunction('n8ndispatch_date', [$this, 'date']),
         ];
     }
@@ -42,6 +43,17 @@ class StatusExtension extends AbstractExtension
     public function status(mixed $metadata): array
     {
         return is_array($metadata) ? $this->tracker->viewForMetadata($metadata) : [];
+    }
+
+    /**
+     * Everything that happened to one campaign log, newest first: its
+     * attempts to send and the outcomes n8n reported (see StatusTracker::historyForLog()).
+     *
+     * @return list<array<string, mixed>>
+     */
+    public function history(mixed $campaignLogId): array
+    {
+        return is_numeric($campaignLogId) && (int) $campaignLogId > 0 ? $this->tracker->historyForLog((int) $campaignLogId) : [];
     }
 
     /**

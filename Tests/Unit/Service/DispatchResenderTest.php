@@ -132,4 +132,17 @@ class DispatchResenderTest extends TestCase
         $this->assertSame(5, $new['logSendSmsId']);
         $this->assertFalse(DispatchResender::isFailed($new));
     }
+
+    public function testRefusalMessageIsTheNoteABlankLineAndN8nsWholeAnswer(): void
+    {
+        $this->assertSame(
+            "Reenvio feito em 03/10/2026 23:19\nPor tester@example.com\n\n{\"error\":\"template invalido\"}",
+            DispatchResender::refusalMessage("Reenvio feito em 03/10/2026 23:19\nPor tester@example.com", ' {"error":"template invalido"} ', 'HTTP 400')
+        );
+    }
+
+    public function testRefusalMessageFallsBackToTheReasonWhenN8nSentNoBody(): void
+    {
+        $this->assertSame("nota\n\nHTTP 500", DispatchResender::refusalMessage('nota', '  ', 'HTTP 500'));
+    }
 }

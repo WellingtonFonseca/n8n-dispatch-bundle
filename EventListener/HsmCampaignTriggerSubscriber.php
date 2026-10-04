@@ -288,6 +288,9 @@ class HsmCampaignTriggerSubscriber implements EventSubscriberInterface
 
         $log->appendToMetadata(['n8ndispatch' => $payload]);
 
+        // Nothing is sent, but the log's History says it was a test / a pause.
+        $this->statusTracker?->recordSimulated($log->getId(), $status);
+
         $event->pass($log);
     }
 
@@ -367,11 +370,21 @@ class HsmCampaignTriggerSubscriber implements EventSubscriberInterface
             $metadata['logSendHsmUuid'] = $uuid;
         }
 
+        // See CampaignTriggerSubscriber::recordDispatchOutcome(): the log's own id ties the history to it.
+        $campaignLogId = $log->getId();
+        // An empty body is a failure for HSM, whatever the status (same rule as dispatchToContact()).
+        $accepted = $statusCode < 300 && '' !== trim($rawBody);
+
+        $this->statusTracker?->recordDispatch($campaignLogId, $accepted, [
+            DispatchTracking::REF_HSM_ID   => $logId,
+            DispatchTracking::REF_HSM_UUID => $uuid,
+        ], $accepted ? null : ('' !== trim($rawBody) ? trim($rawBody) : 'HTTP '.$statusCode));
+
         if ($statusCode < 300 && (!empty($logId) || !empty($uuid))) {
             $this->statusTracker?->register(DispatchTracking::CHANNEL_HSM, [
                 DispatchTracking::REF_HSM_ID   => $logId,
                 DispatchTracking::REF_HSM_UUID => $uuid,
-            ]);
+            ], null, $campaignLogId);
         }
 
         $log->appendToMetadata($metadata);

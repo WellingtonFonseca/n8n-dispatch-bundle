@@ -291,6 +291,9 @@ class CampaignTriggerSubscriber implements EventSubscriberInterface
 
         $log->appendToMetadata(['n8ndispatch' => $payload]);
 
+        // Nothing is sent, but the log's History says it was a test / a pause.
+        $this->statusTracker?->recordSimulated($log->getId(), $status);
+
         $event->pass($log);
     }
 
@@ -535,16 +538,33 @@ class CampaignTriggerSubscriber implements EventSubscriberInterface
 
         $metadata = ['n8ndispatch' => $n8ndispatch];
 
+        // The log was persisted before the step ran, so it has its id; it ties
+        // this attempt, and what n8n reports about it later, to the contact's
+        // History entry (a resend reuses the same log).
+        $campaignLogId = $log->getId();
+
+        // Every attempt goes in the log's history, accepted or not.
+        $this->statusTracker?->recordDispatch($campaignLogId, $statusCode < 300, [DispatchTracking::REF_EMAIL => $logId], $statusCode < 300 ? null : $this->failureMessage($rawBody, $statusCode));
+
         if (!empty($logId)) {
             $metadata['logSendEmailId'] = $logId;
 
             // Only a dispatch n8n accepted is worth asking about later (see
             // Service/StatusPoller.php).
             if ($statusCode < 300) {
-                $this->statusTracker?->register(DispatchTracking::CHANNEL_EMAIL, [DispatchTracking::REF_EMAIL => $logId]);
+                $this->statusTracker?->register(DispatchTracking::CHANNEL_EMAIL, [DispatchTracking::REF_EMAIL => $logId], null, $campaignLogId);
             }
         }
 
         $log->appendToMetadata($metadata);
+    }
+
+    /**
+     * What the history keeps of a refused call: n8n's whole answer, or the
+     * status when it sent none.
+     */
+    private function failureMessage(string $rawBody, int $statusCode): string
+    {
+        return '' !== trim($rawBody) ? trim($rawBody) : 'HTTP '.$statusCode;
     }
 }

@@ -75,6 +75,9 @@ class DispatchTracking
 
     private ?\DateTimeImmutable $changedAt = null;
 
+    /** The campaign log (the contact's History entry) this dispatch belongs to; null for rows from before the link existed. */
+    private ?int $campaignLogId = null;
+
     /**
      * @param ORM\ClassMetadata<DispatchTracking> $metadata
      */
@@ -98,12 +101,13 @@ class DispatchTracking
         $builder->addNamedField('lastCheckedAt', 'datetime_immutable', 'last_checked_at', true);
         $builder->addNamedField('checkCount', 'integer', 'check_count', false);
         $builder->addNamedField('changedAt', 'datetime_immutable', 'changed_at', true);
+        $builder->addNamedField('campaignLogId', 'integer', 'campaign_log_id', true);
 
         $builder->addUniqueConstraint(['ref_type', 'ref_value'], 'n8n_dispatch_tracking_ref');
         $builder->addIndex(['channel', 'outcome', 'last_checked_at'], 'n8n_dispatch_tracking_pending');
     }
 
-    public static function create(string $channel, string $refType, string $refValue, string $groupKey, \DateTimeInterface $now): self
+    public static function create(string $channel, string $refType, string $refValue, string $groupKey, \DateTimeInterface $now, ?int $campaignLogId = null): self
     {
         $tracking               = new self();
         $tracking->channel      = $channel;
@@ -111,6 +115,7 @@ class DispatchTracking
         $tracking->refValue     = $refValue;
         $tracking->groupKey     = $groupKey;
         $tracking->dispatchedAt = \DateTimeImmutable::createFromInterface($now);
+        $tracking->campaignLogId = $campaignLogId;
 
         return $tracking;
     }
@@ -212,5 +217,17 @@ class DispatchTracking
     public function getChangedAt(): ?\DateTimeImmutable
     {
         return $this->changedAt;
+    }
+
+    public function getCampaignLogId(): ?int
+    {
+        return $this->campaignLogId;
+    }
+
+    public function setCampaignLogId(?int $campaignLogId): self
+    {
+        $this->campaignLogId = $campaignLogId;
+
+        return $this;
     }
 }

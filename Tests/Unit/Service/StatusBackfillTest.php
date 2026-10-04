@@ -172,4 +172,31 @@ class StatusBackfillTest extends TestCase
 
         $this->backfill->run(7, 500, false, $this->now);
     }
+
+    public function testLinksEachDispatchToItsCampaignLogWithTheLogsDate(): void
+    {
+        $this->connection->method('fetchAllAssociative')->willReturnOnConsecutiveCalls([
+            $this->row(11, 'n8ndispatch.email.send', $this->emailMeta(4001)),
+        ], []);
+        $this->tracker->method('register')->willReturn(1);
+
+        $calls = [];
+        $this->tracker->method('adopt')->willReturnCallback(function (int $logId, array $refs, \DateTimeImmutable $at) use (&$calls): void {
+            $calls[] = [$logId, $refs, $at->format('Y-m-d H:i:s')];
+        });
+
+        $this->backfill->run(7, 500, false, $this->now);
+
+        $this->assertSame([[11, ['logSendEmailId' => 4001], '2026-09-29 14:00:00']], $calls);
+    }
+
+    public function testDryRunLinksNothing(): void
+    {
+        $this->connection->method('fetchAllAssociative')->willReturnOnConsecutiveCalls([
+            $this->row(11, 'n8ndispatch.email.send', $this->emailMeta(4001)),
+        ], []);
+        $this->tracker->expects($this->never())->method('adopt');
+
+        $this->backfill->run(7, 500, true, $this->now);
+    }
 }

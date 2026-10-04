@@ -260,9 +260,12 @@ class DispatchResender
         $this->em->persist($log);
         $this->em->flush();
 
-        // Old tracking out (even if n8n answered the same id), new in, with the note on its first entry.
-        $this->tracker->forget($metadata);
-        $this->tracker->register($channel, array_intersect_key($new, array_flip(DispatchTracking::REFS_BY_CHANNEL[$channel])));
+        // Old tracking out (even if n8n answered the same id; its history stays), the attempt and the
+        // new tracking in, with the note on its first entry.
+        $refs = array_intersect_key($new, array_flip(DispatchTracking::REFS_BY_CHANNEL[$channel]));
+        $this->tracker->forget($metadata, $logId);
+        $this->tracker->recordDispatch($logId, true, $refs, null);
+        $this->tracker->register($channel, $refs, null, $logId);
         $this->tracker->annotate($new, $note);
 
         return $this->result(true, 'mautic.n8ndispatch.dispatch.resend.done');
@@ -283,10 +286,21 @@ class DispatchResender
         $this->em->persist($log);
         $this->em->flush();
 
-        // The tracking belonged to the dispatch this attempt replaced.
-        $this->tracker->forget($old);
+        // The tracking belonged to the dispatch this attempt replaced (its history stays); the
+        // refusal is an entry of its own, with n8n's message.
+        $this->tracker->forget($old, (int) $log->getId());
+        $this->tracker->recordDispatch((int) $log->getId(), false, [], self::refusalMessage($note, $rawBody, $reason));
 
         return $this->failed($reason);
+    }
+
+    /**
+     * What the History keeps of a refused resend, in one text: who resent it and
+     * when, a blank line, then n8n's whole answer (or the reason when it sent none).
+     */
+    public static function refusalMessage(string $note, string $rawBody, string $reason): string
+    {
+        return $note."\n\n".('' !== trim($rawBody) ? trim($rawBody) : $reason);
     }
 
     private function failureText(string $rawBody, int $statusCode): string

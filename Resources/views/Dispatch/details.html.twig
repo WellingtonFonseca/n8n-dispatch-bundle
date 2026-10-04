@@ -11,5 +11,5 @@
         <strong>{{ 'mautic.n8ndispatch.dispatch.details.template'|trans }}:</strong> {{ dispatch.templateName }}<br/>
         <strong>{{ 'mautic.n8ndispatch.dispatch.details.contact'|trans }}:</strong> {{ dispatch.contactEmail ?: '-' }}
     </p>
-    {% include '@N8nDispatch/SubscribedEvents/Timeline/_dispatch_details.html.twig' with {'item': {'metadata': dispatch.metadata, 'isScheduled': false}} %}
+    {% include '@N8nDispatch/SubscribedEvents/Timeline/_dispatch_details.html.twig' with {'item': {'metadata': dispatch.metadata, 'isScheduled': false, 'log_id': dispatch.id}} %}
 </div>
