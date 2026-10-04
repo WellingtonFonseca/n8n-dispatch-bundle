@@ -99,18 +99,34 @@ class DispatchCallback
     }
 
     /**
-     * An attempt to send to n8n: accepted ($accepted) or refused, with the
-     * ref (the id n8n returned, when it returned one) and n8n's message.
+     * An attempt to send to n8n: accepted ($accepted) or refused, with the ref
+     * (the id n8n returned, when it returned one). What is kept of the call is
+     * only n8n's answer ($response, decoded JSON or plain text) and, for a
+     * resend, who did it and when ($resend), as one JSON in body_json:
+     * {"reenvio": {"por": ..., "em": ...}, "response": ...}. Keys with nothing
+     * to say are left out; with neither, nothing is stored.
+     *
+     * @param array<string, string>|null $resend
      */
-    public static function createDispatch(int $campaignLogId, bool $accepted, ?string $refType, ?string $refValue, ?string $message, \DateTimeInterface $now): self
+    public static function createDispatch(int $campaignLogId, bool $accepted, ?string $refType, ?string $refValue, mixed $response, \DateTimeInterface $now, ?array $resend = null): self
     {
+        $payload = [];
+
+        if (null !== $resend) {
+            $payload['reenvio'] = $resend;
+        }
+
+        if (null !== $response) {
+            $payload['response'] = $response;
+        }
+
         $dispatch = new self();
         $dispatch->kind          = self::KIND_DISPATCH;
         $dispatch->campaignLogId = $campaignLogId;
         $dispatch->outcome       = $accepted ? self::DISPATCH_SUCCESS : self::DISPATCH_FAILED;
         $dispatch->refType       = $refType;
         $dispatch->refValue      = $refValue;
-        $dispatch->message       = $message;
+        $dispatch->bodyJson      = [] === $payload ? null : (json_encode($payload, JSON_UNESCAPED_UNICODE | JSON_UNESCAPED_SLASHES) ?: null);
         $dispatch->setReceivedAt($now);
 
         return $dispatch;
@@ -212,6 +228,31 @@ class DispatchCallback
         $decoded = null === $this->bodyJson ? null : json_decode($this->bodyJson, true);
 
         return is_array($decoded) ? $decoded : [];
+    }
+
+    public function getBodyJson(): ?string
+    {
+        return $this->bodyJson;
+    }
+
+    /**
+     * n8n's answer kept on a 'dispatch' entry (decoded JSON, or the text when it was not JSON).
+     */
+    public function getResponse(): mixed
+    {
+        return $this->getBodyArray()['response'] ?? null;
+    }
+
+    /**
+     * Who resent it and when, on a 'dispatch' entry that was a resend.
+     *
+     * @return array<string, string>|null
+     */
+    public function getResend(): ?array
+    {
+        $resend = $this->getBodyArray()['reenvio'] ?? null;
+
+        return is_array($resend) ? $resend : null;
     }
 
     public function getReceivedAt(): \DateTimeImmutable

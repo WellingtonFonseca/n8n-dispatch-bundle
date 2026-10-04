@@ -359,18 +359,31 @@ class StatusTrackerTest extends TestCase
         $this->assertEquals($this->now, $saved[0]->getReceivedAt());
     }
 
-    public function testRecordDispatchOfARefusedCallKeepsTheFullMessageAndNoId(): void
+    public function testRecordDispatchOfARefusedCallKeepsTheResponseAndNoId(): void
     {
         $saved = null;
         $this->callbacks->method('saveEntity')->willReturnCallback(function (DispatchCallback $c) use (&$saved): void {
             $saved = $c;
         });
 
-        $this->tracker->recordDispatch(55, false, [], '{"error":"template not found"}', $this->now);
+        $this->tracker->recordDispatch(55, false, [], ['error' => 'template not found'], $this->now);
 
         $this->assertSame(DispatchCallback::DISPATCH_FAILED, $saved->getOutcome());
-        $this->assertSame('{"error":"template not found"}', $saved->getMessage());
+        $this->assertSame(['error' => 'template not found'], $saved->getResponse());
+        $this->assertNull($saved->getMessage());
         $this->assertNull($saved->getRefValue());
+    }
+
+    public function testRecordDispatchOfAResendKeepsWhoAndWhen(): void
+    {
+        $saved = null;
+        $this->callbacks->method('saveEntity')->willReturnCallback(function (DispatchCallback $c) use (&$saved): void {
+            $saved = $c;
+        });
+
+        $this->tracker->recordDispatch(55, true, [DispatchTracking::REF_EMAIL => 4001], ['ok' => true], $this->now, ['por' => 'a@b.com', 'em' => '2026-10-02 10:00']);
+
+        $this->assertSame(['por' => 'a@b.com', 'em' => '2026-10-02 10:00'], $saved->getResend());
     }
 
     public function testRecordDispatchWithoutALogIdWritesNothing(): void
@@ -392,6 +405,8 @@ class StatusTrackerTest extends TestCase
         $this->assertSame(['error', 'success'], array_column($history, 'outcome'));
         $this->assertSame('boom', $history[0]['message']);
         $this->assertSame('4001', $history[1]['refValue']);
+        $this->assertNull($history[1]['response']);
+        $this->assertNull($history[1]['resend']);
     }
 
     public function testAdoptLinksATrackedDispatchAndCreatesItsMissingDispatchEntry(): void

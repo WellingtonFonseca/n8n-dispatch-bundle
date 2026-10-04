@@ -31,6 +31,7 @@ class StatusExtension extends AbstractExtension
         return [
             new TwigFunction('n8ndispatch_status', [$this, 'status']),
             new TwigFunction('n8ndispatch_history', [$this, 'history']),
+            new TwigFunction('n8ndispatch_dispatch_text', [$this, 'dispatchText']),
             new TwigFunction('n8ndispatch_date', [$this, 'date']),
         ];
     }
@@ -54,6 +55,37 @@ class StatusExtension extends AbstractExtension
     public function history(mixed $campaignLogId): array
     {
         return is_numeric($campaignLogId) && (int) $campaignLogId > 0 ? $this->tracker->historyForLog((int) $campaignLogId) : [];
+    }
+
+    /**
+     * The text of a 'dispatch' entry of the History: the JSON the entry keeps,
+     * written out ({"reenvio": {"por": ..., "em": ...}, "response": ...}), with
+     * the resend's moment in the system language and local time zone instead of
+     * the stored UTC. Empty when there is nothing to show.
+     *
+     * @param array<string, mixed> $entry as StatusTracker::historyForLog() returns it
+     */
+    public function dispatchText(array $entry): string
+    {
+        $json   = [];
+        $resend = $entry['resend'] ?? null;
+
+        if (is_array($resend) && [] !== $resend) {
+            if (!empty($resend['em']) && is_string($resend['em'])) {
+                $when         = \DateTimeImmutable::createFromFormat('Y-m-d H:i', $resend['em'], new \DateTimeZone('UTC'));
+                $resend['em'] = false === $when ? $resend['em'] : $this->date($when);
+            }
+
+            $json['reenvio'] = $resend;
+        }
+
+        $response = $entry['response'] ?? null;
+
+        if (null !== $response && '' !== $response) {
+            $json['response'] = $response;
+        }
+
+        return [] === $json ? '' : (string) json_encode($json, JSON_PRETTY_PRINT | JSON_UNESCAPED_UNICODE | JSON_UNESCAPED_SLASHES);
     }
 
     /**

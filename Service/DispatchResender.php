@@ -240,7 +240,7 @@ class DispatchResender
             $this->logger->error('N8nDispatch: resend failed for log '.$logId.': '.$e->getMessage());
 
             // The call was made but never answered: recorded as a failed attempt, status 0 (not a 2xx).
-            return $this->recordFailure($log, $channel, $body, 0, $e->getMessage(), $this->failureReasons->reason($e->getMessage()), $note);
+            return $this->recordFailure($log, $channel, $body, 0, $e->getMessage(), $this->failureReasons->reason($e->getMessage()), $note, $userEmail);
         }
 
         // HSM's workflow does not always return a body; an empty one is a failure there too (same rule as its listener).
@@ -249,7 +249,7 @@ class DispatchResender
                 '' === trim($rawBody) ? $this->failureReasons->text(DispatchFailureReasons::EMPTY_RESPONSE, ['%action%' => self::ACTION_BY_CHANNEL[$channel]]) : $this->failureText($rawBody, $statusCode)
             );
 
-            return $this->recordFailure($log, $channel, $body, $statusCode, $rawBody, $reason, $note);
+            return $this->recordFailure($log, $channel, $body, $statusCode, $rawBody, $reason, $note, $userEmail);
         }
 
         $new = self::metadataAfter($channel, $metadata, $body, $statusCode, $rawBody);
@@ -264,7 +264,7 @@ class DispatchResender
         // new tracking in, with the note on its first entry.
         $refs = array_intersect_key($new, array_flip(DispatchTracking::REFS_BY_CHANNEL[$channel]));
         $this->tracker->forget($metadata, $logId);
-        $this->tracker->recordDispatch($logId, true, $refs, null);
+        $this->tracker->recordDispatch($logId, true, $refs, self::responseOf($rawBody), null, self::resendInfo($userEmail, new \DateTimeImmutable('now', new \DateTimeZone('UTC'))));
         $this->tracker->register($channel, $refs, null, $logId);
         $this->tracker->annotate($new, $note);
 
@@ -276,7 +276,7 @@ class DispatchResender
      *
      * @return array{ok: bool, message: string}
      */
-    private function recordFailure(LeadEventLog $log, string $channel, array $body, int $statusCode, string $rawBody, string $reason, string $note): array
+    private function recordFailure(LeadEventLog $log, string $channel, array $body, int $statusCode, string $rawBody, string $reason, string $note, ?string $userEmail): array
     {
         $old = $log->getMetadata();
 
@@ -289,18 +289,39 @@ class DispatchResender
         // The tracking belonged to the dispatch this attempt replaced (its history stays); the
         // refusal is an entry of its own, with n8n's message.
         $this->tracker->forget($old, (int) $log->getId());
-        $this->tracker->recordDispatch((int) $log->getId(), false, [], self::refusalMessage($note, $rawBody, $reason));
+        $this->tracker->recordDispatch((int) $log->getId(), false, [], self::responseOf($rawBody), null, self::resendInfo($userEmail, new \DateTimeImmutable('now', new \DateTimeZone('UTC'))));
 
         return $this->failed($reason);
     }
 
     /**
-     * What the History keeps of a refused resend, in one text: who resent it and
-     * when, a blank line, then n8n's whole answer (or the reason when it sent none).
+     * Who resent it and when, as the History keeps it: the user's email (left
+     * out when there is none) and the moment in UTC, 'Y-m-d H:i'.
+     *
+     * @return array<string, string>
      */
-    public static function refusalMessage(string $note, string $rawBody, string $reason): string
+    public static function resendInfo(?string $userEmail, \DateTimeImmutable $now): array
     {
-        return $note."\n\n".('' !== trim($rawBody) ? trim($rawBody) : $reason);
+        $info = null === $userEmail || '' === $userEmail ? [] : ['por' => $userEmail];
+
+        return $info + ['em' => $now->setTimezone(new \DateTimeZone('UTC'))->format('Y-m-d H:i')];
+    }
+
+    /**
+     * n8n's answer as the History keeps it: decoded when it is JSON, the text
+     * when it is not (a failed call keeps the error text here), nothing when empty.
+     */
+    public static function responseOf(string $rawBody): mixed
+    {
+        $trimmed = trim($rawBody);
+
+        if ('' === $trimmed) {
+            return null;
+        }
+
+        $decoded = json_decode($trimmed, true);
+
+        return is_array($decoded) ? $decoded : $trimmed;
     }
 
     private function failureText(string $rawBody, int $statusCode): string

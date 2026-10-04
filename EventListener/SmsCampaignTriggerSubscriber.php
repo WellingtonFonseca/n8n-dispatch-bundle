@@ -357,7 +357,8 @@ class SmsCampaignTriggerSubscriber implements EventSubscriberInterface
         // See CampaignTriggerSubscriber::recordDispatchOutcome(): the log's own id ties the history to it.
         $campaignLogId = $log->getId();
 
-        $this->statusTracker?->recordDispatch($campaignLogId, $statusCode < 300, [DispatchTracking::REF_SMS => $logId], $statusCode < 300 ? null : ('' !== trim($rawBody) ? trim($rawBody) : 'HTTP '.$statusCode));
+        // Only n8n's answer, accepted or not (kept in case it has to be reprocessed).
+        $this->statusTracker?->recordDispatch($campaignLogId, $statusCode < 300, [DispatchTracking::REF_SMS => $logId], is_array($body) ? $body : ('' !== trim($rawBody) ? trim($rawBody) : null));
 
         if (!empty($logId)) {
             $metadata['logSendSmsId'] = $logId;

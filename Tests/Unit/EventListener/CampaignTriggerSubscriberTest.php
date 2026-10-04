@@ -845,4 +845,51 @@ class CampaignTriggerSubscriberTest extends TestCase
         $passedLog = $pendingEvent->getSuccessful()->first();
         $this->assertSame('en', $passedLog->getMetadata()['n8ndispatch']['language']);
     }
+
+    public function testOnlyTheResponseIsKeptInTheHistoryWhenTheDispatchSucceeds(): void
+    {
+        $this->mockIntegration(true, ['webhook_url' => 'https://n8n.example.test/webhook/dispatch']);
+        $this->emailModel->method('getEntity')->with(1)->willReturn(new Email());
+        $response = $this->createMock(ResponseInterface::class);
+        $response->method('getStatusCode')->willReturn(200);
+        $response->method('getContent')->with(false)->willReturn('{"body":{"logSendEmailId":6334029},"statusCode":200}');
+        $this->httpClient->method('request')->willReturn($response);
+
+        $this->statusTracker->expects($this->once())->method('recordDispatch')
+            ->with(null, true, ['logSendEmailId' => 6334029], ['body' => ['logSendEmailId' => 6334029], 'statusCode' => 200]);
+
+        $this->subscriber->onEmailSend($this->buildPendingEvent(['email' => 1, 'status' => 'production']));
+    }
+
+    public function testOnlyTheResponseIsKeptInTheHistoryWhenTheDispatchFails(): void
+    {
+        $this->mockIntegration(true, ['webhook_url' => 'https://n8n.example.test/webhook/dispatch']);
+        $this->emailModel->method('getEntity')->with(1)->willReturn(new Email());
+        $response = $this->createMock(ResponseInterface::class);
+        $response->method('getStatusCode')->willReturn(500);
+        $response->method('getContent')->with(false)->willReturn('{"error":"boom","headers":{"x":"y"}}');
+        $this->httpClient->method('request')->willReturn($response);
+
+        $this->statusTracker->expects($this->once())->method('recordDispatch')
+            ->with(null, false, $this->anything(), ['error' => 'boom', 'headers' => ['x' => 'y']]);
+
+        $this->subscriber->onEmailSend($this->buildPendingEvent(['email' => 1, 'status' => 'production']));
+    }
+
+    public function testAResponseThatIsNotJsonIsKeptAsTextAndAnEmptyOneAsNothing(): void
+    {
+        foreach ([['upstream timeout', 'upstream timeout'], ['  ', null]] as [$raw, $expected]) {
+            $this->setUp();
+            $this->mockIntegration(true, ['webhook_url' => 'https://n8n.example.test/webhook/dispatch']);
+            $this->emailModel->method('getEntity')->with(1)->willReturn(new Email());
+            $response = $this->createMock(ResponseInterface::class);
+            $response->method('getStatusCode')->willReturn(502);
+            $response->method('getContent')->with(false)->willReturn($raw);
+            $this->httpClient->method('request')->willReturn($response);
+
+            $this->statusTracker->expects($this->once())->method('recordDispatch')->with(null, false, $this->anything(), $expected);
+
+            $this->subscriber->onEmailSend($this->buildPendingEvent(['email' => 1, 'status' => 'production']));
+        }
+    }
 }

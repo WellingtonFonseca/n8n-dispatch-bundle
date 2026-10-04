@@ -90,12 +90,15 @@ class StatusTracker
     /**
      * Writes one 'dispatch' entry: an attempt to send to n8n, accepted or
      * refused, in the history of the campaign log. The id shown is the first
-     * one n8n returned (the Mirror's, for HSM). Without a log id there is
-     * nothing to attach it to, so nothing is written.
+     * one n8n returned (the Mirror's, for HSM). $response is n8n's answer
+     * (decoded JSON, or text) and $resend, for a resend, says who and when
+     * (['por' => ..., 'em' => ...]); nothing else is kept. Without a log id
+     * there is nothing to attach it to, so nothing is written.
      *
-     * @param array<string, int|string|null> $refs refType => id value
+     * @param array<string, int|string|null> $refs   refType => id value
+     * @param array<string, string>|null     $resend
      */
-    public function recordDispatch(?int $campaignLogId, bool $accepted, array $refs, ?string $message, ?\DateTimeImmutable $now = null): void
+    public function recordDispatch(?int $campaignLogId, bool $accepted, array $refs, mixed $response, ?\DateTimeImmutable $now = null, ?array $resend = null): void
     {
         if (null === $campaignLogId) {
             return;
@@ -113,7 +116,7 @@ class StatusTracker
             }
         }
 
-        $this->callbacks->saveEntity(DispatchCallback::createDispatch($campaignLogId, $accepted, $refType, $refValue, $message, $now ?? new \DateTimeImmutable()));
+        $this->callbacks->saveEntity(DispatchCallback::createDispatch($campaignLogId, $accepted, $refType, $refValue, $response, $now ?? new \DateTimeImmutable(), $resend));
     }
 
     /**
@@ -165,7 +168,7 @@ class StatusTracker
      * The whole history of one campaign log, newest first: every attempt to
      * send ('dispatch') and every change of outcome n8n reported ('callback').
      *
-     * @return list<array{kind: string, outcome: string, refType: ?string, refValue: ?string, message: ?string, receivedAt: \DateTimeImmutable}>
+     * @return list<array{kind: string, outcome: string, refType: ?string, refValue: ?string, message: ?string, response: mixed, resend: ?array<string, string>, receivedAt: \DateTimeImmutable}>
      */
     public function historyForLog(int $campaignLogId): array
     {
@@ -175,6 +178,8 @@ class StatusTracker
             'refType'    => $entry->getRefType(),
             'refValue'   => $entry->getRefValue(),
             'message'    => $entry->getMessage(),
+            'response'   => $entry->getResponse(),
+            'resend'     => $entry->getResend(),
             'receivedAt' => $entry->getReceivedAt(),
         ], $this->callbacks->findByCampaignLogId($campaignLogId));
     }

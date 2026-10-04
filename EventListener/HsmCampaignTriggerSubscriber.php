@@ -378,7 +378,7 @@ class HsmCampaignTriggerSubscriber implements EventSubscriberInterface
         $this->statusTracker?->recordDispatch($campaignLogId, $accepted, [
             DispatchTracking::REF_HSM_ID   => $logId,
             DispatchTracking::REF_HSM_UUID => $uuid,
-        ], $accepted ? null : ('' !== trim($rawBody) ? trim($rawBody) : 'HTTP '.$statusCode));
+        ], is_array($body) ? $body : ('' !== trim($rawBody) ? trim($rawBody) : null)); // only n8n's answer, accepted or not
 
         if ($statusCode < 300 && (!empty($logId) || !empty($uuid))) {
             $this->statusTracker?->register(DispatchTracking::CHANNEL_HSM, [
