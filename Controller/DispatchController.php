@@ -33,6 +33,9 @@ class DispatchController extends CommonController
             return $this->accessDenied();
         }
 
+        // The pagination helper's limit selector sends ?name=<sessionVar>&limit=N; this is what stores it in the session.
+        $this->setListFilters(self::SESSION_VAR);
+
         $session  = $request->getSession();
         $limit    = (int) $session->get('mautic.'.self::SESSION_VAR.'.limit', self::DEFAULT_LIMIT);
         $limit    = $limit > 0 ? $limit : self::DEFAULT_LIMIT;
