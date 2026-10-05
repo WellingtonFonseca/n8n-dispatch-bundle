@@ -125,10 +125,11 @@ class StatusTrackerTest extends TestCase
         $this->trackings->method('findByRefs')->willReturn([$row]);
         $this->callbacks->method('findByTrackingIds')->willReturn([$first]);
 
-        $this->tracker->annotate(['logSendEmailId' => 4001], "Reenvio feito em 02/10/2026 16:30\nPor a@b.com");
+        $message = ['reenvio' => ['por' => 'a@b.com', 'em' => '02/10/2026 16:30']];
+        $this->tracker->annotate(['logSendEmailId' => 4001], $message);
 
-        $this->assertSame("Reenvio feito em 02/10/2026 16:30\nPor a@b.com", $row->getMessage());
-        $this->assertSame("Reenvio feito em 02/10/2026 16:30\nPor a@b.com", $first->getMessage());
+        $this->assertSame(json_encode($message, JSON_PRETTY_PRINT | JSON_UNESCAPED_UNICODE | JSON_UNESCAPED_SLASHES), $row->getMessage());
+        $this->assertSame($message, $first->getMessage());
     }
 
     public function testRegisterSkipsAnEmptyRef(): void
