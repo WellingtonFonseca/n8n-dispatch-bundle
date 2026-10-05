@@ -204,9 +204,11 @@ class StatusTracker
      * (what the card shows while it waits) and on its first history entry
      * (what stays once the answer replaces the row's message).
      *
+     * The row keeps the message as text, the history entry as given.
+     *
      * @param array<string, mixed> $metadata
      */
-    public function annotate(array $metadata, string $message): void
+    public function annotate(array $metadata, mixed $message): void
     {
         $rows = $this->trackings->findByRefs($this->refsIn($metadata));
 
@@ -220,7 +222,7 @@ class StatusTracker
         }
 
         foreach ($rows as $row) {
-            $row->setMessage($message);
+            $row->setMessage(is_string($message) ? $message : (string) json_encode($message, JSON_PRETTY_PRINT | JSON_UNESCAPED_UNICODE | JSON_UNESCAPED_SLASHES));
             $this->trackings->saveEntity($row);
 
             if (isset($first[(int) $row->getId()])) {

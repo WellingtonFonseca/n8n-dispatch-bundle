@@ -266,7 +266,7 @@ class DispatchResender
         $this->tracker->forget($metadata, $logId);
         $this->tracker->recordDispatch($logId, true, $refs, self::responseOf($rawBody), null, self::resendInfo($userEmail, new \DateTimeImmutable('now', new \DateTimeZone('UTC'))));
         $this->tracker->register($channel, $refs, null, $logId);
-        $this->tracker->annotate($new, $note);
+        $this->tracker->annotate($new, $this->callbackMessage($userEmail));
 
         return $this->result(true, 'mautic.n8ndispatch.dispatch.resend.done');
     }
@@ -333,6 +333,20 @@ class DispatchResender
         }
 
         return $this->failureReasons->text(DispatchFailureReasons::HTTP_STATUS, ['%status%' => $statusCode]);
+    }
+
+    /**
+     * The pending callback's message: {"reenvio": {"por": ..., "em": ...}}, the
+     * moment in the system language, same shape as the dispatch entry's.
+     *
+     * @return array{reenvio: array<string, string>}
+     */
+    private function callbackMessage(?string $userEmail): array
+    {
+        $info       = self::resendInfo($userEmail, new \DateTimeImmutable('now', new \DateTimeZone('UTC')));
+        $info['em'] = $this->dates->date(new \DateTimeImmutable('now', new \DateTimeZone('UTC')));
+
+        return ['reenvio' => $info];
     }
 
     private function note(?string $userEmail): string
