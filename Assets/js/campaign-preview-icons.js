@@ -1,6 +1,6 @@
 /**
  * Type icons and status badge for the n8n dispatch actions on the
- * campaign's read-only preview (the journey on the campaign details page). Core's preview
+ * campaign's read-only preview (the journey on the campaign details page), plus the template name. Core's preview
  * always includes @MauticCampaign/Event/_preview.html.twig and ignores
  * the action's settings['template'], so Resources/views/Event/
  * _email_send.html.twig (which does set these icons in the editor) is
@@ -45,6 +45,27 @@
 
     var badgeRequested = {};
 
+    // Same rule as the editor card (_email_send.html.twig): the line under the type shows the template the event
+    // dispatches; the event's own name (free text, can point at another template) moves to the tooltip. Only the
+    // text node after the dev-mode id <small> is replaced.
+    function showTemplateName($node, name) {
+        var $name = $node.find('.campaign-event-name').first();
+
+        if (0 === $name.length || $name.data('template-name')) {
+            return;
+        }
+
+        var ownName = $name.contents().filter(function () { return 3 === this.nodeType; }).last();
+
+        $name.attr('title', ownName.text().trim()).data('template-name', 1);
+
+        if (ownName.length) {
+            ownName[0].nodeValue = name;
+        } else {
+            $name.append(document.createTextNode(name));
+        }
+    }
+
     function addBadge($node, status) {
         var def = STATUSES[status] || STATUSES.test;
 
@@ -78,6 +99,10 @@
             if (!response || !response.success) {
                 return;
             }
+
+            mQuery.each(response.templates || {}, function (id, name) {
+                showTemplateName(mQuery('#CampaignEvent_' + id), name);
+            });
 
             mQuery.each(response.statuses || {}, function (id, status) {
                 var $node = mQuery('#CampaignEvent_' + id);
