@@ -18,6 +18,7 @@ use Mautic\CoreBundle\Service\FlashBag;
 use MauticPlugin\N8nDispatchBundle\Service\DispatchResender;
 use MauticPlugin\N8nDispatchBundle\Service\StatusPollNow;
 use MauticPlugin\N8nDispatchBundle\Service\TemplateVariableScanner;
+use MauticPlugin\N8nDispatchBundle\Twig\EventTemplateExtension;
 use Symfony\Component\HttpFoundation\JsonResponse;
 use Symfony\Component\HttpFoundation\Request;
 use Symfony\Component\HttpFoundation\Response;
@@ -115,13 +116,16 @@ class AjaxController extends CommonAjaxController
      * campaign's read-only preview (Assets/js/campaign-preview-icons.js):
      * core's preview template doesn't render our own event template, and
      * the status isn't anywhere in its HTML. Events of other types, and
-     * events of campaigns the user can't view, are left out.
+     * events of campaigns the user can't view, are left out. 'templates'
+     * holds {eventId: name of the template the event dispatches}, shown in
+     * place of the event's own name (see EventTemplateExtension).
      */
-    public function getCampaignEventStatusesAction(Request $request, CorePermissions $security): JsonResponse
+    public function getCampaignEventStatusesAction(Request $request, CorePermissions $security, EventTemplateExtension $templates): JsonResponse
     {
         $eventIds = array_filter(array_map('intval', (array) $request->request->all('eventIds')));
         $model    = $this->getModel('campaign.event');
         $statuses = [];
+        $names    = [];
 
         foreach ($eventIds as $eventId) {
             $event = $model->getEntity($eventId);
@@ -137,9 +141,14 @@ class AjaxController extends CommonAjaxController
             }
 
             $statuses[$eventId] = $event->getProperties()['status'] ?? 'test';
+
+            $templateName = $templates->templateName($event->getType(), $event->getProperties());
+            if (null !== $templateName) {
+                $names[$eventId] = $templateName;
+            }
         }
 
-        return $this->sendJsonResponse(['success' => 1, 'statuses' => $statuses]);
+        return $this->sendJsonResponse(['success' => 1, 'statuses' => $statuses, 'templates' => $names]);
     }
 
     /**
