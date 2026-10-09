@@ -292,6 +292,52 @@ class HsmCampaignTriggerSubscriberTest extends TestCase
         $this->assertCount(0, $pendingEvent->getFailures());
     }
 
+    public function testProductionCarouselPostsTheCardsInTheRequestBody(): void
+    {
+        $template = new HsmTemplate();
+        $template->setRouter('r1');
+        $template->setHsmTemplate('h1');
+        $template->setType(HsmTemplate::TYPE_CAROUSEL);
+        $template->setCards(['https://x.test/a.png', 'https://x.test/b.png', 'https://x.test/c.png']);
+        $this->hsmTemplateModel->method('getEntity')->with(7)->willReturn($template);
+
+        $pendingEvent = $this->buildPendingEvent(['hsmTemplateId' => '7', 'status' => 'production']);
+        $this->mockIntegration(true, ['webhook_url' => 'https://n8n.example.test/webhook/dispatch']);
+
+        $response = $this->createMock(ResponseInterface::class);
+        $response->method('getStatusCode')->willReturn(200);
+        $response->method('getContent')->with(false)->willReturn('{"ok":true}');
+
+        $this->httpClient->expects($this->once())
+            ->method('request')
+            ->with(
+                'POST',
+                'https://n8n.example.test/webhook/dispatch',
+                $this->callback(function (array $options): bool {
+                    $this->assertSame('carousel', $options['json']['hsm_type']);
+                    $this->assertSame(
+                        [
+                            ['card_index' => 0, 'header_image_link' => 'https://x.test/a.png'],
+                            ['card_index' => 1, 'header_image_link' => 'https://x.test/b.png'],
+                            ['card_index' => 2, 'header_image_link' => 'https://x.test/c.png'],
+                        ],
+                        $options['json']['cards']
+                    );
+
+                    return true;
+                })
+            )
+            ->willReturn($response);
+
+        $this->subscriber->onHsmSend($pendingEvent);
+
+        $this->assertCount(1, $pendingEvent->getSuccessful());
+        /** @var LeadEventLog $log */
+        $log = $pendingEvent->getSuccessful()->first();
+        // What the History and Resend read back is the same body, cards included.
+        $this->assertCount(3, $log->getMetadata()['n8ndispatch']['cards']);
+    }
+
     /**
      * Confirmed live against the user's real n8n instance: a 200 status
      * with a completely empty body, meaning the webhook call landed but
