@@ -65,10 +65,11 @@ class HsmTemplateCarouselTest extends TestCase
         $this->assertSame([self::GAP], $this->cardErrors(HsmTemplate::TYPE_CAROUSEL, ['', 'https://x.test/2.png', 'https://x.test/3.png']));
     }
 
-    public function testEachImageMustBeAnHttpUrl(): void
+    public function testEachImageMustBeAnHttpsUrl(): void
     {
         $this->assertSame([self::URL], $this->cardErrors(HsmTemplate::TYPE_CAROUSEL, ['https://x.test/a.png', 'not a url']));
         $this->assertSame([self::URL], $this->cardErrors(HsmTemplate::TYPE_CAROUSEL, ['https://x.test/a.png', 'javascript:alert(1)']));
+        $this->assertSame([self::URL], $this->cardErrors(HsmTemplate::TYPE_CAROUSEL, ['https://x.test/a.png', 'http://x.test/b.png']));
     }
 
     public function testOtherTypesIgnoreTheCards(): void

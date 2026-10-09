@@ -136,6 +136,9 @@ class HsmTemplateType extends AbstractType
             ],
             'allow_add'    => false,
             'allow_delete' => false,
+            // The cards' problems (Entity/Validation/CarouselCards.php) are shown by the alert above the inputs
+            // (campaign-hsm-dispatch.js), not as an error at the top of the form, which bubbling would give.
+            'error_bubbling' => false,
             'required'     => false,
             'label'        => false,
         ]);

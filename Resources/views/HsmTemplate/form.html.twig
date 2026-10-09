@@ -109,11 +109,14 @@
                                 </div>
                             </div>
                             {# Only for the carousel type: campaign-hsm-dispatch.js shows/hides it as the type changes. #}
-                            <div id="n8ndispatch-hsm-cards" class="row"{% if form.type.vars.value != 'carousel' %} style="display: none;"{% endif %}>
+                            <div data-min-text="{{ 'mautic.n8ndispatch.hsmtemplate.alert.cards_min'|trans({}, 'validators') }}"
+                                 data-gap-text="{{ 'mautic.n8ndispatch.hsmtemplate.error.cards_gap'|trans({}, 'validators') }}"
+                                 data-url-text="{{ 'mautic.n8ndispatch.hsmtemplate.error.cards_url'|trans({}, 'validators') }}"
+                                 id="n8ndispatch-hsm-cards" class="row"{% if form.type.vars.value != 'carousel' %} style="display: none;"{% endif %}>
                                 <div class="col-xs-12">
                                     <label class="control-label">{{ 'mautic.n8ndispatch.hsmtemplate.cards.label'|trans }}</label>
-                                    <p class="help-block">{{ 'mautic.n8ndispatch.hsmtemplate.cards.help'|trans }}</p>
-                                    {{ form_errors(form.cards) }}
+                                    {# Filled by campaign-hsm-dispatch.js while the inputs are typed in: the minimum, a hole or a bad URL, one at a time. #}
+                                    <div id="n8ndispatch-hsm-cards-alert"></div>
                                     <div class="row">
                                         {% for card in form.cards %}
                                             <div class="col-xs-6">
