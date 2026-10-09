@@ -57,10 +57,64 @@
         });
     }
 
+    var CARDS = '#n8ndispatch-hsm-cards';
+
+    // The first thing wrong with the carousel's image inputs, as text (or '' when nothing is): the same rules, in the
+    // same order, as CarouselCards in PHP. texts carry the %filled%/%blank%/%card% placeholders of the messages
+    // shown when a save is refused; the minimum is a plain reminder, on screen until two images are in.
+    function cardsProblem(values, texts) {
+        var blankAt = 0;
+        var filled  = 0;
+
+        for (var i = 0; i < values.length; i++) {
+            var url = String(values[i] || '').trim();
+
+            if ('' === url) {
+                blankAt = blankAt || i + 1;
+
+                continue;
+            }
+
+            if (blankAt) {
+                return String(texts.gap).replace('%filled%', i + 1).replace('%blank%', blankAt);
+            }
+
+            if (!/^https:\/\/\S+$/i.test(url)) {
+                return String(texts.url).replace('%card%', i + 1);
+            }
+
+            filled++;
+        }
+
+        return filled < 2 ? String(texts.min) : '';
+    }
+
+    // The alert between the help text and the inputs, following what is typed (same look as the variables alert).
+    function updateCardsAlert() {
+        var values = [];
+        mQuery(CARDS + ' input').each(function () {
+            values.push(mQuery(this).val());
+        });
+
+        var config  = mQuery(CARDS);
+        var problem = cardsProblem(values, {min: config.data('min-text'), gap: config.data('gap-text'), url: config.data('url-text')});
+        var $alert  = mQuery('#n8ndispatch-hsm-cards-alert');
+
+        $alert.html('');
+
+        if (problem) {
+            $alert.append(mQuery('<div class="alert alert-warning"></div>').text(problem));
+        }
+    }
+
+    Mautic.n8nDispatchCardsProblem = cardsProblem;
+
     // Shows the carousel's image inputs only while the type is "carousel" (Resources/views/HsmTemplate/form.html.twig).
-    // Also the type select's data-onload-callback, so the page opens in the right state.
+    // Also the type select's data-onload-callback, so the page opens in the right state (and with the alert bound).
     Mautic.n8nDispatchOnHsmTypeChange = function (el) {
-        mQuery('#n8ndispatch-hsm-cards').toggle(mQuery(el).val() === 'carousel');
+        mQuery(CARDS).toggle(mQuery(el).val() === 'carousel');
+        mQuery(CARDS).off('input.cardsalert change.cardsalert').on('input.cardsalert change.cardsalert', 'input', updateCardsAlert);
+        updateCardsAlert();
     };
 
     // data-onload-callback convention (see CoreBundle Assets/js/1a.content.js) —

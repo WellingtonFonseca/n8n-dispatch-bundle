@@ -10,7 +10,7 @@ use Symfony\Component\Validator\Context\ExecutionContextInterface;
 /**
  * Class-level rule for the "Imagem Carrossel" HSM type, ignored for every other type: at least two image URLs,
  * filled from the first slot on with no hole between them (card_index is the slot's position, so a card 4 without
- * a card 3 would send 0, 1, 3), and each one a http(s) URL. Used as a callable array in the entity's validator
+ * a card 3 would send 0, 1, 3), and each one a https URL. Used as a callable array in the entity's validator
  * metadata (not a closure: the validator caches that metadata, and closures can't be serialized).
  */
 final class CarouselCards
@@ -47,7 +47,7 @@ final class CarouselCards
                 return;
             }
 
-            if (!preg_match('#^https?://\S+$#i', $url) || false === filter_var($url, FILTER_VALIDATE_URL)) {
+            if (!preg_match('#^https://\S+$#i', $url) || false === filter_var($url, FILTER_VALIDATE_URL)) {
                 $context->buildViolation(self::BAD_URL)
                     ->setParameter('%card%', (string) ($index + 1))
                     ->atPath('cards')
