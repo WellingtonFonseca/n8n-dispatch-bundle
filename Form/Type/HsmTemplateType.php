@@ -11,6 +11,7 @@ use Mautic\CoreBundle\Form\Type\YesNoButtonGroupType;
 use MauticPlugin\N8nDispatchBundle\Entity\HsmTemplate;
 use Symfony\Component\Form\AbstractType;
 use Symfony\Component\Form\Extension\Core\Type\ChoiceType;
+use Symfony\Component\Form\Extension\Core\Type\CollectionType;
 use Symfony\Component\Form\Extension\Core\Type\HiddenType;
 use Symfony\Component\Form\Extension\Core\Type\LocaleType;
 use Symfony\Component\Form\Extension\Core\Type\TextareaType;
@@ -57,6 +58,7 @@ class HsmTemplateType extends AbstractType
             'description'   => 'html',
             'text'          => 'raw',
             'variablesJson' => 'raw',
+            'cards'         => 'raw',
         ]));
         $builder->addEventSubscriber(new FormExitSubscriber('n8ndispatch.hsmtemplate', $options));
 
@@ -109,12 +111,33 @@ class HsmTemplateType extends AbstractType
             'label'      => 'mautic.n8ndispatch.campaign.event.hsm.type',
             'label_attr' => ['class' => 'control-label'],
             'choices'    => [
-                'mautic.n8ndispatch.hsmtemplate.type.text' => HsmTemplate::TYPE_TEXT,
+                'mautic.n8ndispatch.hsmtemplate.type.text'     => HsmTemplate::TYPE_TEXT,
+                'mautic.n8ndispatch.hsmtemplate.type.carousel' => HsmTemplate::TYPE_CAROUSEL,
             ],
-            'attr' => ['class' => 'form-control'],
+            // Shows the carousel's image inputs only for the carousel type, see campaign-hsm-dispatch.js.
+            'attr' => [
+                'class'                => 'form-control',
+                'onchange'             => 'Mautic.n8nDispatchOnHsmTypeChange(this)',
+                'data-onload-callback' => 'n8nDispatchOnHsmTypeChange',
+            ],
             'constraints' => [
                 new NotBlank(['message' => 'mautic.core.value.required']),
             ],
+        ]);
+
+        // The carousel's image URLs: always CARD_SLOTS inputs, kept raw (a URL must reach n8n as typed). Which
+        // ones are filled, and in what order, is checked by Entity/Validation/CarouselCards.php.
+        $builder->add('cards', CollectionType::class, [
+            'entry_type'    => TextType::class,
+            'entry_options' => [
+                'required'   => false,
+                'label_attr' => ['class' => 'control-label'],
+                'attr'       => ['class' => 'form-control', 'placeholder' => 'https://'],
+            ],
+            'allow_add'    => false,
+            'allow_delete' => false,
+            'required'     => false,
+            'label'        => false,
         ]);
 
         $builder->add('text', TextareaType::class, [

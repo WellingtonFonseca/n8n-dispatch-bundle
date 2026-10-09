@@ -495,6 +495,50 @@ class HsmCampaignTriggerSubscriberTest extends TestCase
         $this->assertSame(['nome' => 'bar'], $payload['variables']);
     }
 
+    public function testCarouselTemplateSendsItsCardsWithTheirIndex(): void
+    {
+        $template = new HsmTemplate();
+        $template->setRouter('r1');
+        $template->setHsmTemplate('h1');
+        $template->setType(HsmTemplate::TYPE_CAROUSEL);
+        $template->setCards(['https://x.test/a.png', 'https://x.test/b.png']);
+
+        $this->hsmTemplateModel->method('getEntity')->with(7)->willReturn($template);
+
+        $pendingEvent = $this->buildPendingEvent(['hsmTemplateId' => '7', 'status' => 'test']);
+        $this->subscriber->onHsmSend($pendingEvent);
+
+        /** @var LeadEventLog $passedLog */
+        $passedLog = $pendingEvent->getSuccessful()->first();
+        $payload   = $passedLog->getMetadata()['n8ndispatch'];
+
+        $this->assertSame('carousel', $payload['hsm_type']);
+        $this->assertSame(
+            [
+                ['card_index' => 0, 'header_image_link' => 'https://x.test/a.png'],
+                ['card_index' => 1, 'header_image_link' => 'https://x.test/b.png'],
+            ],
+            $payload['cards']
+        );
+    }
+
+    public function testTextTemplateHasNoCardsInThePayload(): void
+    {
+        $template = new HsmTemplate();
+        $template->setRouter('r1');
+        $template->setHsmTemplate('h1');
+        $template->setCards(['https://x.test/a.png', 'https://x.test/b.png']);
+
+        $this->hsmTemplateModel->method('getEntity')->with(7)->willReturn($template);
+
+        $pendingEvent = $this->buildPendingEvent(['hsmTemplateId' => '7', 'status' => 'test']);
+        $this->subscriber->onHsmSend($pendingEvent);
+
+        /** @var LeadEventLog $passedLog */
+        $passedLog = $pendingEvent->getSuccessful()->first();
+        $this->assertArrayNotHasKey('cards', $passedLog->getMetadata()['n8ndispatch']);
+    }
+
     public function testMissingTemplateFailsAllWithoutDispatching(): void
     {
         $this->hsmTemplateModel->method('getEntity')->with(7)->willReturn(null);
