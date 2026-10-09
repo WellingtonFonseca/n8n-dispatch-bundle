@@ -120,7 +120,21 @@
                                     <div class="row">
                                         {% for card in form.cards %}
                                             <div class="col-xs-6">
-                                                {{ form_row(card, {'label': ('mautic.n8ndispatch.hsmtemplate.cards.card'|trans({'%n%': loop.index}))}) }}
+                                                {# The button at the end of the field (core's "postaddon", like the eye of the n8n token): opens the image in a new
+                                                   tab, to check it is the right one. Only for a filled https URL, anything else is left to the alert. #}
+                                                {{ form_row(card, {
+                                                    'label': ('mautic.n8ndispatch.hsmtemplate.cards.card'|trans({'%n%': loop.index})),
+                                                    'attr': {
+                                                        'class': 'form-control',
+                                                        'placeholder': 'https://',
+                                                        'postaddon': 'ri-external-link-line',
+                                                        'postaddon_attr': {
+                                                            'style': 'cursor:pointer',
+                                                            'title': 'mautic.n8ndispatch.hsmtemplate.cards.open'|trans,
+                                                            'onclick': "var u=this.parentNode.querySelector('input').value.trim();if(/^https:\\/\\/\\S+$/i.test(u)){window.open(u,'_blank','noopener');}",
+                                                        },
+                                                    },
+                                                }) }}
                                             </div>
                                         {% endfor %}
                                     </div>
