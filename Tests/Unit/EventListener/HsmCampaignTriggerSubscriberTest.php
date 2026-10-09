@@ -152,6 +152,7 @@ class HsmCampaignTriggerSubscriberTest extends TestCase
                 'contact_inst_id_lyceum'         => '',
                 'contact_inst_id_company'        => '',
                 'contact_inst_alias'             => '',
+                'enro_academic_record'           => '',
                 'status'                         => 'test',
                 'language'                         => 'pt_BR',
                 'hsm_router'                     => 'r1',

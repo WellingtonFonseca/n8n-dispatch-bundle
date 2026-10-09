@@ -311,6 +311,7 @@ class HsmCampaignTriggerSubscriber implements EventSubscriberInterface
             'contact_inst_id_lyceum'        => $this->variableResolver->resolveContactField($contact, 'inst_id_lyceum'),
             'contact_inst_id_company'       => $this->variableResolver->resolveContactField($contact, 'inst_id_company'),
             'contact_inst_alias'            => $this->variableResolver->resolveContactField($contact, 'inst_alias'),
+            'enro_academic_record'          => $this->variableResolver->resolveContactField($contact, 'enro_academic_record'),
             'status'                        => $status,
             // See CampaignTriggerSubscriber::buildPayload().
             'language'                      => $language,
