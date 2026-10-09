@@ -7,6 +7,7 @@ namespace MauticPlugin\N8nDispatchBundle\Entity;
 use Doctrine\ORM\Mapping as ORM;
 use Mautic\CoreBundle\Doctrine\Mapping\ClassMetadataBuilder;
 use Mautic\CoreBundle\Entity\FormEntity;
+use MauticPlugin\N8nDispatchBundle\Entity\Validation\CarouselCards;
 use MauticPlugin\N8nDispatchBundle\Entity\Validation\MappedVariables;
 use MauticPlugin\N8nDispatchBundle\Entity\Validation\NumericVariables;
 use MauticPlugin\N8nDispatchBundle\Resolver\LocaleConventions;
@@ -42,11 +43,17 @@ class HsmTemplate extends FormEntity
     public const TABLE_NAME = 'n8n_dispatch_hsm_templates';
 
     // WhatsApp HSM sends come in several shapes (text, image, carousel,
-    // ...) — only 'text' is wired up for now (Form/Type/HsmTemplateType.php
-    // offers no other choice yet), added ahead of the others so 'type'
+    // ...) — 'text' and 'carousel' are wired up for now (Form/Type/
+    // HsmTemplateType.php offers no other choice yet), added ahead of the others so 'type'
     // already reaches the dispatch payload ('hsm_type') as the other
     // shapes are built out later, without another schema/payload change.
     public const TYPE_TEXT = 'text';
+
+    // Carousel: the template also carries the image URL of each card (up to
+    // CARD_SLOTS, at least CarouselCards::MIN_CARDS), sent as 'cards'.
+    public const TYPE_CAROUSEL = 'carousel';
+
+    public const CARD_SLOTS = 10;
 
     private ?int $id = null;
 
@@ -65,6 +72,15 @@ class HsmTemplate extends FormEntity
     private ?string $text = null;
 
     private ?string $variablesJson = null;
+
+    /**
+     * Always CARD_SLOTS image URLs, '' for an empty slot — the form's inputs one to one. Only read for the carousel
+     * type. Null on rows saved before the carousel existed (the column is NULL there, and Doctrine writes that
+     * straight into the property), read through getCards().
+     *
+     * @var list<string>|null
+     */
+    private ?array $cards = null;
 
     /**
      * Same pattern as every other clonable core entity (e.g. PointBundle's
@@ -121,6 +137,12 @@ class HsmTemplate extends FormEntity
         $builder->addNamedField('hsmTemplate', 'string', 'hsm_template');
         $builder->addField('text', 'text');
         $builder->addNamedField('variablesJson', 'text', 'variables_json', true);
+
+        // Nullable: rows saved before the carousel type have no cards.
+        $builder->createField('cards', 'json')
+            ->columnName('cards')
+            ->nullable()
+            ->build();
     }
 
     public static function loadValidatorMetadata(ClassMetadata $metadata): void
@@ -150,6 +172,8 @@ class HsmTemplate extends FormEntity
 
         // Every placeholder needs a filled-in source on the variable rows below the text.
         $metadata->addPropertyConstraint('text', new Assert\Callback([MappedVariables::class, 'validate']));
+
+        $metadata->addConstraint(new Assert\Callback([CarouselCards::class, 'validate']));
     }
 
     public function getId(): ?int
@@ -259,5 +283,51 @@ class HsmTemplate extends FormEntity
         $this->variablesJson = $variablesJson;
 
         return $this;
+    }
+
+    /**
+     * @return list<string> CARD_SLOTS URLs, '' for an empty slot
+     */
+    public function getCards(): array
+    {
+        return ($this->cards ?? []) + array_fill(0, self::CARD_SLOTS, '');
+    }
+
+    /**
+     * @param array<int|string, mixed>|null $cards
+     */
+    public function setCards(?array $cards): self
+    {
+        $slots = [];
+
+        foreach (array_slice(array_values($cards ?? []), 0, self::CARD_SLOTS) as $url) {
+            $slots[] = trim((string) $url);
+        }
+
+        $slots = array_pad($slots, self::CARD_SLOTS, '');
+
+        $this->isChanged('cards', $slots);
+        $this->cards = $slots;
+
+        return $this;
+    }
+
+    /**
+     * What goes to n8n: the filled cards, card_index being the slot's position (the validator guarantees the
+     * filled slots are the first ones, with no hole).
+     *
+     * @return list<array{card_index: int, header_image_link: string}>
+     */
+    public function getCardsPayload(): array
+    {
+        $cards = [];
+
+        foreach ($this->getCards() as $index => $url) {
+            if ('' !== $url) {
+                $cards[] = ['card_index' => $index, 'header_image_link' => $url];
+            }
+        }
+
+        return $cards;
     }
 }

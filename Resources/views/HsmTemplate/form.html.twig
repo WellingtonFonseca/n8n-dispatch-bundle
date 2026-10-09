@@ -108,6 +108,21 @@
                                     {{ form_row(form.type) }}
                                 </div>
                             </div>
+                            {# Only for the carousel type: campaign-hsm-dispatch.js shows/hides it as the type changes. #}
+                            <div id="n8ndispatch-hsm-cards" class="row"{% if form.type.vars.value != 'carousel' %} style="display: none;"{% endif %}>
+                                <div class="col-xs-12">
+                                    <label class="control-label">{{ 'mautic.n8ndispatch.hsmtemplate.cards.label'|trans }}</label>
+                                    <p class="help-block">{{ 'mautic.n8ndispatch.hsmtemplate.cards.help'|trans }}</p>
+                                    {{ form_errors(form.cards) }}
+                                    <div class="row">
+                                        {% for card in form.cards %}
+                                            <div class="col-xs-6">
+                                                {{ form_row(card, {'label': ('mautic.n8ndispatch.hsmtemplate.cards.card'|trans({'%n%': loop.index}))}) }}
+                                            </div>
+                                        {% endfor %}
+                                    </div>
+                                </div>
+                            </div>
                             {# The .row wrapper matters: campaign-hsm-dispatch.js
                                inserts the variable-source rows right after the
                                textarea's closest .row (see getContainer() in

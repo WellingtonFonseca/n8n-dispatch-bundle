@@ -139,6 +139,11 @@ class N8nDispatchBundle extends PluginBundleBase
                 );
             }
 
+            // 0.10.0: the carousel type keeps its image URLs here.
+            if (!$table->hasColumn('cards')) {
+                $factory->getDatabase()->executeQuery('ALTER TABLE '.HsmTemplate::TABLE_NAME.' ADD COLUMN cards JSON NULL');
+            }
+
             // 'hsmId' renamed to 'hsmTemplate' (the field is the
             // WhatsApp-side template descriptor string, not an id) — an
             // install that already has the old column gets it renamed in

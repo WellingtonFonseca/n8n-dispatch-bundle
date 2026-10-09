@@ -111,6 +111,7 @@ class HsmCampaignTriggerSubscriber implements EventSubscriberInterface
         $variablesJson = (string) ($config['variablesJson'] ?? '{}');
         $templateId    = (int) ($config['hsmTemplateId'] ?? 0);
         $language      = LocaleConventions::DEFAULT_LOCALE;
+        $cards         = [];
 
         if ($templateId > 0) {
             $template = $this->hsmTemplateModel->getEntity($templateId);
@@ -129,6 +130,7 @@ class HsmCampaignTriggerSubscriber implements EventSubscriberInterface
             $hsmType       = $template->getType();
             $variablesJson = (string) ($template->getVariablesJson() ?? '{}');
             $language      = $template->getLanguage();
+            $cards         = HsmTemplate::TYPE_CAROUSEL === $hsmType ? $template->getCardsPayload() : [];
         }
 
         $variablesConfig = json_decode($variablesJson, true);
@@ -139,7 +141,7 @@ class HsmCampaignTriggerSubscriber implements EventSubscriberInterface
                 /** @var LeadEventLog $log */
                 $log = $event->getPending()->get($logId);
 
-                $this->recordWithoutDispatch($event, $log, $contact, $campaign, $router, $hsmTemplate, $hsmType, $status, $variablesConfig, $language);
+                $this->recordWithoutDispatch($event, $log, $contact, $campaign, $router, $hsmTemplate, $hsmType, $status, $variablesConfig, $language, $cards);
             }
 
             return;
@@ -176,13 +178,14 @@ class HsmCampaignTriggerSubscriber implements EventSubscriberInterface
             /** @var LeadEventLog $log */
             $log = $event->getPending()->get($logId);
 
-            $this->dispatchToContact($event, $log, $contact, $campaign, $router, $hsmTemplate, $hsmType, $status, $variablesConfig, $language, $webhookUrl, $headers);
+            $this->dispatchToContact($event, $log, $contact, $campaign, $router, $hsmTemplate, $hsmType, $status, $variablesConfig, $language, $webhookUrl, $headers, $cards);
         }
     }
 
     /**
      * @param array<string, array<string, mixed>> $variablesConfig
      * @param array<string, string>               $headers
+     * @param list<array<string, mixed>>          $cards
      */
     private function dispatchToContact(
         PendingEvent $event,
@@ -197,6 +200,7 @@ class HsmCampaignTriggerSubscriber implements EventSubscriberInterface
         string $language,
         string $webhookUrl,
         array $headers,
+        array $cards = [],
     ): void {
         // Same DNC gap as the Email/SMS dispatch paths (see
         // CampaignTriggerSubscriber::dispatchToContact() for the full
@@ -223,7 +227,7 @@ class HsmCampaignTriggerSubscriber implements EventSubscriberInterface
         }
 
         $variables = $this->variableResolver->resolveAll($variablesConfig, $contact, $campaign, self::MULTI_VALUE_SEPARATOR, $language);
-        $payload   = $this->buildPayload($contact, $phone, $router, $hsmTemplate, $hsmType, $status, $variables, $language);
+        $payload   = $this->buildPayload($contact, $phone, $router, $hsmTemplate, $hsmType, $status, $variables, $language, $cards);
 
         try {
             $response = $this->httpClient->request('POST', $webhookUrl, [
@@ -270,6 +274,7 @@ class HsmCampaignTriggerSubscriber implements EventSubscriberInterface
      * SmsCampaignTriggerSubscriber's own version.
      *
      * @param array<string, array<string, mixed>> $variablesConfig
+     * @param list<array<string, mixed>>          $cards
      */
     private function recordWithoutDispatch(
         PendingEvent $event,
@@ -282,9 +287,10 @@ class HsmCampaignTriggerSubscriber implements EventSubscriberInterface
         string $status,
         array $variablesConfig,
         string $language,
+        array $cards = [],
     ): void {
         $variables = $this->variableResolver->resolveAll($variablesConfig, $contact, $campaign, self::MULTI_VALUE_SEPARATOR, $language);
-        $payload   = $this->buildPayload($contact, (string) $contact->getPhone(), $router, $hsmTemplate, $hsmType, $status, $variables, $language);
+        $payload   = $this->buildPayload($contact, (string) $contact->getPhone(), $router, $hsmTemplate, $hsmType, $status, $variables, $language, $cards);
 
         $log->appendToMetadata(['n8ndispatch' => $payload]);
 
@@ -295,13 +301,14 @@ class HsmCampaignTriggerSubscriber implements EventSubscriberInterface
     }
 
     /**
-     * @param array<string, string> $variables
+     * @param array<string, string>      $variables
+     * @param list<array<string, mixed>> $cards     the carousel's cards, [] for every other type
      *
      * @return array<string, mixed>
      */
-    private function buildPayload(Lead $contact, string $phone, string $router, string $hsmTemplate, string $hsmType, string $status, array $variables, string $language): array
+    private function buildPayload(Lead $contact, string $phone, string $router, string $hsmTemplate, string $hsmType, string $status, array $variables, string $language, array $cards = []): array
     {
-        return [
+        $payload = [
             'contact_id'                    => $contact->getId(),
             'contact_email'                 => $contact->getEmail(),
             'contact_phone'                 => $phone,
@@ -320,6 +327,13 @@ class HsmCampaignTriggerSubscriber implements EventSubscriberInterface
             'hsm_type'                      => $hsmType,
             'variables'                     => $variables,
         ];
+
+        // Carousel only: [{card_index, header_image_link}, ...], card_index being the image's position.
+        if (HsmTemplate::TYPE_CAROUSEL === $hsmType) {
+            $payload['cards'] = $cards;
+        }
+
+        return $payload;
     }
 
     /**

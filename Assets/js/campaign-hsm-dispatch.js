@@ -57,6 +57,12 @@
         });
     }
 
+    // Shows the carousel's image inputs only while the type is "carousel" (Resources/views/HsmTemplate/form.html.twig).
+    // Also the type select's data-onload-callback, so the page opens in the right state.
+    Mautic.n8nDispatchOnHsmTypeChange = function (el) {
+        mQuery('#n8ndispatch-hsm-cards').toggle(mQuery(el).val() === 'carousel');
+    };
+
     // data-onload-callback convention (see CoreBundle Assets/js/1a.content.js) —
     // fires once when an HSM Template's edit page opens (Form/Type/
     // HsmTemplateType.php). Same {{name}}-scanning mechanism as
