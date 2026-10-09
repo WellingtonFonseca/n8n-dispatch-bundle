@@ -74,7 +74,7 @@ All calls go to the configured `webhook_url`; n8n tells them apart by the
 | **Send via n8n (SMS)** — pick an SMS Template | Campaign Action | `sms.send` |
 | **Send via n8n (HSM)** — pick an HSM Template | Campaign Action | `hsm.send` |
 | **SMS Templates (n8n)** — message text + variable mapping, reused by many campaigns | Channels menu | — |
-| **HSM Templates (n8n)** — router, WhatsApp-side template reference, send type, and `{{variable}}` mapping, reused by many campaigns | Channels menu | — |
+| **HSM Templates (n8n)** — router, WhatsApp-side template reference, send type (Text or Image Carousel: 2 to 10 https image URLs, sent as `cards`), and `{{variable}}` mapping, reused by many campaigns | Channels menu | — |
 | **Dispatches** — every dispatch the three actions made, with filters, details and **Resend** for the ones in error | N8n Dispatch menu (needs Campaigns > Full) | — (resend: the original's) |
 
 Each campaign step has a **status**: `test` (records the payload on the
@@ -137,6 +137,10 @@ install, Node is already in the image):
 ```bash
 docker exec mautic-mautic_web-1 sh -c "cd /var/www/html/docroot/plugins/N8nDispatchBundle && node --test 'Tests/js/*.test.js'"
 ```
+
+The HSM carousel form also has a live test against the running stack
+(`mautic/scripts/test-hsm-carousel-form.sh` in the Mautic stack repo): it logs
+in like a browser and removes the rows it creates.
 
 Requires `phpunit/phpunit` as a dev dependency on the image — see
 [wiki/docker-mautic5.md](../wiki/docker-mautic5.md) ("PHPUnit / automated
