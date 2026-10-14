@@ -151,9 +151,14 @@ class SegmentItemMatcher
     {
         return array_values(array_filter(
             $filter->contactSegmentFilterCrate->getMergedProperty(),
-            static fn (array $criterion): bool => ($criterion['cmo_filter'] ?? false)
-                ? (int) $criterion['field'] === $customObjectId
-                : in_array((int) $criterion['field'], $fieldIds, true)
+            // An item name has the field 'cmo_<object id>' (CustomObjectsBundle's dictionary); Mautic 7 drops the 'cmo_filter' mark
+            // of the entry, Mautic 5 keeps it. A Custom Field has its bare id.
+            static function (array $criterion) use ($customObjectId, $fieldIds): bool {
+                $isItemName = $criterion['cmo_filter'] ?? str_starts_with((string) $criterion['field'], 'cmo_');
+                $id         = (int) preg_replace('/\D/', '', (string) $criterion['field']);
+
+                return $isItemName ? $id === $customObjectId : in_array($id, $fieldIds, true);
+            }
         ));
     }
 
