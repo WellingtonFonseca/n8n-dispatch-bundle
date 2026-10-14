@@ -28,7 +28,7 @@ Mautic autoloads plugins from `docroot/plugins/<PluginDirectoryName>` (or
    `docker-compose.yml`:
    ```yaml
    volumes:
-     - ../n8n-dispatch-bundle:/var/www/html/docroot/plugins/N8nDispatchBundle:z
+     - ../n8n-dispatch-bundle-5:/var/www/html/docroot/plugins/N8nDispatchBundle:z
    ```
    applied to `mautic_web`, `mautic_cron`, and `mautic_worker` (all three
    need the code, not just the web container).
