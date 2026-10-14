@@ -156,3 +156,14 @@ in like a browser and removes the rows it creates.
 Requires `phpunit/phpunit` as a dev dependency on the image — see
 [wiki/docker-mautic5.md](../wiki/docker-mautic5.md) ("PHPUnit / automated
 tests") for how that's set up in this project's Docker stack.
+
+## Mautic 7 (branch `mautic7-base`)
+
+This branch is the port to Mautic 7.2; it also runs on the Mautic 5.2 core.
+
+- The controllers of the SMS and HSM templates do not override the constructor (Mautic 7 removed `MauticFactory` from the core controller); their `UsageFinder` comes in through a `#[Required]` setter.
+- The integration arguments in `Config/config.php` follow the core version (no session in Mautic 7, `FieldsWithUniqueIdentifier` last).
+- `Resolver/SegmentFilterSource` wraps `ContactSegmentFilterFactory`, which is `final` in Mautic 7 (it cannot be mocked).
+- `Resolver/SegmentItemMatcher` tells an item name from a Custom Field by the `cmo_<object id>` field of the matching Custom Objects branch. Deploy both together, or this bundle first.
+- PHPUnit 12 is used on Mautic 7: tests use `#[DataProvider]`.
+- Live checks: `scripts/test-all.sh mautic7` in the workspace (resolver, status poll and backfill, HSM carousel form).
