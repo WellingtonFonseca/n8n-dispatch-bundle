@@ -7,6 +7,7 @@ namespace MauticPlugin\N8nDispatchBundle\Tests\Unit\Twig;
 use Mautic\CoreBundle\Helper\DateTimeHelper;
 use MauticPlugin\N8nDispatchBundle\Service\StatusTracker;
 use MauticPlugin\N8nDispatchBundle\Twig\StatusExtension;
+use PHPUnit\Framework\Attributes\DataProvider;
 use PHPUnit\Framework\TestCase;
 use Symfony\Contracts\Translation\LocaleAwareInterface;
 use Symfony\Contracts\Translation\TranslatorInterface;
@@ -15,12 +16,31 @@ class StatusExtensionTest extends TestCase
 {
     private function extension(string $locale): StatusExtension
     {
-        $translator = $this->createMockForIntersectionOfInterfaces([TranslatorInterface::class, LocaleAwareInterface::class]);
-        $translator->method('getLocale')->willReturn($locale);
-        $translator->method('trans')->willReturnCallback(fn (string $id, array $params = []): string => strtr(
-            ['mautic.n8ndispatch.dispatch.resend.note.date' => 'Resent on %date%', 'mautic.n8ndispatch.dispatch.resend.note.by' => 'By %email%'][$id] ?? $id,
-            $params
-        ));
+        // A hand-written double: newer Symfony contracts declare getLocale() on TranslatorInterface itself, and PHPUnit
+        // refuses to mock an intersection of two interfaces that repeat it. The real translator is locale aware.
+        $translator = new class($locale) implements TranslatorInterface, LocaleAwareInterface {
+            public function __construct(private string $locale)
+            {
+            }
+
+            public function trans(string $id, array $parameters = [], ?string $domain = null, ?string $locale = null): string
+            {
+                return strtr(
+                    ['mautic.n8ndispatch.dispatch.resend.note.date' => 'Resent on %date%', 'mautic.n8ndispatch.dispatch.resend.note.by' => 'By %email%'][$id] ?? $id,
+                    $parameters
+                );
+            }
+
+            public function getLocale(): string
+            {
+                return $this->locale;
+            }
+
+            public function setLocale(string $locale): void
+            {
+                $this->locale = $locale;
+            }
+        };
 
         return new StatusExtension($this->createMock(StatusTracker::class), $translator);
     }
@@ -40,9 +60,7 @@ class StatusExtensionTest extends TestCase
         return new \DateTimeImmutable($when, new \DateTimeZone('UTC'));
     }
 
-    /**
-     * @dataProvider locales
-     */
+    #[DataProvider('locales')]
     public function testTheDateFollowsTheSystemLanguage(string $locale, string $phpFormat): void
     {
         $this->assertSame(

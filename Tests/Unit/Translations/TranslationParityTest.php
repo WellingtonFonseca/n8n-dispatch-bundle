@@ -4,6 +4,7 @@ declare(strict_types=1);
 
 namespace MauticPlugin\N8nDispatchBundle\Tests\Unit\Translations;
 
+use PHPUnit\Framework\Attributes\DataProvider;
 use PHPUnit\Framework\TestCase;
 
 /**
@@ -24,9 +25,7 @@ class TranslationParityTest extends TestCase
         }
     }
 
-    /**
-     * @dataProvider files
-     */
+    #[DataProvider('files')]
     public function testEveryEnglishKeyHasAPortugueseTextWithTheSamePlaceholders(string $file): void
     {
         $english    = $this->load(self::DIR.'/en_US/'.$file.'.ini');

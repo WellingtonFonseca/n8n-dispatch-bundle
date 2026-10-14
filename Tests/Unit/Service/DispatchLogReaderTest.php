@@ -6,6 +6,7 @@ namespace MauticPlugin\N8nDispatchBundle\Tests\Unit\Service;
 
 use MauticPlugin\N8nDispatchBundle\Entity\DispatchTracking;
 use MauticPlugin\N8nDispatchBundle\Service\DispatchLogReader;
+use PHPUnit\Framework\Attributes\DataProvider;
 use PHPUnit\Framework\TestCase;
 
 class DispatchLogReaderTest extends TestCase
@@ -97,10 +98,9 @@ class DispatchLogReaderTest extends TestCase
     }
 
     /**
-     * @dataProvider notRealDispatches
-     *
      * @param array<string, mixed> $metadata
      */
+    #[DataProvider('notRealDispatches')]
     public function testNothingIsReadFromADispatchThatWasNotAcceptedByN8n(array $metadata): void
     {
         $this->assertSame([], $this->reader->refs(DispatchTracking::CHANNEL_EMAIL, $metadata));

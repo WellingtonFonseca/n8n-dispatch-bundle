@@ -7,6 +7,7 @@ namespace MauticPlugin\N8nDispatchBundle\Tests\Unit\Service;
 use Mautic\CampaignBundle\Entity\Event;
 use MauticPlugin\N8nDispatchBundle\Service\EventNameSync;
 use MauticPlugin\N8nDispatchBundle\Twig\EventTemplateExtension;
+use PHPUnit\Framework\Attributes\DataProvider;
 use PHPUnit\Framework\TestCase;
 use Symfony\Contracts\Translation\TranslatorInterface;
 
@@ -43,9 +44,7 @@ class EventNameSyncTest extends TestCase
         return $event;
     }
 
-    /**
-     * @dataProvider replaceableNames
-     */
+    #[DataProvider('replaceableNames')]
     public function testReplacesABlankOrDefaultName(string $name): void
     {
         $event = $this->event($name);

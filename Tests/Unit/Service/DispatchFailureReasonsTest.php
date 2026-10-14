@@ -6,6 +6,7 @@ namespace MauticPlugin\N8nDispatchBundle\Tests\Unit\Service;
 
 use MauticPlugin\N8nDispatchBundle\Service\DispatchFailureReasons;
 use MauticPlugin\N8nDispatchBundle\Tests\Unit\EventListener\EnUsTranslator;
+use PHPUnit\Framework\Attributes\DataProvider;
 use PHPUnit\Framework\TestCase;
 use Symfony\Contracts\Translation\TranslatorInterface;
 
@@ -35,10 +36,9 @@ class DispatchFailureReasonsTest extends TestCase
     }
 
     /**
-     * @dataProvider staticReasons
-     *
      * @param array<string, string|int> $params
      */
+    #[DataProvider('staticReasons')]
     public function testTranslatedReasonsKeepTheirEnglishTextAndTheSourcePrefix(string $key, array $params, string $expected): void
     {
         $this->assertSame($expected, $this->reasons->translated($key, $params));

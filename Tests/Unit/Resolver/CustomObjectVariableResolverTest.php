@@ -9,7 +9,6 @@ use Mautic\CampaignBundle\Entity\Campaign;
 use Mautic\LeadBundle\Entity\Lead;
 use Mautic\LeadBundle\Entity\LeadList;
 use Mautic\LeadBundle\Segment\ContactSegmentFilter;
-use Mautic\LeadBundle\Segment\ContactSegmentFilterFactory;
 use Mautic\LeadBundle\Segment\ContactSegmentFilters;
 use MauticPlugin\CustomObjectsBundle\Entity\CustomField;
 use MauticPlugin\CustomObjectsBundle\Entity\CustomObject;
@@ -18,6 +17,7 @@ use MauticPlugin\CustomObjectsBundle\Segment\Query\Filter\CustomFieldFilterQuery
 use MauticPlugin\CustomObjectsBundle\Segment\Query\Filter\CustomItemNameFilterQueryBuilder;
 use MauticPlugin\CustomObjectsBundle\Segment\Query\Filter\CustomObjectMergedFilterQueryBuilder;
 use MauticPlugin\N8nDispatchBundle\Resolver\CustomObjectVariableResolver;
+use MauticPlugin\N8nDispatchBundle\Resolver\SegmentFilterSource;
 use MauticPlugin\N8nDispatchBundle\Resolver\SegmentItemMatcher;
 use PHPUnit\Framework\TestCase;
 use Psr\Log\LoggerInterface;
@@ -35,7 +35,7 @@ class CustomObjectVariableResolverTest extends TestCase
 {
     private const OBJECT_ID = 1;
 
-    private ContactSegmentFilterFactory $segmentFilterFactory;
+    private SegmentFilterSource $segmentFilterFactory;
 
     private SegmentItemMatcher $itemMatcher;
 
@@ -49,7 +49,7 @@ class CustomObjectVariableResolverTest extends TestCase
 
     protected function setUp(): void
     {
-        $this->segmentFilterFactory = $this->createMock(ContactSegmentFilterFactory::class);
+        $this->segmentFilterFactory = $this->createMock(SegmentFilterSource::class);
         $this->itemMatcher          = $this->createMock(SegmentItemMatcher::class);
         $this->customObjectModel    = $this->createMock(CustomObjectModel::class);
         $this->logger               = $this->createMock(LoggerInterface::class);
@@ -166,7 +166,7 @@ class CustomObjectVariableResolverTest extends TestCase
         }
 
         $list = new LeadList();
-        $this->segmentFilterFactory->method('getSegmentFilters')->with($list)->willReturn($segmentFilters);
+        $this->segmentFilterFactory->method('filtersFor')->with($list)->willReturn($segmentFilters);
 
         $campaign = new Campaign();
         $campaign->addList($list);

@@ -6,6 +6,7 @@ namespace MauticPlugin\N8nDispatchBundle\Tests\Unit\Service;
 
 use MauticPlugin\N8nDispatchBundle\Entity\PollRun;
 use MauticPlugin\N8nDispatchBundle\Service\StatusPollSettings;
+use PHPUnit\Framework\Attributes\DataProvider;
 use PHPUnit\Framework\TestCase;
 
 class StatusPollSettingsTest extends TestCase
@@ -18,9 +19,7 @@ class StatusPollSettingsTest extends TestCase
         );
     }
 
-    /**
-     * @dataProvider enabledValues
-     */
+    #[DataProvider('enabledValues')]
     public function testEnabledAcceptsWhatTheFormStores(mixed $stored, bool $expected): void
     {
         $this->assertSame($expected, StatusPollSettings::fromArray([StatusPollSettings::KEY_ENABLED => $stored])['enabled']);
@@ -41,9 +40,7 @@ class StatusPollSettingsTest extends TestCase
         yield 'empty'     => ['', false];
     }
 
-    /**
-     * @dataProvider intervals
-     */
+    #[DataProvider('intervals')]
     public function testIntervalIsKeptInsideTheAllowedRange(mixed $stored, int $expected): void
     {
         $this->assertSame($expected, StatusPollSettings::fromArray([StatusPollSettings::KEY_INTERVAL => $stored])['interval']);
@@ -95,9 +92,7 @@ class StatusPollSettingsTest extends TestCase
         $this->assertTrue(StatusPollSettings::isStale($this->runStartedAt('2026-10-02 08:30:00'), 5, new \DateTimeImmutable('2026-10-02 10:00:00')));
     }
 
-    /**
-     * @dataProvider batches
-     */
+    #[DataProvider('batches')]
     public function testBatchSizeIsKeptInsideTheAllowedRange(mixed $stored, int $expected): void
     {
         $this->assertSame($expected, StatusPollSettings::fromArray([StatusPollSettings::KEY_BATCH => $stored])['batch']);
@@ -119,9 +114,7 @@ class StatusPollSettingsTest extends TestCase
         yield 'null'          => [null, 100];
     }
 
-    /**
-     * @dataProvider timeouts
-     */
+    #[DataProvider('timeouts')]
     public function testTimeoutIsKeptInsideTheAllowedRange(mixed $stored, int $expected): void
     {
         $this->assertSame($expected, StatusPollSettings::fromArray([StatusPollSettings::KEY_TIMEOUT => $stored])['timeout']);

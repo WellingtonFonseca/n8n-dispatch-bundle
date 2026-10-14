@@ -6,6 +6,7 @@ namespace MauticPlugin\N8nDispatchBundle\Tests\Unit\Service;
 
 use MauticPlugin\N8nDispatchBundle\Entity\DispatchTracking;
 use MauticPlugin\N8nDispatchBundle\Service\StatusResponseParser;
+use PHPUnit\Framework\Attributes\DataProvider;
 use PHPUnit\Framework\TestCase;
 
 class StatusResponseParserTest extends TestCase
@@ -99,9 +100,7 @@ class StatusResponseParserTest extends TestCase
         $this->assertSame(['logSendEmailId' => 1, 'outcome' => 'error', 'message' => 'x', 'extra' => ['a' => 1]], $result['items'][0]['body']);
     }
 
-    /**
-     * @dataProvider unusableBodies
-     */
+    #[DataProvider('unusableBodies')]
     public function testReturnsNullWhenThereIsNoItemsList(string $body): void
     {
         $this->assertNull($this->parser->parse(DispatchTracking::CHANNEL_EMAIL, $body));

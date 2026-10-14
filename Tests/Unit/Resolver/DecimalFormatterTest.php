@@ -5,13 +5,12 @@ declare(strict_types=1);
 namespace MauticPlugin\N8nDispatchBundle\Tests\Unit\Resolver;
 
 use MauticPlugin\N8nDispatchBundle\Resolver\DecimalFormatter;
+use PHPUnit\Framework\Attributes\DataProvider;
 use PHPUnit\Framework\TestCase;
 
 class DecimalFormatterTest extends TestCase
 {
-    /**
-     * @dataProvider decimalValues
-     */
+    #[DataProvider('decimalValues')]
     public function testFormatsDecimalValues(string $stored, string $expected): void
     {
         $this->assertSame($expected, DecimalFormatter::format($stored, 'decimal', 'en'));

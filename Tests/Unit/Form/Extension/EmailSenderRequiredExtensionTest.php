@@ -8,6 +8,7 @@ use Mautic\CoreBundle\Service\FlashBag;
 use Mautic\EmailBundle\Entity\Email;
 use Mautic\EmailBundle\Form\Type\EmailType;
 use MauticPlugin\N8nDispatchBundle\Form\Extension\EmailSenderRequiredExtension;
+use PHPUnit\Framework\Attributes\DataProvider;
 use PHPUnit\Framework\MockObject\MockObject;
 use PHPUnit\Framework\TestCase;
 use Symfony\Component\Form\FormBuilderInterface;
@@ -73,9 +74,7 @@ class EmailSenderRequiredExtensionTest extends TestCase
         yield 'spaces' => ['   '];
     }
 
-    /**
-     * @dataProvider blankValues
-     */
+    #[DataProvider('blankValues')]
     public function testBlocksWhenTheFromNameIsBlank(?string $blank): void
     {
         $fromName = $this->field();
@@ -86,9 +85,7 @@ class EmailSenderRequiredExtensionTest extends TestCase
         $this->submit($blank, 'no-reply@example.com', $fromName, $fromAddress);
     }
 
-    /**
-     * @dataProvider blankValues
-     */
+    #[DataProvider('blankValues')]
     public function testBlocksWhenTheFromAddressIsBlank(?string $blank): void
     {
         $fromName = $this->field();

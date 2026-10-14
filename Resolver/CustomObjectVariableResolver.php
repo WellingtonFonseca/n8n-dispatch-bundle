@@ -7,7 +7,6 @@ namespace MauticPlugin\N8nDispatchBundle\Resolver;
 use Mautic\CampaignBundle\Entity\Campaign;
 use Mautic\LeadBundle\Entity\Lead;
 use Mautic\LeadBundle\Segment\ContactSegmentFilter;
-use Mautic\LeadBundle\Segment\ContactSegmentFilterFactory;
 use MauticPlugin\CustomObjectsBundle\Entity\CustomField;
 use MauticPlugin\CustomObjectsBundle\Exception\NotFoundException;
 use MauticPlugin\CustomObjectsBundle\Model\CustomObjectModel;
@@ -54,7 +53,7 @@ class CustomObjectVariableResolver
     private const NEGATED_ITEM_NAME_OPERATORS = ['empty', 'neq', 'notLike'];
 
     public function __construct(
-        private ContactSegmentFilterFactory $segmentFilterFactory,
+        private SegmentFilterSource $segmentFilterSource,
         private SegmentItemMatcher $itemMatcher,
         private CustomObjectModel $customObjectModel,
         private LoggerInterface $logger,
@@ -98,7 +97,7 @@ class CustomObjectVariableResolver
                 continue;
             }
 
-            foreach ($this->groupByOr($this->segmentFilterFactory->getSegmentFilters($segment)) as $group) {
+            foreach ($this->groupByOr($this->segmentFilterSource->filtersFor($segment)) as $group) {
                 $groupItemIds = null;
 
                 foreach ($group as $filter) {

@@ -4,7 +4,7 @@ declare(strict_types=1);
 
 use MauticPlugin\N8nDispatchBundle\Integration\N8nDispatchIntegration;
 
-return [
+$n8nConfig = [
     'name'        => 'N8n Dispatch',
     'description' => 'Syncs Email templates to Mirror on save, and (later) dispatches Email/SMS/HSM sends via n8n',
     'version'     => '0.10.0',
@@ -97,3 +97,13 @@ return [
         ],
     ],
 ];
+
+// Mautic 7's AbstractIntegration no longer takes the session and takes FieldsWithUniqueIdentifier as the last argument.
+if (class_exists('Mautic\\CoreBundle\\ProcessSignal\\ProcessSignalService')) {
+    $integrationArguments = &$n8nConfig['services']['integrations']['mautic.integration.n8ndispatch']['arguments'];
+    $integrationArguments = array_values(array_diff($integrationArguments, ['session']));
+    $integrationArguments[] = 'mautic.lead.field.fields_with_unique_identifier';
+    unset($integrationArguments);
+}
+
+return $n8nConfig;

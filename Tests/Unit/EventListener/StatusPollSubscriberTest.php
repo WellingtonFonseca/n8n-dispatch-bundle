@@ -7,6 +7,7 @@ namespace MauticPlugin\N8nDispatchBundle\Tests\Unit\EventListener;
 use MauticPlugin\N8nDispatchBundle\EventListener\StatusPollSubscriber;
 use MauticPlugin\N8nDispatchBundle\Service\StatusPollLauncher;
 use MauticPlugin\N8nDispatchBundle\Service\StatusPollScheduler;
+use PHPUnit\Framework\Attributes\DataProvider;
 use PHPUnit\Framework\MockObject\MockObject;
 use PHPUnit\Framework\TestCase;
 use Psr\Log\LoggerInterface;
@@ -46,9 +47,7 @@ class StatusPollSubscriberTest extends TestCase
         $this->assertArrayHasKey('console.command', StatusPollSubscriber::getSubscribedEvents());
     }
 
-    /**
-     * @dataProvider cronCommands
-     */
+    #[DataProvider('cronCommands')]
     public function testALaunchHappensWhenAStandardCronCommandStartsAndItIsTime(string $command): void
     {
         $this->scheduler->method('tryStart')->willReturn(42);
@@ -75,9 +74,7 @@ class StatusPollSubscriberTest extends TestCase
         $this->subscriber->onCommand($this->event('mautic:campaigns:trigger'));
     }
 
-    /**
-     * @dataProvider otherCommands
-     */
+    #[DataProvider('otherCommands')]
     public function testOtherCommandsAreNeitherCheckedNorLaunched(?string $command): void
     {
         $this->scheduler->expects($this->never())->method('tryStart');
