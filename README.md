@@ -150,7 +150,7 @@ docker exec mautic-mautic_web-1 sh -c "cd /var/www/html/docroot/plugins/N8nDispa
 ```
 
 The HSM carousel form also has a live test against the running stack
-(`mautic/scripts/test-hsm-carousel-form.sh` in the Mautic stack repo): it logs
+(`mautic/scripts/5/test-hsm-carousel-form.sh` in the Mautic stack repo): it logs
 in like a browser and removes the rows it creates.
 
 Requires `phpunit/phpunit` as a dev dependency on the image — see
