@@ -150,7 +150,7 @@ docker exec mautic-mautic_web-1 sh -c "cd /var/www/html/docroot/plugins/N8nDispa
 ```
 
 The HSM carousel form also has a live test against the running stack
-(`mautic/scripts/test-hsm-carousel-form.sh` in the Mautic stack repo): it logs
+(`mautic/scripts/7/test-hsm-carousel-form.sh` in the Mautic stack repo): it logs
 in like a browser and removes the rows it creates.
 
 Requires `phpunit/phpunit` as a dev dependency on the image — see
@@ -166,4 +166,4 @@ This branch is the port to Mautic 7.2; it also runs on the Mautic 5.2 core.
 - `Resolver/SegmentFilterSource` wraps `ContactSegmentFilterFactory`, which is `final` in Mautic 7 (it cannot be mocked).
 - `Resolver/SegmentItemMatcher` tells an item name from a Custom Field by the `cmo_<object id>` field of the matching Custom Objects branch. Deploy both together, or this bundle first.
 - PHPUnit 12 is used on Mautic 7: tests use `#[DataProvider]`.
-- Live checks: `scripts/test-all.sh mautic7` in the workspace (resolver, status poll and backfill, HSM carousel form).
+- Live checks: `scripts/7/test-all.sh` in the workspace (resolver, status poll and backfill, HSM carousel form).
