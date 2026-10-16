@@ -36,6 +36,9 @@ class DispatchListReader
     ) {
     }
 
+    /** @var array<int, string>|null campaign id => prefix, read once per request */
+    private ?array $prefixes = null;
+
     /**
      * Candidates read into memory when the status filter is on (it depends on
      * the tracking rows, which the log's serialized metadata does not let SQL
@@ -100,7 +103,7 @@ class DispatchListReader
         $refs      = [];
 
         foreach ($events as $event) {
-            $campaigns[(int) $event['campaign_id']] = (string) $event['campaign_name'];
+            $campaigns[(int) $event['campaign_id']] = $this->campaignName((int) $event['campaign_id'], (string) $event['campaign_name']);
             $refs[]                                 = self::templateRef((string) $event['type'], (string) $event['properties']);
         }
 
@@ -116,6 +119,46 @@ class DispatchListReader
         }
 
         return ['campaigns' => $campaigns, 'templates' => $templates];
+    }
+
+    /**
+     * The campaign name as the rest of the admin shows it, "PREFIX - Name" (the prefix of MauticPatchesBundle, table
+     * campaign_prefix); the name itself when the campaign has none.
+     */
+    public static function campaignDisplayName(string $name, ?string $prefix): string
+    {
+        $prefix = trim((string) $prefix);
+
+        return '' === $prefix ? $name : $prefix.' - '.$name;
+    }
+
+    /**
+     * campaign id => prefix. The table belongs to MauticPatchesBundle: without that plugin (no table) nobody has a prefix.
+     *
+     * @return array<int, string>
+     */
+    private function campaignPrefixes(): array
+    {
+        if (null !== $this->prefixes) {
+            return $this->prefixes;
+        }
+
+        $this->prefixes = [];
+        $connection     = $this->em->getConnection();
+        $table          = MAUTIC_TABLE_PREFIX.'campaign_prefix';
+
+        if ($connection->createSchemaManager()->tablesExist([$table])) {
+            foreach ($connection->fetchAllAssociative('SELECT campaign_id, prefix FROM '.$table) as $row) {
+                $this->prefixes[(int) $row['campaign_id']] = (string) $row['prefix'];
+            }
+        }
+
+        return $this->prefixes;
+    }
+
+    private function campaignName(int $id, string $name): string
+    {
+        return self::campaignDisplayName($name, $this->campaignPrefixes()[$id] ?? null);
     }
 
     /**
@@ -162,7 +205,7 @@ class DispatchListReader
                 'channel'       => $channel,
                 'dispatchedAt'  => self::dispatchedAt($row['date_triggered']),
                 'campaignId'    => (int) $row['campaign_id'],
-                'campaignName'  => (string) $row['campaign_name'],
+                'campaignName'  => $this->campaignName((int) $row['campaign_id'], (string) $row['campaign_name']),
                 'stepStatus'    => self::stepStatus((string) $row['properties']),
                 'templateName'  => null !== $ref ? ($names[$ref[0]][$ref[1]] ?? '#'.$ref[1]) : '-',
                 'templateRoute' => $found ? self::templateRoute($ref[0], $ref[1]) : null,

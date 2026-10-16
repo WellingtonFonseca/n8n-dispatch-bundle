@@ -126,4 +126,16 @@ class DispatchListReaderTest extends TestCase
         $this->assertSame('test', DispatchListReader::stepStatus(serialize(['status' => 'weird'])));
         $this->assertSame('test', DispatchListReader::stepStatus('not serialized'));
     }
+
+    public function testTheCampaignNameCarriesItsPrefix(): void
+    {
+        $this->assertSame('ACME - Boas-vindas', DispatchListReader::campaignDisplayName('Boas-vindas', 'ACME'));
+        $this->assertSame('ACME - Boas-vindas', DispatchListReader::campaignDisplayName('Boas-vindas', '  ACME '));
+    }
+
+    public function testACampaignWithoutPrefixKeepsItsName(): void
+    {
+        $this->assertSame('Boas-vindas', DispatchListReader::campaignDisplayName('Boas-vindas', null));
+        $this->assertSame('Boas-vindas', DispatchListReader::campaignDisplayName('Boas-vindas', ''));
+    }
 }
