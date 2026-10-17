@@ -1,0 +1,31 @@
+{#
+  Body of the read-only details modal of an HSM template, opened from its name on the list: the same information as the
+  edit page (language, name, description, router, template, type, carousel cards, text, availability, variables, campaigns).
+#}
+<div class="n8ndispatch-details">
+    <p>
+        <strong>{{ 'mautic.core.language'|trans }}:</strong> {{ entity.language }}<br/>
+        <strong>{{ 'mautic.core.name'|trans }}:</strong> {{ entity.name }}<br/>
+        {% if entity.description %}
+            <strong>{{ 'mautic.core.description'|trans }}:</strong> {{ entity.description|purify }}<br/>
+        {% endif %}
+        <strong>{{ 'mautic.n8ndispatch.campaign.event.hsm.router'|trans }}:</strong> {{ entity.router }}<br/>
+        <strong>{{ 'mautic.n8ndispatch.campaign.event.hsm.template'|trans }}:</strong> {{ entity.hsmTemplate }}<br/>
+        <strong>{{ 'mautic.n8ndispatch.campaign.event.hsm.type'|trans }}:</strong> {{ ('mautic.n8ndispatch.hsmtemplate.type.' ~ entity.type)|trans }}<br/>
+        <strong>{{ 'mautic.core.form.available'|trans }}:</strong> {{ (entity.isPublished ? 'mautic.core.form.yes' : 'mautic.core.form.no')|trans }}
+    </p>
+    {% if entity.type == 'carousel' %}
+        <p class="n8ndispatch-template-label"><strong>{{ 'mautic.n8ndispatch.hsmtemplate.cards.label'|trans }}:</strong></p>
+        <ul class="list-unstyled">
+            {% for url in entity.cards|filter(u => u) %}
+                <li>{{ 'mautic.n8ndispatch.hsmtemplate.cards.card'|trans({'%n%': loop.index}) }}: <a href="{{ url }}" target="_blank" rel="noopener noreferrer">{{ url }}</a></li>
+            {% endfor %}
+        </ul>
+    {% endif %}
+    <p class="n8ndispatch-template-label"><strong>{{ 'mautic.n8ndispatch.campaign.event.hsm.text'|trans }}:</strong></p>
+    <pre class="n8ndispatch-timeline-json n8ndispatch-callback-message">{{ entity.text }}</pre>
+    {% include '@N8nDispatch/Template/_variables_campaigns.html.twig' with {'translationBase': 'mautic.n8ndispatch.hsmtemplate'} %}
+    {% if canEdit %}
+        <p><a class="btn btn-primary" href="{{ path('mautic_n8ndispatch.hsmtemplate_action', {'objectAction': 'edit', 'objectId': entity.id}) }}" data-toggle="ajax" data-dismiss="modal">{{ 'mautic.core.form.edit'|trans }}</a></p>
+    {% endif %}
+</div>

@@ -1,0 +1,20 @@
+{#
+  Body of the read-only details modal of an SMS template, opened from its name on the list: the same information as the
+  edit page (language, name, description, text, availability, variables, campaigns using it).
+#}
+<div class="n8ndispatch-details">
+    <p>
+        <strong>{{ 'mautic.core.language'|trans }}:</strong> {{ entity.language }}<br/>
+        <strong>{{ 'mautic.core.name'|trans }}:</strong> {{ entity.name }}<br/>
+        {% if entity.description %}
+            <strong>{{ 'mautic.core.description'|trans }}:</strong> {{ entity.description|purify }}<br/>
+        {% endif %}
+        <strong>{{ 'mautic.core.form.available'|trans }}:</strong> {{ (entity.isPublished ? 'mautic.core.form.yes' : 'mautic.core.form.no')|trans }}
+    </p>
+    <p class="n8ndispatch-template-label"><strong>{{ 'mautic.n8ndispatch.template.details.text'|trans }}:</strong></p>
+    <pre class="n8ndispatch-timeline-json n8ndispatch-callback-message">{{ entity.text }}</pre>
+    {% include '@N8nDispatch/Template/_variables_campaigns.html.twig' with {'translationBase': 'mautic.n8ndispatch.smstemplate'} %}
+    {% if canEdit %}
+        <p><a class="btn btn-primary" href="{{ path('mautic_n8ndispatch.smstemplate_action', {'objectAction': 'edit', 'objectId': entity.id}) }}" data-toggle="ajax" data-dismiss="modal">{{ 'mautic.core.form.edit'|trans }}</a></p>
+    {% endif %}
+</div>

@@ -87,7 +87,7 @@
                                     'item': item,
                                     'model': 'n8ndispatch.smstemplate',
                                 }) -}}
-                                <a href="{{ path('mautic_n8ndispatch.smstemplate_action', {'objectAction': 'edit', 'objectId': item.getId()}) }}" data-toggle="ajax">
+                                <a href="{{ path('mautic_n8ndispatch.smstemplate_action', {'objectAction': 'details', 'objectId': item.getId()}) }}" data-toggle="ajaxmodal" data-target="#MauticSharedModal" data-header="{{ 'mautic.n8ndispatch.smstemplate.details.title'|trans }}">
                                     {{ item.getName() }}
                                 </a>
                             </div>

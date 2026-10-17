@@ -15,6 +15,7 @@ use Mautic\CoreBundle\Service\FlashBag;
 use Mautic\CoreBundle\Translation\Translator;
 use Mautic\FormBundle\Helper\FormFieldHelper;
 use MauticPlugin\N8nDispatchBundle\Service\HsmTemplateUsageFinder;
+use MauticPlugin\N8nDispatchBundle\Service\TemplateVariableRows;
 use Symfony\Component\EventDispatcher\EventDispatcherInterface;
 use Symfony\Component\Form\FormFactoryInterface;
 use Symfony\Component\HttpFoundation\JsonResponse;
@@ -99,6 +100,36 @@ class HsmTemplateController extends AbstractStandardFormController
     public function editAction(Request $request, $objectId, $ignorePost = false)
     {
         return parent::editStandard($request, $objectId, $ignorePost);
+    }
+
+    /**
+     * Read-only view of the template, the body of the modal opened (data-toggle="ajaxmodal") from the template's name on the
+     * list. The same information as the edit page, with no form.
+     */
+    public function detailsAction(Request $request, $objectId): Response
+    {
+        $template = $this->getModel($this->getModelName())->getEntity($objectId);
+
+        if (null === $template || null === $template->getId()) {
+            return $this->notFound();
+        }
+
+        if (!$this->security->hasEntityAccess('sms:smses:viewown', 'sms:smses:viewother', $template->getCreatedBy())) {
+            return $this->accessDenied();
+        }
+
+        return $this->delegateView([
+            'viewParameters' => [
+                'entity'         => $template,
+                'variables'      => TemplateVariableRows::fromJson($template->getVariablesJson()),
+                'campaignUsages' => $this->usageFinder->findUsages((int) $template->getId()),
+                'canEdit'        => $this->security->hasEntityAccess('sms:smses:editown', 'sms:smses:editother', $template->getCreatedBy()),
+            ],
+            'contentTemplate' => '@N8nDispatch/HsmTemplate/details.html.twig',
+            'passthroughVars' => [
+                'route' => false,
+            ],
+        ]);
     }
 
     /**
