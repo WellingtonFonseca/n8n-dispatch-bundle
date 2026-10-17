@@ -1,0 +1,12 @@
+{#
+  The buttons of the details modal of an SMS / HSM template, in the modal's footer like the forms' ones: core copies the
+  buttons of a `.bottom-form-buttons` block into the footer (`.modal-form-buttons`, 1a.content.js), hides the block and clicks the
+  original when the copy is clicked. Close, and Edit (only for who may edit) which closes the modal and loads the edit page.
+  Needs: editUrl (null when the user cannot edit).
+#}
+<div class="bottom-form-buttons">
+    <button type="button" id="n8ndispatch-template-details-close" class="btn btn-secondary btn-cancel" data-dismiss="modal">{{ 'mautic.core.close'|trans }}<i class="ri-close-line"></i></button>
+    {% if editUrl %}
+        <button type="button" id="n8ndispatch-template-details-edit" class="btn btn-primary" onclick="mQuery('#MauticSharedModal').modal('hide'); Mautic.loadContent('{{ editUrl|e('js') }}');">{{ 'mautic.core.form.edit'|trans }}<i class="ri-edit-line"></i></button>
+    {% endif %}
+</div>

@@ -400,3 +400,8 @@ textarea.n8ndispatch-json-block {
     overflow: auto;
     resize: vertical;
 }
+
+/* The small titles inside the details modal of an SMS / HSM template ('Texto', 'Variáveis'): air above, so they do not stick to the block before. */
+.n8ndispatch-details .n8ndispatch-template-label {
+    margin: 20px 0 6px;
+}

@@ -1,0 +1,30 @@
+{#
+  Shared by the details modals of the SMS and HSM templates: the variable sources, read only (the edit page's Variables rows).
+  Needs: variables (Service/TemplateVariableRows).
+#}
+<p class="n8ndispatch-template-label"><strong>{{ 'mautic.n8ndispatch.template.details.variables'|trans }}:</strong></p>
+{% if variables %}
+    <div class="table-responsive">
+        <table class="table table-hover">
+            <thead>
+            <tr>
+                <th>{{ 'mautic.n8ndispatch.template.details.variable'|trans }}</th>
+                <th>{{ 'mautic.n8ndispatch.template.details.source'|trans }}</th>
+                <th>{{ 'mautic.n8ndispatch.template.details.value'|trans }}</th>
+            </tr>
+            </thead>
+            <tbody>
+            {% for variable in variables %}
+                <tr>
+                    <td>{{ '{{' ~ variable.name ~ '}}' }}</td>
+                    <td>{{ ('mautic.n8ndispatch.template.details.source.' ~ variable.source)|trans }}</td>
+                    <td>{{ variable.value }}</td>
+                </tr>
+            {% endfor %}
+            </tbody>
+        </table>
+    </div>
+{% else %}
+    <p class="text-muted">{{ 'mautic.n8ndispatch.template.details.variables.none'|trans }}</p>
+{% endif %}
+
