@@ -120,6 +120,14 @@ class DispatchListReaderTest extends TestCase
         $this->assertSame('test', DispatchListReader::stepStatus(serialize(['status' => 'test'])));
     }
 
+    public function testTheDispatchModeIsTheOneRecordedAtDispatchTime(): void
+    {
+        $this->assertSame('test', DispatchListReader::dispatchStatus(['n8ndispatch' => ['status' => 'test']]));
+        $this->assertSame('paused', DispatchListReader::dispatchStatus(['n8ndispatch' => ['status' => 'paused']]));
+        $this->assertNull(DispatchListReader::dispatchStatus([]));
+        $this->assertNull(DispatchListReader::dispatchStatus(['n8ndispatch' => ['status' => 'weird']]));
+    }
+
     public function testAStepWithNoOrUnknownStatusCountsAsTest(): void
     {
         $this->assertSame('test', DispatchListReader::stepStatus(serialize(['email' => 1])));
