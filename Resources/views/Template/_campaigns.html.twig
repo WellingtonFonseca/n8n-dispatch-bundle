@@ -1,37 +1,9 @@
 {#
-  Shared by the details modals of the SMS and HSM templates: the variable sources and the campaigns that use the template,
-  the same information as the edit page (its Variables rows and its Campaigns tab), read only.
-  Needs: variables (Service/TemplateVariableRows), campaignUsages, translationBase.
+  Shared by the details modals of the SMS and HSM templates: the campaigns that use the template, read only (the edit page's
+  Campaigns tab). Needs: campaignUsages, translationBase.
 #}
 {% set statusIcons = {'test': 'ri-bug-line', 'production': 'ri-play-fill', 'paused': 'ri-pause-fill'} %}
 
-<p class="n8ndispatch-template-label"><strong>{{ 'mautic.n8ndispatch.template.details.variables'|trans }}:</strong></p>
-{% if variables %}
-    <div class="table-responsive">
-        <table class="table table-hover">
-            <thead>
-            <tr>
-                <th>{{ 'mautic.n8ndispatch.template.details.variable'|trans }}</th>
-                <th>{{ 'mautic.n8ndispatch.template.details.source'|trans }}</th>
-                <th>{{ 'mautic.n8ndispatch.template.details.value'|trans }}</th>
-            </tr>
-            </thead>
-            <tbody>
-            {% for variable in variables %}
-                <tr>
-                    <td>{{ '{{' ~ variable.name ~ '}}' }}</td>
-                    <td>{{ ('mautic.n8ndispatch.template.details.source.' ~ variable.source)|trans }}</td>
-                    <td>{{ variable.value }}</td>
-                </tr>
-            {% endfor %}
-            </tbody>
-        </table>
-    </div>
-{% else %}
-    <p class="text-muted">{{ 'mautic.n8ndispatch.template.details.variables.none'|trans }}</p>
-{% endif %}
-
-<p class="n8ndispatch-template-label"><strong>{{ (translationBase ~ '.tab.campaigns.label')|trans }}:</strong></p>
 {% if campaignUsages %}
     <div class="table-responsive">
         <table class="table table-hover">

@@ -3,6 +3,12 @@
   edit page (language, name, description, text, availability, variables, campaigns using it).
 #}
 <div class="n8ndispatch-details">
+    <ul class="nav nav-tabs nav-tabs-contained">
+        <li class="active"><a href="#sms-details-template" role="tab" data-toggle="tab">{{ 'mautic.n8ndispatch.smstemplate.tab.template.label'|trans }}</a></li>
+        <li><a href="#sms-details-campaigns" role="tab" data-toggle="tab">{{ 'mautic.n8ndispatch.smstemplate.tab.campaigns.label'|trans }}</a></li>
+    </ul>
+    <div class="tab-content pa-md">
+    <div class="tab-pane fade in active bdr-w-0" id="sms-details-template">
     <p>
         <strong>{{ 'mautic.core.language'|trans }}:</strong> {{ entity.language }}<br/>
         <strong>{{ 'mautic.core.name'|trans }}:</strong> {{ entity.name }}<br/>
@@ -13,8 +19,11 @@
     </p>
     <p class="n8ndispatch-template-label"><strong>{{ 'mautic.n8ndispatch.template.details.text'|trans }}:</strong></p>
     <pre class="n8ndispatch-timeline-json n8ndispatch-callback-message">{{ entity.text }}</pre>
-    {% include '@N8nDispatch/Template/_variables_campaigns.html.twig' with {'translationBase': 'mautic.n8ndispatch.smstemplate'} %}
-    {% if canEdit %}
-        <p><a class="btn btn-primary" href="{{ path('mautic_n8ndispatch.smstemplate_action', {'objectAction': 'edit', 'objectId': entity.id}) }}" data-toggle="ajax" data-dismiss="modal">{{ 'mautic.core.form.edit'|trans }}</a></p>
-    {% endif %}
+    {% include '@N8nDispatch/Template/_variables.html.twig' %}
+    </div>
+    <div class="tab-pane fade bdr-w-0" id="sms-details-campaigns">
+        {% include '@N8nDispatch/Template/_campaigns.html.twig' with {'translationBase': 'mautic.n8ndispatch.smstemplate'} %}
+    </div>
+    </div>
+    {% include '@N8nDispatch/Template/_modal_buttons.html.twig' with {'editUrl': canEdit ? path('mautic_n8ndispatch.smstemplate_action', {'objectAction': 'edit', 'objectId': entity.id}) : null} %}
 </div>
