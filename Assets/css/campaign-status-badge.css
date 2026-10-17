@@ -405,3 +405,16 @@ textarea.n8ndispatch-json-block {
 .n8ndispatch-details .n8ndispatch-template-label {
     margin: 20px 0 6px;
 }
+
+/* Whether an SMS / HSM template is available for use (details modal): green when active, a neutral gray when not. Gray, not red: an inactive template is not an error. */
+.n8ndispatch-timeline-badge--active {
+    background-color: #43a047;
+}
+
+.n8ndispatch-timeline-badge--inactive {
+    background-color: #757575;
+}
+
+.n8ndispatch-template-state {
+    margin-bottom: 12px;
+}
