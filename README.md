@@ -73,7 +73,7 @@ All calls go to the configured `webhook_url`; n8n tells them apart by the
 | **Send via n8n (Email)** — pick a Mautic Email, map its `{{variables}}` | Campaign Action | `email.send` |
 | **Send via n8n (SMS)** — pick an SMS Template | Campaign Action | `sms.send` |
 | **Send via n8n (HSM)** — pick an HSM Template | Campaign Action | `hsm.send` |
-| **SMS Templates (n8n)** — message text + variable mapping, reused by many campaigns. The name in the list opens a read-only details modal (Template and Campaigns tabs, Close / Edit in the footer) | Channels menu | — |
+| **SMS Templates (n8n)** — message text + variable mapping, reused by many campaigns. The name in the list opens a read-only details modal (Active / Inactive badge, Template and Campaigns tabs, Close / Edit in the footer) | Channels menu | — |
 | **HSM Templates (n8n)** — router, WhatsApp-side template reference, send type (Text or Image Carousel: 2 to 10 https image URLs, sent as `cards`), and `{{variable}}` mapping, reused by many campaigns. The name in the list opens the same kind of read-only details modal | Channels menu | — |
 | **Dispatches** — every dispatch the three actions made, with filters, details and **Resend** for the ones in error | N8n Dispatch menu (needs Campaigns > Full) | — (resend: the original's) |
 
