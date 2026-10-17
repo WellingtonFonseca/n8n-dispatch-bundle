@@ -153,21 +153,12 @@
     cursor: pointer;
 }
 
+/* The look (padding, row lines, hover) is core's .table .table-hover; only the
+   layout is ours: fixed columns, and the Message column takes the rest. */
 .n8ndispatch-callback-history-table {
     width: 100%;
     table-layout: fixed;
     margin: 4px 0 0;
-    border-collapse: collapse;
-    font-size: 12px;
-}
-
-.n8ndispatch-callback-history-table th,
-.n8ndispatch-callback-history-table td {
-    padding: 6px 16px 6px 0;
-    /* --table-line is the Light theme's darker row line (MauticPatchesBundle); the faint --border-subtle-01 vanished on a hovered row. */
-    border-bottom: 1px solid var(--table-line, var(--border-subtle-02, #c6c6c6));
-    text-align: left;
-    vertical-align: middle;
 }
 
 /* Columns: Type, Status, Id, Date, Message. The first four have a fixed width,
