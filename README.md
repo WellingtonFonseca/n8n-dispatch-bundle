@@ -123,7 +123,8 @@ template when another one is picked. For the steps that already exist, run once
 
 **Dispatches screen** (main menu > N8n Dispatch > Disparos, needs Campaigns > The campaign shows as `PREFIX - Name` (the prefix of MauticPatchesBundle) in the table, the filter and the details.
 Full): one row per dispatch, with the callback badge (HSM: Meta's), the status
-of the campaign step, links to the campaign, template and contact, and a
+the step had when it was dispatched (test, production or paused; a dash on
+older dispatches that did not record it), links to the campaign, template and contact, and a
 details modal with the same card as the contact's History. Filter by
 campaign, template, dates and callback status. **Resend** (options menu, only
 on a dispatch whose callback ended in error or whose call was refused) sends
