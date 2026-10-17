@@ -165,7 +165,7 @@ class DispatchListReader
      * One dispatch of the table by its log id, for the details modal; null
      * when it is not one of them (another event type, no dispatch attempted).
      *
-     * @return array{id: int, channel: string, dispatchedAt: ?\DateTimeImmutable, campaignId: int, campaignName: string, stepStatus: string, templateName: string, templateRoute: array{name: string, params: array<string, int|string>}|null, contactId: int, contactEmail: string, contactName: string, failed: bool, metadata: array<string, mixed>}|null
+     * @return array{id: int, channel: string, dispatchedAt: ?\DateTimeImmutable, campaignId: int, campaignName: string, stepStatus: ?string, templateName: string, templateRoute: array{name: string, params: array<string, int|string>}|null, contactId: int, contactEmail: string, contactName: string, failed: bool, metadata: array<string, mixed>}|null
      */
     public function find(int $id): ?array
     {
@@ -182,7 +182,7 @@ class DispatchListReader
     /**
      * @param list<array<string, mixed>> $rows
      *
-     * @return list<array{id: int, channel: string, dispatchedAt: ?\DateTimeImmutable, campaignId: int, campaignName: string, stepStatus: string, templateName: string, templateRoute: array{name: string, params: array<string, int|string>}|null, contactId: int, contactEmail: string, contactName: string, failed: bool, metadata: array<string, mixed>}>
+     * @return list<array{id: int, channel: string, dispatchedAt: ?\DateTimeImmutable, campaignId: int, campaignName: string, stepStatus: ?string, templateName: string, templateRoute: array{name: string, params: array<string, int|string>}|null, contactId: int, contactEmail: string, contactName: string, failed: bool, metadata: array<string, mixed>}>
      */
     private function mapRows(array $rows): array
     {
@@ -206,7 +206,7 @@ class DispatchListReader
                 'dispatchedAt'  => self::dispatchedAt($row['date_triggered']),
                 'campaignId'    => (int) $row['campaign_id'],
                 'campaignName'  => $this->campaignName((int) $row['campaign_id'], (string) $row['campaign_name']),
-                'stepStatus'    => self::stepStatus((string) $row['properties']),
+                'stepStatus'    => self::dispatchStatus(self::metadataOf($row['metadata'])),
                 'templateName'  => null !== $ref ? ($names[$ref[0]][$ref[1]] ?? '#'.$ref[1]) : '-',
                 'templateRoute' => $found ? self::templateRoute($ref[0], $ref[1]) : null,
                 'contactId'     => (int) $row['lead_id'],
@@ -218,6 +218,19 @@ class DispatchListReader
         }
 
         return $items;
+    }
+
+    /**
+     * The mode the step was in when this dispatch ran: the 'status' its log
+     * recorded in the 'n8ndispatch' block; null when the log has none (older rows).
+     *
+     * @param array<string, mixed> $metadata
+     */
+    public static function dispatchStatus(array $metadata): ?string
+    {
+        $status = $metadata['n8ndispatch']['status'] ?? null;
+
+        return in_array($status, ['test', 'production', 'paused'], true) ? $status : null;
     }
 
     /**
