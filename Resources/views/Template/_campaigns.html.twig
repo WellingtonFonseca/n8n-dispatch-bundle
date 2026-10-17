@@ -1,0 +1,41 @@
+{#
+  Shared by the details modals of the SMS and HSM templates: the campaigns that use the template, read only (the edit page's
+  Campaigns tab). Needs: campaignUsages, translationBase.
+#}
+{% set statusIcons = {'test': 'ri-bug-line', 'production': 'ri-play-fill', 'paused': 'ri-pause-fill'} %}
+
+{% if campaignUsages %}
+    <div class="table-responsive">
+        <table class="table table-hover">
+            <thead>
+            <tr>
+                <th>{{ (translationBase ~ '.usages.campaign')|trans }}</th>
+                <th>{{ (translationBase ~ '.usages.step')|trans }}</th>
+                <th>{{ 'mautic.n8ndispatch.campaign.event.status'|trans }}</th>
+            </tr>
+            </thead>
+            <tbody>
+            {% for usage in campaignUsages %}
+                {% set status = statusIcons[usage.status] is defined ? usage.status : 'test' %}
+                <tr>
+                    <td>
+                        <a href="{{ path('mautic_campaign_action', {'objectAction': 'view', 'objectId': usage.campaignId}) }}" target="_blank" rel="noopener">{{ usage.campaignName }}</a>
+                        {% if not usage.campaignPublished %}
+                            <span class="label label-default">{{ (translationBase ~ '.usages.unpublished')|trans }}</span>
+                        {% endif %}
+                    </td>
+                    <td>{{ usage.eventName }}</td>
+                    <td>
+                        <span class="n8ndispatch-timeline-badge n8ndispatch-timeline-badge--{{ status }}">
+                            <i class="{{ statusIcons[status] }}"></i>
+                            {{ ('mautic.n8ndispatch.campaign.event.status.' ~ status)|trans }}
+                        </span>
+                    </td>
+                </tr>
+            {% endfor %}
+            </tbody>
+        </table>
+    </div>
+{% else %}
+    <p class="text-muted">{{ (translationBase ~ '.usages.none')|trans }}</p>
+{% endif %}
