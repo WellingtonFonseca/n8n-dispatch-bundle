@@ -72,7 +72,7 @@
     padding: 2px 10px;
     border-radius: 11px;
     color: #fff;
-    font-size: 11px;
+    font-size: 13px;
     font-weight: 600;
     text-transform: uppercase;
     letter-spacing: 0.02em;
@@ -404,4 +404,17 @@ textarea.n8ndispatch-json-block {
 /* The small titles inside the details modal of an SMS / HSM template ('Texto', 'Variáveis'): air above, so they do not stick to the block before. */
 .n8ndispatch-details .n8ndispatch-template-label {
     margin: 20px 0 6px;
+}
+
+/* Whether an SMS / HSM template is available for use (details modal): green when active, a neutral gray when not. Gray, not red: an inactive template is not an error. */
+.n8ndispatch-timeline-badge--active {
+    background-color: #43a047;
+}
+
+.n8ndispatch-timeline-badge--inactive {
+    background-color: #757575;
+}
+
+.n8ndispatch-template-state {
+    margin-bottom: 12px;
 }
