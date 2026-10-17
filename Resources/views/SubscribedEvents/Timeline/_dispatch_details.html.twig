@@ -126,7 +126,8 @@
         {% if historyEntries %}
         <details class="n8ndispatch-callback-history">
             <summary class="n8ndispatch-timeline-label n8ndispatch-callback-title">{{ 'mautic.n8ndispatch.timeline.callback.history'|trans }}:</summary>
-            <table class="n8ndispatch-callback-history-table">
+            <div class="table-responsive">
+            <table class="table table-hover n8ndispatch-callback-history-table">
                 <thead>
                     <tr>
                         <th>{{ 'mautic.n8ndispatch.timeline.history.type'|trans }}</th>
@@ -180,6 +181,7 @@
                 {% endfor %}
                 </tbody>
             </table>
+            </div>
         </details>
         {% endif %}
     </div>
