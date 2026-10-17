@@ -200,12 +200,16 @@
                             {% endfor %}
                         </td>
                         <td>
-                            {# The mode the campaign step is in now (the same badge as the campaign builder and the card): only 'production' can be resent. #}
-                            {% set stepIcon = {'test': 'ri-bug-line', 'production': 'ri-play-fill', 'paused': 'ri-pause-fill'}[item.stepStatus] %}
-                            <span class="n8ndispatch-timeline-badge n8ndispatch-timeline-badge--{{ item.stepStatus }}">
-                                <i class="{{ stepIcon }}"></i>
-                                {{ ('mautic.n8ndispatch.campaign.event.status.' ~ item.stepStatus)|trans }}
-                            </span>
+                            {# The mode the step was in when it was dispatched (same badge as the campaign builder and the card; the step may have changed since): only 'production' can be resent. #}
+                            {% if item.stepStatus %}
+                                {% set stepIcon = {'test': 'ri-bug-line', 'production': 'ri-play-fill', 'paused': 'ri-pause-fill'}[item.stepStatus] %}
+                                <span class="n8ndispatch-timeline-badge n8ndispatch-timeline-badge--{{ item.stepStatus }}">
+                                    <i class="{{ stepIcon }}"></i>
+                                    {{ ('mautic.n8ndispatch.campaign.event.status.' ~ item.stepStatus)|trans }}
+                                </span>
+                            {% else %}
+                                -
+                            {% endif %}
                         </td>
                         <td>
                             <a href="{{ path('mautic_campaign_action', {'objectAction': 'view', 'objectId': item.campaignId}) }}" target="_blank" rel="noopener">{{ item.campaignName }}</a>
