@@ -83,7 +83,9 @@ contact's Timeline without calling n8n), `production` (real call), or
 
 Variables can come from a static value, a contact field, or a Custom Object
 field. For Custom Object fields, the item(s) used are the ones that match
-the campaign's source segment conditions on that object.
+the campaign's source segment conditions on that object. Which items those
+are is decided by the Custom Objects plugin (`SegmentItemResolver`), shared
+with other plugins; both plugins must be deployed together.
 
 Both template screens split their edit page into a **Template** tab and a
 **Campaigns** tab listing every campaign using the template, and a template
