@@ -6,14 +6,11 @@ namespace MauticPlugin\N8nDispatchBundle\Resolver;
 
 use Mautic\CampaignBundle\Entity\Campaign;
 use Mautic\LeadBundle\Entity\Lead;
-use Mautic\LeadBundle\Segment\ContactSegmentFilter;
-use Mautic\LeadBundle\Segment\ContactSegmentFilterFactory;
 use MauticPlugin\CustomObjectsBundle\Entity\CustomField;
 use MauticPlugin\CustomObjectsBundle\Exception\NotFoundException;
 use MauticPlugin\CustomObjectsBundle\Model\CustomObjectModel;
-use MauticPlugin\CustomObjectsBundle\Segment\Query\Filter\CustomFieldFilterQueryBuilder;
-use MauticPlugin\CustomObjectsBundle\Segment\Query\Filter\CustomItemNameFilterQueryBuilder;
-use MauticPlugin\CustomObjectsBundle\Segment\Query\Filter\CustomObjectMergedFilterQueryBuilder;
+use MauticPlugin\CustomObjectsBundle\Segment\SegmentItemMatcher;
+use MauticPlugin\CustomObjectsBundle\Segment\SegmentItemResolver;
 use Psr\Log\LoggerInterface;
 
 /**
@@ -21,21 +18,9 @@ use Psr\Log\LoggerInterface;
  * customObjectField}) to a string, per contact, at dispatch time.
  *
  * A contact can have many items of the same object; the campaign's source
- * segment(s) say which ones count. The items used are the ones that
- * satisfy EVERY condition the segment has on this object:
- *
- * - The filter list is Mautic's own (ContactSegmentFilterFactory::
- *   getSegmentFilters()), i.e. after the same rewriting the segment build
- *   applies, and grouped the same way: an 'or' glue starts a new group,
- *   conditions inside a group are ANDed.
- * - Inside a group, all conditions on this object must hold for the SAME
- *   item (intersection). Groups add their items together (union), and so
- *   do several segments.
- * - Conditions on contact fields or on other objects don't narrow the
- *   items; they only decide segment membership, which is respected by
- *   skipping segments the contact isn't currently in.
- * - Operators the segment applies as NOT EXISTS keep every item except
- *   the ones matching the positive condition (see SegmentItemMatcher).
+ * segment(s) say which ones count: the Custom Objects plugin's
+ * SegmentItemResolver gives the items that satisfy EVERY condition the
+ * segments have on this object (its rules are described there).
  *
  * If several items remain, their values are joined with $separator:
  * "<br>" by default, because Mirror inserts the value raw into the Email
@@ -43,18 +28,8 @@ use Psr\Log\LoggerInterface;
  */
 class CustomObjectVariableResolver
 {
-    /**
-     * Operators CustomFieldFilterQueryBuilder applies as NOT EXISTS.
-     */
-    private const NEGATED_FIELD_OPERATORS = ['empty', 'neq', 'notLike', '!multiselect', 'notIn', '!between', 'notBetween'];
-
-    /**
-     * Operators CustomItemNameFilterQueryBuilder applies as NOT EXISTS.
-     */
-    private const NEGATED_ITEM_NAME_OPERATORS = ['empty', 'neq', 'notLike'];
-
     public function __construct(
-        private ContactSegmentFilterFactory $segmentFilterFactory,
+        private SegmentItemResolver $itemResolver,
         private SegmentItemMatcher $itemMatcher,
         private CustomObjectModel $customObjectModel,
         private LoggerInterface $logger,
@@ -71,14 +46,10 @@ class CustomObjectVariableResolver
             return '';
         }
 
-        $objectId    = (int) $customObject->getId();
-        $fieldIds    = [];
         $targetField = null;
 
         /** @var CustomField $field */
         foreach ($customObject->getCustomFields() as $field) {
-            $fieldIds[] = (int) $field->getId();
-
             if ($field->getAlias() === $targetFieldAlias) {
                 $targetField = $field;
             }
@@ -90,43 +61,15 @@ class CustomObjectVariableResolver
             return '';
         }
 
-        $hasCondition = false;
-        $itemIds      = [];
+        $itemIds = $this->itemResolver->resolveItemIds($contact, $campaign->getLists(), $customObject);
 
-        foreach ($campaign->getLists() as $segment) {
-            if (!$this->itemMatcher->isContactInSegment($segment, $contact)) {
-                continue;
-            }
-
-            foreach ($this->groupByOr($this->segmentFilterFactory->getSegmentFilters($segment)) as $group) {
-                $groupItemIds = null;
-
-                foreach ($group as $filter) {
-                    if (!$this->isConditionOnObject($filter, $objectId, $fieldIds)) {
-                        continue;
-                    }
-
-                    $conditionItemIds = $this->findItemIds($filter, $contact, $objectId, $fieldIds);
-                    $groupItemIds     = null === $groupItemIds ? $conditionItemIds : array_intersect($groupItemIds, $conditionItemIds);
-                }
-
-                if (null !== $groupItemIds) {
-                    $hasCondition = true;
-                    $itemIds      = array_merge($itemIds, $groupItemIds);
-                }
-            }
-        }
-
-        if (!$hasCondition) {
+        if (null === $itemIds) {
             $this->logger->warning(
                 "N8nDispatch: no segment filter condition found for Custom Object '{$customObjectAlias}' on campaign {$campaign->getId()}'s source segments the contact is in — cannot resolve variable for contact {$contact->getId()}."
             );
 
             return '';
         }
-
-        $itemIds = array_values(array_unique($itemIds));
-        sort($itemIds);
 
         if ([] === $itemIds) {
             return '';
@@ -149,68 +92,5 @@ class CustomObjectVariableResolver
         // An unfilled field is stored as '' or NULL: leave it out instead of
         // producing an empty entry and a stray separator.
         return implode($separator, array_filter($values, static fn (string $value): bool => '' !== $value));
-    }
-
-    /**
-     * @return ContactSegmentFilter[][]
-     */
-    private function groupByOr(iterable $filters): array
-    {
-        $groups  = [];
-        $current = [];
-
-        foreach ($filters as $filter) {
-            if ('or' === strtolower((string) $filter->getGlue()) && [] !== $current) {
-                $groups[] = $current;
-                $current  = [];
-            }
-
-            $current[] = $filter;
-        }
-
-        if ([] !== $current) {
-            $groups[] = $current;
-        }
-
-        return $groups;
-    }
-
-    /**
-     * @param int[] $fieldIds
-     */
-    private function isConditionOnObject(ContactSegmentFilter $filter, int $objectId, array $fieldIds): bool
-    {
-        return match ($filter->getQueryType()) {
-            CustomFieldFilterQueryBuilder::getServiceId()        => in_array((int) $filter->getField(), $fieldIds, true),
-            CustomItemNameFilterQueryBuilder::getServiceId()     => (int) $filter->getField() === $objectId,
-            CustomObjectMergedFilterQueryBuilder::getServiceId() => $this->itemMatcher->mergedFilterConcernsObject($filter, $objectId, $fieldIds),
-            default                                              => false,
-        };
-    }
-
-    /**
-     * @param int[] $fieldIds
-     *
-     * @return int[]
-     */
-    private function findItemIds(ContactSegmentFilter $filter, Lead $contact, int $objectId, array $fieldIds): array
-    {
-        // Merged filter (custom_object_merge_filter ON): its criteria are applied
-        // as written, on the same item, so there is no positive set to negate.
-        if (CustomObjectMergedFilterQueryBuilder::getServiceId() === $filter->getQueryType()) {
-            return $this->itemMatcher->findMergedItemIds($filter, $contact, $objectId, $fieldIds);
-        }
-
-        $positive = $this->itemMatcher->findPositiveItemIds($filter, $contact, $objectId);
-
-        $negatedOperators = CustomItemNameFilterQueryBuilder::getServiceId() === $filter->getQueryType()
-            ? self::NEGATED_ITEM_NAME_OPERATORS
-            : self::NEGATED_FIELD_OPERATORS;
-
-        if (!in_array($filter->getOperator(), $negatedOperators, true)) {
-            return $positive;
-        }
-
-        return array_values(array_diff($this->itemMatcher->findAllItemIds($contact, $objectId), $positive));
     }
 }
