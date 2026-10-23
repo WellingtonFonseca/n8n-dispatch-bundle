@@ -33,8 +33,12 @@ class StatusPoller
         private StatusResponseParser $parser,
         private LoggerInterface $logger,
         private StatusPollSettings $settings,
+        private ?\Closure $sleeper = null,
     ) {
     }
+
+    /** When the last call to n8n started (microtime): the pause between calls counts from it, also from one channel to the next. */
+    private ?float $lastCallAt = null;
 
     /**
      * Asks about every pending id of the channel, $batchSize at a time, one
@@ -92,6 +96,7 @@ class StatusPoller
 
             $afterId = max(array_map(static fn (DispatchTracking $row): int => (int) $row->getId(), $rows));
             $items   = $this->buildItems($rows);
+            $this->pause($limits['delay'] ?? 0);
 
             try {
                 $response = $this->httpClient->request('POST', $webhookUrl, [
@@ -157,6 +162,23 @@ class StatusPoller
      *
      * @return list<array<string, int|string>>
      */
+    /** Waits until $delayMs have passed since the last call, so a long queue does not reach n8n as one burst. */
+    private function pause(int $delayMs): void
+    {
+        $now = microtime(true);
+
+        if ($delayMs > 0 && null !== $this->lastCallAt) {
+            $wait = (int) round($delayMs - ($now - $this->lastCallAt) * 1000);
+
+            if ($wait > 0) {
+                null !== $this->sleeper ? ($this->sleeper)($wait) : usleep($wait * 1000);
+                $now = microtime(true);
+            }
+        }
+
+        $this->lastCallAt = $now;
+    }
+
     private function buildItems(array $rows): array
     {
         $byGroup = [];
