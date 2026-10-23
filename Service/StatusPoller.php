@@ -26,6 +26,9 @@ class StatusPoller
     /** Ceiling of calls in one run per channel: 100,000 ids at 100 a call. Only there so a bug can never loop forever. */
     public const MAX_CALLS = 1000;
 
+    /** When the last call to n8n started (microtime): the pause between calls counts from it, also from one channel to the next. */
+    private ?float $lastCallAt = null;
+
     public function __construct(
         private IntegrationHelper $integrationHelper,
         private HttpClientInterface $httpClient,
@@ -36,9 +39,6 @@ class StatusPoller
         private ?\Closure $sleeper = null,
     ) {
     }
-
-    /** When the last call to n8n started (microtime): the pause between calls counts from it, also from one channel to the next. */
-    private ?float $lastCallAt = null;
 
     /**
      * Asks about every pending id of the channel, $batchSize at a time, one
@@ -153,15 +153,6 @@ class StatusPoller
         return $summary;
     }
 
-    /**
-     * One item per dispatch: the rows sharing a group key (the HSM Mirror
-     * id and Meta uuid) travel together. Mirror-style numeric ids go out as
-     * numbers, the uuid as a string.
-     *
-     * @param list<DispatchTracking> $rows
-     *
-     * @return list<array<string, int|string>>
-     */
     /** Waits until $delayMs have passed since the last call, so a long queue does not reach n8n as one burst. */
     private function pause(int $delayMs): void
     {
@@ -176,6 +167,15 @@ class StatusPoller
             }
         }
 
+    /**
+     * One item per dispatch: the rows sharing a group key (the HSM Mirror
+     * id and Meta uuid) travel together. Mirror-style numeric ids go out as
+     * numbers, the uuid as a string.
+     *
+     * @param list<DispatchTracking> $rows
+     *
+     * @return list<array<string, int|string>>
+     */
         $this->lastCallAt = $now;
     }
 

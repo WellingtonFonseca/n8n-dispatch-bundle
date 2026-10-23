@@ -39,11 +39,12 @@ class StatusPollSettings
     public const MIN_TIMEOUT     = 10;
     public const MAX_TIMEOUT     = 900;
 
-    /** Seconds a whole call may last, never shorter than the timeout. */
+    /** Milliseconds to wait between two calls to n8n; 0 = no pause. */
     public const DEFAULT_DELAY = 1000;
     public const MIN_DELAY     = 0;
     public const MAX_DELAY     = 60000;
 
+    /** Seconds a whole call may last, never shorter than the timeout. */
     public const DEFAULT_MAX_DURATION = 300;
     public const MAX_MAX_DURATION     = 1800;
 
