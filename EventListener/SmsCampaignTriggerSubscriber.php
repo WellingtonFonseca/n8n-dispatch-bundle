@@ -233,7 +233,7 @@ class SmsCampaignTriggerSubscriber implements EventSubscriberInterface
             $this->recordDispatchOutcome($log, $response, $payload, $statusCode);
 
             if ($statusCode >= 300) {
-                $event->fail($log, $this->failureReasons->reason($this->extractFailureReason($response, $statusCode)));
+                $event->fail($log, $this->failureReasons->reason($this->failureReasons->fromResponseBody($response->getContent(false), $statusCode)));
 
                 return;
             }
@@ -313,22 +313,6 @@ class SmsCampaignTriggerSubscriber implements EventSubscriberInterface
             'message'                        => $message,
             'variables'                      => $variables,
         ];
-    }
-
-    /**
-     * Same convention as CampaignTriggerSubscriber::extractFailureReason()
-     * — prefers n8n's own {..., error: "..."} envelope, falls back to the
-     * bare HTTP status.
-     */
-    private function extractFailureReason(ResponseInterface $response, int $statusCode): string
-    {
-        $body = json_decode($response->getContent(false), true);
-
-        if (is_array($body) && !empty($body['error']) && is_string($body['error'])) {
-            return $body['error'];
-        }
-
-        return $this->failureReasons->text(DispatchFailureReasons::HTTP_STATUS, ['%status%' => $statusCode]);
     }
 
     /**
