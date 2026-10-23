@@ -55,10 +55,10 @@ final class DispatchOutcomeRecorder
         // when it isn't valid JSON) — the Timeline card just dumps it as-is,
         // so if Mirror's response shape grows new fields later, they show up
         // there automatically, no template change needed.
-        $n8ndispatch = $payload + [
+        $n8ndispatch = array_merge($payload + [
             'response'       => is_array($body) ? $body : $rawBody,
             'httpStatusCode' => $statusCode,
-        ] + $extra;
+        ], $extra);
 
         // The log was persisted before the step ran, so it has its id; it ties
         // this attempt, and what n8n reports about it later, to the contact's

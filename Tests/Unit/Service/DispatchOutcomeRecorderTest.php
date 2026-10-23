@@ -69,6 +69,27 @@ class DispatchOutcomeRecorderTest extends TestCase
         DispatchOutcomeRecorder::record($this->tracker, $this->log, DispatchTracking::CHANNEL_HSM, self::IDS, [], " plain text\n", 200, true);
     }
 
+    public function testASingleIdChannelAndAnExtraEntryThatBeatsThePayloadsOwn(): void
+    {
+        $ids = [['body' => 'logSendEmailId', 'meta' => 'logSendEmailId', 'ref' => DispatchTracking::REF_EMAIL]];
+        $this->tracker->expects($this->once())->method('register')->with(DispatchTracking::CHANNEL_EMAIL, [DispatchTracking::REF_EMAIL => 'e1'], null, 55);
+        $this->log->expects($this->once())->method('appendToMetadata')->with([
+            'n8ndispatch'    => ['templateCopyHash' => 'real', 'response' => ['logSendEmailId' => 'e1'], 'httpStatusCode' => 200],
+            'logSendEmailId' => 'e1',
+        ]);
+
+        DispatchOutcomeRecorder::record($this->tracker, $this->log, DispatchTracking::CHANNEL_EMAIL, $ids, ['templateCopyHash' => 'stale'], '{"logSendEmailId":"e1"}', 200, true, ['templateCopyHash' => 'real']);
+    }
+
+    public function testAJsonAnswerThatIsNotAnObjectIsKeptAsTextAndHasNoIds(): void
+    {
+        $this->tracker->expects($this->once())->method('recordDispatch')->with(55, true, $this->anything(), '5');
+        $this->tracker->expects($this->never())->method('register');
+        $this->log->expects($this->once())->method('appendToMetadata')->with(['n8ndispatch' => ['response' => '5', 'httpStatusCode' => 200]]);
+
+        DispatchOutcomeRecorder::record($this->tracker, $this->log, DispatchTracking::CHANNEL_HSM, self::IDS, [], '5', 200, true);
+    }
+
     public function testItWorksWithoutAStatusTracker(): void
     {
         $this->log->expects($this->once())->method('appendToMetadata');
