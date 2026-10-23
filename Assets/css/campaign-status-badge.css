@@ -34,10 +34,22 @@
     display: flex;
     align-items: center;
     justify-content: center;
+    transition: flex-basis 0.2s ease, width 0.2s ease, opacity 0.1s ease;
+}
+
+/* Closed it is the icon; on hover the icon gives way and the word takes its place (the word of the twin badges: 13px, uppercase). */
+.n8ndispatch-status-badge:hover i {
+    flex-basis: 0;
+    width: 0;
+    opacity: 0;
 }
 
 .n8ndispatch-status-badge__label {
-    padding-right: 10px;
+    padding: 0 10px;
+    font-size: 13px;
+    font-weight: 600;
+    text-transform: uppercase;
+    letter-spacing: 0.02em;
     opacity: 0;
     transition: opacity 0.15s ease 0.05s;
 }
