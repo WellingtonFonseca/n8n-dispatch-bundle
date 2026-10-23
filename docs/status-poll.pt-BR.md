@@ -172,6 +172,7 @@ A configuração fica em **Settings > Plugins > N8n Dispatch > aba Features**:
 | Verificar o status dos disparos (callback) | **Desligado** | Liga/desliga. Ligue para o Mautic começar a perguntar ao n8n. |
 | Verificar a cada (minutos) | 60 | `60` = 1 hora, `120` = 2 horas. Mínimo 5, máximo 1440. |
 | Ids por chamada ao n8n | 100 | Tamanho do lote (de 10 a 1000). Também vale para o botão **Verificar agora** e para o comando, quando não se passa `--batch`. |
+| Pausa entre chamadas ao n8n (milissegundos) | 1000 | Quanto esperar entre duas chamadas (de 0 a 60000), também de um canal para o seguinte, para o n8n não receber todos os lotes de uma vez. `0` = sem pausa (útil para testar). Não limita o intervalo entre rodadas. Vale também para o botão **Verificar agora** (entre os canais) e para o comando manual: com `0` eles perguntam sem esperar. |
 | Timeout sem resposta (segundos) | 180 | Quanto o Mautic espera o n8n responder uma chamada (de 10 a 900). |
 | Duração máxima de uma chamada (segundos) | 300 | O máximo que uma chamada inteira pode durar (até 1800); nunca menor que o timeout. |
 | Última rodada | (só leitura) | Data, resultado (ok/erro) e o resumo da última rodada agendada. |

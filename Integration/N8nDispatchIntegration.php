@@ -99,6 +99,19 @@ class N8nDispatchIntegration extends AbstractIntegration
             'constraints' => [new Range(min: StatusPollSettings::MIN_BATCH, max: StatusPollSettings::MAX_BATCH)],
         ]);
 
+        $builder->add(StatusPollSettings::KEY_DELAY, IntegerType::class, [
+            'label'       => 'mautic.n8ndispatch.settings.status_poll.delay',
+            'data'        => $current['delay'],
+            'label_attr'  => ['class' => 'control-label'],
+            'attr'        => [
+                'class'   => 'form-control',
+                'tooltip' => 'mautic.n8ndispatch.settings.status_poll.delay.tooltip',
+                'min'     => StatusPollSettings::MIN_DELAY,
+                'max'     => StatusPollSettings::MAX_DELAY,
+            ],
+            'constraints' => [new Range(min: StatusPollSettings::MIN_DELAY, max: StatusPollSettings::MAX_DELAY)],
+        ]);
+
         $builder->add(StatusPollSettings::KEY_TIMEOUT, IntegerType::class, [
             'label'       => 'mautic.n8ndispatch.settings.status_poll.timeout',
             'data'        => $current['timeout'],

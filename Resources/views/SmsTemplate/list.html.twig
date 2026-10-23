@@ -76,6 +76,18 @@
                                     'clone': permissions['sms:smses:create'],
                                     'delete': securityHasEntityAccess(permissions['sms:smses:deleteown'], permissions['sms:smses:deleteother'], item.getCreatedBy()),
                                 },
+                                'customButtons': securityHasEntityAccess(permissions['sms:smses:editown'], permissions['sms:smses:editother'], item.getCreatedBy()) ? [{
+                                    'attr': {
+                                        'data-toggle': 'n8n-status',
+                                        'data-n8n-status-action': item.isPublished() ? 'deactivate' : 'activate',
+                                        'data-text-activate': 'mautic.n8ndispatch.template.status.activate'|trans,
+                                        'data-text-deactivate': 'mautic.n8ndispatch.template.status.deactivate'|trans,
+                                        'href': 'javascript:void(0);',
+                                    },
+                                    'btnText': (item.isPublished() ? 'mautic.n8ndispatch.template.status.deactivate' : 'mautic.n8ndispatch.template.status.activate')|trans,
+                                    'iconClass': item.isPublished() ? 'ri-close-circle-line' : 'ri-checkbox-circle-line',
+                                    'priority': 300,
+                                }] : [],
                                 'routeBase': 'n8ndispatch.smstemplate',
                                 'langVar': 'n8ndispatch.smstemplate',
                                 'translationBase': 'mautic.n8ndispatch.smstemplate',
@@ -83,6 +95,9 @@
                         </td>
                         <td>
                             <div>
+                                <span class="n8ndispatch-timeline-badge n8ndispatch-template-status n8ndispatch-timeline-badge--{{ item.isPublished() ? 'production' : 'failed' }}"
+                                      data-state="{{ item.isPublished() ? 'published' : 'unpublished' }}"
+                                      data-text-published="{{ 'mautic.core.form.active'|trans }}" data-text-unpublished="{{ 'mautic.core.form.inactive'|trans }}">{{ (item.isPublished() ? 'mautic.core.form.active' : 'mautic.core.form.inactive')|trans }}</span>
                                 {{- include('@MauticCore/Helper/publishstatus_icon.html.twig', {
                                     'item': item,
                                     'model': 'n8ndispatch.smstemplate',

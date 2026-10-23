@@ -23,6 +23,7 @@ class StatusPollSettings
     public const KEY_BATCH        = 'status_poll_batch';
     public const KEY_TIMEOUT      = 'status_poll_timeout';
     public const KEY_MAX_DURATION = 'status_poll_max_duration';
+    public const KEY_DELAY        = 'status_poll_delay';
 
     public const DEFAULT_INTERVAL = 60;
     public const MIN_INTERVAL     = 5;
@@ -37,6 +38,11 @@ class StatusPollSettings
     public const DEFAULT_TIMEOUT = 180;
     public const MIN_TIMEOUT     = 10;
     public const MAX_TIMEOUT     = 900;
+
+    /** Milliseconds to wait between two calls to n8n; 0 = no pause. */
+    public const DEFAULT_DELAY = 1000;
+    public const MIN_DELAY     = 0;
+    public const MAX_DELAY     = 60000;
 
     /** Seconds a whole call may last, never shorter than the timeout. */
     public const DEFAULT_MAX_DURATION = 300;
@@ -71,6 +77,8 @@ class StatusPollSettings
             'interval'    => self::clamp($featureSettings[self::KEY_INTERVAL] ?? null, self::MIN_INTERVAL, self::MAX_INTERVAL, self::DEFAULT_INTERVAL),
             'batch'       => self::clamp($featureSettings[self::KEY_BATCH] ?? null, self::MIN_BATCH, self::MAX_BATCH, self::DEFAULT_BATCH),
             'timeout'     => $timeout,
+            // milliseconds to wait between two calls to n8n (0 = no pause)
+            'delay'       => self::clamp($featureSettings[self::KEY_DELAY] ?? null, self::MIN_DELAY, self::MAX_DELAY, self::DEFAULT_DELAY),
             // a whole call can never be allowed less time than its own idle timeout
             'maxDuration' => max($timeout, self::clamp($featureSettings[self::KEY_MAX_DURATION] ?? null, self::MIN_TIMEOUT, self::MAX_MAX_DURATION, self::DEFAULT_MAX_DURATION)),
         ];

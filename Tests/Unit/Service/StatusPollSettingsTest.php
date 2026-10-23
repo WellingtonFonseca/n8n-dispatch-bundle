@@ -14,7 +14,7 @@ class StatusPollSettingsTest extends TestCase
     public function testIsOffByDefault(): void
     {
         $this->assertSame(
-            ['enabled' => false, 'interval' => 60, 'batch' => 100, 'timeout' => 180, 'maxDuration' => 300],
+            ['enabled' => false, 'interval' => 60, 'batch' => 100, 'timeout' => 180, 'delay' => 1000, 'maxDuration' => 300],
             StatusPollSettings::fromArray([])
         );
     }
@@ -90,6 +90,16 @@ class StatusPollSettingsTest extends TestCase
     {
         $this->assertFalse(StatusPollSettings::isStale($this->runStartedAt('2026-10-02 09:30:00'), 5, new \DateTimeImmutable('2026-10-02 10:00:00')));
         $this->assertTrue(StatusPollSettings::isStale($this->runStartedAt('2026-10-02 08:30:00'), 5, new \DateTimeImmutable('2026-10-02 10:00:00')));
+    }
+
+    public function testThePauseBetweenCallsIsInMillisecondsAndKeptInsideTheAllowedRange(): void
+    {
+        $this->assertSame(1000, StatusPollSettings::fromArray([])['delay'], 'one second by default');
+        $this->assertSame(0, StatusPollSettings::fromArray([StatusPollSettings::KEY_DELAY => 0])['delay'], '0 is no pause');
+        $this->assertSame(2500, StatusPollSettings::fromArray([StatusPollSettings::KEY_DELAY => '2500'])['delay']);
+        $this->assertSame(0, StatusPollSettings::fromArray([StatusPollSettings::KEY_DELAY => -5])['delay']);
+        $this->assertSame(60000, StatusPollSettings::fromArray([StatusPollSettings::KEY_DELAY => 999999])['delay']);
+        $this->assertSame(1000, StatusPollSettings::fromArray([StatusPollSettings::KEY_DELAY => 'abc'])['delay']);
     }
 
     #[DataProvider('batches')]

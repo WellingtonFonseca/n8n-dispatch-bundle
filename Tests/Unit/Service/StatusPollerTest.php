@@ -277,6 +277,68 @@ class StatusPollerTest extends TestCase
         $this->assertNull($summary['error']);
     }
 
+    private function pollerWithDelay(int $delayMs, array &$sleeps): StatusPoller
+    {
+        $settings = $this->createMock(StatusPollSettings::class);
+        $settings->method('current')->willReturn(['enabled' => false, 'interval' => 60, 'batch' => 2, 'timeout' => 180, 'delay' => $delayMs, 'maxDuration' => 300]);
+
+        return new StatusPoller($this->integrationHelper, $this->httpClient, $this->tracker, new StatusResponseParser(), $this->createMock(LoggerInterface::class), $settings, function (int $ms) use (&$sleeps): void { $sleeps[] = $ms; });
+    }
+
+    public function testItPausesBetweenTwoCallsButNotBeforeTheFirst(): void
+    {
+        $this->mockIntegration(true, ['webhook_url' => 'https://n8n.example.test/hook']);
+        $this->tracker->method('pending')->willReturnCallback(fn (string $c, string $o, int $limit, int $age, \DateTimeImmutable $now, int $after): array => match ($after) {
+            0       => $this->page([1, 2]),
+            2       => $this->page([3, 4]),
+            4       => $this->page([5]),
+            default => [],
+        });
+        $this->httpClient->expects($this->exactly(3))->method('request')->willReturn($this->response(200, '{"items":[]}'));
+        $this->tracker->method('apply')->willReturn(['changed' => 1, 'unchanged' => 1, 'unknown' => 0]);
+        $sleeps = [];
+
+        $this->pollerWithDelay(1500, $sleeps)->poll(DispatchTracking::CHANNEL_EMAIL, 2, 7, DispatchTracking::OUTCOME_PENDING, null, $this->now);
+
+        $this->assertCount(2, $sleeps, 'three calls, two pauses: none before the first');
+        foreach ($sleeps as $ms) {
+            $this->assertGreaterThan(1400, $ms);
+            $this->assertLessThanOrEqual(1500, $ms);
+        }
+    }
+
+    public function testThePauseAlsoSeparatesTwoChannelsOfTheSamePoller(): void
+    {
+        $this->mockIntegration(true, ['webhook_url' => 'https://n8n.example.test/hook']);
+        $this->tracker->method('pending')->willReturnCallback(fn (string $c, string $o, int $limit, int $age, \DateTimeImmutable $now, int $after): array => 0 === $after ? $this->page([1]) : []);
+        $this->httpClient->method('request')->willReturn($this->response(200, '{"items":[]}'));
+        $this->tracker->method('apply')->willReturn(['changed' => 1, 'unchanged' => 0, 'unknown' => 0]);
+        $sleeps = [];
+        $poller = $this->pollerWithDelay(1000, $sleeps);
+
+        $poller->poll(DispatchTracking::CHANNEL_EMAIL, 2, 7, DispatchTracking::OUTCOME_PENDING, null, $this->now);
+        $poller->poll(DispatchTracking::CHANNEL_SMS, 2, 7, DispatchTracking::OUTCOME_PENDING, null, $this->now);
+
+        $this->assertCount(1, $sleeps, 'the first call of the second channel waits for the last call of the first');
+    }
+
+    public function testAZeroPauseNeverSleeps(): void
+    {
+        $this->mockIntegration(true, ['webhook_url' => 'https://n8n.example.test/hook']);
+        $this->tracker->method('pending')->willReturnCallback(fn (string $c, string $o, int $limit, int $age, \DateTimeImmutable $now, int $after): array => match ($after) {
+            0       => $this->page([1, 2]),
+            2       => $this->page([3, 4]),
+            default => [],
+        });
+        $this->httpClient->method('request')->willReturn($this->response(200, '{"items":[]}'));
+        $this->tracker->method('apply')->willReturn(['changed' => 1, 'unchanged' => 1, 'unknown' => 0]);
+        $sleeps = [];
+
+        $this->pollerWithDelay(0, $sleeps)->poll(DispatchTracking::CHANNEL_EMAIL, 2, 7, DispatchTracking::OUTCOME_PENDING, null, $this->now);
+
+        $this->assertSame([], $sleeps);
+    }
+
     public function testAFullLastPageIsFollowedByOneMoreReadOfTheQueue(): void
     {
         $this->mockIntegration(true, ['webhook_url' => 'https://n8n.example.test/hook']);

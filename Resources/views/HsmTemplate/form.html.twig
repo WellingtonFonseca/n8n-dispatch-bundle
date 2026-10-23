@@ -159,11 +159,6 @@
                         {% if entity.id %}
                             {# Same status pill as the contact History card
                                (SubscribedEvents/Timeline/_email_send.html.twig). #}
-                            {% set statusIcons = {
-                                'test':       'ri-bug-line',
-                                'production': 'ri-play-fill',
-                                'paused':     'ri-pause-fill',
-                            } %}
                             <div class="tab-pane fade bdr-w-0" id="hsm-campaigns-container">
                                 {% if campaignUsages is defined and campaignUsages is not empty %}
                                     <table class="table table-condensed">
@@ -185,9 +180,8 @@
                                                 </td>
                                                 <td>{{ usage.eventName }}</td>
                                                 <td>
-                                                    {% set status = statusIcons[usage.status] is defined ? usage.status : 'test' %}
+                                                    {% set status = usage.status in ['test', 'production', 'paused'] ? usage.status : 'test' %}
                                                     <span class="n8ndispatch-timeline-badge n8ndispatch-timeline-badge--{{ status }}">
-                                                        <i class="{{ statusIcons[status] }}"></i>
                                                         {{ ('mautic.n8ndispatch.campaign.event.status.' ~ status)|trans }}
                                                     </span>
                                                 </td>

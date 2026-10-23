@@ -36,8 +36,13 @@
     justify-content: center;
 }
 
+/* On hover the icon stays where the pointer is and the word opens to its right (the word of the twin badges: 13px, uppercase). */
 .n8ndispatch-status-badge__label {
-    padding-right: 10px;
+    padding: 0 10px;
+    font-size: 13px;
+    font-weight: 600;
+    text-transform: uppercase;
+    letter-spacing: 0.02em;
     opacity: 0;
     transition: opacity 0.15s ease 0.05s;
 }
@@ -66,16 +71,20 @@
  * circle (there's no hover affordance to protect here).
  */
 .n8ndispatch-timeline-badge {
+    /* MauticPatchesBundle has a twin for the Mautic lists, .patches-badge (SegmentStatusSubscriber::BADGE_STYLE): keep the two in step. */
     display: inline-flex;
     align-items: center;
+    justify-content: center;
     gap: 4px;
     padding: 2px 10px;
     border-radius: 11px;
     color: #fff;
     font-size: 13px;
     font-weight: 600;
+    line-height: normal;
     text-transform: uppercase;
     letter-spacing: 0.02em;
+    white-space: nowrap;
 }
 
 .n8ndispatch-timeline-badge--test {
@@ -88,6 +97,19 @@
 
 .n8ndispatch-timeline-badge--paused {
     background-color: #fb8c00;
+}
+
+/* The translucent ones of the twin (.patches-badge--info / --neutral): not used by an n8n screen yet, here so the two families stay equal. */
+.n8ndispatch-timeline-badge--info {
+    background-color: rgba(30, 136, 229, 0.16);
+    color: #1e88e5;
+    box-shadow: inset 0 0 0 1px rgba(30, 136, 229, 0.45);
+}
+
+.n8ndispatch-timeline-badge--neutral {
+    background-color: rgba(120, 120, 120, 0.16);
+    color: var(--text-secondary, #6f6f6f);
+    box-shadow: inset 0 0 0 1px rgba(120, 120, 120, 0.4);
 }
 
 .n8ndispatch-timeline-header {
@@ -417,4 +439,40 @@ textarea.n8ndispatch-json-block {
 
 .n8ndispatch-template-state {
     margin-bottom: 12px;
+}
+
+/* Status of the SMS / HSM template lists (Assets/js/template-status-toggle.js): the badge is the Timeline one with a fixed width (the
+   one of INATIVO), core's toggle icon is hidden, and the first menu item is red / green on hover like the status it leads to. */
+.n8ndispatch-template-status {
+    min-width: 76px;
+    justify-content: center;
+    margin-right: 8px;
+    box-sizing: border-box;
+}
+
+#hsmTemplateTable i[class*="-publish-icon"],
+#smsTemplateTable i[class*="-publish-icon"] {
+    display: none !important;
+}
+
+a[data-n8n-status-action]:hover {
+    color: var(--text-inverse) !important;
+}
+
+a[data-n8n-status-action="deactivate"]:hover {
+    background-color: var(--support-error) !important;
+}
+
+a[data-n8n-status-action="activate"]:hover {
+    background-color: var(--support-success) !important;
+}
+
+a[data-n8n-status-action]:hover * {
+    color: inherit !important;
+}
+
+/* The description under the name is hidden in the lists that have the status badge (the same as the segment, campaign and email lists
+   of MauticPatchesBundle): it is still on the form and the details. */
+td:has(.n8ndispatch-template-status) > div.text-muted {
+    display: none !important;
 }
