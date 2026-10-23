@@ -165,7 +165,7 @@ comandos começa (`mautic:campaigns:trigger`, `mautic:campaigns:update` ou
 `mautic:segments:update`), o plugin vê se está na hora e, se estiver, dispara o
 status poll em segundo plano, sem atrasar o comando que o acordou.
 
-A configuração fica em **Settings > Plugins > N8n Dispatch > aba Features**:
+A configuração fica em **Settings > Plugins > N8N Dispatch > aba Features**:
 
 | Campo | Padrão | Para quê |
 |---|---|---|
@@ -208,7 +208,7 @@ botão aparece, por canal, quantos ids foram perguntados e o que mudou, ou o err
   há mais de 2 horas é considerada morta e deixa de bloquear a seguinte.
 - Ligado e sem nenhuma rodada ainda: mostra "Ainda não rodou" (começa na próxima
   rodada do cron do Mautic).
-- Também é preciso que a integração N8n Dispatch esteja habilitada e com a
+- Também é preciso que a integração N8N Dispatch esteja habilitada e com a
   `webhook_url` configurada.
 
 ### O comando (para rodar à mão ou em um cron de verdade, se quiserem)

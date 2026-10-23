@@ -36,7 +36,7 @@ class N8nDispatchIntegration extends AbstractIntegration
 
     public function getDisplayName(): string
     {
-        return 'N8n Dispatch';
+        return 'N8N Dispatch';
     }
 
     public function getAuthenticationType(): string

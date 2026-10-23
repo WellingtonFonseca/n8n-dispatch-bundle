@@ -26,7 +26,7 @@ class DispatchFailureReasonsTest extends TestCase
         yield 'sms template' => [DispatchFailureReasons::SMS_TEMPLATE_NOT_FOUND, ['%id%' => 7], 'N8nDispatch: SMS template #7 not found.'];
         yield 'hsm template' => [DispatchFailureReasons::HSM_TEMPLATE_NOT_FOUND, ['%id%' => 7], 'N8nDispatch: HSM template #7 not found.'];
         yield 'email template' => [DispatchFailureReasons::EMAIL_TEMPLATE_MISSING, [], 'N8nDispatch: the configured Email template no longer exists.'];
-        yield 'integration' => [DispatchFailureReasons::INTEGRATION_DISABLED, [], 'N8nDispatch: the N8n Dispatch integration is not configured/enabled.'];
+        yield 'integration' => [DispatchFailureReasons::INTEGRATION_DISABLED, [], 'N8nDispatch: the N8N Dispatch integration is not configured/enabled.'];
         yield 'webhook' => [DispatchFailureReasons::WEBHOOK_MISSING, [], 'N8nDispatch: webhook_url is not configured.'];
         yield 'dnc' => [DispatchFailureReasons::DO_NOT_CONTACT, ['%channel%' => 'sms'], 'N8nDispatch: contact is on the Do Not Contact list for sms.'];
         yield 'phone' => [DispatchFailureReasons::NO_PHONE, [], 'N8nDispatch: contact has no phone number.'];

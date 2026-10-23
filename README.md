@@ -1,4 +1,4 @@
-# N8n Dispatch Bundle
+# N8N Dispatch Bundle
 
 Mautic 5 plugin that syncs Email templates to Mirror on save, and dispatches
 Email, SMS and HSM (WhatsApp template) sends through n8n instead of Mautic's
@@ -49,7 +49,7 @@ Mautic autoloads plugins from `docroot/plugins/<PluginDirectoryName>` (or
    again after pulling a version that bumps `version` in
    `Config/config.php`.
 
-3. In the Mautic UI, go to **Settings > Plugins**, find **N8n Dispatch**,
+3. In the Mautic UI, go to **Settings > Plugins**, find **N8N Dispatch**,
    open it and:
    - Set **webhook_url** — the n8n webhook that receives this plugin's calls.
    - Set **webhook_token** — sent on every call as the

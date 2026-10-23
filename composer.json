@@ -10,7 +10,7 @@
     ],
     "extra": {
         "install-directory-name": "N8nDispatchBundle",
-        "display-name": "N8n Dispatch"
+        "display-name": "N8N Dispatch"
     },
     "license": "proprietary",
     "require": {
