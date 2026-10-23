@@ -187,7 +187,6 @@
                                                 <td>
                                                     {% set status = statusIcons[usage.status] is defined ? usage.status : 'test' %}
                                                     <span class="n8ndispatch-timeline-badge n8ndispatch-timeline-badge--{{ status }}">
-                                                        <i class="{{ statusIcons[status] }}"></i>
                                                         {{ ('mautic.n8ndispatch.campaign.event.status.' ~ status)|trans }}
                                                     </span>
                                                 </td>

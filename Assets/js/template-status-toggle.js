@@ -20,14 +20,18 @@
 
     function paintBadge(badge, state) {
         if (badge.getAttribute('data-state') === state) { return; }
-        var doc = badge.ownerDocument, icon = doc.createElement('i'), text = doc.createTextNode('');
+        var doc = badge.ownerDocument, text = doc.createTextNode('');
         var failed = state === 'unpublished';
         badge.className = 'n8ndispatch-timeline-badge n8ndispatch-template-status n8ndispatch-timeline-badge--'
             + (state === 'busy' ? 'pending' : (failed ? 'failed' : 'production'));
-        icon.className = state === 'busy' ? 'ri-loader-3-line ri-spin' : (failed ? 'ri-close-line' : 'ri-check-line');
         text.nodeValue = state === 'busy' ? '' : badge.getAttribute('data-text-' + state);
         while (badge.firstChild) { badge.removeChild(badge.firstChild); }
-        badge.appendChild(icon);
+        // the word and the color tell the status; only the wait has an icon
+        if (state === 'busy') {
+            var spinner = doc.createElement('i');
+            spinner.className = 'ri-loader-3-line ri-spin';
+            badge.appendChild(spinner);
+        }
         badge.appendChild(text);
         badge.setAttribute('data-state', state);
     }

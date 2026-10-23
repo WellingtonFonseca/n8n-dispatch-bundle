@@ -27,27 +27,19 @@
 
 {% set n8n = item.metadata.n8ndispatch is defined ? item.metadata.n8ndispatch : null %}
 {% if n8n %}
-    {% set statusIcon = {
-        'test':       'ri-bug-line',
-        'production': 'ri-play-fill',
-        'paused':     'ri-pause-fill',
-    }[n8n.status]|default('ri-bug-line') %}
     <div class="n8ndispatch-timeline">
         <div class="n8ndispatch-timeline-header">
             <span class="n8ndispatch-timeline-badge n8ndispatch-timeline-badge--{{ n8n.status }}">
-                <i class="{{ statusIcon }}"></i>
                 {{ ('mautic.n8ndispatch.campaign.event.status.' ~ n8n.status)|trans }}
             </span>
 
             {% if n8n.httpStatusCode is defined %}
                 {% if n8n.httpStatusCode >= 200 and n8n.httpStatusCode < 300 %}
                 <span class="n8ndispatch-timeline-badge n8ndispatch-timeline-badge--success">
-                    <i class="ri-check-line"></i>
                     {{ 'mautic.n8ndispatch.timeline.status.success'|trans }}
                 </span>
                 {% else %}
                 <span class="n8ndispatch-timeline-badge n8ndispatch-timeline-badge--failed">
-                    <i class="ri-close-line"></i>
                     {{ 'mautic.n8ndispatch.timeline.status.failed'|trans }}
                 </span>
                 {% endif %}
@@ -85,7 +77,6 @@
         {% if callbacks %}
         {% for callback in callbacks %}
             {% set badgeClass = {'success': 'success', 'error': 'failed', 'pending': 'pending'}[callback.outcome] %}
-            {% set badgeIcon  = {'success': 'ri-check-line', 'error': 'ri-close-line', 'pending': 'ri-time-line'}[callback.outcome] %}
             {# Email/SMS: 'Callback'. HSM: one block per id, 'Callback' (the Mirror id) and 'Callback Meta'. #}
             <p class="n8ndispatch-timeline-label n8ndispatch-callback-title">{{ (callback.refType == 'logSendHsmId' or callback.refType == 'logSendHsmUuid' ? 'mautic.n8ndispatch.timeline.callback.ref.' ~ callback.refType : 'mautic.n8ndispatch.timeline.callback')|trans }}:</p>
             <div class="n8ndispatch-callback">
@@ -98,7 +89,6 @@
                 </div>
                 <div class="n8ndispatch-callback-row">
                     <span class="n8ndispatch-timeline-badge n8ndispatch-timeline-badge--{{ badgeClass }}">
-                        <i class="{{ badgeIcon }}"></i>
                         {{ ('mautic.n8ndispatch.timeline.callback.outcome.' ~ callback.outcome)|trans }}
                     </span>
                 </div>
@@ -156,18 +146,15 @@
                             #}
                             {% if isDispatch and entry.outcome in ['test', 'paused'] %}
                             <span class="n8ndispatch-timeline-badge n8ndispatch-timeline-badge--{{ entry.outcome }}">
-                                <i class="{{ {'test': 'ri-bug-line', 'paused': 'ri-pause-fill'}[entry.outcome] }}"></i>
                                 {{ ('mautic.n8ndispatch.campaign.event.status.' ~ entry.outcome)|trans }}
                             </span>
                             {% else %}
                             {% if isDispatch %}
                             <span class="n8ndispatch-timeline-badge n8ndispatch-timeline-badge--production" style="margin-bottom: 4px;">
-                                <i class="ri-play-fill"></i>
                                 {{ 'mautic.n8ndispatch.campaign.event.status.production'|trans }}
                             </span><br/>
                             {% endif %}
                             <span class="n8ndispatch-timeline-badge n8ndispatch-timeline-badge--{{ badgeKey }}">
-                                <i class="{{ {'success': 'ri-check-line', 'failed': 'ri-close-line', 'pending': 'ri-time-line'}[badgeKey] }}"></i>
                                 {{ (isDispatch ? 'mautic.n8ndispatch.timeline.status.' ~ (entry.outcome == 'success' ? 'success' : 'failed') : 'mautic.n8ndispatch.timeline.callback.outcome.' ~ entry.outcome)|trans }}
                             </span>
                             {% endif %}

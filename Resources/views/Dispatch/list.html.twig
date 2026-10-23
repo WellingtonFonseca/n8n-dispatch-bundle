@@ -185,15 +185,13 @@
                             #}
                             {% for callback in callbacks %}
                                 {% set badgeClass = {'success': 'success', 'error': 'failed', 'pending': 'pending'}[callback.outcome] %}
-                                {% set badgeIcon  = {'success': 'ri-check-line', 'error': 'ri-close-line', 'pending': 'ri-time-line'}[callback.outcome] %}
                                 <span class="n8ndispatch-timeline-badge n8ndispatch-timeline-badge--{{ badgeClass }}"{% if callback.message %} title="{{ callback.message }}"{% endif %}>
-                                    <i class="{{ badgeIcon }}"></i>
                                     {{ ('mautic.n8ndispatch.timeline.callback.outcome.' ~ callback.outcome)|trans }}
                                 </span>
                             {% else %}
                                 {# No callback: either nothing to ask about, or the call itself was refused. #}
                                 {% if item.failed %}
-                                    <span class="n8ndispatch-timeline-badge n8ndispatch-timeline-badge--failed"><i class="ri-close-line"></i> {{ 'mautic.n8ndispatch.timeline.status.failed'|trans }}</span>
+                                    <span class="n8ndispatch-timeline-badge n8ndispatch-timeline-badge--failed">{{ 'mautic.n8ndispatch.timeline.status.failed'|trans }}</span>
                                 {% else %}
                                     -
                                 {% endif %}
@@ -202,9 +200,7 @@
                         <td>
                             {# The mode the step was in when it was dispatched (same badge as the campaign builder and the card; the step may have changed since): only 'production' can be resent. #}
                             {% if item.stepStatus %}
-                                {% set stepIcon = {'test': 'ri-bug-line', 'production': 'ri-play-fill', 'paused': 'ri-pause-fill'}[item.stepStatus] %}
                                 <span class="n8ndispatch-timeline-badge n8ndispatch-timeline-badge--{{ item.stepStatus }}">
-                                    <i class="{{ stepIcon }}"></i>
                                     {{ ('mautic.n8ndispatch.campaign.event.status.' ~ item.stepStatus)|trans }}
                                 </span>
                             {% else %}

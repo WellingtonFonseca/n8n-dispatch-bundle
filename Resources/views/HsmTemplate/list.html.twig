@@ -110,7 +110,7 @@
                             <div>
                                 <span class="n8ndispatch-timeline-badge n8ndispatch-template-status n8ndispatch-timeline-badge--{{ item.isPublished() ? 'production' : 'failed' }}"
                                       data-state="{{ item.isPublished() ? 'published' : 'unpublished' }}"
-                                      data-text-published="{{ 'mautic.core.form.active'|trans }}" data-text-unpublished="{{ 'mautic.core.form.inactive'|trans }}"><i class="{{ item.isPublished() ? 'ri-check-line' : 'ri-close-line' }}"></i>{{ (item.isPublished() ? 'mautic.core.form.active' : 'mautic.core.form.inactive')|trans }}</span>
+                                      data-text-published="{{ 'mautic.core.form.active'|trans }}" data-text-unpublished="{{ 'mautic.core.form.inactive'|trans }}">{{ (item.isPublished() ? 'mautic.core.form.active' : 'mautic.core.form.inactive')|trans }}</span>
                                 {{- include('@MauticCore/Helper/publishstatus_icon.html.twig', {
                                     'item': item,
                                     'model': 'n8ndispatch.hsmtemplate',
