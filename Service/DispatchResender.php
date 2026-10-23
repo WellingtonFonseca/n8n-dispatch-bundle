@@ -246,7 +246,7 @@ class DispatchResender
         // HSM's workflow does not always return a body; an empty one is a failure there too (same rule as its listener).
         if ($statusCode >= 300 || (DispatchTracking::CHANNEL_HSM === $channel && '' === trim($rawBody))) {
             $reason = $this->failureReasons->reason(
-                '' === trim($rawBody) ? $this->failureReasons->text(DispatchFailureReasons::EMPTY_RESPONSE, ['%action%' => self::ACTION_BY_CHANNEL[$channel]]) : $this->failureText($rawBody, $statusCode)
+                '' === trim($rawBody) ? $this->failureReasons->text(DispatchFailureReasons::EMPTY_RESPONSE, ['%action%' => self::ACTION_BY_CHANNEL[$channel]]) : $this->failureReasons->fromResponseBody($rawBody, $statusCode)
             );
 
             return $this->recordFailure($log, $channel, $body, $statusCode, $rawBody, $reason, $note, $userEmail);
@@ -322,17 +322,6 @@ class DispatchResender
         $decoded = json_decode($trimmed, true);
 
         return is_array($decoded) ? $decoded : $trimmed;
-    }
-
-    private function failureText(string $rawBody, int $statusCode): string
-    {
-        $decoded = json_decode($rawBody, true);
-
-        if (is_array($decoded) && !empty($decoded['error']) && is_string($decoded['error'])) {
-            return $decoded['error'];
-        }
-
-        return $this->failureReasons->text(DispatchFailureReasons::HTTP_STATUS, ['%status%' => $statusCode]);
     }
 
     /**
