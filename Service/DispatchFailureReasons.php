@@ -57,4 +57,21 @@ class DispatchFailureReasons
     {
         return $this->reason($this->text($key, $parameters));
     }
+
+    /**
+     * Prefers the human-readable message n8n's workflow puts in the response
+     * body's 'error' field (e.g. "code 404, Entity not found - contact") so
+     * it shows up as-is on the contact's Timeline — falls back to the plain
+     * HTTP status code if the body isn't JSON or has no such field.
+     */
+    public function fromResponseBody(string $rawBody, int $statusCode): string
+    {
+        $body = json_decode($rawBody, true);
+
+        if (is_array($body) && !empty($body['error']) && is_string($body['error'])) {
+            return $body['error'];
+        }
+
+        return $this->text(self::HTTP_STATUS, ['%status%' => $statusCode]);
+    }
 }
