@@ -1,5 +1,5 @@
 /**
- * The "Check now" button on Settings > Plugins > N8n Dispatch > Features
+ * The "Check now" button on Settings > Plugins > N8N Dispatch > Features
  * (N8nDispatchIntegration::addCheckNowButton()). Asks n8n about the pending
  * dispatches once, right away (AjaxController::runStatusPollAction), and
  * shows what happened per channel, as a JSON block, under the button — so the n8n workflow can

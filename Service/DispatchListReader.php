@@ -11,7 +11,7 @@ use MauticPlugin\N8nDispatchBundle\Entity\HsmTemplate;
 use MauticPlugin\N8nDispatchBundle\Entity\SmsTemplate;
 
 /**
- * Feeds the N8n Dispatch > Dispatches table: one row per campaign log of the
+ * Feeds the N8N Dispatch > Dispatches table: one row per campaign log of the
  * three n8n actions that really tried to dispatch (its metadata carries the
  * 'n8ndispatch' block), newest first, with the template's name and the
  * contact's name.

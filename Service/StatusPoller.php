@@ -61,7 +61,7 @@ class StatusPoller
 
         if ('' === $webhookUrl) {
             if (!$integration || !$integration->getIntegrationSettings()->isPublished()) {
-                $summary['error'] = 'the N8n Dispatch integration is not configured/enabled.';
+                $summary['error'] = 'the N8N Dispatch integration is not configured/enabled.';
 
                 return $summary;
             }

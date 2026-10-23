@@ -11,7 +11,7 @@ use MauticPlugin\N8nDispatchBundle\Integration\N8nDispatchIntegration;
 
 /**
  * The status poll's two settings, kept on the plugin's own screen
- * (Settings > Plugins > N8n Dispatch > Features, see
+ * (Settings > Plugins > N8N Dispatch > Features, see
  * N8nDispatchIntegration::appendToForm()): on/off — off until someone turns
  * it on —, how often in minutes, and how the calls to n8n are made: ids per
  * call and the timeouts.

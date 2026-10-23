@@ -1,4 +1,4 @@
-# N8n Dispatch Bundle
+# N8N Dispatch Bundle
 
 Mautic 5 plugin that syncs Email templates to Mirror on save, and dispatches
 Email, SMS and HSM (WhatsApp template) sends through n8n instead of Mautic's
@@ -49,7 +49,7 @@ Mautic autoloads plugins from `docroot/plugins/<PluginDirectoryName>` (or
    again after pulling a version that bumps `version` in
    `Config/config.php`.
 
-3. In the Mautic UI, go to **Settings > Plugins**, find **N8n Dispatch**,
+3. In the Mautic UI, go to **Settings > Plugins**, find **N8N Dispatch**,
    open it and:
    - Set **webhook_url** — the n8n webhook that receives this plugin's calls.
    - Set **webhook_token** — sent on every call as the
@@ -75,7 +75,7 @@ All calls go to the configured `webhook_url`; n8n tells them apart by the
 | **Send via n8n (HSM)** — pick an HSM Template | Campaign Action | `hsm.send` |
 | **SMS Templates (n8n)** — message text + variable mapping, reused by many campaigns. The name in the list opens a read-only details modal (a middle click on the name opens the same modal, not a new tab: `Assets/js/template-modal-middle-click.js`) (Active / Inactive badge, Template and Campaigns tabs, Close / Edit in the footer). In the list, the status is a badge (ATIVO / INATIVO) at the start of the name with Desativar / Ativar as the first item of the row menu, and the description is hidden | Channels menu | — |
 | **HSM Templates (n8n)** — router, WhatsApp-side template reference, send type (Text or Image Carousel: 2 to 10 https image URLs, sent as `cards`), and `{{variable}}` mapping, reused by many campaigns. The name in the list opens the same kind of read-only details modal; the list has the same status badge and menu item, and the Router and HSM Template columns after the name | Channels menu | — |
-| **Dispatches** — every dispatch the three actions made, with filters, details and **Resend** for the ones in error | N8n Dispatch menu (needs Campaigns > Full) | — (resend: the original's) |
+| **Dispatches** — every dispatch the three actions made, with filters, details and **Resend** for the ones in error | N8N Dispatch menu, with the n8n logo as its icon (needs Campaigns > Full) | — (resend: the original's) |
 
 Each campaign step has a **status**: `test` (records the payload on the
 contact's Timeline without calling n8n), `production` (real call), or
@@ -123,7 +123,7 @@ template when another one is picked. For the steps that already exist, run once
 `php bin/console n8ndispatch:events:sync-names`. Code: `Service/EventNameSync.php`,
 `EventListener/EventNameSubscriber.php`, `Command/EventNamesSyncCommand.php`.
 
-**Dispatches screen** (main menu > N8n Dispatch > Disparos, needs Campaigns > The campaign shows as `PREFIX - Name` (the prefix of MauticPatchesBundle) in the table, the filter and the details.
+**Dispatches screen** (main menu > N8N Dispatch > Disparos, needs Campaigns > Full). The campaign shows as `PREFIX - Name` (the prefix of MauticPatchesBundle) in the table, the filter and the details.
 Full): one row per dispatch, with the callback badge (HSM: Meta's), the status
 the step had when it was dispatched (test, production or paused; a dash on
 older dispatches that did not record it), links to the campaign, template and contact, and a

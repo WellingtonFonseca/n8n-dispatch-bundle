@@ -21,7 +21,7 @@ use Symfony\Contracts\HttpClient\HttpClientInterface;
  * Whenever an Email template is saved in Mautic (UI or API — both go
  * through EmailModel::saveEntity(), which dispatches EMAIL_POST_SAVE),
  * sends {mautic_template_id, subject, html, hash, from_name, from_address,
- * modified_by_email} to the endpoint configured on the "N8n Dispatch"
+ * modified_by_email} to the endpoint configured on the "N8N Dispatch"
  * integration (Settings > Plugins). from_name/from_address are included
  * because a single institution can have more than one sender identity
  * across its templates — the endpoint needs to know which one this

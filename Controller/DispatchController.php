@@ -14,7 +14,7 @@ use Symfony\Component\HttpFoundation\Response;
 use Symfony\Contracts\Translation\TranslatorInterface;
 
 /**
- * N8n Dispatch (main menu) > Disparos: the table of dispatches the three n8n
+ * N8N Dispatch (main menu) > Disparos: the table of dispatches the three n8n
  * campaign actions made. Page size follows core's own convention, the
  * 'mautic.<sessionVar>.limit' session key the pagination helper's limit
  * selector writes.
