@@ -482,7 +482,7 @@ td:has(.n8ndispatch-template-status) > div.text-muted {
 .n8ndispatch-logo-icon {
     /* the box keeps the width core gives every menu icon (26px, so the names line up); the logo is drawn smaller inside it */
     height: 1.4em;
-    --n8ndispatch-logo: url('/plugins/N8nDispatchBundle/Assets/img/n8n-logo.svg');
+    --n8ndispatch-logo: url('../img/n8n-logo.svg'); /* relative to this file: it follows the plugin wherever the plugins folder is served */
     background-color: currentColor;
     -webkit-mask: var(--n8ndispatch-logo) center / 20px auto no-repeat;
     mask: var(--n8ndispatch-logo) center / 20px auto no-repeat;

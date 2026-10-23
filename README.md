@@ -123,7 +123,7 @@ template when another one is picked. For the steps that already exist, run once
 `php bin/console n8ndispatch:events:sync-names`. Code: `Service/EventNameSync.php`,
 `EventListener/EventNameSubscriber.php`, `Command/EventNamesSyncCommand.php`.
 
-**Dispatches screen** (main menu > N8N Dispatch > Disparos, needs Campaigns > The campaign shows as `PREFIX - Name` (the prefix of MauticPatchesBundle) in the table, the filter and the details.
+**Dispatches screen** (main menu > N8N Dispatch > Disparos, needs Campaigns > Full). The campaign shows as `PREFIX - Name` (the prefix of MauticPatchesBundle) in the table, the filter and the details.
 Full): one row per dispatch, with the callback badge (HSM: Meta's), the status
 the step had when it was dispatched (test, production or paused; a dash on
 older dispatches that did not record it), links to the campaign, template and contact, and a
