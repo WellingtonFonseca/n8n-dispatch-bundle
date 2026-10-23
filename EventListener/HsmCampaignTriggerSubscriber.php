@@ -253,7 +253,7 @@ class HsmCampaignTriggerSubscriber implements EventSubscriberInterface
             if ($statusCode >= 300 || '' === trim($rawBody)) {
                 $reason = '' === trim($rawBody)
                     ? $this->failureReasons->text(DispatchFailureReasons::EMPTY_RESPONSE, ['%action%' => self::ACTION])
-                    : $this->extractFailureReason($rawBody, $statusCode);
+                    : $this->failureReasons->fromResponseBody($rawBody, $statusCode);
                 $event->fail($log, $this->failureReasons->reason($reason));
 
                 return;
@@ -334,22 +334,6 @@ class HsmCampaignTriggerSubscriber implements EventSubscriberInterface
         }
 
         return $payload;
-    }
-
-    /**
-     * Same convention as CampaignTriggerSubscriber::extractFailureReason()
-     * — prefers n8n's own {..., error: "..."} envelope, falls back to the
-     * bare HTTP status.
-     */
-    private function extractFailureReason(string $rawBody, int $statusCode): string
-    {
-        $body = json_decode($rawBody, true);
-
-        if (is_array($body) && !empty($body['error']) && is_string($body['error'])) {
-            return $body['error'];
-        }
-
-        return $this->failureReasons->text(DispatchFailureReasons::HTTP_STATUS, ['%status%' => $statusCode]);
     }
 
     /**
