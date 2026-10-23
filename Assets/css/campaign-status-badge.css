@@ -480,11 +480,9 @@ td:has(.n8ndispatch-template-status) > div.text-muted {
 /* The icon of the "N8N Dispatch" main menu entry (Config/config.php, iconClass): n8n's own logo mark (Assets/img/n8n-logo.svg, the mark only,
    without the name) drawn as a mask, so it takes the color of the menu text like the other icons, in every theme. */
 .n8ndispatch-logo-icon {
-    display: inline-block;
-    width: 1.4em;
+    /* the box keeps the width core gives every menu icon (26px, so the names line up); the logo is drawn smaller inside it */
     height: 1.4em;
-    vertical-align: middle;
     background-color: currentColor;
-    -webkit-mask: url('/plugins/N8nDispatchBundle/Assets/img/n8n-logo.svg') center / contain no-repeat;
-    mask: url('/plugins/N8nDispatchBundle/Assets/img/n8n-logo.svg') center / contain no-repeat;
+    -webkit-mask: url('/plugins/N8nDispatchBundle/Assets/img/n8n-logo.svg') center / 20px auto no-repeat;
+    mask: url('/plugins/N8nDispatchBundle/Assets/img/n8n-logo.svg') center / 20px auto no-repeat;
 }
