@@ -418,3 +418,33 @@ textarea.n8ndispatch-json-block {
 .n8ndispatch-template-state {
     margin-bottom: 12px;
 }
+
+/* Status of the SMS / HSM template lists (Assets/js/template-status-toggle.js): the badge is the Timeline one with a fixed width (the
+   one of INATIVO), core's toggle icon is hidden, and the first menu item is red / green on hover like the status it leads to. */
+.n8ndispatch-template-status {
+    min-width: 92px;
+    justify-content: center;
+    margin-right: 8px;
+    box-sizing: border-box;
+}
+
+#hsmTemplateTable i[class*="-publish-icon"],
+#smsTemplateTable i[class*="-publish-icon"] {
+    display: none !important;
+}
+
+a[data-n8n-status-action]:hover {
+    color: var(--text-inverse) !important;
+}
+
+a[data-n8n-status-action="deactivate"]:hover {
+    background-color: var(--support-error) !important;
+}
+
+a[data-n8n-status-action="activate"]:hover {
+    background-color: var(--support-success) !important;
+}
+
+a[data-n8n-status-action]:hover * {
+    color: inherit !important;
+}

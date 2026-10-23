@@ -11,7 +11,8 @@ use Symfony\Component\EventDispatcher\EventSubscriberInterface;
 /**
  * Loads n8ndispatch-shared.js, email-tab-variables.js, email-sender-alert.js,
  * campaign-sms-dispatch.js, campaign-hsm-dispatch.js,
- * campaign-timeline-scheduled.js, campaign-preview-icons.js, and
+ * campaign-timeline-scheduled.js, campaign-preview-icons.js,
+ * template-status-toggle.js, and
  * campaign-status-badge.css globally,
  * the same way GrapesJsBuilderBundle injects its own JS/vars via
  * 'page.header.left' (a context rendered on every admin page, not just the
@@ -56,6 +57,7 @@ class AssetInjectionSubscriber implements EventSubscriberInterface
         $checkNowJsRelativePath    = 'Assets/js/status-poll-check-now.js';
         $resendJsRelativePath      = 'Assets/js/dispatch-resend.js';
         $middleClickJsRelativePath = 'Assets/js/template-modal-middle-click.js';
+        $statusJsRelativePath      = 'Assets/js/template-status-toggle.js';
         $cssRelativePath           = 'Assets/css/campaign-status-badge.css';
 
         $customContentEvent->addContent(
@@ -69,6 +71,7 @@ class AssetInjectionSubscriber implements EventSubscriberInterface
             .'<script src="/plugins/N8nDispatchBundle/'.$checkNowJsRelativePath.'?v='.$this->assetVersion($checkNowJsRelativePath).'"></script>'
             .'<script src="/plugins/N8nDispatchBundle/'.$resendJsRelativePath.'?v='.$this->assetVersion($resendJsRelativePath).'"></script>'
             .'<script src="/plugins/N8nDispatchBundle/'.$middleClickJsRelativePath.'?v='.$this->assetVersion($middleClickJsRelativePath).'"></script>'
+            .'<script src="/plugins/N8nDispatchBundle/'.$statusJsRelativePath.'?v='.$this->assetVersion($statusJsRelativePath).'"></script>'
             .'<link rel="stylesheet" href="/plugins/N8nDispatchBundle/'.$cssRelativePath.'?v='.$this->assetVersion($cssRelativePath).'">'
         );
     }
