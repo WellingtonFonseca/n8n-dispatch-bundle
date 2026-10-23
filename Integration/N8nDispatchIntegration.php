@@ -17,7 +17,7 @@ use Symfony\Component\Validator\Constraints\Range;
 use Symfony\Component\Validator\Context\ExecutionContextInterface;
 
 /**
- * Gives this plugin a "Settings > Plugins > N8n Dispatch" screen with two
+ * Gives this plugin a "Settings > Plugins > N8N Dispatch" screen with two
  * plain text fields (no OAuth) — the webhook URL that receives the
  * {mautic_template_id, html, hash} payload on every Email save, and an
  * auth token sent as a plain "X-N8n-Dispatch-Token" header (matches n8n's
