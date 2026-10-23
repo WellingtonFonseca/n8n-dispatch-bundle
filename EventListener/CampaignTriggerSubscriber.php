@@ -228,7 +228,7 @@ class CampaignTriggerSubscriber implements EventSubscriberInterface
             // what's already there, so the full n8ndispatch response
             // (headers/body/statusCode — see recordDispatchOutcome() below)
             // survives into a failed log's metadata too. A single bare HTTP
-            // status code or the trimmed extractFailureReason() string
+            // status code or the trimmed failure reason string
             // wasn't enough to diagnose a real failure (a 404 alone doesn't
             // say whether it's a missing template, missing contact, or bad
             // variables) — Resources/views/SubscribedEvents/Timeline/
@@ -245,7 +245,7 @@ class CampaignTriggerSubscriber implements EventSubscriberInterface
                 // "Email sent", and it's a better fit than the contact's
                 // history staying blank for an attempt that did happen.
                 $this->createStat($email, $contact, $contactEmail, $idHash, $templateCopyHash, true);
-                $event->fail($log, $this->failureReasons->reason($this->extractFailureReason($response, $statusCode)));
+                $event->fail($log, $this->failureReasons->reason($this->failureReasons->fromResponseBody($response->getContent(false), $statusCode)));
 
                 return;
             }
@@ -443,29 +443,10 @@ class CampaignTriggerSubscriber implements EventSubscriberInterface
     }
 
     /**
-     * Prefers the human-readable message n8n's workflow puts in the response
-     * body's 'error' field (e.g. "code 404, Entity not found - contact") so
-     * it shows up as-is on the contact's Timeline in the Mautic UI — falls
-     * back to the plain HTTP status code if the body isn't JSON or doesn't
-     * have that field, so a webhook that doesn't follow this convention
-     * still fails with a useful-enough reason instead of a parse error.
-     */
-    private function extractFailureReason(ResponseInterface $response, int $statusCode): string
-    {
-        $body = json_decode($response->getContent(false), true);
-
-        if (is_array($body) && !empty($body['error']) && is_string($body['error'])) {
-            return $body['error'];
-        }
-
-        return $this->failureReasons->text(DispatchFailureReasons::HTTP_STATUS, ['%status%' => $statusCode]);
-    }
-
-    /**
      * Called on every outcome (success or failure — see dispatchToContact(),
      * this runs before the statusCode >= 300 branch decides pass()/fail()),
      * not just a successful dispatch. A bare HTTP status code or the
-     * trimmed extractFailureReason() string isn't enough to actually
+     * trimmed failure reason string isn't enough to actually
      * diagnose a real failure — a 404 alone doesn't say whether it's a
      * missing template, a missing contact, or bad variables — so the full
      * response (headers/body/statusCode) needs to reach the Timeline

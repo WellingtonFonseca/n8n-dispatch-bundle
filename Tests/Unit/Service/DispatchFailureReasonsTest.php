@@ -56,6 +56,25 @@ class DispatchFailureReasonsTest extends TestCase
         $this->assertSame('webhook returned HTTP 502.', $this->reasons->text(DispatchFailureReasons::HTTP_STATUS, ['%status%' => 502]));
     }
 
+    /**
+     * @return iterable<string, array{string, string}>
+     */
+    public static function responseBodies(): iterable
+    {
+        yield 'n8n error text' => ['{"error":"code 404, Entity not found - contact"}', 'code 404, Entity not found - contact'];
+        yield 'empty error' => ['{"error":""}', 'webhook returned HTTP 502.'];
+        yield 'error not a string' => ['{"error":{"message":"x"}}', 'webhook returned HTTP 502.'];
+        yield 'json without error' => ['{"ok":false}', 'webhook returned HTTP 502.'];
+        yield 'not json' => ['Bad Gateway', 'webhook returned HTTP 502.'];
+        yield 'empty body' => ['', 'webhook returned HTTP 502.'];
+    }
+
+    #[DataProvider('responseBodies')]
+    public function testTheFailureReasonOfAResponseIsN8nsErrorOrTheHttpStatus(string $rawBody, string $expected): void
+    {
+        $this->assertSame($expected, $this->reasons->fromResponseBody($rawBody, 502));
+    }
+
     public function testItAsksTheTranslatorForTheKeyAndTheParameters(): void
     {
         $translator = $this->createMock(TranslatorInterface::class);
