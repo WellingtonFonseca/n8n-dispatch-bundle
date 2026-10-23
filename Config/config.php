@@ -46,7 +46,7 @@ return [
         'main' => [
             'mautic.n8ndispatch.menu.root' => [
                 'id'        => 'mautic_n8ndispatch_root',
-                'iconClass' => 'ri-send-plane-fill',
+                'iconClass' => 'n8ndispatch-logo-icon',
                 'access'    => 'campaign:campaigns:full',
                 'priority'  => 35,
             ],

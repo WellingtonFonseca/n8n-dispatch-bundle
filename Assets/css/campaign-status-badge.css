@@ -476,3 +476,15 @@ a[data-n8n-status-action]:hover * {
 td:has(.n8ndispatch-template-status) > div.text-muted {
     display: none !important;
 }
+
+/* The icon of the "N8N Dispatch" main menu entry (Config/config.php, iconClass): n8n's own logo mark (Assets/img/n8n-logo.svg, the mark only,
+   without the name) drawn as a mask, so it takes the color of the menu text like the other icons, in every theme. */
+.n8ndispatch-logo-icon {
+    display: inline-block;
+    width: 1.4em;
+    height: 1.4em;
+    vertical-align: middle;
+    background-color: currentColor;
+    -webkit-mask: url('/plugins/N8nDispatchBundle/Assets/img/n8n-logo.svg') center / contain no-repeat;
+    mask: url('/plugins/N8nDispatchBundle/Assets/img/n8n-logo.svg') center / contain no-repeat;
+}
