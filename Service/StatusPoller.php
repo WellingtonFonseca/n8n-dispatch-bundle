@@ -167,6 +167,9 @@ class StatusPoller
             }
         }
 
+        $this->lastCallAt = $now;
+    }
+
     /**
      * One item per dispatch: the rows sharing a group key (the HSM Mirror
      * id and Meta uuid) travel together. Mirror-style numeric ids go out as
@@ -176,9 +179,6 @@ class StatusPoller
      *
      * @return list<array<string, int|string>>
      */
-        $this->lastCallAt = $now;
-    }
-
     private function buildItems(array $rows): array
     {
         $byGroup = [];
