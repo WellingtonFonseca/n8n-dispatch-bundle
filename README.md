@@ -83,7 +83,9 @@ contact's Timeline without calling n8n), `production` (real call), or
 
 Variables can come from a static value, a contact field, or a Custom Object
 field. For Custom Object fields, the item(s) used are the ones that match
-the campaign's source segment conditions on that object.
+the campaign's source segment conditions on that object. Which items those
+are is decided by the Custom Objects plugin (`SegmentItemResolver`), shared
+with other plugins; both plugins must be deployed together.
 
 Both template screens split their edit page into a **Template** tab and a
 **Campaigns** tab listing every campaign using the template, and a template
@@ -164,7 +166,7 @@ This branch is the port to Mautic 7.2; it also runs on the Mautic 5.2 core.
 
 - The controllers of the SMS and HSM templates do not override the constructor (Mautic 7 removed `MauticFactory` from the core controller); their `UsageFinder` comes in through a `#[Required]` setter.
 - The integration arguments in `Config/config.php` follow the core version (no session in Mautic 7, `FieldsWithUniqueIdentifier` last).
-- `Resolver/SegmentFilterSource` wraps `ContactSegmentFilterFactory`, which is `final` in Mautic 7 (it cannot be mocked).
+- The item selection of the Custom Object variables is the Custom Objects plugin's `SegmentItemResolver`, which reaches the segment's filters through its `SegmentFilterSource`: a wrapper of `ContactSegmentFilterFactory`, which is `final` in Mautic 7 (it cannot be mocked).
 - `Resolver/SegmentItemMatcher` tells an item name from a Custom Field by the `cmo_<object id>` field of the matching Custom Objects branch. Deploy both together, or this bundle first.
 - PHPUnit 12 is used on Mautic 7: tests use `#[DataProvider]`.
 - Live checks: `scripts/7/test-all.sh` in the workspace (resolver, status poll and backfill, HSM carousel form).
