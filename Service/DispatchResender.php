@@ -10,7 +10,6 @@ use Mautic\LeadBundle\Entity\DoNotContact;
 use Mautic\LeadBundle\Model\DoNotContact as DncModel;
 use Mautic\PluginBundle\Helper\IntegrationHelper;
 use MauticPlugin\N8nDispatchBundle\Entity\DispatchTracking;
-use MauticPlugin\N8nDispatchBundle\Integration\N8nDispatchIntegration;
 use MauticPlugin\N8nDispatchBundle\Twig\StatusExtension;
 use Psr\Log\LoggerInterface;
 use Symfony\Contracts\HttpClient\HttpClientInterface;
@@ -208,27 +207,13 @@ class DispatchResender
             return $this->failed($this->failureReasons->translated(DispatchFailureReasons::DO_NOT_CONTACT, ['%channel%' => $dncChannel]));
         }
 
-        $integration = $this->integrationHelper->getIntegrationObject(N8nDispatchIntegration::NAME);
+        $webhook = WebhookSettings::forAction($this->integrationHelper, self::ACTION_BY_CHANNEL[$channel]);
 
-        if (!$integration || !$integration->getIntegrationSettings()->isPublished()) {
-            return $this->failed($this->failureReasons->translated(DispatchFailureReasons::INTEGRATION_DISABLED));
+        if (is_string($webhook)) {
+            return $this->failed($this->failureReasons->translated($webhook));
         }
 
-        $keys       = $integration->getKeys();
-        $webhookUrl = trim((string) ($keys['webhook_url'] ?? ''));
-
-        if ('' === $webhookUrl) {
-            return $this->failed($this->failureReasons->translated(DispatchFailureReasons::WEBHOOK_MISSING));
-        }
-
-        $headers = [
-            'Content-Type'          => 'application/json',
-            'X-N8n-Dispatch-Action' => self::ACTION_BY_CHANNEL[$channel],
-        ];
-        $token = trim((string) ($keys['webhook_token'] ?? ''));
-        if ('' !== $token) {
-            $headers['X-N8n-Dispatch-Token'] = $token;
-        }
+        ['url' => $webhookUrl, 'headers' => $headers] = $webhook;
 
         $note = $this->note($userEmail);
 
