@@ -4,25 +4,19 @@ declare(strict_types=1);
 
 namespace MauticPlugin\N8nDispatchBundle\EventListener;
 
-use Mautic\CampaignBundle\Entity\Campaign;
-use Mautic\CampaignBundle\Entity\LeadEventLog;
 use Mautic\CampaignBundle\Event\PendingEvent;
-use Mautic\LeadBundle\Entity\DoNotContact;
 use Mautic\LeadBundle\Entity\Lead;
 use Mautic\LeadBundle\Model\DoNotContact as DncModel;
 use Mautic\PluginBundle\Helper\IntegrationHelper;
-use MauticPlugin\N8nDispatchBundle\Entity\HsmTemplate;
 use MauticPlugin\N8nDispatchBundle\Entity\DispatchTracking;
+use MauticPlugin\N8nDispatchBundle\Entity\HsmTemplate;
 use MauticPlugin\N8nDispatchBundle\Model\HsmTemplateModel;
 use MauticPlugin\N8nDispatchBundle\N8nDispatchEvents;
 use MauticPlugin\N8nDispatchBundle\Resolver\LocaleConventions;
 use MauticPlugin\N8nDispatchBundle\Resolver\VariableResolver;
 use MauticPlugin\N8nDispatchBundle\Service\DispatchFailureReasons;
-use MauticPlugin\N8nDispatchBundle\Service\DispatchOutcomeRecorder;
 use MauticPlugin\N8nDispatchBundle\Service\StatusTracker;
-use MauticPlugin\N8nDispatchBundle\Service\WebhookSettings;
 use Psr\Log\LoggerInterface;
-use Symfony\Component\EventDispatcher\EventSubscriberInterface;
 use Symfony\Contracts\HttpClient\HttpClientInterface;
 
 /**
@@ -67,27 +61,19 @@ use Symfony\Contracts\HttpClient\HttpClientInterface;
  *   'n8ndispatch'-metadata card (same timelineTemplate as Email/SMS), just
  *   without a second, natively-categorized entry alongside it.
  */
-class HsmCampaignTriggerSubscriber implements EventSubscriberInterface
+class HsmCampaignTriggerSubscriber extends AbstractTemplateDispatchSubscriber
 {
-    private const CONTEXT = 'n8ndispatch.hsm.send';
-    private const ACTION  = 'hsm.send';
-
-    // Joins a Custom Object variable's values when several items match —
-    // same reasoning as SmsCampaignTriggerSubscriber's own constant:
-    // WhatsApp messages are plain text too, so '<br>' would show up
-    // literally.
-    private const MULTI_VALUE_SEPARATOR = ', ';
-
     public function __construct(
-        private IntegrationHelper $integrationHelper,
-        private HttpClientInterface $httpClient,
-        private LoggerInterface $logger,
-        private VariableResolver $variableResolver,
-        private DncModel $dncModel,
+        IntegrationHelper $integrationHelper,
+        HttpClientInterface $httpClient,
+        LoggerInterface $logger,
+        VariableResolver $variableResolver,
+        DncModel $dncModel,
         private HsmTemplateModel $hsmTemplateModel,
-        private DispatchFailureReasons $failureReasons,
-        private ?StatusTracker $statusTracker = null,
+        DispatchFailureReasons $failureReasons,
+        ?StatusTracker $statusTracker = null,
     ) {
+        parent::__construct($integrationHelper, $httpClient, $logger, $variableResolver, $dncModel, $failureReasons, $statusTracker);
     }
 
     public static function getSubscribedEvents(): array
@@ -99,13 +85,53 @@ class HsmCampaignTriggerSubscriber implements EventSubscriberInterface
 
     public function onHsmSend(PendingEvent $event): void
     {
-        if (!$event->checkContext(self::CONTEXT)) {
-            return;
-        }
+        $this->handle($event);
+    }
 
-        $config        = $event->getEvent()->getProperties();
-        $campaign      = $event->getEvent()->getCampaign();
-        $status        = (string) ($config['status'] ?? 'test');
+    protected function context(): string
+    {
+        return 'n8ndispatch.hsm.send';
+    }
+
+    protected function action(): string
+    {
+        return 'hsm.send';
+    }
+
+    protected function label(): string
+    {
+        return 'HSM';
+    }
+
+    protected function channel(): string
+    {
+        return DispatchTracking::CHANNEL_HSM;
+    }
+
+    protected function trackedIds(): array
+    {
+        return [
+            ['body' => 'logSendHsmId', 'meta' => 'logSendHsmId', 'ref' => DispatchTracking::REF_HSM_ID],
+            // The Meta broker's own id for the message — its status is separate
+            // from the Mirror's (logSendHsmId), so it is kept and tracked on its own.
+            ['body' => 'uuid', 'meta' => 'logSendHsmUuid', 'ref' => DispatchTracking::REF_HSM_UUID],
+        ];
+    }
+
+    /**
+     * Unlike Email/SMS, n8n's workflow side for this channel doesn't
+     * reliably return a real body yet (confirmed live: a 200 with an empty
+     * body, meaning the request landed but nothing indicates whether a
+     * WhatsApp send actually happened) — until it does, an empty response is
+     * a failure too, not just a status code >= 300, on request.
+     */
+    protected function emptyAnswerFails(): bool
+    {
+        return true;
+    }
+
+    protected function step(PendingEvent $event, array $config): ?array
+    {
         $router        = (string) ($config['router'] ?? '');
         $hsmTemplate   = (string) ($config['hsmId'] ?? '');
         $hsmType       = HsmTemplate::TYPE_TEXT;
@@ -123,7 +149,7 @@ class HsmCampaignTriggerSubscriber implements EventSubscriberInterface
             if (null === $template) {
                 $event->failAll($this->failureReasons->translated(DispatchFailureReasons::HSM_TEMPLATE_NOT_FOUND, ['%id%' => $templateId]));
 
-                return;
+                return null;
             }
 
             $router        = (string) $template->getRouter();
@@ -134,164 +160,10 @@ class HsmCampaignTriggerSubscriber implements EventSubscriberInterface
             $cards         = HsmTemplate::TYPE_CAROUSEL === $hsmType ? $template->getCardsPayload() : [];
         }
 
-        $variablesConfig = json_decode($variablesJson, true);
-        $variablesConfig = is_array($variablesConfig) ? $variablesConfig : [];
-
-        if ('test' === $status || 'paused' === $status) {
-            foreach ($event->getContacts() as $logId => $contact) {
-                /** @var LeadEventLog $log */
-                $log = $event->getPending()->get($logId);
-
-                $this->recordWithoutDispatch($event, $log, $contact, $campaign, $router, $hsmTemplate, $hsmType, $status, $variablesConfig, $language, $cards);
-            }
-
-            return;
-        }
-
-        $webhook = WebhookSettings::forAction($this->integrationHelper, self::ACTION);
-
-        if (is_string($webhook)) {
-            $event->failAll($this->failureReasons->translated($webhook));
-
-            return;
-        }
-
-        ['url' => $webhookUrl, 'headers' => $headers] = $webhook;
-
-        /** @var Lead $contact */
-        foreach ($event->getContacts() as $logId => $contact) {
-            /** @var LeadEventLog $log */
-            $log = $event->getPending()->get($logId);
-
-            $this->dispatchToContact($event, $log, $contact, $campaign, $router, $hsmTemplate, $hsmType, $status, $variablesConfig, $language, $webhookUrl, $headers, $cards);
-        }
+        return ['router' => $router, 'hsmTemplate' => $hsmTemplate, 'type' => $hsmType, 'variablesJson' => $variablesJson, 'language' => $language, 'cards' => $cards];
     }
 
-    /**
-     * @param array<string, array<string, mixed>> $variablesConfig
-     * @param array<string, string>               $headers
-     * @param list<array<string, mixed>>          $cards
-     */
-    private function dispatchToContact(
-        PendingEvent $event,
-        LeadEventLog $log,
-        Lead $contact,
-        Campaign $campaign,
-        string $router,
-        string $hsmTemplate,
-        string $hsmType,
-        string $status,
-        array $variablesConfig,
-        string $language,
-        string $webhookUrl,
-        array $headers,
-        array $cards = [],
-    ): void {
-        // Same DNC gap as the Email/SMS dispatch paths (see
-        // CampaignTriggerSubscriber::dispatchToContact() for the full
-        // reasoning). HSM/WhatsApp has no native Mautic channel of its own
-        // to check against, so this reuses the 'sms' channel as the closest
-        // real proxy — a contact opted out of SMS is treated as opted out
-        // of HSM too, on request.
-        if (DoNotContact::IS_CONTACTABLE !== $this->dncModel->isContactable($contact, 'sms')) {
-            $event->fail($log, $this->failureReasons->translated(DispatchFailureReasons::DO_NOT_CONTACT, ['%channel%' => 'sms']));
-
-            return;
-        }
-
-        $phone = (string) $contact->getPhone();
-
-        // A WhatsApp HSM has to go to a real number just as much as an
-        // SMS does — same per-contact fail rather than failing the whole
-        // batch, see SmsCampaignTriggerSubscriber's own version of this
-        // check.
-        if ('' === $phone) {
-            $event->fail($log, $this->failureReasons->translated(DispatchFailureReasons::NO_PHONE));
-
-            return;
-        }
-
-        $variables = $this->variableResolver->resolveAll($variablesConfig, $contact, $campaign, self::MULTI_VALUE_SEPARATOR, $language);
-        $payload   = $this->buildPayload($contact, $phone, $router, $hsmTemplate, $hsmType, $status, $variables, $language, $cards);
-
-        try {
-            $response = $this->httpClient->request('POST', $webhookUrl, [
-                'headers' => $headers,
-                'json'    => $payload,
-            ]);
-
-            // Symfony's HttpClient sends lazily — getStatusCode() has to
-            // run inside the try block or a transport-level failure never
-            // surfaces at all. Same requirement documented on the Email/
-            // SMS dispatch listeners.
-            $statusCode = $response->getStatusCode();
-            $rawBody    = $response->getContent(false);
-
-            $this->recordDispatchOutcome($log, $rawBody, $payload, $statusCode);
-
-            // Unlike Email/SMS, n8n's workflow side for this channel
-            // doesn't reliably return a real body yet (confirmed live: a
-            // 200 with an empty body, meaning the request landed but
-            // nothing indicates whether a WhatsApp send actually
-            // happened) — until it does, an empty response is treated as
-            // a failure too, not just statusCode >= 300, on request.
-            if ($statusCode >= 300 || '' === trim($rawBody)) {
-                $reason = '' === trim($rawBody)
-                    ? $this->failureReasons->text(DispatchFailureReasons::EMPTY_RESPONSE, ['%action%' => self::ACTION])
-                    : $this->failureReasons->fromResponseBody($rawBody, $statusCode);
-                $event->fail($log, $this->failureReasons->reason($reason));
-
-                return;
-            }
-
-            $event->pass($log);
-        } catch (\Throwable $e) {
-            $this->logger->error('N8nDispatch: HSM dispatch failed for contact '.$contact->getId().': '.$e->getMessage());
-            $event->fail($log, $this->failureReasons->reason($e->getMessage()));
-        }
-    }
-
-    /**
-     * 'test'/'paused' never reach dispatchToContact() — mirrors just the
-     * payload-building half of it, so the contact's Timeline shows
-     * exactly what a real dispatch would have sent, minus the actual HTTP
-     * call. No phone-number check here on purpose, same reasoning as
-     * SmsCampaignTriggerSubscriber's own version.
-     *
-     * @param array<string, array<string, mixed>> $variablesConfig
-     * @param list<array<string, mixed>>          $cards
-     */
-    private function recordWithoutDispatch(
-        PendingEvent $event,
-        LeadEventLog $log,
-        Lead $contact,
-        Campaign $campaign,
-        string $router,
-        string $hsmTemplate,
-        string $hsmType,
-        string $status,
-        array $variablesConfig,
-        string $language,
-        array $cards = [],
-    ): void {
-        $variables = $this->variableResolver->resolveAll($variablesConfig, $contact, $campaign, self::MULTI_VALUE_SEPARATOR, $language);
-        $payload   = $this->buildPayload($contact, (string) $contact->getPhone(), $router, $hsmTemplate, $hsmType, $status, $variables, $language, $cards);
-
-        $log->appendToMetadata(['n8ndispatch' => $payload]);
-
-        // Nothing is sent, but the log's History says it was a test / a pause.
-        $this->statusTracker?->recordSimulated($log->getId(), $status);
-
-        $event->pass($log);
-    }
-
-    /**
-     * @param array<string, string>      $variables
-     * @param list<array<string, mixed>> $cards     the carousel's cards, [] for every other type
-     *
-     * @return array<string, mixed>
-     */
-    private function buildPayload(Lead $contact, string $phone, string $router, string $hsmTemplate, string $hsmType, string $status, array $variables, string $language, array $cards = []): array
+    protected function buildPayload(Lead $contact, string $phone, string $status, array $step, array $variables): array
     {
         $payload = [
             'contact_id'                    => $contact->getId(),
@@ -306,47 +178,18 @@ class HsmCampaignTriggerSubscriber implements EventSubscriberInterface
             'enro_academic_record'          => $this->variableResolver->resolveContactField($contact, 'enro_academic_record'),
             'status'                        => $status,
             // See CampaignTriggerSubscriber::buildPayload().
-            'language'                      => $language,
-            'hsm_router'                    => $router,
-            'hsm_template'                  => $hsmTemplate,
-            'hsm_type'                      => $hsmType,
+            'language'                      => $step['language'],
+            'hsm_router'                    => $step['router'],
+            'hsm_template'                  => $step['hsmTemplate'],
+            'hsm_type'                      => $step['type'],
             'variables'                     => $variables,
         ];
 
         // Carousel only: [{card_index, header_image_link}, ...], card_index being the image's position.
-        if (HsmTemplate::TYPE_CAROUSEL === $hsmType) {
-            $payload['cards'] = $cards;
+        if (HsmTemplate::TYPE_CAROUSEL === $step['type']) {
+            $payload['cards'] = $step['cards'];
         }
 
         return $payload;
-    }
-
-    /**
-     * Same convention as CampaignTriggerSubscriber::recordDispatchOutcome()
-     * — records the full response and transport status on every outcome,
-     * and best-effort captures n8n's own send-log id, here as
-     * 'logSendHsmId' (the Email listener's own docblock already called
-     * out this channel-specific sibling key by name).
-     *
-     * @param array<string, mixed> $payload
-     */
-    private function recordDispatchOutcome(LeadEventLog $log, string $rawBody, array $payload, int $statusCode): void
-    {
-        DispatchOutcomeRecorder::record(
-            $this->statusTracker,
-            $log,
-            DispatchTracking::CHANNEL_HSM,
-            [
-                ['body' => 'logSendHsmId', 'meta' => 'logSendHsmId', 'ref' => DispatchTracking::REF_HSM_ID],
-                // The Meta broker's own id for the message — its status is separate
-                // from the Mirror's (logSendHsmId), so it is kept and tracked on its own.
-                ['body' => 'uuid', 'meta' => 'logSendHsmUuid', 'ref' => DispatchTracking::REF_HSM_UUID],
-            ],
-            $payload,
-            $rawBody,
-            $statusCode,
-            // An empty body is a failure for HSM, whatever the status (same rule as dispatchToContact()).
-            $statusCode < 300 && '' !== trim($rawBody),
-        );
     }
 }
