@@ -189,6 +189,7 @@ class HsmCampaignTriggerSubscriberTest extends TestCase
         $this->subscriber->onHsmSend($pendingEvent);
 
         $this->assertCount(1, $pendingEvent->getFailures());
+        $this->assertSame('N8nDispatch: the N8N Dispatch integration is not configured/enabled.', $pendingEvent->getFailures()->first()->getFailedLog()->getReason());
     }
 
     public function testProductionStatusFailAllWhenWebhookUrlIsMissing(): void
@@ -201,6 +202,7 @@ class HsmCampaignTriggerSubscriberTest extends TestCase
         $this->subscriber->onHsmSend($pendingEvent);
 
         $this->assertCount(1, $pendingEvent->getFailures());
+        $this->assertSame('N8nDispatch: webhook_url is not configured.', $pendingEvent->getFailures()->first()->getFailedLog()->getReason());
     }
 
     public function testProductionStatusFailsWithoutDispatchingWhenContactIsOnTheSmsDncList(): void
@@ -369,6 +371,23 @@ class HsmCampaignTriggerSubscriberTest extends TestCase
         // was empty, so the badge/outcome data should reflect that
         // truthfully rather than pretending the call itself failed.
         $this->assertSame(200, $failedLog->getMetadata()['n8ndispatch']['httpStatusCode']);
+    }
+
+    public function testAnEmpty2xxResponseIsInTheHistoryAsNotAccepted(): void
+    {
+        $pendingEvent = $this->buildPendingEvent(['router' => 'r1', 'hsmId' => 'h1', 'status' => 'production']);
+
+        $this->mockIntegration(true, ['webhook_url' => 'https://n8n.example.test/webhook/dispatch']);
+
+        $response = $this->createMock(ResponseInterface::class);
+        $response->method('getStatusCode')->willReturn(200);
+        $response->method('getContent')->with(false)->willReturn('');
+        $this->httpClient->method('request')->willReturn($response);
+
+        $this->statusTracker->expects($this->once())->method('recordDispatch')->with($this->anything(), false);
+        $this->statusTracker->expects($this->never())->method('register');
+
+        $this->subscriber->onHsmSend($pendingEvent);
     }
 
     public function testProductionStatusFailureReasonUsesTheErrorMessageFromTheResponseBody(): void
