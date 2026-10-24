@@ -89,7 +89,9 @@ with other plugins; both plugins must be deployed together.
 
 Both template screens split their edit page into a **Template** tab and a
 **Campaigns** tab listing every campaign using the template, and a template
-in use can't be deleted (singly or in a batch).
+in use can't be deleted (singly or in a batch). The same holds for an Email
+that a "Send via n8n (Email)" step uses: the Email screens refuse it (a batch
+drops it) and the REST API answers 409.
 
 **Rules checked when a template is saved** (screen and API):
 
@@ -143,6 +145,11 @@ its "Current state" section.
 ```bash
 docker exec mautic-mautic_web-1 sh -c "cd /var/www/html/docroot/plugins/N8nDispatchBundle && /var/www/html/vendor/bin/phpunit"
 ```
+
+It runs two suites: `unit` (`Tests/Unit`) and `integration` (`Tests/Integration`).
+The integration tests run the plugin's SQL against the stack's MySQL (the
+`MAUTIC_DB_*` variables of the web container; without them they fail):
+each test makes its own rows in a transaction that is rolled back at the end.
 
 The browser scripts have their own tests (Node's built-in runner, nothing to
 install, Node is already in the image):

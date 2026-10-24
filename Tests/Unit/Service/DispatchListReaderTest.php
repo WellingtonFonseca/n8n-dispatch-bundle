@@ -7,10 +7,12 @@ namespace MauticPlugin\N8nDispatchBundle\Tests\Unit\Service;
 use MauticPlugin\N8nDispatchBundle\Service\DispatchListReader;
 use PHPUnit\Framework\TestCase;
 
+require_once __DIR__.'/WakeupProbe.php';
+
 /**
  * The pure halves of DispatchListReader: which template a campaign event
  * points at, and how a contact is named. The queries themselves are plain
- * SQL, checked live.
+ * SQL, checked in Tests/Integration.
  */
 class DispatchListReaderTest extends TestCase
 {
@@ -145,5 +147,30 @@ class DispatchListReaderTest extends TestCase
     {
         $this->assertSame('Boas-vindas', DispatchListReader::campaignDisplayName('Boas-vindas', null));
         $this->assertSame('Boas-vindas', DispatchListReader::campaignDisplayName('Boas-vindas', ''));
+    }
+
+    public function testTheContactNameTrimsEachPartAndTheEmailFallback(): void
+    {
+        $this->assertSame('Ana Silva', DispatchListReader::contactName('  Ana ', ' Silva  ', null, 1));
+        $this->assertSame('Ana', DispatchListReader::contactName(' Ana ', '   ', null, 1));
+        $this->assertSame('Silva', DispatchListReader::contactName('   ', ' Silva ', null, 1));
+        $this->assertSame('a@b.com', DispatchListReader::contactName(null, null, '  a@b.com ', 1));
+        $this->assertSame('#7', DispatchListReader::contactName(null, null, '   ', 7));
+    }
+
+    public function testStoredPayloadsNeverBuildObjects(): void
+    {
+        WakeupProbe::$woke = false;
+        $payload = serialize(['status' => 'production', 'email' => 5, 'n8ndispatch' => ['status' => 'test'], 'probe' => new WakeupProbe()]);
+        WakeupProbe::$woke = false;
+
+        DispatchListReader::stepStatus($payload);
+        $this->assertFalse(WakeupProbe::$woke);
+
+        DispatchListReader::templateRef('n8ndispatch.email.send', $payload);
+        $this->assertFalse(WakeupProbe::$woke);
+
+        DispatchListReader::metadataOf($payload);
+        $this->assertFalse(WakeupProbe::$woke);
     }
 }

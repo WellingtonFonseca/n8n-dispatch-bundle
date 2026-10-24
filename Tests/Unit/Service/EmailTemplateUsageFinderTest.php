@@ -10,7 +10,7 @@ use PHPUnit\Framework\TestCase;
 /**
  * Covers the matching half of EmailTemplateUsageFinder: given the
  * "Send via n8n (Email)" campaign event rows, which ones point at an
- * Email. The rows query itself is plain SQL, checked live. Mirrors
+ * Email. The rows query itself is plain SQL, checked in Tests/Integration. Mirrors
  * SmsTemplateUsageFinderTest, just against the 'email' properties key
  * (Form/Type/EmailDispatchActionType.php's own field) and the
  * 'n8ndispatch.email.send' event type.

@@ -19,6 +19,7 @@ use MauticPlugin\N8nDispatchBundle\Service\DispatchResender;
 use MauticPlugin\N8nDispatchBundle\Service\StatusTracker;
 use MauticPlugin\N8nDispatchBundle\Tests\Unit\EventListener\EnUsTranslator;
 use MauticPlugin\N8nDispatchBundle\Twig\StatusExtension;
+use PHPUnit\Framework\Attributes\AllowMockObjectsWithoutExpectations;
 use PHPUnit\Framework\MockObject\MockObject;
 use PHPUnit\Framework\TestCase;
 use Psr\Log\LoggerInterface;
@@ -29,6 +30,7 @@ use Symfony\Contracts\HttpClient\ResponseInterface;
  * The rule that decides who can be resent. The resend itself runs the
  * campaign listeners and the database, checked live.
  */
+#[AllowMockObjectsWithoutExpectations]
 class DispatchResenderTest extends TestCase
 {
     public function testAnErrorCallbackCanBeResent(): void
@@ -173,22 +175,24 @@ class DispatchResenderTest extends TestCase
     }
 
     /**
-     * @return array{DispatchResender, MockObject, LeadEventLog, MockObject} the resender, its tracker, the log, the http client
+     * @return array{DispatchResender, MockObject, LeadEventLog, MockObject, MockObject, MockObject} the resender, its tracker, the log, the http client, the entity manager, the Do Not Contact model
      */
-    private function resenderAnswering(int $status, string $rawBody, bool $published = true, ?array $keys = null): array
+    private function resenderAnswering(int $status, string $rawBody, bool $published = true, ?array $keys = null, string $eventType = 'n8ndispatch.hsm.send', ?array $metadata = null, ?array $callbacks = null, int $contactable = DoNotContact::IS_CONTACTABLE, ?ResponseInterface $answer = null): array
     {
         $log = new LeadEventLog();
         (new \ReflectionProperty($log, 'id'))->setValue($log, 140);
         $event = new Event();
         $event->setCampaign(new Campaign());
-        $event->setType('n8ndispatch.hsm.send');
+        $event->setType($eventType);
         $event->setProperties(['status' => 'production']);
         $log->setEvent($event);
         $log->setLead(new Lead());
-        $log->setMetadata(['logSendHsmId' => 1, 'n8ndispatch' => ['status' => 'production', 'hsm_router' => 'r', 'response' => ['x' => 1], 'httpStatusCode' => 200]]);
+        $log->setMetadata($metadata ?? ['logSendHsmId' => 1, 'n8ndispatch' => ['status' => 'production', 'hsm_router' => 'r', 'response' => ['x' => 1], 'httpStatusCode' => 200]]);
+        $log->setIsScheduled(true);
+        $log->setDateTriggered(new \DateTime('2020-01-01'));
 
         $em = $this->createMock(EntityManagerInterface::class);
-        $em->method('find')->willReturn($log);
+        $em->method('find')->willReturn('missing' === $eventType ? null : $log);
 
         $settings = $this->createMock(IntegrationSettings::class);
         $settings->method('isPublished')->willReturn($published);
@@ -198,17 +202,22 @@ class DispatchResenderTest extends TestCase
         $integrations = $this->createMock(IntegrationHelper::class);
         $integrations->method('getIntegrationObject')->willReturn($integration);
 
-        $response = $this->createMock(ResponseInterface::class);
-        $response->method('getStatusCode')->willReturn($status);
-        $response->method('getContent')->willReturn($rawBody);
+        $response = $answer ?? $this->createMock(ResponseInterface::class);
+        if (null === $answer) {
+            $response->method('getStatusCode')->willReturn($status);
+            $response->method('getContent')->willReturn($rawBody);
+        }
         $http = $this->createMock(HttpClientInterface::class);
         $http->method('request')->willReturn($response);
 
         $dnc = $this->createMock(DncModel::class);
-        $dnc->method('isContactable')->willReturn(DoNotContact::IS_CONTACTABLE);
+        $dnc->method('isContactable')->willReturn($contactable);
 
         $tracker = $this->createMock(StatusTracker::class);
-        $tracker->method('viewForMetadata')->willReturn([['refType' => 'logSendHsmUuid', 'outcome' => 'error']]);
+        $tracker->method('viewForMetadata')->willReturn($callbacks ?? [['refType' => 'logSendHsmUuid', 'outcome' => 'error']]);
+
+        $dates = $this->createMock(StatusExtension::class);
+        $dates->method('date')->willReturn('DATE');
 
         $resender = new DispatchResender(
             $em,
@@ -216,13 +225,13 @@ class DispatchResenderTest extends TestCase
             $http,
             $dnc,
             $tracker,
-            $this->createMock(StatusExtension::class),
+            $dates,
             new DispatchFailureReasons(new EnUsTranslator()),
             new EnUsTranslator(),
             $this->createMock(LoggerInterface::class),
         );
 
-        return [$resender, $tracker, $log, $http];
+        return [$resender, $tracker, $log, $http, $em, $dnc];
     }
 
     public function testARefusedResendKeepsWhoDidItAndTheWholeAnswer(): void
@@ -310,5 +319,169 @@ class DispatchResenderTest extends TestCase
         );
 
         $this->assertTrue($resender->resend(140, 'admin@example.com')['ok']);
+    }
+
+    public function testTheStatusBoundariesOfAFailedCall(): void
+    {
+        $this->assertTrue(DispatchResender::isFailed(['n8ndispatch' => ['httpStatusCode' => 199]]));
+        $this->assertFalse(DispatchResender::isFailed(['n8ndispatch' => ['httpStatusCode' => 299]]));
+        $this->assertTrue(DispatchResender::isFailed(['n8ndispatch' => ['httpStatusCode' => 300]]));
+    }
+
+    public function testTheErrorsOfTheOldDispatchGoAfterAResendAcceptedOrRefused(): void
+    {
+        $old = ['errors' => ['x'], 'n8ndispatch' => ['status' => 'production']];
+
+        $this->assertArrayNotHasKey('errors', DispatchResender::metadataAfter('sms', $old, ['status' => 'production'], 200, '{}'));
+        $this->assertArrayNotHasKey('errors', DispatchResender::metadataAfterFailure($old, ['status' => 'production'], 400, '{}', 'r', 'n'));
+    }
+
+    public function testAnUnknownLogOrAnEventOfAnotherPluginIsNotFound(): void
+    {
+        [$resender] = $this->resenderAnswering(200, '{}', true, null, 'missing');
+        $this->assertSame(['ok' => false, 'message' => 'Dispatch not found.'], $resender->resend(1, 'a@b.com'));
+
+        [$resender, , , $http] = $this->resenderAnswering(200, '{}', true, null, 'campaign.sendemail');
+        $http->expects($this->never())->method('request');
+        $this->assertSame(['ok' => false, 'message' => 'Dispatch not found.'], $resender->resend(140, 'a@b.com'));
+    }
+
+    public function testAStepNotInProductionIsNotResent(): void
+    {
+        [$resender, , $log, $http] = $this->resenderAnswering(200, '{}');
+        $log->getEvent()->setProperties(['status' => 'test']);
+        $http->expects($this->never())->method('request');
+
+        $this->assertSame(['ok' => false, 'message' => 'The campaign step is not in production.'], $resender->resend(140, 'a@b.com'));
+    }
+
+    public function testADispatchWithoutErrorCallbackNorFailureIsNotResent(): void
+    {
+        [$resender, , , $http] = $this->resenderAnswering(200, '{}', true, null, 'n8ndispatch.hsm.send', null, []);
+        $http->expects($this->never())->method('request');
+
+        $this->assertSame(['ok' => false, 'message' => 'The callback is not in error.'], $resender->resend(140, 'a@b.com'));
+    }
+
+    public function testAFailedCallWithoutErrorCallbackIsResent(): void
+    {
+        $metadata = ['failed' => 1, 'n8ndispatch' => ['status' => 'production', 'httpStatusCode' => 500]];
+        [$resender, , , $http] = $this->resenderAnswering(200, '{"logSendHsmId":9}', true, null, 'n8ndispatch.hsm.send', $metadata, []);
+        $http->expects($this->once())->method('request');
+
+        $this->assertTrue($resender->resend(140, 'a@b.com')['ok']);
+    }
+
+    public function testADispatchWithoutSavedBodyIsNotResent(): void
+    {
+        [$resender, , , $http] = $this->resenderAnswering(200, '{}', true, null, 'n8ndispatch.hsm.send', ['failed' => 1]);
+        $http->expects($this->never())->method('request');
+
+        $this->assertSame(['ok' => false, 'message' => 'The dispatch has no saved body to resend.'], $resender->resend(140, 'a@b.com'));
+    }
+
+    public function testTheDoNotContactListIsAskedByChannelAndStopsTheResend(): void
+    {
+        foreach (['n8ndispatch.email.send' => 'email', 'n8ndispatch.sms.send' => 'sms', 'n8ndispatch.hsm.send' => 'sms'] as $type => $channel) {
+            [$resender, , , $http, , $dnc] = $this->resenderAnswering(200, '{}', true, null, $type, null, null, DoNotContact::UNSUBSCRIBED);
+            $dnc->expects($this->once())->method('isContactable')->with($this->anything(), $channel);
+            $http->expects($this->never())->method('request');
+
+            $result = $resender->resend(140, 'a@b.com');
+
+            $this->assertFalse($result['ok']);
+            $this->assertSame('The resend failed: N8nDispatch: contact is on the Do Not Contact list for '.$channel.'.', $result['message']);
+        }
+    }
+
+    public function testTheAnswerIsReadWithoutThrowingOnHttpErrors(): void
+    {
+        $response = $this->createMock(ResponseInterface::class);
+        $response->method('getStatusCode')->willReturn(200);
+        $response->expects($this->once())->method('getContent')->with(false)->willReturn('{"logSendHsmId":1}');
+        [$resender] = $this->resenderAnswering(200, '', true, null, 'n8ndispatch.hsm.send', null, null, DoNotContact::IS_CONTACTABLE, $response);
+
+        $this->assertTrue($resender->resend(140, 'a@b.com')['ok']);
+    }
+
+    public function testStatus300IsARefusalAndStatus299IsNot(): void
+    {
+        [$resender] = $this->resenderAnswering(300, '{"logSendHsmId":1}');
+        $this->assertFalse($resender->resend(140, 'a@b.com')['ok']);
+
+        [$resender] = $this->resenderAnswering(299, '{"logSendHsmId":1}');
+        $this->assertTrue($resender->resend(140, 'a@b.com')['ok']);
+    }
+
+    public function testAnEmptyAnswerFailsOnlyForHsm(): void
+    {
+        foreach (['', "  \n"] as $empty) {
+            [$resender] = $this->resenderAnswering(200, $empty);
+            $result = $resender->resend(140, 'a@b.com');
+            $this->assertFalse($result['ok']);
+            $this->assertSame('The resend failed: N8nDispatch: n8n returned an empty response for hsm.send.', $result['message']);
+        }
+
+        [$resender] = $this->resenderAnswering(200, '', true, null, 'n8ndispatch.sms.send', ['failed' => 1, 'n8ndispatch' => ['status' => 'production']]);
+        $this->assertTrue($resender->resend(140, 'a@b.com')['ok']);
+    }
+
+    public function testARefusedWithEmptyAnswerNamesTheActionOfTheChannel(): void
+    {
+        [$resender] = $this->resenderAnswering(500, " ", true, null, 'n8ndispatch.email.send', ['failed' => 1, 'n8ndispatch' => ['status' => 'production']]);
+
+        $this->assertSame('The resend failed: N8nDispatch: n8n returned an empty response for email.send.', $resender->resend(140, 'a@b.com')['message']);
+    }
+
+    public function testAnAcceptedResendUpdatesTheLogAndTheTracking(): void
+    {
+        [$resender, $tracker, $log, , $em] = $this->resenderAnswering(200, '{"logSendHsmId":777,"uuid":"u-777"}');
+        $old = $log->getMetadata();
+
+        $em->expects($this->once())->method('persist')->with($log);
+        $em->expects($this->once())->method('flush');
+        $tracker->expects($this->once())->method('forget')->with($old, 140);
+        $tracker->expects($this->once())->method('register')->with('hsm', ['logSendHsmId' => 777, 'logSendHsmUuid' => 'u-777'], null, 140);
+        $tracker->expects($this->once())->method('annotate')->with(
+            $this->callback(fn (array $m): bool => 777 === $m['logSendHsmId']),
+            $this->callback(fn (array $message): bool => 'a@b.com' === $message['reenvio']['por'] && 'DATE' === $message['reenvio']['em'])
+        );
+
+        $result = $resender->resend(140, 'a@b.com');
+
+        $this->assertSame(['ok' => true, 'message' => 'Resent.'], $result);
+        $this->assertSame(777, $log->getMetadata()['logSendHsmId']);
+        $this->assertFalse($log->getIsScheduled());
+        $this->assertGreaterThan(new \DateTime('2020-01-01'), $log->getDateTriggered());
+    }
+
+    public function testARefusedResendUpdatesTheLogAndForgetsTheOldTracking(): void
+    {
+        [$resender, $tracker, $log, , $em] = $this->resenderAnswering(400, '{"error":"bad"}');
+        $old = $log->getMetadata();
+
+        $em->expects($this->once())->method('persist')->with($log);
+        $em->expects($this->once())->method('flush');
+        $tracker->expects($this->once())->method('forget')->with($old, 140);
+
+        $resender->resend(140, 'a@b.com');
+
+        $this->assertSame(400, $log->getMetadata()['n8ndispatch']['httpStatusCode']);
+        $this->assertFalse($log->getIsScheduled());
+        $this->assertGreaterThan(new \DateTime('2020-01-01'), $log->getDateTriggered());
+    }
+
+    public function testTheNoteSaysWhenAndByWhomAndLeavesOutAnEmptyUser(): void
+    {
+        $notes = [];
+        foreach (['a@b.com', null, ''] as $user) {
+            [$resender, , $log] = $this->resenderAnswering(400, '{}');
+            $resender->resend(140, $user);
+            $notes[] = $log->getMetadata()['n8ndispatch_resend'];
+        }
+
+        $this->assertSame("Resent on DATE\nBy a@b.com", $notes[0]);
+        $this->assertSame('Resent on DATE', $notes[1]);
+        $this->assertSame('Resent on DATE', $notes[2]);
     }
 }

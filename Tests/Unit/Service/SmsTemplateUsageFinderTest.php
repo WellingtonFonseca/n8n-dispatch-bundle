@@ -10,7 +10,7 @@ use PHPUnit\Framework\TestCase;
 /**
  * Covers the matching half of SmsTemplateUsageFinder: given the
  * "Send via n8n (SMS)" campaign event rows, which ones point at a
- * template. The rows query itself is plain SQL, checked live.
+ * template. The rows query itself is plain SQL, checked in Tests/Integration.
  */
 class SmsTemplateUsageFinderTest extends TestCase
 {
