@@ -13,6 +13,8 @@ use MauticPlugin\N8nDispatchBundle\Service\StatusTracker;
 use PHPUnit\Framework\MockObject\MockObject;
 use PHPUnit\Framework\TestCase;
 
+require_once __DIR__.'/WakeupProbe.php';
+
 class StatusBackfillTest extends TestCase
 {
     /** @var Connection&MockObject */
@@ -278,5 +280,81 @@ class StatusBackfillTest extends TestCase
         $this->tracker->expects($this->never())->method('adopt');
 
         $this->backfill->run(7, 500, true, $this->now);
+    }
+
+    public function testTheQueryIsExactlyTheOneForTheDispatchEventsOfTheWindow(): void
+    {
+        $captured = [];
+        $this->connection->method('fetchAllAssociative')->willReturnCallback(function (string $sql, array $params) use (&$captured): array {
+            $captured[] = [$sql, $params];
+
+            return [];
+        });
+
+        $this->backfill->run(7, 500, false, $this->now);
+
+        $this->assertSame([[
+            "SELECT l.id, l.date_triggered, l.metadata, e.type FROM tbl l INNER JOIN tbl e ON e.id = l.event_id"
+            ." WHERE e.type IN ('n8ndispatch.email.send','n8ndispatch.sms.send','n8ndispatch.hsm.send') AND l.is_scheduled = 0 AND l.date_triggered >= :since AND l.id > :last"
+            .' ORDER BY l.id ASC LIMIT 500',
+            ['since' => '2026-09-25 12:00:00', 'last' => 0],
+        ]], $captured);
+    }
+
+    public function testABatchSizeBelowOneIsReadOneLogAtATime(): void
+    {
+        $sqls = [];
+        $this->connection->method('fetchAllAssociative')->willReturnCallback(function (string $sql) use (&$sqls): array {
+            $sqls[] = $sql;
+
+            return 1 === count($sqls) ? [$this->row(1, 'something.else', [])] : [];
+        });
+
+        $summary = $this->backfill->run(7, 0, false, $this->now);
+
+        $this->assertStringEndsWith('LIMIT 1', $sqls[0]);
+        $this->assertCount(2, $sqls, 'one row filled the page of 1: one more read');
+        $this->assertSame(1, $summary['scanned']);
+    }
+
+    public function testTheCountsOfAlreadyTrackedAndRegisteredAddUpAcrossRows(): void
+    {
+        $this->connection->method('fetchAllAssociative')->willReturnOnConsecutiveCalls([
+            $this->row(1, 'n8ndispatch.hsm.send', ['logSendHsmId' => 5, 'logSendHsmUuid' => 'u', 'n8ndispatch' => ['status' => 'production', 'httpStatusCode' => 200]]),
+            $this->row(2, 'n8ndispatch.hsm.send', ['logSendHsmId' => 6, 'logSendHsmUuid' => 'v', 'n8ndispatch' => ['status' => 'production', 'httpStatusCode' => 200]]),
+            $this->row(3, 'n8ndispatch.email.send', ['n8ndispatch' => ['status' => 'production', 'httpStatusCode' => 200]]),
+        ], []);
+        $this->tracker->method('register')->willReturn(1);
+
+        $summary = $this->backfill->run(7, 500, false, $this->now);
+
+        $this->assertSame(2, $summary['registered']);
+        $this->assertSame(2, $summary['alreadyTracked']);
+    }
+
+    public function testTheDryRunCountsOnlyTheIdsNobodyTracks(): void
+    {
+        $this->connection->method('fetchAllAssociative')->willReturnOnConsecutiveCalls([
+            $this->row(1, 'n8ndispatch.hsm.send', ['logSendHsmId' => 5, 'logSendHsmUuid' => 'u', 'n8ndispatch' => ['status' => 'production', 'httpStatusCode' => 200]]),
+            $this->row(2, 'n8ndispatch.email.send', $this->emailMeta(4001)),
+        ], []);
+        $this->tracker->method('isTracked')->willReturnCallback(fn (string $type, string $value): bool => 'logSendHsmId' === $type || 'logSendEmailId' === $type);
+
+        $summary = $this->backfill->run(7, 500, true, $this->now);
+
+        $this->assertSame(1, $summary['registered'], 'only the HSM uuid is new');
+        $this->assertSame(2, $summary['alreadyTracked']);
+    }
+
+    public function testStoredMetadataNeverBuildsObjects(): void
+    {
+        WakeupProbe::$woke = false;
+        $raw               = serialize(['logSendEmailId' => 5, 'n8ndispatch' => ['status' => 'production', 'httpStatusCode' => 200], 'probe' => new WakeupProbe()]);
+        WakeupProbe::$woke = false;
+        $this->connection->method('fetchAllAssociative')->willReturnOnConsecutiveCalls([['id' => '1', 'type' => 'n8ndispatch.email.send', 'date_triggered' => '2026-09-29 14:00:00', 'metadata' => $raw]], []);
+
+        $this->backfill->run(7, 500, true, $this->now);
+
+        $this->assertFalse(WakeupProbe::$woke);
     }
 }
