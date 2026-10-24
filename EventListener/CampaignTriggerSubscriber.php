@@ -24,6 +24,7 @@ use MauticPlugin\N8nDispatchBundle\N8nDispatchEvents;
 use MauticPlugin\N8nDispatchBundle\Resolver\LocaleConventions;
 use MauticPlugin\N8nDispatchBundle\Resolver\VariableResolver;
 use MauticPlugin\N8nDispatchBundle\Service\DispatchFailureReasons;
+use MauticPlugin\N8nDispatchBundle\Service\DispatchOutcomeRecorder;
 use MauticPlugin\N8nDispatchBundle\Service\StatusTracker;
 use MauticPlugin\N8nDispatchBundle\UnsubscribeVariable;
 use Psr\Log\LoggerInterface;
@@ -498,45 +499,16 @@ class CampaignTriggerSubscriber implements EventSubscriberInterface
      */
     private function recordDispatchOutcome(LeadEventLog $log, ResponseInterface $response, array $payload, ?string $templateCopyHash, int $statusCode): void
     {
-        $rawBody    = $response->getContent(false);
-        $body       = json_decode($rawBody, true);
-        $nestedBody = is_array($body['body'] ?? null) ? $body['body'] : [];
-        $logId      = is_array($body) ? ($body['logSendEmailId'] ?? $nestedBody['logSendEmailId'] ?? null) : null;
-
-        $n8ndispatch = $payload + [
-            // 'response' is the raw decoded body (falling back to the raw
-            // string when it isn't valid JSON) — the Timeline card just
-            // dumps it as-is, so if Mirror's response shape grows new
-            // fields later, they show up there automatically, no template
-            // change needed.
-            'response'       => is_array($body) ? $body : $rawBody,
-            'httpStatusCode' => $statusCode,
-        ];
-
-        if (null !== $templateCopyHash) {
-            $n8ndispatch['templateCopyHash'] = $templateCopyHash;
-        }
-
-        $metadata = ['n8ndispatch' => $n8ndispatch];
-
-        // The log was persisted before the step ran, so it has its id; it ties
-        // this attempt, and what n8n reports about it later, to the contact's
-        // History entry (a resend reuses the same log).
-        $campaignLogId = $log->getId();
-
-        // Every attempt goes in the log's history, accepted or not, with only n8n's answer (kept in case it has to be reprocessed).
-        $this->statusTracker?->recordDispatch($campaignLogId, $statusCode < 300, [DispatchTracking::REF_EMAIL => $logId], is_array($body) ? $body : ('' !== trim($rawBody) ? trim($rawBody) : null));
-
-        if (!empty($logId)) {
-            $metadata['logSendEmailId'] = $logId;
-
-            // Only a dispatch n8n accepted is worth asking about later (see
-            // Service/StatusPoller.php).
-            if ($statusCode < 300) {
-                $this->statusTracker?->register(DispatchTracking::CHANNEL_EMAIL, [DispatchTracking::REF_EMAIL => $logId], null, $campaignLogId);
-            }
-        }
-
-        $log->appendToMetadata($metadata);
+        DispatchOutcomeRecorder::record(
+            $this->statusTracker,
+            $log,
+            DispatchTracking::CHANNEL_EMAIL,
+            [['body' => 'logSendEmailId', 'meta' => 'logSendEmailId', 'ref' => DispatchTracking::REF_EMAIL]],
+            $payload,
+            $response->getContent(false),
+            $statusCode,
+            $statusCode < 300,
+            null !== $templateCopyHash ? ['templateCopyHash' => $templateCopyHash] : [],
+        );
     }
 }

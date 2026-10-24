@@ -19,6 +19,7 @@ use MauticPlugin\N8nDispatchBundle\N8nDispatchEvents;
 use MauticPlugin\N8nDispatchBundle\Resolver\LocaleConventions;
 use MauticPlugin\N8nDispatchBundle\Resolver\VariableResolver;
 use MauticPlugin\N8nDispatchBundle\Service\DispatchFailureReasons;
+use MauticPlugin\N8nDispatchBundle\Service\DispatchOutcomeRecorder;
 use MauticPlugin\N8nDispatchBundle\Service\StatusTracker;
 use Psr\Log\LoggerInterface;
 use Symfony\Component\EventDispatcher\EventSubscriberInterface;
@@ -347,45 +348,21 @@ class HsmCampaignTriggerSubscriber implements EventSubscriberInterface
      */
     private function recordDispatchOutcome(LeadEventLog $log, string $rawBody, array $payload, int $statusCode): void
     {
-        $body       = json_decode($rawBody, true);
-        $nestedBody = is_array($body['body'] ?? null) ? $body['body'] : [];
-        $logId      = is_array($body) ? ($body['logSendHsmId'] ?? $nestedBody['logSendHsmId'] ?? null) : null;
-        // The Meta broker's own id for the message — its status is separate
-        // from the Mirror's (logSendHsmId), so it's kept and tracked on its own.
-        $uuid = is_array($body) ? ($body['uuid'] ?? $nestedBody['uuid'] ?? null) : null;
-
-        $n8ndispatch = $payload + [
-            'response'       => is_array($body) ? $body : $rawBody,
-            'httpStatusCode' => $statusCode,
-        ];
-
-        $metadata = ['n8ndispatch' => $n8ndispatch];
-
-        if (!empty($logId)) {
-            $metadata['logSendHsmId'] = $logId;
-        }
-
-        if (!empty($uuid)) {
-            $metadata['logSendHsmUuid'] = $uuid;
-        }
-
-        // See CampaignTriggerSubscriber::recordDispatchOutcome(): the log's own id ties the history to it.
-        $campaignLogId = $log->getId();
-        // An empty body is a failure for HSM, whatever the status (same rule as dispatchToContact()).
-        $accepted = $statusCode < 300 && '' !== trim($rawBody);
-
-        $this->statusTracker?->recordDispatch($campaignLogId, $accepted, [
-            DispatchTracking::REF_HSM_ID   => $logId,
-            DispatchTracking::REF_HSM_UUID => $uuid,
-        ], is_array($body) ? $body : ('' !== trim($rawBody) ? trim($rawBody) : null)); // only n8n's answer, accepted or not
-
-        if ($statusCode < 300 && (!empty($logId) || !empty($uuid))) {
-            $this->statusTracker?->register(DispatchTracking::CHANNEL_HSM, [
-                DispatchTracking::REF_HSM_ID   => $logId,
-                DispatchTracking::REF_HSM_UUID => $uuid,
-            ], null, $campaignLogId);
-        }
-
-        $log->appendToMetadata($metadata);
+        DispatchOutcomeRecorder::record(
+            $this->statusTracker,
+            $log,
+            DispatchTracking::CHANNEL_HSM,
+            [
+                ['body' => 'logSendHsmId', 'meta' => 'logSendHsmId', 'ref' => DispatchTracking::REF_HSM_ID],
+                // The Meta broker's own id for the message — its status is separate
+                // from the Mirror's (logSendHsmId), so it is kept and tracked on its own.
+                ['body' => 'uuid', 'meta' => 'logSendHsmUuid', 'ref' => DispatchTracking::REF_HSM_UUID],
+            ],
+            $payload,
+            $rawBody,
+            $statusCode,
+            // An empty body is a failure for HSM, whatever the status (same rule as dispatchToContact()).
+            $statusCode < 300 && '' !== trim($rawBody),
+        );
     }
 }

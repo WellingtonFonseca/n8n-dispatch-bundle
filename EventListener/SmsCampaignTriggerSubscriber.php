@@ -18,6 +18,7 @@ use MauticPlugin\N8nDispatchBundle\N8nDispatchEvents;
 use MauticPlugin\N8nDispatchBundle\Resolver\LocaleConventions;
 use MauticPlugin\N8nDispatchBundle\Resolver\VariableResolver;
 use MauticPlugin\N8nDispatchBundle\Service\DispatchFailureReasons;
+use MauticPlugin\N8nDispatchBundle\Service\DispatchOutcomeRecorder;
 use MauticPlugin\N8nDispatchBundle\Service\StatusTracker;
 use Psr\Log\LoggerInterface;
 use Symfony\Component\EventDispatcher\EventSubscriberInterface;
@@ -326,32 +327,15 @@ class SmsCampaignTriggerSubscriber implements EventSubscriberInterface
      */
     private function recordDispatchOutcome(LeadEventLog $log, ResponseInterface $response, array $payload, int $statusCode): void
     {
-        $rawBody    = $response->getContent(false);
-        $body       = json_decode($rawBody, true);
-        $nestedBody = is_array($body['body'] ?? null) ? $body['body'] : [];
-        $logId      = is_array($body) ? ($body['logSendSmsId'] ?? $nestedBody['logSendSmsId'] ?? null) : null;
-
-        $n8ndispatch = $payload + [
-            'response'       => is_array($body) ? $body : $rawBody,
-            'httpStatusCode' => $statusCode,
-        ];
-
-        $metadata = ['n8ndispatch' => $n8ndispatch];
-
-        // See CampaignTriggerSubscriber::recordDispatchOutcome(): the log's own id ties the history to it.
-        $campaignLogId = $log->getId();
-
-        // Only n8n's answer, accepted or not (kept in case it has to be reprocessed).
-        $this->statusTracker?->recordDispatch($campaignLogId, $statusCode < 300, [DispatchTracking::REF_SMS => $logId], is_array($body) ? $body : ('' !== trim($rawBody) ? trim($rawBody) : null));
-
-        if (!empty($logId)) {
-            $metadata['logSendSmsId'] = $logId;
-
-            if ($statusCode < 300) {
-                $this->statusTracker?->register(DispatchTracking::CHANNEL_SMS, [DispatchTracking::REF_SMS => $logId], null, $campaignLogId);
-            }
-        }
-
-        $log->appendToMetadata($metadata);
+        DispatchOutcomeRecorder::record(
+            $this->statusTracker,
+            $log,
+            DispatchTracking::CHANNEL_SMS,
+            [['body' => 'logSendSmsId', 'meta' => 'logSendSmsId', 'ref' => DispatchTracking::REF_SMS]],
+            $payload,
+            $response->getContent(false),
+            $statusCode,
+            $statusCode < 300,
+        );
     }
 }
