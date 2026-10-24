@@ -1,0 +1,15 @@
+# Static analysis of the plugin. Run it inside the web container (wiki/tests.md, "static analysis").
+parameters:
+    level: 5
+    paths:
+        - Service
+        - Resolver
+        - EventListener
+        - Controller
+        - Model
+        - Command
+    bootstrapFiles:
+        - /var/www/html/vendor/autoload.php
+        - phpstan-bootstrap.php
+    tmpDir: /tmp/phpstan-n8n
+    treatPhpDocTypesAsCertain: false

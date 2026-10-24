@@ -90,6 +90,35 @@ class DispatchOutcomeRecorderTest extends TestCase
         DispatchOutcomeRecorder::record($this->tracker, $this->log, DispatchTracking::CHANNEL_HSM, self::IDS, [], '5', 200, true);
     }
 
+    public function testAnIdAtTheTopOfTheAnswerBeatsTheSameKeyInsideItsOwnBody(): void
+    {
+        $this->tracker->expects($this->once())->method('register')->with(DispatchTracking::CHANNEL_HSM, [DispatchTracking::REF_HSM_ID => 'top', DispatchTracking::REF_HSM_UUID => null], null, 55);
+
+        DispatchOutcomeRecorder::record($this->tracker, $this->log, DispatchTracking::CHANNEL_HSM, self::IDS, [], '{"logSendHsmId":"top","body":{"logSendHsmId":"nested"}}', 200, true);
+    }
+
+    public function testAnAnswerOfOnlyWhitespaceIsKeptAsNothing(): void
+    {
+        $this->tracker->expects($this->once())->method('recordDispatch')->with(55, false, $this->anything(), $this->identicalTo(null));
+
+        DispatchOutcomeRecorder::record($this->tracker, $this->log, DispatchTracking::CHANNEL_HSM, self::IDS, [], "  \n ", 500, false);
+    }
+
+    public function testAnAnswerWithStatus300IsNotRegisteredForThePoll(): void
+    {
+        $this->tracker->expects($this->once())->method('recordDispatch');
+        $this->tracker->expects($this->never())->method('register');
+
+        DispatchOutcomeRecorder::record($this->tracker, $this->log, DispatchTracking::CHANNEL_HSM, self::IDS, [], '{"logSendHsmId":"m1"}', 300, false);
+    }
+
+    public function testWithoutAStatusTrackerAnAcceptedAnswerWithIdsStillKeepsTheMetadata(): void
+    {
+        $this->log->expects($this->once())->method('appendToMetadata')->with($this->callback(fn (array $m): bool => 'm1' === ($m['logSendHsmId'] ?? null)));
+
+        DispatchOutcomeRecorder::record(null, $this->log, DispatchTracking::CHANNEL_HSM, self::IDS, [], '{"logSendHsmId":"m1"}', 200, true);
+    }
+
     public function testItWorksWithoutAStatusTracker(): void
     {
         $this->log->expects($this->once())->method('appendToMetadata');

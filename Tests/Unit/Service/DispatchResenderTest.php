@@ -173,9 +173,9 @@ class DispatchResenderTest extends TestCase
     }
 
     /**
-     * @return array{DispatchResender, MockObject, LeadEventLog} the resender, its tracker, the log
+     * @return array{DispatchResender, MockObject, LeadEventLog, MockObject} the resender, its tracker, the log, the http client
      */
-    private function resenderAnswering(int $status, string $rawBody): array
+    private function resenderAnswering(int $status, string $rawBody, bool $published = true, ?array $keys = null): array
     {
         $log = new LeadEventLog();
         (new \ReflectionProperty($log, 'id'))->setValue($log, 140);
@@ -191,10 +191,10 @@ class DispatchResenderTest extends TestCase
         $em->method('find')->willReturn($log);
 
         $settings = $this->createMock(IntegrationSettings::class);
-        $settings->method('isPublished')->willReturn(true);
+        $settings->method('isPublished')->willReturn($published);
         $integration = $this->createMock(N8nDispatchIntegration::class);
         $integration->method('getIntegrationSettings')->willReturn($settings);
-        $integration->method('getKeys')->willReturn(['webhook_url' => 'https://n8n.example.test/hook']);
+        $integration->method('getKeys')->willReturn($keys ?? ['webhook_url' => 'https://n8n.example.test/hook', 'webhook_token' => 'secret-token']);
         $integrations = $this->createMock(IntegrationHelper::class);
         $integrations->method('getIntegrationObject')->willReturn($integration);
 
@@ -222,7 +222,7 @@ class DispatchResenderTest extends TestCase
             $this->createMock(LoggerInterface::class),
         );
 
-        return [$resender, $tracker, $log];
+        return [$resender, $tracker, $log, $http];
     }
 
     public function testARefusedResendKeepsWhoDidItAndTheWholeAnswer(): void
@@ -239,6 +239,61 @@ class DispatchResenderTest extends TestCase
         );
 
         $this->assertFalse($resender->resend(140, 'admin@example.com')['ok']);
+    }
+
+    public function testARefusedResendReportsN8nsOwnErrorText(): void
+    {
+        [$resender] = $this->resenderAnswering(400, '{"error":"Missing header"}');
+
+        $result = $resender->resend(140, 'admin@example.com');
+
+        $this->assertFalse($result['ok']);
+        $this->assertSame('The resend failed: N8nDispatch: Missing header', $result['message']);
+    }
+
+    public function testARefusedResendWithoutAnErrorTextReportsTheHttpStatus(): void
+    {
+        [$resender] = $this->resenderAnswering(502, 'Bad Gateway');
+
+        $result = $resender->resend(140, 'admin@example.com');
+
+        $this->assertFalse($result['ok']);
+        $this->assertSame('The resend failed: N8nDispatch: webhook returned HTTP 502.', $result['message']);
+    }
+
+    public function testResendFailsWhenTheIntegrationIsDisabled(): void
+    {
+        [$resender, , , $http] = $this->resenderAnswering(200, '{}', false);
+        $http->expects($this->never())->method('request');
+
+        $result = $resender->resend(140, 'admin@example.com');
+
+        $this->assertFalse($result['ok']);
+        $this->assertSame('The resend failed: N8nDispatch: the N8N Dispatch integration is not configured/enabled.', $result['message']);
+    }
+
+    public function testResendFailsWhenTheWebhookUrlIsMissing(): void
+    {
+        [$resender, , , $http] = $this->resenderAnswering(200, '{}', true, ['webhook_url' => '']);
+        $http->expects($this->never())->method('request');
+
+        $result = $resender->resend(140, 'admin@example.com');
+
+        $this->assertFalse($result['ok']);
+        $this->assertSame('The resend failed: N8nDispatch: webhook_url is not configured.', $result['message']);
+    }
+
+    public function testTheResendCallsTheWebhookWithTheActionAndTheTokenHeaders(): void
+    {
+        [$resender, , , $http] = $this->resenderAnswering(200, '{"logSendHsmId":1}');
+        $http->expects($this->once())->method('request')->with('POST', 'https://n8n.example.test/hook', $this->callback(function (array $options): bool {
+            $this->assertSame('hsm.send', $options['headers']['X-N8n-Dispatch-Action']);
+            $this->assertSame('secret-token', $options['headers']['X-N8n-Dispatch-Token']);
+
+            return true;
+        }))->willReturn($this->createStub(ResponseInterface::class));
+
+        $resender->resend(140, 'admin@example.com');
     }
 
     public function testAnAcceptedResendKeepsWhoDidItAndTheWholeAnswer(): void
