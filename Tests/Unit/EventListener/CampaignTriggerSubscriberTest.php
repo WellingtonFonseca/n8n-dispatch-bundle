@@ -30,11 +30,13 @@ use MauticPlugin\N8nDispatchBundle\Resolver\VariableResolver;
 use MauticPlugin\N8nDispatchBundle\UnsubscribeVariable;
 use MauticPlugin\N8nDispatchBundle\Service\DispatchFailureReasons;
 use MauticPlugin\N8nDispatchBundle\Service\StatusTracker;
+use PHPUnit\Framework\Attributes\AllowMockObjectsWithoutExpectations;
 use PHPUnit\Framework\TestCase;
 use Psr\Log\LoggerInterface;
 use Symfony\Contracts\HttpClient\HttpClientInterface;
 use Symfony\Contracts\HttpClient\ResponseInterface;
 
+#[AllowMockObjectsWithoutExpectations]
 class CampaignTriggerSubscriberTest extends TestCase
 {
     private IntegrationHelper $integrationHelper;
@@ -945,5 +947,91 @@ class CampaignTriggerSubscriberTest extends TestCase
 
             $this->subscriber->onEmailSend($this->buildPendingEvent(['email' => 1, 'status' => 'production']));
         }
+    }
+
+    private function answering(int $status): void
+    {
+        $response = $this->createMock(ResponseInterface::class);
+        $response->method('getStatusCode')->willReturn($status);
+        $response->method('getContent')->willReturn('{"error":"x"}');
+        $this->httpClient->method('request')->willReturn($response);
+        $this->mockIntegration(true, ['webhook_url' => 'https://n8n.example.test/webhook/dispatch']);
+        $this->emailModel->method('getEntity')->willReturn(new Email());
+    }
+
+    public function testTheStatIsMadeForTheContactWithAHashWithoutDotsAndTheMomentOfTheSend(): void
+    {
+        $this->answering(200);
+        $event   = $this->buildPendingEvent(['email' => 1, 'status' => 'production']);
+        $contact = $event->getPending()->first()->getLead();
+        $before  = new \DateTime('-2 seconds');
+        $stat    = null;
+        $this->emailModel->expects($this->once())->method('saveEmailStat')->willReturnCallback(function (Stat $saved) use (&$stat): void {
+            $stat = $saved;
+        });
+
+        $this->subscriber->onEmailSend($event);
+
+        $this->assertSame($contact, $stat->getLead());
+        $this->assertSame('contact@example.test', $stat->getEmailAddress());
+        $this->assertFalse($stat->isFailed());
+        $this->assertStringNotContainsString('.', $stat->getTrackingHash());
+        $this->assertGreaterThanOrEqual($before->getTimestamp(), $stat->getDateSent()->getTimestamp());
+        $this->assertLessThanOrEqual(time() + 1, $stat->getDateSent()->getTimestamp());
+    }
+
+    public function testHttp300IsAFailedStatAndNotAccepted(): void
+    {
+        $this->answering(300);
+        $refused = $this->buildPendingEvent(['email' => 1, 'status' => 'production']);
+        $stats   = [];
+        $this->emailModel->method('saveEmailStat')->willReturnCallback(function (Stat $stat) use (&$stats): void {
+            $stats[] = $stat;
+        });
+        $this->statusTracker->expects($this->once())->method('recordDispatch')->with($this->anything(), false);
+
+        $this->subscriber->onEmailSend($refused);
+
+        $this->assertCount(1, $refused->getFailures());
+        $this->assertTrue($stats[0]->isFailed());
+    }
+
+    public function testHttp299PassesAndIsAccepted(): void
+    {
+        $this->answering(299);
+        $event = $this->buildPendingEvent(['email' => 1, 'status' => 'production']);
+        $this->statusTracker->expects($this->once())->method('recordDispatch')->with($this->anything(), true);
+
+        $this->subscriber->onEmailSend($event);
+
+        $this->assertCount(1, $event->getSuccessful());
+    }
+
+    #[\PHPUnit\Framework\Attributes\DataProvider('simulatedModes')]
+    public function testATestOrPausedStepSaysSoInTheHistory(string $mode): void
+    {
+        $event = $this->buildPendingEvent(['email' => 1, 'status' => $mode]);
+        $log   = $event->getPending()->first();
+        (new \ReflectionProperty($log, 'id'))->setValue($log, 140);
+        $this->emailModel->method('getEntity')->willReturn(new Email());
+        $this->statusTracker->expects($this->once())->method('recordSimulated')->with(140, $mode);
+
+        $this->subscriber->onEmailSend($event);
+    }
+
+    /**
+     * @return array<string, array{string}>
+     */
+    public static function simulatedModes(): array
+    {
+        return ['test' => ['test'], 'paused' => ['paused']];
+    }
+
+    public function testAStepWithoutAnEmailLooksUpNeitherTheEmailNorItsVariables(): void
+    {
+        $this->emailModel->expects($this->never())->method('getEntity');
+        $this->emailVariablesRepository->expects($this->never())->method('getVariablesJsonForEmail');
+
+        $this->subscriber->onEmailSend($this->buildPendingEvent(['status' => 'test']));
     }
 }

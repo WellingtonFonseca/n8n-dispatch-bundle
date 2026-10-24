@@ -65,9 +65,6 @@ class TemplateUsageFindersDbTest extends RollbackDatabaseTestCase
         ]);
     }
 
-    /**
-     * @dataProvider finders
-     */
     #[\PHPUnit\Framework\Attributes\DataProvider('finders')]
     public function testTheStepsOfTheTemplateComeByCampaignNameThenStepWithTheirData(string $class, string $type, string $key): void
     {
@@ -90,9 +87,6 @@ class TemplateUsageFindersDbTest extends RollbackDatabaseTestCase
         ], $usages);
     }
 
-    /**
-     * @dataProvider finders
-     */
     #[\PHPUnit\Framework\Attributes\DataProvider('finders')]
     public function testDeletedStepsAndDeletedCampaignsDoNotCount(string $class, string $type, string $key): void
     {
@@ -108,9 +102,6 @@ class TemplateUsageFindersDbTest extends RollbackDatabaseTestCase
         $this->assertSame([$kept], array_column($this->finder($class)->findUsages($template), 'eventId'));
     }
 
-    /**
-     * @dataProvider finders
-     */
     #[\PHPUnit\Framework\Attributes\DataProvider('finders')]
     public function testInUseAmongTellsWhichOfManyTemplatesAStepUsesInOneGo(string $class, string $type, string $key): void
     {

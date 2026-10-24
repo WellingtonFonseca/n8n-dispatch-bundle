@@ -7,7 +7,6 @@ namespace MauticPlugin\N8nDispatchBundle\Form\Extension;
 use Mautic\CoreBundle\Service\FlashBag;
 use Mautic\EmailBundle\Entity\Email;
 use Mautic\EmailBundle\Form\Type\EmailType;
-use Symfony\Component\DependencyInjection\Attribute\Autowire;
 use Symfony\Component\Form\AbstractTypeExtension;
 use Symfony\Component\Form\FormBuilderInterface;
 use Symfony\Component\Form\FormError;
@@ -43,7 +42,6 @@ class EmailSenderRequiredExtension extends AbstractTypeExtension
 
     public function __construct(
         private TranslatorInterface $translator,
-        #[Autowire(service: 'mautic.core.service.flashbag')]
         private FlashBag $flashBag,
         private RequestStack $requestStack,
     ) {

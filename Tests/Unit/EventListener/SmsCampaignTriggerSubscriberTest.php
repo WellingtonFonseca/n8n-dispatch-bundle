@@ -22,11 +22,13 @@ use MauticPlugin\N8nDispatchBundle\Model\SmsTemplateModel;
 use MauticPlugin\N8nDispatchBundle\Resolver\VariableResolver;
 use MauticPlugin\N8nDispatchBundle\Service\DispatchFailureReasons;
 use MauticPlugin\N8nDispatchBundle\Service\StatusTracker;
+use PHPUnit\Framework\Attributes\AllowMockObjectsWithoutExpectations;
 use PHPUnit\Framework\TestCase;
 use Psr\Log\LoggerInterface;
 use Symfony\Contracts\HttpClient\HttpClientInterface;
 use Symfony\Contracts\HttpClient\ResponseInterface;
 
+#[AllowMockObjectsWithoutExpectations]
 class SmsCampaignTriggerSubscriberTest extends TestCase
 {
     private IntegrationHelper $integrationHelper;
@@ -580,5 +582,90 @@ class SmsCampaignTriggerSubscriberTest extends TestCase
 
             $this->subscriber->onSmsSend($this->buildPendingEvent(['text' => 'Hi {{foo}}', 'status' => 'production']));
         }
+    }
+
+    private function answering(int $status, string $body): void
+    {
+        $response = $this->createMock(ResponseInterface::class);
+        $response->method('getStatusCode')->willReturn($status);
+        $response->method('getContent')->willReturn($body);
+        $this->httpClient->method('request')->willReturn($response);
+        $this->mockIntegration(true, ['webhook_url' => 'https://n8n.example.test/webhook/dispatch']);
+    }
+
+    public function testHttp300IsAFailureNotAcceptedAndHttp299Passes(): void
+    {
+        $this->answering(300, '{"error":"moved"}');
+        $refused = $this->buildPendingEvent(['text' => 't', 'status' => 'production']);
+        $this->statusTracker->expects($this->once())->method('recordDispatch')->with($this->anything(), false);
+
+        $this->subscriber->onSmsSend($refused);
+
+        $this->assertCount(1, $refused->getFailures());
+        $this->assertSame('N8nDispatch: moved', $refused->getFailures()->first()->getFailedLog()->getReason());
+    }
+
+    public function testHttp299IsAcceptedAndPasses(): void
+    {
+        $this->answering(299, '{"ok":true}');
+        $event = $this->buildPendingEvent(['text' => 't', 'status' => 'production']);
+        $this->statusTracker->expects($this->once())->method('recordDispatch')->with($this->anything(), true);
+
+        $this->subscriber->onSmsSend($event);
+
+        $this->assertCount(1, $event->getSuccessful());
+    }
+
+    public function testATransportFailureIsLoggedWithTheContactId(): void
+    {
+        $this->mockIntegration(true, ['webhook_url' => 'https://n8n.example.test/webhook/dispatch']);
+        $this->httpClient->method('request')->willThrowException(new \RuntimeException('boom'));
+        $event   = $this->buildPendingEvent(['text' => 't', 'status' => 'production']);
+        $contact = $event->getPending()->first()->getLead();
+        (new \ReflectionProperty($contact, 'id'))->setValue($contact, 42);
+        $this->logger->expects($this->once())->method('error')->with('N8nDispatch: SMS dispatch failed for contact 42: boom');
+
+        $this->subscriber->onSmsSend($event);
+
+        $this->assertSame('N8nDispatch: boom', $event->getFailures()->first()->getFailedLog()->getReason());
+    }
+
+    #[\PHPUnit\Framework\Attributes\DataProvider('simulatedModes')]
+    public function testATestOrPausedStepSaysSoInTheHistory(string $mode): void
+    {
+        $event = $this->buildPendingEvent(['text' => 't', 'status' => $mode]);
+        $log   = $event->getPending()->first();
+        (new \ReflectionProperty($log, 'id'))->setValue($log, 140);
+        $this->statusTracker->expects($this->once())->method('recordSimulated')->with(140, $mode);
+
+        $this->subscriber->onSmsSend($event);
+    }
+
+    /**
+     * @return array<string, array{string}>
+     */
+    public static function simulatedModes(): array
+    {
+        return ['test' => ['test'], 'paused' => ['paused']];
+    }
+
+    public function testTheVariablesOfTheStepAreDecodedAndHandedToTheResolver(): void
+    {
+        $resolver = $this->createMock(VariableResolver::class);
+        $resolver->expects($this->once())->method('resolveAll')
+            ->with(['nome' => ['source' => 'contact', 'field' => 'firstname']], $this->anything(), $this->anything(), ', ', $this->anything())
+            ->willReturn([]);
+        $subscriber = new SmsCampaignTriggerSubscriber($this->integrationHelper, $this->httpClient, $this->logger, $resolver, $this->dncModel, $this->smsTemplateModel, new DispatchFailureReasons(new EnUsTranslator()), $this->statusTracker);
+
+        $subscriber->onSmsSend($this->buildPendingEvent(['text' => 't', 'status' => 'test', 'variablesJson' => '{"nome":{"source":"contact","field":"firstname"}}']));
+    }
+
+    public function testNumbersStoredInTheStepAreSentAsText(): void
+    {
+        $event = $this->buildPendingEvent(['text' => 123, 'status' => 'test', 'variablesJson' => 5]);
+
+        $this->subscriber->onSmsSend($event);
+
+        $this->assertSame('123', $event->getSuccessful()->first()->getMetadata()['n8ndispatch']['message']);
     }
 }

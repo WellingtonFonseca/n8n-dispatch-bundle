@@ -180,4 +180,72 @@ class DispatchLogReaderTest extends TestCase
         $this->assertNull($this->reader->dispatchOf(DispatchTracking::CHANNEL_EMAIL, ['errors' => ['cancelled'], 'n8ndispatch_cancellation' => ['x' => 1]]));
         $this->assertNull($this->reader->dispatchOf(DispatchTracking::CHANNEL_EMAIL, ['n8ndispatch' => ['status' => 'weird']]));
     }
+
+    public function testAnHttpStatusOf300OrMoreHasNoIdsToTrack(): void
+    {
+        $meta = fn ($status): array => ['logSendEmailId' => 5, 'n8ndispatch' => ['status' => 'production', 'httpStatusCode' => $status]];
+
+        $this->assertSame([DispatchTracking::REF_EMAIL => 5], $this->reader->refs('email', $meta(299)));
+        $this->assertSame([], $this->reader->refs('email', $meta(300)));
+        $this->assertSame([], $this->reader->refs('email', $meta('300')));
+        $this->assertSame([DispatchTracking::REF_EMAIL => 5], $this->reader->refs('email', $meta('299')));
+    }
+
+    public function testTheLogsOwnIdBeatsTheResponseAndTheResponseBeatsItsBody(): void
+    {
+        $block = static fn (array $response): array => ['status' => 'production', 'response' => $response];
+        $cases = [
+            'email' => ['logSendEmailId', 'logSendEmailId', DispatchTracking::REF_EMAIL],
+            'sms'   => ['logSendSmsId', 'logSendSmsId', DispatchTracking::REF_SMS],
+            'hsm'   => ['logSendHsmId', 'logSendHsmId', DispatchTracking::REF_HSM_ID],
+        ];
+
+        foreach ($cases as $channel => [$metaKey, $bodyKey, $ref]) {
+            $all = $this->reader->refs($channel, [$metaKey => 'meta', 'n8ndispatch' => $block([$bodyKey => 'response', 'body' => [$bodyKey => 'nested']])]);
+            $noMeta = $this->reader->refs($channel, ['n8ndispatch' => $block([$bodyKey => 'response', 'body' => [$bodyKey => 'nested']])]);
+            $onlyNested = $this->reader->refs($channel, ['n8ndispatch' => $block(['body' => [$bodyKey => 'nested']])]);
+
+            $this->assertSame('meta', $all[$ref], $channel);
+            $this->assertSame('response', $noMeta[$ref], $channel);
+            $this->assertSame('nested', $onlyNested[$ref], $channel);
+        }
+
+        $uuid = fn (array $meta, array $response): array => $this->reader->refs('hsm', $meta + ['n8ndispatch' => $block($response)]);
+        $this->assertSame('m', $uuid(['logSendHsmUuid' => 'm'], ['uuid' => 'r', 'body' => ['uuid' => 'n']])[DispatchTracking::REF_HSM_UUID]);
+        $this->assertSame('r', $uuid([], ['uuid' => 'r', 'body' => ['uuid' => 'n']])[DispatchTracking::REF_HSM_UUID]);
+        $this->assertSame('n', $uuid([], ['body' => ['uuid' => 'n']])[DispatchTracking::REF_HSM_UUID]);
+    }
+
+    public function testAnUnknownChannelHasNoIdsAndOnlyTextOrNumbersCount(): void
+    {
+        $meta = ['n8ndispatch' => ['status' => 'production'], 'logSendEmailId' => 5];
+
+        $this->assertSame([], $this->reader->refs('fax', $meta));
+        $this->assertSame([], $this->reader->refs('email', ['logSendEmailId' => '', 'n8ndispatch' => ['status' => 'production']]));
+        $this->assertSame([], $this->reader->refs('email', ['logSendEmailId' => ['5'], 'n8ndispatch' => ['status' => 'production']]));
+        $this->assertSame([], $this->reader->refs('email', ['logSendEmailId' => 5.5, 'n8ndispatch' => ['status' => 'production']]));
+        $this->assertSame([DispatchTracking::REF_EMAIL => 'abc'], $this->reader->refs('email', ['logSendEmailId' => 'abc', 'n8ndispatch' => ['status' => 'production']]));
+    }
+
+    public function testADispatchOfATestOrPausedStepWasAcceptedAndTracksNothing(): void
+    {
+        foreach (['test', 'paused'] as $mode) {
+            $this->assertSame(['mode' => $mode, 'accepted' => true, 'response' => null, 'refs' => []], $this->reader->dispatchOf('email', ['n8ndispatch' => ['status' => $mode]]));
+        }
+    }
+
+    public function testAProductionDispatchIsAcceptedBelow300AndKeepsATextOrArrayResponse(): void
+    {
+        $dispatch = fn (array $n8n) => $this->reader->dispatchOf('email', ['n8ndispatch' => ['status' => 'production'] + $n8n]);
+
+        $this->assertTrue($dispatch(['httpStatusCode' => 299])['accepted']);
+        $this->assertTrue($dispatch(['httpStatusCode' => '299'])['accepted']);
+        $this->assertFalse($dispatch(['httpStatusCode' => 300])['accepted']);
+        $this->assertFalse($dispatch(['httpStatusCode' => '300'])['accepted']);
+        $this->assertTrue($dispatch([])['accepted']);
+        $this->assertSame(['a' => 1], $dispatch(['response' => ['a' => 1]])['response']);
+        $this->assertSame('plain', $dispatch(['response' => 'plain'])['response']);
+        $this->assertNull($dispatch(['response' => "  \n"])['response']);
+        $this->assertNull($dispatch(['response' => 5])['response']);
+    }
 }

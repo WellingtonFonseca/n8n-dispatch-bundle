@@ -9,16 +9,19 @@ use Doctrine\ORM\UnitOfWork;
 use Mautic\CoreBundle\Helper\UserHelper;
 use Mautic\EmailBundle\Entity\Email;
 use Mautic\EmailBundle\Event\EmailEvent;
+use Mautic\EmailBundle\EventListener\EmailSubscriber as CoreEmailSubscriber;
 use Mautic\PluginBundle\Entity\Integration as IntegrationSettings;
 use Mautic\PluginBundle\Helper\IntegrationHelper;
 use Mautic\UserBundle\Entity\User;
 use MauticPlugin\N8nDispatchBundle\EventListener\EmailMirrorSyncSubscriber;
 use MauticPlugin\N8nDispatchBundle\Integration\N8nDispatchIntegration;
+use PHPUnit\Framework\Attributes\AllowMockObjectsWithoutExpectations;
 use PHPUnit\Framework\TestCase;
 use Psr\Log\LoggerInterface;
 use Symfony\Contracts\HttpClient\HttpClientInterface;
 use Symfony\Contracts\HttpClient\ResponseInterface;
 
+#[AllowMockObjectsWithoutExpectations]
 class EmailMirrorSyncSubscriberTest extends TestCase
 {
     private IntegrationHelper $integrationHelper;
@@ -342,5 +345,149 @@ class EmailMirrorSyncSubscriberTest extends TestCase
         $this->assertSame(1, substr_count($html, 'n8ndispatch:unsubscribe-footer:start'));
         $this->assertStringNotContainsString('stale', $html);
         $this->assertStringContainsString('{{n8ndispatch_unsubscribe_url}}', $html);
+    }
+
+    private const FOOTER = "<!-- n8ndispatch:unsubscribe-footer:start -->\n"
+        .'<p style="font-size:11px;color:#888888;text-align:center;margin:16px 0 0;"><a href="{{n8ndispatch_unsubscribe_url}}" style="color:#888888;">Unsubscribe</a></p>'."\n"
+        .'<!-- n8ndispatch:unsubscribe-footer:end -->';
+
+    /**
+     * Saves the Email and returns what was sent to the webhook: ['url' => ..., 'options' => ...].
+     *
+     * @param array<string, string> $keys
+     *
+     * @return array{url: string, options: array<string, mixed>}
+     */
+    private function sent(Email $email, array $keys = ['webhook_url' => 'https://n8n.example.test/hook']): array
+    {
+        $this->mockIntegration(true, $keys);
+        $response = $this->createMock(ResponseInterface::class);
+        $response->method('getStatusCode')->willReturn(200);
+        $sent = [];
+        $this->httpClient->method('request')->willReturnCallback(function (string $method, string $url, array $options) use (&$sent, $response) {
+            $sent = ['url' => $url, 'options' => $options];
+
+            return $response;
+        });
+
+        $this->dispatch($email);
+
+        return $sent;
+    }
+
+    public function testTheUrlAndTheTokenAreTrimmedAndTheHeadersAreExactlyThese(): void
+    {
+        $sent = $this->sent($this->buildEmail(), ['webhook_url' => "  https://n8n.example.test/hook \n", 'webhook_token' => '  tok  ']);
+
+        $this->assertSame('https://n8n.example.test/hook', $sent['url']);
+        $this->assertSame(['Content-Type' => 'application/json', 'X-N8n-Dispatch-Action' => 'email.save', 'X-N8n-Dispatch-Token' => 'tok'], $sent['options']['headers']);
+    }
+
+    public function testATokenOfOnlySpacesSendsNoTokenHeader(): void
+    {
+        $sent = $this->sent($this->buildEmail(), ['webhook_url' => 'https://n8n.example.test/hook', 'webhook_token' => '   ']);
+
+        $this->assertSame(['Content-Type' => 'application/json', 'X-N8n-Dispatch-Action' => 'email.save'], $sent['options']['headers']);
+    }
+
+    public function testHttp300IsLoggedWithTheEmailIdAndHttp299IsNot(): void
+    {
+        $this->mockIntegration(true, ['webhook_url' => 'https://n8n.example.test/hook']);
+        $codes = [299, 300];
+        $this->httpClient->method('request')->willReturnCallback(function () use (&$codes) {
+            $response = $this->createMock(ResponseInterface::class);
+            $response->method('getStatusCode')->willReturn(array_shift($codes));
+
+            return $response;
+        });
+        $this->logger->expects($this->once())->method('error')->with('N8nDispatch: webhook returned HTTP 300 for email 6.');
+
+        $this->dispatch($this->buildEmail());
+        $this->dispatch($this->buildEmail());
+    }
+
+    public function testATransportFailureIsLoggedWithTheEmailIdAndTheReason(): void
+    {
+        $this->mockIntegration(true, ['webhook_url' => 'https://n8n.example.test/hook']);
+        $this->httpClient->method('request')->willThrowException(new \RuntimeException('boom'));
+        $this->logger->expects($this->once())->method('error')->with('N8nDispatch: failed to sync email 6 to the configured webhook: boom');
+
+        $this->dispatch($this->buildEmail());
+    }
+
+    public function testTheFooterGoesJustBeforeTheClosingBodyTagWhateverItsCase(): void
+    {
+        $email = $this->buildEmail();
+        $email->setCustomHtml('<HTML><BODY><p>x</p></BODY></HTML>');
+
+        $this->sent($email);
+
+        $this->assertSame('<HTML><BODY><p>x</p>'.self::FOOTER."\n".'</BODY></HTML>', $email->getCustomHtml());
+    }
+
+    public function testWithoutABodyTagTheFooterIsAppendedAfterTheTrimmedHtml(): void
+    {
+        $email = $this->buildEmail();
+        $email->setCustomHtml("<p>x</p>  \n");
+
+        $this->sent($email);
+
+        $this->assertSame("<p>x</p>\n".self::FOOTER, $email->getCustomHtml());
+    }
+
+    public function testAnEmailWithoutHtmlGetsJustTheFooter(): void
+    {
+        $email = $this->buildEmail();
+        $email->setCustomHtml(null);
+
+        $this->sent($email);
+
+        $this->assertSame("\n".self::FOOTER, $email->getCustomHtml());
+    }
+
+    public function testThePreheaderGoesRightAfterTheOpeningBodyTagWhateverItsCase(): void
+    {
+        $email = $this->buildEmail();
+        $email->setCustomHtml('<HTML><BODY class="a"><p>x</p></HTML>');
+        $email->setPreheaderText('Resumo');
+
+        $sent = $this->sent($email);
+
+        $this->assertStringContainsString('<BODY class="a">'."\n".CoreEmailSubscriber::PREHEADER_HTML_ELEMENT_BEFORE.'Resumo'.CoreEmailSubscriber::PREHEADER_HTML_ELEMENT_AFTER.'<p>x</p>', $sent['options']['json']['html']);
+    }
+
+    public function testAnExistingPreheaderIsReplacedNotDuplicated(): void
+    {
+        $email = $this->buildEmail();
+        $email->setCustomHtml('<body>'.CoreEmailSubscriber::PREHEADER_HTML_ELEMENT_BEFORE.'old'.CoreEmailSubscriber::PREHEADER_HTML_ELEMENT_AFTER.'<p>x</p></body>');
+        $email->setPreheaderText('new');
+
+        $html = $this->sent($email)['options']['json']['html'];
+
+        $this->assertSame(1, substr_count($html, 'class="preheader"'));
+        $this->assertStringContainsString('>new</div>', $html);
+        $this->assertStringNotContainsString('old', $html);
+    }
+
+    public function testWithoutPreheaderTextTheHtmlIsSentAsItIs(): void
+    {
+        $email = $this->buildEmail();
+        $email->setPreheaderText(null);
+
+        $html = $this->sent($email)['options']['json']['html'];
+
+        $this->assertSame($email->getCustomHtml(), $html);
+        $this->assertStringNotContainsString('class="preheader"', $html);
+    }
+
+    public function testPreheaderTextWithoutABodyTagLeavesTheHtmlAlone(): void
+    {
+        $email = $this->buildEmail();
+        $email->setCustomHtml('<p>no body</p>');
+        $email->setPreheaderText('Resumo');
+
+        $html = $this->sent($email)['options']['json']['html'];
+
+        $this->assertSame("<p>no body</p>\n".self::FOOTER, $html);
     }
 }

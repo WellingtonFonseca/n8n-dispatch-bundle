@@ -22,11 +22,13 @@ use MauticPlugin\N8nDispatchBundle\Model\HsmTemplateModel;
 use MauticPlugin\N8nDispatchBundle\Resolver\VariableResolver;
 use MauticPlugin\N8nDispatchBundle\Service\DispatchFailureReasons;
 use MauticPlugin\N8nDispatchBundle\Service\StatusTracker;
+use PHPUnit\Framework\Attributes\AllowMockObjectsWithoutExpectations;
 use PHPUnit\Framework\TestCase;
 use Psr\Log\LoggerInterface;
 use Symfony\Contracts\HttpClient\HttpClientInterface;
 use Symfony\Contracts\HttpClient\ResponseInterface;
 
+#[AllowMockObjectsWithoutExpectations]
 class HsmCampaignTriggerSubscriberTest extends TestCase
 {
     private IntegrationHelper $integrationHelper;
@@ -690,5 +692,108 @@ class HsmCampaignTriggerSubscriberTest extends TestCase
 
             $this->subscriber->onHsmSend($this->buildPendingEvent(['router' => 'r1', 'hsmId' => 'h1', 'status' => 'production']));
         }
+    }
+
+    private function answering(int $status, string $body): void
+    {
+        $response = $this->createMock(ResponseInterface::class);
+        $response->method('getStatusCode')->willReturn($status);
+        $response->method('getContent')->willReturn($body);
+        $this->httpClient->method('request')->willReturn($response);
+        $this->mockIntegration(true, ['webhook_url' => 'https://n8n.example.test/webhook/dispatch']);
+    }
+
+    private function failureReasonOf(PendingEvent $event): string
+    {
+        return $event->getFailures()->first()->getFailedLog()->getReason();
+    }
+
+    public function testHttp300IsAFailureNotAcceptedAndHttp299WithABodyPasses(): void
+    {
+        $this->answering(300, '{"error":"moved"}');
+        $refused = $this->buildPendingEvent(['router' => 'r1', 'hsmId' => 'h1', 'status' => 'production']);
+        $this->statusTracker->expects($this->once())->method('recordDispatch')->with($this->anything(), false);
+
+        $this->subscriber->onHsmSend($refused);
+
+        $this->assertCount(1, $refused->getFailures());
+        $this->assertSame('N8nDispatch: moved', $this->failureReasonOf($refused));
+    }
+
+    public function testHttp299WithABodyIsAcceptedAndPasses(): void
+    {
+        $this->answering(299, '{"ok":true}');
+        $event = $this->buildPendingEvent(['router' => 'r1', 'hsmId' => 'h1', 'status' => 'production']);
+        $this->statusTracker->expects($this->once())->method('recordDispatch')->with($this->anything(), true);
+
+        $this->subscriber->onHsmSend($event);
+
+        $this->assertCount(1, $event->getSuccessful());
+    }
+
+    public function testABodyOfOnlySpacesIsAnEmptyResponse(): void
+    {
+        $this->answering(200, "  \n ");
+        $event = $this->buildPendingEvent(['router' => 'r1', 'hsmId' => 'h1', 'status' => 'production']);
+        $this->statusTracker->expects($this->once())->method('recordDispatch')->with($this->anything(), false);
+
+        $this->subscriber->onHsmSend($event);
+
+        $this->assertSame('N8nDispatch: n8n returned an empty response for hsm.send.', $this->failureReasonOf($event));
+    }
+
+    public function testATransportFailureIsLoggedWithTheContactId(): void
+    {
+        $this->mockIntegration(true, ['webhook_url' => 'https://n8n.example.test/webhook/dispatch']);
+        $this->httpClient->method('request')->willThrowException(new \RuntimeException('boom'));
+        $event   = $this->buildPendingEvent(['router' => 'r1', 'hsmId' => 'h1', 'status' => 'production']);
+        $contact = $event->getPending()->first()->getLead();
+        (new \ReflectionProperty($contact, 'id'))->setValue($contact, 42);
+        $this->logger->expects($this->once())->method('error')->with('N8nDispatch: HSM dispatch failed for contact 42: boom');
+
+        $this->subscriber->onHsmSend($event);
+
+        $this->assertSame('N8nDispatch: boom', $this->failureReasonOf($event));
+    }
+
+    #[\PHPUnit\Framework\Attributes\DataProvider('simulatedModes')]
+    public function testATestOrPausedStepSaysSoInTheHistory(string $mode): void
+    {
+        $event = $this->buildPendingEvent(['router' => 'r1', 'hsmId' => 'h1', 'status' => $mode]);
+        $log   = $event->getPending()->first();
+        (new \ReflectionProperty($log, 'id'))->setValue($log, 140);
+        $this->statusTracker->expects($this->once())->method('recordSimulated')->with(140, $mode);
+
+        $this->subscriber->onHsmSend($event);
+    }
+
+    /**
+     * @return array<string, array{string}>
+     */
+    public static function simulatedModes(): array
+    {
+        return ['test' => ['test'], 'paused' => ['paused']];
+    }
+
+    public function testTheVariablesOfTheStepAreDecodedAndHandedToTheResolver(): void
+    {
+        $resolver = $this->createMock(VariableResolver::class);
+        $resolver->expects($this->once())->method('resolveAll')
+            ->with(['nome' => ['source' => 'contact', 'field' => 'firstname']], $this->anything(), $this->anything(), ', ', 'pt_BR')
+            ->willReturn([]);
+        $subscriber = new HsmCampaignTriggerSubscriber($this->integrationHelper, $this->httpClient, $this->logger, $resolver, $this->dncModel, $this->hsmTemplateModel, new DispatchFailureReasons(new EnUsTranslator()), $this->statusTracker);
+
+        $subscriber->onHsmSend($this->buildPendingEvent(['router' => 'r1', 'hsmId' => 'h1', 'status' => 'test', 'variablesJson' => '{"nome":{"source":"contact","field":"firstname"}}']));
+    }
+
+    public function testNumbersStoredInTheStepAreSentAsText(): void
+    {
+        $event = $this->buildPendingEvent(['router' => 12, 'hsmId' => 34, 'status' => 'test', 'variablesJson' => 5]);
+
+        $this->subscriber->onHsmSend($event);
+
+        $payload = $event->getSuccessful()->first()->getMetadata()['n8ndispatch'];
+        $this->assertSame('12', $payload['hsm_router']);
+        $this->assertSame('34', $payload['hsm_template']);
     }
 }

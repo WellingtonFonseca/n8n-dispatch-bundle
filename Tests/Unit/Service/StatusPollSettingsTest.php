@@ -215,4 +215,59 @@ class StatusPollSettingsTest extends TestCase
         $this->assertSame(['date', 'status', 'warning'], array_keys(json_decode($json, true)));
         $this->assertStringContainsString('ATENÇÃO', $json, 'unicode is not escaped');
     }
+
+    public function testStalenessBoundariesAreExactlyThreeIntervalsAndAtLeastAnHour(): void
+    {
+        $now = new \DateTimeImmutable('2026-10-02 10:00:00');
+
+        // 30 min interval: 3 x 30 = 90 minutes
+        $this->assertFalse(StatusPollSettings::isStale($this->runStartedAt('2026-10-02 08:30:00'), 30, $now), 'exactly 90 minutes ago is not yet stale');
+        $this->assertTrue(StatusPollSettings::isStale($this->runStartedAt('2026-10-02 08:29:00'), 30, $now));
+        // 5 min interval: the one hour floor
+        $this->assertFalse(StatusPollSettings::isStale($this->runStartedAt('2026-10-02 09:00:00'), 5, $now), 'exactly 60 minutes ago is not yet stale');
+        $this->assertTrue(StatusPollSettings::isStale($this->runStartedAt('2026-10-02 08:59:00'), 5, $now));
+        // 25 min interval: 75 minutes, so 3 x the interval wins over the floor and 2 x would not
+        $this->assertFalse(StatusPollSettings::isStale($this->runStartedAt('2026-10-02 08:50:00'), 25, $now));
+    }
+
+    public function testEveryCountOfAChannelComesFromItsOwnPlaceInTheLine(): void
+    {
+        $json = StatusPollSettings::lastRunJson(
+            new \DateTimeImmutable('2026-10-04 03:29:00', new \DateTimeZone('UTC')),
+            'OK',
+            'hsm: asked 11, changed 22, unchanged 33, unknown 44, invalid 55, 66 calls',
+            null
+        );
+
+        $this->assertSame(['asked' => 11, 'changed' => 22, 'unchanged' => 33, 'unknown' => 44, 'invalid' => 55, 'calls' => 66], json_decode($json, true)['hsm']);
+    }
+
+    public function testLinesAreTrimmedBlankOnesSkippedAndTheMessageKeepsTheLineBreaks(): void
+    {
+        $json = StatusPollSettings::lastRunJson(
+            new \DateTimeImmutable('2026-10-04 03:29:00', new \DateTimeZone('UTC')),
+            'Erro',
+            "  first problem  \n\n   \n  email: asked 1, changed 0, unchanged 1, unknown 0, invalid 0, 1 call  \nsecond problem",
+            null
+        );
+        $block = json_decode($json, true);
+
+        $this->assertSame("first problem\nsecond problem", $block['message']);
+        $this->assertSame(1, $block['email']['calls'], 'the line after a blank one is still read');
+    }
+
+    public function testALineMustBeWholeToCountAsChannelCountsOrError(): void
+    {
+        $json = StatusPollSettings::lastRunJson(
+            new \DateTimeImmutable('2026-10-04 03:29:00', new \DateTimeZone('UTC')),
+            'OK',
+            "x email: asked 1, changed 0, unchanged 0, unknown 0, invalid 0, 1 calls\nemail: asked 1, changed 0, unchanged 0, unknown 0, invalid 0, 1 calls extra\nx sms: broken\nsms: broken",
+            null
+        );
+        $block = json_decode($json, true);
+
+        $this->assertSame(['error' => 'broken'], $block['sms']);
+        $this->assertSame(['error' => 'asked 1, changed 0, unchanged 0, unknown 0, invalid 0, 1 calls extra'], $block['email'], 'not a counts line: kept as the channel error text');
+        $this->assertSame("x email: asked 1, changed 0, unchanged 0, unknown 0, invalid 0, 1 calls\nx sms: broken", $block['message']);
+    }
 }

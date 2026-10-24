@@ -71,4 +71,25 @@ class AssetInjectionSubscriberTest extends TestCase
             $content
         );
     }
+
+    public function testInjectsEveryAssetOnceInTheOrderTheScriptsDependOn(): void
+    {
+        $event = new CustomContentEvent('some.view', 'page.header.left');
+
+        (new AssetInjectionSubscriber())->injectViewCustomContent($event);
+
+        $scripts = ['n8ndispatch-shared', 'email-tab-variables', 'email-sender-alert', 'campaign-sms-dispatch', 'campaign-hsm-dispatch', 'campaign-timeline-scheduled', 'campaign-preview-icons', 'status-poll-check-now', 'dispatch-resend', 'template-modal-middle-click', 'template-status-toggle'];
+        $expected = '';
+        foreach ($scripts as $name) {
+            $expected .= '<script src="/plugins/N8nDispatchBundle/Assets/js/'.$name.'.js?v='.filemtime(__DIR__.'/../../../Assets/js/'.$name.'.js').'"></script>';
+        }
+        $expected .= '<link rel="stylesheet" href="/plugins/N8nDispatchBundle/Assets/css/n8ndispatch.css?v='.filemtime(__DIR__.'/../../../Assets/css/n8ndispatch.css').'">';
+
+        $this->assertSame($expected, implode('', $event->getContent()));
+    }
+
+    public function testItListensToTheInjectionEvent(): void
+    {
+        $this->assertSame([\Mautic\CoreBundle\CoreEvents::VIEW_INJECT_CUSTOM_CONTENT => 'injectViewCustomContent'], AssetInjectionSubscriber::getSubscribedEvents());
+    }
 }

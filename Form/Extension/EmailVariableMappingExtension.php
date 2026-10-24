@@ -10,7 +10,6 @@ use Mautic\EmailBundle\Form\Type\EmailType;
 use MauticPlugin\N8nDispatchBundle\Entity\EmailVariablesRepository;
 use MauticPlugin\N8nDispatchBundle\Service\TemplateVariableScanner;
 use MauticPlugin\N8nDispatchBundle\Service\VariableMappingChecker;
-use Symfony\Component\DependencyInjection\Attribute\Autowire;
 use Symfony\Component\Form\AbstractTypeExtension;
 use Symfony\Component\Form\FormBuilderInterface;
 use Symfony\Component\Form\FormError;
@@ -41,7 +40,6 @@ class EmailVariableMappingExtension extends AbstractTypeExtension
         private VariableMappingChecker $mappingChecker,
         private EmailVariablesRepository $emailVariablesRepository,
         private TranslatorInterface $translator,
-        #[Autowire(service: 'mautic.core.service.flashbag')]
         private FlashBag $flashBag,
         private RequestStack $requestStack,
     ) {
