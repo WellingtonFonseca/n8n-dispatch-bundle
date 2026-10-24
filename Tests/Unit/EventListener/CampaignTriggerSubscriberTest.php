@@ -216,6 +216,60 @@ class CampaignTriggerSubscriberTest extends TestCase
         $this->assertCount(0, $pendingEvent->getFailures());
     }
 
+    public function testProductionStatusFailAllWhenIntegrationNotConfigured(): void
+    {
+        $pendingEvent = $this->buildPendingEvent(['email' => 1, 'status' => 'production']);
+
+        $this->emailModel->method('getEntity')->with(1)->willReturn(new Email());
+        $this->integrationHelper->method('getIntegrationObject')->willReturn(null);
+        $this->httpClient->expects($this->never())->method('request');
+
+        $this->subscriber->onEmailSend($pendingEvent);
+
+        $failures = $pendingEvent->getFailures();
+        $this->assertCount(1, $failures);
+        $this->assertSame('N8nDispatch: the N8N Dispatch integration is not configured/enabled.', $failures->first()->getFailedLog()->getReason());
+    }
+
+    public function testProductionStatusFailAllWhenWebhookUrlIsMissing(): void
+    {
+        $pendingEvent = $this->buildPendingEvent(['email' => 1, 'status' => 'production']);
+
+        $this->emailModel->method('getEntity')->with(1)->willReturn(new Email());
+        $this->mockIntegration(true, ['webhook_url' => '']);
+        $this->httpClient->expects($this->never())->method('request');
+
+        $this->subscriber->onEmailSend($pendingEvent);
+
+        $failures = $pendingEvent->getFailures();
+        $this->assertCount(1, $failures);
+        $this->assertSame('N8nDispatch: webhook_url is not configured.', $failures->first()->getFailedLog()->getReason());
+    }
+
+    public function testTheWebhookIsCalledWithTheActionAndTheTokenHeaders(): void
+    {
+        $pendingEvent = $this->buildPendingEvent(['email' => 1, 'status' => 'production']);
+
+        $this->emailModel->method('getEntity')->with(1)->willReturn(new Email());
+        $this->mockIntegration(true, ['webhook_url' => 'https://n8n.example.test/webhook/dispatch', 'webhook_token' => 'secret-token']);
+
+        $response = $this->createMock(ResponseInterface::class);
+        $response->method('getStatusCode')->willReturn(200);
+
+        $this->httpClient->expects($this->once())
+            ->method('request')
+            ->with('POST', 'https://n8n.example.test/webhook/dispatch', $this->callback(function (array $options): bool {
+                $this->assertSame('email.send', $options['headers']['X-N8n-Dispatch-Action']);
+                $this->assertSame('secret-token', $options['headers']['X-N8n-Dispatch-Token']);
+                $this->assertSame('application/json', $options['headers']['Content-Type']);
+
+                return true;
+            }))
+            ->willReturn($response);
+
+        $this->subscriber->onEmailSend($pendingEvent);
+    }
+
     /**
      * The Email has a row in Entity/EmailVariables.php ("Variables" tab
      * saved at least once) — that source wins, even though this event's

@@ -1,0 +1,18 @@
+{
+    // Mutation testing of the unit tests. Run it inside the web container (wiki/tests.md, "mutation testing").
+    "$schema": "https://raw.githubusercontent.com/infection/infection/0.35.8/resources/schema.json",
+    "source": {
+        "directories": ["Service", "Resolver", "EventListener"]
+    },
+    "phpUnit": {
+        "configDir": ".",
+        "customPath": "/var/www/html/vendor/bin/phpunit"
+    },
+    "tmpDir": "/tmp/infection-n8n",
+    "logs": {
+        "text": "/tmp/infection-n8n/infection.log"
+    },
+    "mutators": {
+        "@default": true
+    }
+}

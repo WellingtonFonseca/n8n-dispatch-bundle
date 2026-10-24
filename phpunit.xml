@@ -14,6 +14,7 @@
         <include>
             <directory>Resolver</directory>
             <directory>EventListener</directory>
+            <directory>Service</directory>
         </include>
     </source>
 </phpunit>
