@@ -22,8 +22,10 @@ use Symfony\Contracts\HttpClient\HttpClientInterface;
 /**
  * Handles the "Send via n8n (HSM)" Campaign Action — same
  * status/dispatch/outcome shape as CampaignTriggerSubscriber (Email) and
- * SmsCampaignTriggerSubscriber (SMS), see either one's own docblock for
- * the full 'test'/'production'/'paused' rationale, reused here as-is.
+ * SmsCampaignTriggerSubscriber (SMS); the flow it shares with SMS (status
+ * branches, Do Not Contact and phone checks, the HTTP call, the outcome on
+ * the log) is in AbstractTemplateDispatchSubscriber, and the full
+ * 'test'/'production'/'paused' rationale in CampaignTriggerSubscriber's docblock.
  *
  * Differences from both of those:
  * - No message text sent anywhere — HSM has no Mautic-side template

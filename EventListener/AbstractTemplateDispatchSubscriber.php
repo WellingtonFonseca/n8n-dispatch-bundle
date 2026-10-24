@@ -188,12 +188,12 @@ abstract class AbstractTemplateDispatchSubscriber implements EventSubscriberInte
             // connection refused) never surfaces at all.
             $statusCode = $response->getStatusCode();
             $rawBody    = $response->getContent(false);
-            $emptyBody  = '' === trim($rawBody);
+            $emptyFails = $this->emptyAnswerFails() && '' === trim($rawBody);
 
-            $this->recordDispatchOutcome($log, $rawBody, $payload, $statusCode, $this->emptyAnswerFails() && $emptyBody);
+            $this->recordDispatchOutcome($log, $rawBody, $payload, $statusCode, $emptyFails);
 
-            if ($statusCode >= 300 || ($this->emptyAnswerFails() && $emptyBody)) {
-                $reason = $this->emptyAnswerFails() && $emptyBody
+            if ($statusCode >= 300 || $emptyFails) {
+                $reason = $emptyFails
                     ? $this->failureReasons->text(DispatchFailureReasons::EMPTY_RESPONSE, ['%action%' => $this->action()])
                     : $this->failureReasons->fromResponseBody($rawBody, $statusCode);
                 $event->fail($log, $this->failureReasons->reason($reason));

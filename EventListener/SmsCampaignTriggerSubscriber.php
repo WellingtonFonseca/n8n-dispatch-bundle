@@ -20,15 +20,16 @@ use Symfony\Contracts\HttpClient\HttpClientInterface;
 
 /**
  * Handles the "Send via n8n (SMS)" Campaign Action — same shape as
- * CampaignTriggerSubscriber (Email) (the part it shares with HSM is in
- * AbstractTemplateDispatchSubscriber), kept as its own class rather than
+ * CampaignTriggerSubscriber (Email), kept as its own class rather than
  * merged into it: there's no Email/Copy entity or DNC/unsubscribe variable
  * concept on this channel (a pasted textarea has no "template" to
  * register or footer to inject a link into — see
  * Form/Type/SmsDispatchActionType.php's own docblock), so the two classes
  * would mostly diverge past the shared status/dispatch/outcome shape. See
  * CampaignTriggerSubscriber's own docblock for the full 'test'/
- * 'production'/'paused' rationale, reused here as-is.
+ * 'production'/'paused' rationale; the flow it shares with HSM (status
+ * branches, Do Not Contact and phone checks, the HTTP call, the outcome on
+ * the log) is in AbstractTemplateDispatchSubscriber.
  *
  * Difference from the Email path: the {{variable}} placeholders in the
  * pasted 'text' are resolved and substituted locally into a final
