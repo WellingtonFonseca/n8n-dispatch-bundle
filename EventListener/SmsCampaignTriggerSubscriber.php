@@ -4,10 +4,7 @@ declare(strict_types=1);
 
 namespace MauticPlugin\N8nDispatchBundle\EventListener;
 
-use Mautic\CampaignBundle\Entity\Campaign;
-use Mautic\CampaignBundle\Entity\LeadEventLog;
 use Mautic\CampaignBundle\Event\PendingEvent;
-use Mautic\LeadBundle\Entity\DoNotContact;
 use Mautic\LeadBundle\Entity\Lead;
 use Mautic\LeadBundle\Model\DoNotContact as DncModel;
 use Mautic\PluginBundle\Helper\IntegrationHelper;
@@ -17,13 +14,9 @@ use MauticPlugin\N8nDispatchBundle\N8nDispatchEvents;
 use MauticPlugin\N8nDispatchBundle\Resolver\LocaleConventions;
 use MauticPlugin\N8nDispatchBundle\Resolver\VariableResolver;
 use MauticPlugin\N8nDispatchBundle\Service\DispatchFailureReasons;
-use MauticPlugin\N8nDispatchBundle\Service\DispatchOutcomeRecorder;
 use MauticPlugin\N8nDispatchBundle\Service\StatusTracker;
-use MauticPlugin\N8nDispatchBundle\Service\WebhookSettings;
 use Psr\Log\LoggerInterface;
-use Symfony\Component\EventDispatcher\EventSubscriberInterface;
 use Symfony\Contracts\HttpClient\HttpClientInterface;
-use Symfony\Contracts\HttpClient\ResponseInterface;
 
 /**
  * Handles the "Send via n8n (SMS)" Campaign Action — same shape as
@@ -34,7 +27,9 @@ use Symfony\Contracts\HttpClient\ResponseInterface;
  * Form/Type/SmsDispatchActionType.php's own docblock), so the two classes
  * would mostly diverge past the shared status/dispatch/outcome shape. See
  * CampaignTriggerSubscriber's own docblock for the full 'test'/
- * 'production'/'paused' rationale, reused here as-is.
+ * 'production'/'paused' rationale; the flow it shares with HSM (status
+ * branches, Do Not Contact and phone checks, the HTTP call, the outcome on
+ * the log) is in AbstractTemplateDispatchSubscriber.
  *
  * Difference from the Email path: the {{variable}} placeholders in the
  * pasted 'text' are resolved and substituted locally into a final
@@ -61,30 +56,21 @@ use Symfony\Contracts\HttpClient\ResponseInterface;
  * carry their own inline 'text'/'variablesJson' — those keep working
  * as-is until the event is re-saved with a template picked.
  */
-class SmsCampaignTriggerSubscriber implements EventSubscriberInterface
+class SmsCampaignTriggerSubscriber extends AbstractTemplateDispatchSubscriber
 {
-    private const CONTEXT = 'n8ndispatch.sms.send';
-    private const ACTION  = 'sms.send';
-
     private const VARIABLE_PATTERN = '/\{\{\s*([a-zA-Z0-9_]+)\s*\}\}/';
 
-    /**
-     * Joins a Custom Object variable's values when several items match,
-     * on the same line (Email uses '<br>', which would be literal text in
-     * an SMS).
-     */
-    private const MULTI_VALUE_SEPARATOR = ', ';
-
     public function __construct(
-        private IntegrationHelper $integrationHelper,
-        private HttpClientInterface $httpClient,
-        private LoggerInterface $logger,
-        private VariableResolver $variableResolver,
-        private DncModel $dncModel,
+        IntegrationHelper $integrationHelper,
+        HttpClientInterface $httpClient,
+        LoggerInterface $logger,
+        VariableResolver $variableResolver,
+        DncModel $dncModel,
         private SmsTemplateModel $smsTemplateModel,
-        private DispatchFailureReasons $failureReasons,
-        private ?StatusTracker $statusTracker = null,
+        DispatchFailureReasons $failureReasons,
+        ?StatusTracker $statusTracker = null,
     ) {
+        parent::__construct($integrationHelper, $httpClient, $logger, $variableResolver, $dncModel, $failureReasons, $statusTracker);
     }
 
     public static function getSubscribedEvents(): array
@@ -96,13 +82,41 @@ class SmsCampaignTriggerSubscriber implements EventSubscriberInterface
 
     public function onSmsSend(PendingEvent $event): void
     {
-        if (!$event->checkContext(self::CONTEXT)) {
-            return;
-        }
+        $this->handle($event);
+    }
 
-        $config        = $event->getEvent()->getProperties();
-        $campaign      = $event->getEvent()->getCampaign();
-        $status        = (string) ($config['status'] ?? 'test');
+    protected function context(): string
+    {
+        return 'n8ndispatch.sms.send';
+    }
+
+    protected function action(): string
+    {
+        return 'sms.send';
+    }
+
+    protected function label(): string
+    {
+        return 'SMS';
+    }
+
+    protected function channel(): string
+    {
+        return DispatchTracking::CHANNEL_SMS;
+    }
+
+    protected function trackedIds(): array
+    {
+        return [['body' => 'logSendSmsId', 'meta' => 'logSendSmsId', 'ref' => DispatchTracking::REF_SMS]];
+    }
+
+    protected function emptyAnswerFails(): bool
+    {
+        return false;
+    }
+
+    protected function step(PendingEvent $event, array $config): ?array
+    {
         $text          = (string) ($config['text'] ?? '');
         $variablesJson = (string) ($config['variablesJson'] ?? '{}');
         $templateId    = (int) ($config['smsTemplate'] ?? 0);
@@ -117,7 +131,7 @@ class SmsCampaignTriggerSubscriber implements EventSubscriberInterface
             if (null === $template) {
                 $event->failAll($this->failureReasons->translated(DispatchFailureReasons::SMS_TEMPLATE_NOT_FOUND, ['%id%' => $templateId]));
 
-                return;
+                return null;
             }
 
             $text          = (string) $template->getText();
@@ -125,162 +139,10 @@ class SmsCampaignTriggerSubscriber implements EventSubscriberInterface
             $language      = $template->getLanguage();
         }
 
-        $variablesConfig = json_decode($variablesJson, true);
-        $variablesConfig = is_array($variablesConfig) ? $variablesConfig : [];
-
-        if ('test' === $status || 'paused' === $status) {
-            foreach ($event->getContacts() as $logId => $contact) {
-                /** @var LeadEventLog $log */
-                $log = $event->getPending()->get($logId);
-
-                $this->recordWithoutDispatch($event, $log, $contact, $campaign, $text, $status, $variablesConfig, $language);
-            }
-
-            return;
-        }
-
-        $webhook = WebhookSettings::forAction($this->integrationHelper, self::ACTION);
-
-        if (is_string($webhook)) {
-            $event->failAll($this->failureReasons->translated($webhook));
-
-            return;
-        }
-
-        ['url' => $webhookUrl, 'headers' => $headers] = $webhook;
-
-        /** @var Lead $contact */
-        foreach ($event->getContacts() as $logId => $contact) {
-            /** @var LeadEventLog $log */
-            $log = $event->getPending()->get($logId);
-
-            $this->dispatchToContact($event, $log, $contact, $campaign, $text, $status, $variablesConfig, $language, $webhookUrl, $headers);
-        }
+        return ['text' => $text, 'variablesJson' => $variablesJson, 'language' => $language];
     }
 
-    /**
-     * @param array<string, array<string, mixed>> $variablesConfig
-     * @param array<string, string>               $headers
-     */
-    private function dispatchToContact(
-        PendingEvent $event,
-        LeadEventLog $log,
-        Lead $contact,
-        Campaign $campaign,
-        string $text,
-        string $status,
-        array $variablesConfig,
-        string $language,
-        string $webhookUrl,
-        array $headers,
-    ): void {
-        // Same DNC gap as the Email dispatch path (see
-        // CampaignTriggerSubscriber::dispatchToContact() for the full
-        // reasoning): this never goes through Mautic's own SmsModel::
-        // sendSms(), so its native DNC check never runs either. Checked
-        // first, before resolving anything or making the HTTP call.
-        if (DoNotContact::IS_CONTACTABLE !== $this->dncModel->isContactable($contact, 'sms')) {
-            $event->fail($log, $this->failureReasons->translated(DispatchFailureReasons::DO_NOT_CONTACT, ['%channel%' => 'sms']));
-
-            return;
-        }
-
-        $phone = (string) $contact->getPhone();
-
-        // No native transport is ever reached here (unlike core's own
-        // "Send SMS" action, this always goes out via the HTTP call
-        // below), but sending a payload with no number for n8n to dial is
-        // just as useless — fail this one contact, same granularity core's
-        // own SmsModel::sendSms() uses for its own 'missing_number' case,
-        // rather than failing the whole batch over one contact's data.
-        if ('' === $phone) {
-            $event->fail($log, $this->failureReasons->translated(DispatchFailureReasons::NO_PHONE));
-
-            return;
-        }
-
-        $variables = $this->variableResolver->resolveAll($variablesConfig, $contact, $campaign, self::MULTI_VALUE_SEPARATOR, $language);
-        $message   = $this->resolveMessage($text, $variables);
-        $payload   = $this->buildPayload($contact, $phone, $status, $message, $variables, $language);
-
-        try {
-            $response = $this->httpClient->request('POST', $webhookUrl, [
-                'headers' => $headers,
-                'json'    => $payload,
-            ]);
-
-            // Symfony's HttpClient sends lazily — getStatusCode() has to
-            // run inside the try block or a transport-level failure (DNS,
-            // connection refused) never surfaces at all. Same requirement
-            // documented on EmailMirrorSyncSubscriber/CampaignTriggerSubscriber.
-            $statusCode = $response->getStatusCode();
-
-            $this->recordDispatchOutcome($log, $response, $payload, $statusCode);
-
-            if ($statusCode >= 300) {
-                $event->fail($log, $this->failureReasons->reason($this->failureReasons->fromResponseBody($response->getContent(false), $statusCode)));
-
-                return;
-            }
-
-            $event->pass($log);
-        } catch (\Throwable $e) {
-            $this->logger->error('N8nDispatch: SMS dispatch failed for contact '.$contact->getId().': '.$e->getMessage());
-            $event->fail($log, $this->failureReasons->reason($e->getMessage()));
-        }
-    }
-
-    /**
-     * 'test'/'paused' never reach dispatchToContact() — mirrors just the
-     * payload-building half of it (see CampaignTriggerSubscriber's own
-     * recordWithoutDispatch() for the full rationale), so the contact's
-     * Timeline shows exactly what a real dispatch would have sent, minus
-     * the actual HTTP call. No phone-number check here on purpose: 'test'
-     * is precisely how someone would notice a contact has no number
-     * *before* flipping the step to 'production'.
-     *
-     * @param array<string, array<string, mixed>> $variablesConfig
-     */
-    private function recordWithoutDispatch(
-        PendingEvent $event,
-        LeadEventLog $log,
-        Lead $contact,
-        Campaign $campaign,
-        string $text,
-        string $status,
-        array $variablesConfig,
-        string $language,
-    ): void {
-        $variables = $this->variableResolver->resolveAll($variablesConfig, $contact, $campaign, self::MULTI_VALUE_SEPARATOR, $language);
-        $message   = $this->resolveMessage($text, $variables);
-        $payload   = $this->buildPayload($contact, (string) $contact->getPhone(), $status, $message, $variables, $language);
-
-        $log->appendToMetadata(['n8ndispatch' => $payload]);
-
-        // Nothing is sent, but the log's History says it was a test / a pause.
-        $this->statusTracker?->recordSimulated($log->getId(), $status);
-
-        $event->pass($log);
-    }
-
-    /**
-     * @param array<string, string> $variables
-     */
-    private function resolveMessage(string $text, array $variables): string
-    {
-        return (string) preg_replace_callback(
-            self::VARIABLE_PATTERN,
-            static fn (array $matches): string => $variables[$matches[1]] ?? $matches[0],
-            $text
-        );
-    }
-
-    /**
-     * @param array<string, string> $variables
-     *
-     * @return array<string, mixed>
-     */
-    private function buildPayload(Lead $contact, string $phone, string $status, string $message, array $variables, string $language): array
+    protected function buildPayload(Lead $contact, string $phone, string $status, array $step, array $variables): array
     {
         return [
             'contact_id'                     => $contact->getId(),
@@ -294,32 +156,21 @@ class SmsCampaignTriggerSubscriber implements EventSubscriberInterface
             'contact_inst_alias'             => $this->variableResolver->resolveContactField($contact, 'inst_alias'),
             'status'                         => $status,
             // See CampaignTriggerSubscriber::buildPayload().
-            'language'                       => $language,
-            'message'                        => $message,
+            'language'                       => $step['language'],
+            'message'                        => $this->resolveMessage($step['text'], $variables),
             'variables'                      => $variables,
         ];
     }
 
     /**
-     * Same convention as CampaignTriggerSubscriber::recordDispatchOutcome()
-     * — records the full response and transport status on every outcome,
-     * and best-effort captures n8n's own send-log id, here as
-     * 'logSendSmsId' (that method's docblock already called out this
-     * channel-specific sibling key by name).
-     *
-     * @param array<string, mixed> $payload
+     * @param array<string, string> $variables
      */
-    private function recordDispatchOutcome(LeadEventLog $log, ResponseInterface $response, array $payload, int $statusCode): void
+    private function resolveMessage(string $text, array $variables): string
     {
-        DispatchOutcomeRecorder::record(
-            $this->statusTracker,
-            $log,
-            DispatchTracking::CHANNEL_SMS,
-            [['body' => 'logSendSmsId', 'meta' => 'logSendSmsId', 'ref' => DispatchTracking::REF_SMS]],
-            $payload,
-            $response->getContent(false),
-            $statusCode,
-            $statusCode < 300,
+        return (string) preg_replace_callback(
+            self::VARIABLE_PATTERN,
+            static fn (array $matches): string => $variables[$matches[1]] ?? $matches[0],
+            $text
         );
     }
 }
