@@ -336,7 +336,7 @@ class DispatchResenderTest extends TestCase
 
     public function testAnUnknownLogOrAnEventOfAnotherPluginIsNotFound(): void
     {
-        [$resender, , , $http] = $this->resenderAnswering(200, '{}', true, null, 'missing');
+        [$resender] = $this->resenderAnswering(200, '{}', true, null, 'missing');
         $this->assertSame(['ok' => false, 'message' => 'Dispatch not found.'], $resender->resend(1, 'a@b.com'));
 
         [$resender, , , $http] = $this->resenderAnswering(200, '{}', true, null, 'campaign.sendemail');
@@ -382,7 +382,7 @@ class DispatchResenderTest extends TestCase
     {
         foreach (['n8ndispatch.email.send' => 'email', 'n8ndispatch.sms.send' => 'sms', 'n8ndispatch.hsm.send' => 'sms'] as $type => $channel) {
             [$resender, , , $http, , $dnc] = $this->resenderAnswering(200, '{}', true, null, $type, null, null, DoNotContact::UNSUBSCRIBED);
-            $dnc = $dnc->expects($this->once())->method('isContactable')->with($this->anything(), $channel);
+            $dnc->expects($this->once())->method('isContactable')->with($this->anything(), $channel);
             $http->expects($this->never())->method('request');
 
             $result = $resender->resend(140, 'a@b.com');

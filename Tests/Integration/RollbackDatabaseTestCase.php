@@ -26,7 +26,7 @@ abstract class RollbackDatabaseTestCase extends TestCase
 
         $host = getenv('MAUTIC_DB_HOST');
         if (false === $host || '' === $host) {
-            $this->markTestSkipped('Needs the stack database (MAUTIC_DB_* variables of the web container).');
+            self::fail('The integration tests need the stack database: run phpunit inside the web container (MAUTIC_DB_* variables).');
         }
 
         $this->db = DriverManager::getConnection([

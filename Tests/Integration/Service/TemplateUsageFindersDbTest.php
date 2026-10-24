@@ -108,6 +108,19 @@ class TemplateUsageFindersDbTest extends RollbackDatabaseTestCase
         $this->assertSame([$kept], array_column($this->finder($class)->findUsages($template), 'eventId'));
     }
 
+    /**
+     * @dataProvider finders
+     */
+    #[\PHPUnit\Framework\Attributes\DataProvider('finders')]
+    public function testInUseAmongTellsWhichOfManyTemplatesAStepUsesInOneGo(string $class, string $type, string $key): void
+    {
+        $used = random_int(900000000, 999999999);
+        $this->step($this->campaign('c'), $type, 'step', [$key => $used]);
+
+        $this->assertSame([$used], $this->finder($class)->inUseAmong([$used + 1, $used, $used + 2]));
+        $this->assertSame([], $this->finder($class)->inUseAmong([]));
+    }
+
     public function testTheSmsAndHsmFindersTellWhetherATemplateIsInUse(): void
     {
         foreach ([SmsTemplateUsageFinder::class => ['n8ndispatch.sms.send', 'smsTemplate'], HsmTemplateUsageFinder::class => ['n8ndispatch.hsm.send', 'hsmTemplateId']] as $class => [$type, $key]) {

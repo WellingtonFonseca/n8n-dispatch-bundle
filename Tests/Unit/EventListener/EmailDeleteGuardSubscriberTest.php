@@ -4,6 +4,7 @@ declare(strict_types=1);
 
 namespace MauticPlugin\N8nDispatchBundle\Tests\Unit\EventListener;
 
+use Mautic\CoreBundle\Security\Permissions\CorePermissions;
 use Mautic\CoreBundle\Service\FlashBag;
 use MauticPlugin\N8nDispatchBundle\EventListener\EmailDeleteGuardSubscriber;
 use MauticPlugin\N8nDispatchBundle\Service\EmailTemplateUsageFinder;
@@ -32,14 +33,24 @@ class EmailDeleteGuardSubscriberTest extends TestCase
     /**
      * @param list<int> $inUse the Email ids a step uses
      */
-    private function subscriber(array $inUse): EmailDeleteGuardSubscriber
+    private function subscriber(array $inUse, bool $mayDelete = true): EmailDeleteGuardSubscriber
     {
         $finder = $this->createMock(EmailTemplateUsageFinder::class);
-        $finder->method('isInUse')->willReturnCallback(static fn (int $id): bool => in_array($id, $inUse, true));
+        $finder->method('inUseAmong')->willReturnCallback(static function (array $ids) use ($inUse): array {
+            // The real finder takes ints only (strict types): a string id would be a TypeError there.
+            foreach ($ids as $id) {
+                self::assertIsInt($id);
+            }
+
+            return array_values(array_intersect($ids, $inUse));
+        });
+
+        $security = $this->createMock(CorePermissions::class);
+        $security->method('isGranted')->with(['email:emails:deleteown', 'email:emails:deleteother'], 'MATCH_ONE')->willReturn($mayDelete);
 
         $this->flashBag = $this->createMock(FlashBag::class);
 
-        return new EmailDeleteGuardSubscriber($finder, $this->flashBag, new EnUsTranslator());
+        return new EmailDeleteGuardSubscriber($finder, $this->flashBag, new EnUsTranslator(), $security);
     }
 
     private function event(string $controller, string $method, array $attributes = [], array $query = []): ControllerEvent
@@ -177,6 +188,37 @@ class EmailDeleteGuardSubscriberTest extends TestCase
         $subscriber->guard($event);
 
         $this->assertSame('core', ($event->getController())());
+    }
+
+    public function testAUserWhoMayNotDeleteGetsNoAnswerFromTheGuard(): void
+    {
+        $subscriber = $this->subscriber([5], false);
+        $this->flashBag->expects($this->never())->method('add');
+        $screen = $this->event(self::SCREEN_DELETE, 'POST', ['objectId' => '5']);
+        $api    = $this->event(self::API_DELETE, 'DELETE', ['id' => '5']);
+
+        $subscriber->guard($screen);
+        $subscriber->guard($api);
+
+        $this->assertSame('POST', $screen->getRequest()->getMethod());
+        $this->assertSame('core', ($api->getController())());
+    }
+
+    public function testNonNumericOrNonListIdsAreLeftToCore(): void
+    {
+        $subscriber = $this->subscriber([5]);
+        $this->flashBag->expects($this->never())->method('add');
+        $scalar = $this->event(self::SCREEN_BATCH, 'POST', [], ['ids' => '5']);
+        $mixed  = $this->event(self::SCREEN_BATCH, 'POST', [], ['ids' => '["abc",[5]]']);
+        $api    = $this->event(self::API_DELETE, 'DELETE', ['id' => 'abc']);
+
+        $subscriber->guard($scalar);
+        $subscriber->guard($mixed);
+        $subscriber->guard($api);
+
+        $this->assertSame('5', $scalar->getRequest()->query->get('ids'));
+        $this->assertSame('["abc",[5]]', $mixed->getRequest()->query->get('ids'));
+        $this->assertSame('core', ($api->getController())());
     }
 
     public function testOtherControllersAreNeverTouched(): void

@@ -148,7 +148,7 @@ docker exec mautic-mautic_web-1 sh -c "cd /var/www/html/docroot/plugins/N8nDispa
 
 It runs two suites: `unit` (`Tests/Unit`) and `integration` (`Tests/Integration`).
 The integration tests run the plugin's SQL against the stack's MySQL (the
-`MAUTIC_DB_*` variables of the web container; without them they are skipped):
+`MAUTIC_DB_*` variables of the web container; without them they fail):
 each test makes its own rows in a transaction that is rolled back at the end.
 
 The browser scripts have their own tests (Node's built-in runner, nothing to

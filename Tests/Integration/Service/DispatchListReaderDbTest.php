@@ -42,7 +42,7 @@ class DispatchListReaderDbTest extends RollbackDatabaseTestCase
         $this->campaignId = $this->insert('campaigns', ['name' => $this->unique, 'is_published' => 1, 'allow_restart' => 0]);
         $this->insert('campaign_prefix', ['campaign_id' => $this->campaignId, 'prefix' => 'PFX']);
 
-        $this->emailId = $this->insert('emails', ['name' => $this->unique.' email', 'is_published' => 1, 'read_count' => 0, 'sent_count' => 0, 'variant_sent_count' => 0, 'variant_read_count' => 0, 'revision' => 1, 'lang' => 'en', 'headers' => '[]']);
+        $this->emailId = $this->email($this->unique.' email');
         $this->smsId   = $this->insert('n8n_dispatch_sms_templates', ['name' => $this->unique.' sms', 'is_published' => 1, 'text' => 't']);
         $this->hsmId   = $this->insert('n8n_dispatch_hsm_templates', ['name' => $this->unique.' hsm', 'is_published' => 1, 'router' => 'r', 'hsm_template' => 'h', 'text' => 't']);
         $this->leadId  = $this->insert('leads', ['is_published' => 1, 'points' => 0, 'firstname' => 'Ana', 'lastname' => 'Silva', 'email' => $this->unique.'@example.test']);
@@ -52,6 +52,11 @@ class DispatchListReaderDbTest extends RollbackDatabaseTestCase
             'n8ndispatch.sms.send'   => $this->event('n8ndispatch.sms.send', ['smsTemplate' => $this->smsId, 'status' => 'test'], 2),
             'n8ndispatch.hsm.send'   => $this->event('n8ndispatch.hsm.send', ['hsmTemplateId' => $this->hsmId], 3),
         ];
+    }
+
+    private function email(string $name): int
+    {
+        return $this->insert('emails', ['name' => $name, 'is_published' => 1, 'read_count' => 0, 'sent_count' => 0, 'variant_sent_count' => 0, 'variant_read_count' => 0, 'revision' => 1, 'lang' => 'en', 'headers' => '[]']);
     }
 
     /**
@@ -299,7 +304,7 @@ class DispatchListReaderDbTest extends RollbackDatabaseTestCase
 
     public function testTwoTemplatesOfTheSameChannelBothGetTheirName(): void
     {
-        $secondEmail = $this->insert('emails', ['name' => $this->unique.' email 2', 'is_published' => 1, 'read_count' => 0, 'sent_count' => 0, 'variant_sent_count' => 0, 'variant_read_count' => 0, 'revision' => 1, 'lang' => 'en', 'headers' => '[]']);
+        $secondEmail = $this->email($this->unique.' email 2');
         $this->events['second'] = $this->event('n8ndispatch.email.send', ['email' => $secondEmail], 6);
         $one = $this->log('n8ndispatch.email.send', ['n8ndispatch' => []], '2026-03-10 10:00:00');
         $two = $this->log('second', ['n8ndispatch' => []], '2026-03-10 11:00:00');
@@ -313,7 +318,7 @@ class DispatchListReaderDbTest extends RollbackDatabaseTestCase
     {
         foreach (['n10', 'B', 'a', 'n2'] as $i => $suffix) {
             $campaign = $this->insert('campaigns', ['name' => $this->unique.' '.$suffix, 'is_published' => 1, 'allow_restart' => 0]);
-            $email    = $this->insert('emails', ['name' => $this->unique.' '.$suffix, 'is_published' => 1, 'read_count' => 0, 'sent_count' => 0, 'variant_sent_count' => 0, 'variant_read_count' => 0, 'revision' => 1, 'lang' => 'en', 'headers' => '[]']);
+            $email    = $this->email($this->unique.' '.$suffix);
             $this->insert('campaign_events', [
                 'campaign_id' => $campaign, 'name' => 'e', 'type' => 'n8ndispatch.email.send', 'event_type' => 'action',
                 'event_order' => 1, 'properties' => serialize(['email' => $email]), 'failed_count' => 0,

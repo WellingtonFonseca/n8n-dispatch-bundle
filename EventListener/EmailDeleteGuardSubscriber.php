@@ -5,6 +5,7 @@ declare(strict_types=1);
 namespace MauticPlugin\N8nDispatchBundle\EventListener;
 
 use Mautic\ApiBundle\Helper\BatchIdToEntityHelper;
+use Mautic\CoreBundle\Security\Permissions\CorePermissions;
 use Mautic\CoreBundle\Service\FlashBag;
 use MauticPlugin\N8nDispatchBundle\Service\EmailTemplateUsageFinder;
 use Symfony\Component\EventDispatcher\EventSubscriberInterface;
@@ -29,6 +30,8 @@ use Symfony\Contracts\Translation\TranslatorInterface;
  * - REST API: a 409 with the error, nothing deleted; for a batch, one Email in
  *   use refuses the whole call so no client reads a partial result as success.
  *
+ * Only a user who may delete Emails gets these answers (anyone else is left to
+ * core's own access denied, so the guard tells nobody which Emails are used).
  * Like the SMS/HSM messages, it names neither the Email nor the campaigns:
  * the Email's Campaigns tab (EmailCampaignsTabSubscriber) lists them.
  */
@@ -45,6 +48,7 @@ class EmailDeleteGuardSubscriber implements EventSubscriberInterface
         private EmailTemplateUsageFinder $usageFinder,
         private FlashBag $flashBag,
         private TranslatorInterface $translator,
+        private CorePermissions $security,
     ) {
     }
 
@@ -62,6 +66,11 @@ class EmailDeleteGuardSubscriber implements EventSubscriberInterface
     {
         $request = $event->getRequest();
 
+        if (!in_array($request->attributes->get('_controller'), [self::SCREEN_DELETE, self::SCREEN_BATCH, self::API_DELETE, self::API_BATCH], true)
+            || !$this->security->isGranted(['email:emails:deleteown', 'email:emails:deleteother'], 'MATCH_ONE')) {
+            return;
+        }
+
         switch ($request->attributes->get('_controller')) {
             case self::SCREEN_DELETE:
                 $this->guardScreenDelete($request);
@@ -70,7 +79,7 @@ class EmailDeleteGuardSubscriber implements EventSubscriberInterface
                 $this->guardScreenBatch($request);
                 break;
             case self::API_DELETE:
-                if ($this->usageFinder->isInUse((int) $request->attributes->get('id'))) {
+                if ([] !== $this->inUse([$request->attributes->get('id')])) {
                     $event->setController(fn (): JsonResponse => $this->refusal());
                 }
                 break;
@@ -84,7 +93,7 @@ class EmailDeleteGuardSubscriber implements EventSubscriberInterface
 
     private function guardScreenDelete(Request $request): void
     {
-        if (Request::METHOD_POST !== $request->getMethod() || !$this->usageFinder->isInUse((int) $request->attributes->get('objectId'))) {
+        if (Request::METHOD_POST !== $request->getMethod() || [] === $this->inUse([$request->attributes->get('objectId')])) {
             return;
         }
 
@@ -98,26 +107,31 @@ class EmailDeleteGuardSubscriber implements EventSubscriberInterface
             return;
         }
 
-        $ids = (array) json_decode((string) $request->query->get('ids', '[]'), true);
-        $use = $this->inUse($ids);
+        $ids = json_decode((string) $request->query->get('ids', '[]'), true);
 
-        foreach ($use as $ignored) {
-            $this->flashBag->add(self::MESSAGE, [], FlashBag::LEVEL_ERROR);
+        if (!is_array($ids)) {
+            return;
         }
 
+        $use = $this->inUse($ids);
+
         if ([] !== $use) {
-            $request->query->set('ids', json_encode(array_values(array_filter($ids, fn ($id): bool => !in_array($id, $use, true)))));
+            foreach ($use as $ignored) {
+                $this->flashBag->add(self::MESSAGE, [], FlashBag::LEVEL_ERROR);
+            }
+
+            $request->query->set('ids', json_encode(array_values(array_filter($ids, fn ($id): bool => !is_numeric($id) || !in_array((int) $id, $use, true)))));
         }
     }
 
     /**
      * @param array<mixed> $ids
      *
-     * @return list<mixed> the ids that a step still uses
+     * @return list<int> the ids (numbers only) that a step still uses
      */
     private function inUse(array $ids): array
     {
-        return array_values(array_filter($ids, fn ($id): bool => $this->usageFinder->isInUse((int) $id)));
+        return $this->usageFinder->inUseAmong(array_map('intval', array_filter($ids, 'is_numeric')));
     }
 
     private function refusal(): JsonResponse

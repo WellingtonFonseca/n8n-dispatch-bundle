@@ -12,9 +12,9 @@ namespace MauticPlugin\N8nDispatchBundle\Service;
  * key (Form/Type/EmailDispatchActionType.php's own picker field) and the
  * 'n8ndispatch.email.send' event type.
  *
- * Unlike SMS/HSM, there's no delete-protection use for this one: Email is
- * a core entity, deleted through core's own EmailController, which this
- * plugin doesn't hook into.
+ * Email is a core entity, deleted through core's own controllers, so the
+ * delete protection is EventListener/EmailDeleteGuardSubscriber (SMS and HSM
+ * check it in their own controllers).
  */
 class EmailTemplateUsageFinder extends AbstractTemplateUsageFinder
 {

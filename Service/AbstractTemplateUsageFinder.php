@@ -35,7 +35,34 @@ abstract class AbstractTemplateUsageFinder
      */
     public function findUsages(int $templateId): array
     {
-        $rows = $this->em->getConnection()->createQueryBuilder()
+        return static::filterRows($this->loadRows(), $templateId);
+    }
+
+    public function isInUse(int $templateId): bool
+    {
+        return [] !== $this->findUsages($templateId);
+    }
+
+    /**
+     * Of the given template ids, those a step still uses; one query for the lot.
+     *
+     * @param list<int> $templateIds
+     *
+     * @return list<int>
+     */
+    public function inUseAmong(array $templateIds): array
+    {
+        $rows = $this->loadRows();
+
+        return array_values(array_filter($templateIds, static fn (int $id): bool => [] !== static::filterRows($rows, $id)));
+    }
+
+    /**
+     * @return list<array<string, mixed>>
+     */
+    private function loadRows(): array
+    {
+        return $this->em->getConnection()->createQueryBuilder()
             ->select('e.id AS event_id, e.name AS event_name, e.properties, c.id AS campaign_id, c.name AS campaign_name, c.is_published AS campaign_published')
             ->from(MAUTIC_TABLE_PREFIX.'campaign_events', 'e')
             ->innerJoin('e', MAUTIC_TABLE_PREFIX.'campaigns', 'c', 'c.id = e.campaign_id')
@@ -47,13 +74,6 @@ abstract class AbstractTemplateUsageFinder
             ->setParameter('type', static::EVENT_TYPE)
             ->executeQuery()
             ->fetchAllAssociative();
-
-        return static::filterRows($rows, $templateId);
-    }
-
-    public function isInUse(int $templateId): bool
-    {
-        return [] !== $this->findUsages($templateId);
     }
 
     /**
