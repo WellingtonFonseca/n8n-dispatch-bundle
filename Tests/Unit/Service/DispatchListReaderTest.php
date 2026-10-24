@@ -146,4 +146,39 @@ class DispatchListReaderTest extends TestCase
         $this->assertSame('Boas-vindas', DispatchListReader::campaignDisplayName('Boas-vindas', null));
         $this->assertSame('Boas-vindas', DispatchListReader::campaignDisplayName('Boas-vindas', ''));
     }
+
+    public function testTheContactNameTrimsEachPartAndTheEmailFallback(): void
+    {
+        $this->assertSame('Ana Silva', DispatchListReader::contactName('  Ana ', ' Silva  ', null, 1));
+        $this->assertSame('Ana', DispatchListReader::contactName(' Ana ', '   ', null, 1));
+        $this->assertSame('Silva', DispatchListReader::contactName('   ', ' Silva ', null, 1));
+        $this->assertSame('a@b.com', DispatchListReader::contactName(null, null, '  a@b.com ', 1));
+        $this->assertSame('#7', DispatchListReader::contactName(null, null, '   ', 7));
+    }
+
+    public function testStoredPayloadsNeverBuildObjects(): void
+    {
+        WakeupProbe::$woke = false;
+        $payload = serialize(['status' => 'production', 'email' => 5, 'n8ndispatch' => ['status' => 'test'], 'probe' => new WakeupProbe()]);
+        WakeupProbe::$woke = false;
+
+        DispatchListReader::stepStatus($payload);
+        $this->assertFalse(WakeupProbe::$woke);
+
+        DispatchListReader::templateRef('n8ndispatch.email.send', $payload);
+        $this->assertFalse(WakeupProbe::$woke);
+
+        DispatchListReader::metadataOf($payload);
+        $this->assertFalse(WakeupProbe::$woke);
+    }
+}
+
+final class WakeupProbe
+{
+    public static bool $woke = false;
+
+    public function __wakeup(): void
+    {
+        self::$woke = true;
+    }
 }
