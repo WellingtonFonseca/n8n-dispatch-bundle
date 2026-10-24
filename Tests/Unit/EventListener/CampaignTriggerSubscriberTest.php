@@ -967,11 +967,6 @@ class CampaignTriggerSubscriberTest extends TestCase
         $this->emailModel->expects($this->once())->method('saveEmailStat')->willReturnCallback(function (Stat $saved) use (&$stat): void {
             $stat = $saved;
         });
-        $this->emailModel->method('buildUrl')->willReturnCallback(function (string $route, array $params): string {
-            return 'https://u.example.test/'.$params['idHash'];
-        });
-        $sentUrl = null;
-        $this->httpClient = $this->httpClient; // the answering() double stays
 
         $this->subscriber->onEmailSend($event);
 
@@ -983,7 +978,7 @@ class CampaignTriggerSubscriberTest extends TestCase
         $this->assertLessThanOrEqual(time() + 1, $stat->getDateSent()->getTimestamp());
     }
 
-    public function testHttp300IsAFailedStatAndNotAcceptedWhileHttp299IsNeither(): void
+    public function testHttp300IsAFailedStatAndNotAccepted(): void
     {
         $this->answering(300);
         $refused = $this->buildPendingEvent(['email' => 1, 'status' => 'production']);

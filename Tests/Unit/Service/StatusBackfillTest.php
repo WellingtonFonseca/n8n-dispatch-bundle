@@ -348,13 +348,13 @@ class StatusBackfillTest extends TestCase
 
     public function testStoredMetadataNeverBuildsObjects(): void
     {
-        WakeupProbe::$woke = false;
         $raw               = serialize(['logSendEmailId' => 5, 'n8ndispatch' => ['status' => 'production', 'httpStatusCode' => 200], 'probe' => new WakeupProbe()]);
         WakeupProbe::$woke = false;
         $this->connection->method('fetchAllAssociative')->willReturnOnConsecutiveCalls([['id' => '1', 'type' => 'n8ndispatch.email.send', 'date_triggered' => '2026-09-29 14:00:00', 'metadata' => $raw]], []);
 
-        $this->backfill->run(7, 500, true, $this->now);
+        $summary = $this->backfill->run(7, 500, true, $this->now);
 
+        $this->assertSame(1, $summary['eligible'], 'the row was read');
         $this->assertFalse(WakeupProbe::$woke);
     }
 }

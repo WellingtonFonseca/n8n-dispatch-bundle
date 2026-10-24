@@ -9,12 +9,12 @@ use Doctrine\ORM\UnitOfWork;
 use Mautic\CoreBundle\Helper\UserHelper;
 use Mautic\EmailBundle\Entity\Email;
 use Mautic\EmailBundle\Event\EmailEvent;
+use Mautic\EmailBundle\EventListener\EmailSubscriber as CoreEmailSubscriber;
 use Mautic\PluginBundle\Entity\Integration as IntegrationSettings;
 use Mautic\PluginBundle\Helper\IntegrationHelper;
 use Mautic\UserBundle\Entity\User;
 use MauticPlugin\N8nDispatchBundle\EventListener\EmailMirrorSyncSubscriber;
 use MauticPlugin\N8nDispatchBundle\Integration\N8nDispatchIntegration;
-use Mautic\EmailBundle\EventListener\EmailSubscriber as CoreEmailSubscriber;
 use PHPUnit\Framework\TestCase;
 use Psr\Log\LoggerInterface;
 use Symfony\Contracts\HttpClient\HttpClientInterface;
@@ -486,6 +486,6 @@ class EmailMirrorSyncSubscriberTest extends TestCase
 
         $html = $this->sent($email)['options']['json']['html'];
 
-        $this->assertStringNotContainsString('class="preheader"', $html);
+        $this->assertSame("<p>no body</p>\n".self::FOOTER, $html);
     }
 }
