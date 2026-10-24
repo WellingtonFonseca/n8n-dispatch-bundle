@@ -13,13 +13,13 @@ use Mautic\LeadBundle\Model\DoNotContact as DncModel;
 use Mautic\PluginBundle\Helper\IntegrationHelper;
 use MauticPlugin\N8nDispatchBundle\Entity\HsmTemplate;
 use MauticPlugin\N8nDispatchBundle\Entity\DispatchTracking;
-use MauticPlugin\N8nDispatchBundle\Integration\N8nDispatchIntegration;
 use MauticPlugin\N8nDispatchBundle\Model\HsmTemplateModel;
 use MauticPlugin\N8nDispatchBundle\N8nDispatchEvents;
 use MauticPlugin\N8nDispatchBundle\Resolver\LocaleConventions;
 use MauticPlugin\N8nDispatchBundle\Resolver\VariableResolver;
 use MauticPlugin\N8nDispatchBundle\Service\DispatchFailureReasons;
 use MauticPlugin\N8nDispatchBundle\Service\DispatchOutcomeRecorder;
+use MauticPlugin\N8nDispatchBundle\Service\WebhookSettings;
 use MauticPlugin\N8nDispatchBundle\Service\StatusTracker;
 use Psr\Log\LoggerInterface;
 use Symfony\Component\EventDispatcher\EventSubscriberInterface;
@@ -148,31 +148,15 @@ class HsmCampaignTriggerSubscriber implements EventSubscriberInterface
             return;
         }
 
-        $integration = $this->integrationHelper->getIntegrationObject(N8nDispatchIntegration::NAME);
+        $webhook = WebhookSettings::forAction($this->integrationHelper, self::ACTION);
 
-        if (!$integration || !$integration->getIntegrationSettings()->isPublished()) {
-            $event->failAll($this->failureReasons->translated(DispatchFailureReasons::INTEGRATION_DISABLED));
-
-            return;
-        }
-
-        $keys       = $integration->getKeys();
-        $webhookUrl = trim((string) ($keys['webhook_url'] ?? ''));
-
-        if ('' === $webhookUrl) {
-            $event->failAll($this->failureReasons->translated(DispatchFailureReasons::WEBHOOK_MISSING));
+        if (is_string($webhook)) {
+            $event->failAll($this->failureReasons->translated($webhook));
 
             return;
         }
 
-        $headers = [
-            'Content-Type'          => 'application/json',
-            'X-N8n-Dispatch-Action' => self::ACTION,
-        ];
-        $token = trim((string) ($keys['webhook_token'] ?? ''));
-        if ('' !== $token) {
-            $headers['X-N8n-Dispatch-Token'] = $token;
-        }
+        ['url' => $webhookUrl, 'headers' => $headers] = $webhook;
 
         /** @var Lead $contact */
         foreach ($event->getContacts() as $logId => $contact) {
