@@ -537,4 +537,203 @@ class StatusTrackerTest extends TestCase
         $this->assertSame(['code' => 400], $saved->getMessage());
         $this->assertSame("{\n    \"code\": 400\n}", $row->getMessage());
     }
+
+    public function testTheGroupKeyIsSixteenHexCharsAndAnEmptyRefDoesNotStopTheNext(): void
+    {
+        $saved = [];
+        $this->trackings->method('saveEntity')->willReturnCallback(function (DispatchTracking $t) use (&$saved): void {
+            $saved[] = $t;
+        });
+
+        $created = $this->tracker->register(DispatchTracking::CHANNEL_HSM, [DispatchTracking::REF_HSM_ID => '', DispatchTracking::REF_HSM_UUID => 'u-1', 'other' => null], $this->now);
+
+        $this->assertSame(1, $created);
+        $this->assertSame('logSendHsmUuid', $saved[0]->getRefType());
+        $this->assertMatchesRegularExpression('/^[0-9a-f]{16}$/', $saved[0]->getGroupKey());
+    }
+
+    public function testRecordDispatchTakesTheFirstIdThatIsNotEmpty(): void
+    {
+        $saved = null;
+        $this->callbacks->method('saveEntity')->willReturnCallback(function (DispatchCallback $c) use (&$saved): void {
+            $saved = $c;
+        });
+
+        $this->tracker->recordDispatch(9, true, [DispatchTracking::REF_HSM_ID => null, 'second' => '', DispatchTracking::REF_HSM_UUID => 'u-2', 'later' => 'x'], null, $this->now);
+
+        $this->assertSame('logSendHsmUuid', $saved->getRefType());
+        $this->assertSame('u-2', $saved->getRefValue());
+    }
+
+    public function testRecordSimulatedUsesTheGivenDate(): void
+    {
+        $saved = null;
+        $this->callbacks->method('saveEntity')->willReturnCallback(function (DispatchCallback $c) use (&$saved): void {
+            $saved = $c;
+        });
+
+        $this->tracker->recordSimulated(9, 'test', $this->now);
+
+        $this->assertSame($this->now->format('c'), $saved->getReceivedAt()->format('c'));
+    }
+
+    public function testAdoptLooksUpOnlyTheIdsThatAreFilledAndAcceptsTheDispatchByDefault(): void
+    {
+        $this->trackings->expects($this->once())->method('findByRefs')->with($this->identicalTo([DispatchTracking::REF_EMAIL => '5']))->willReturn([]);
+        $this->callbacks->method('findByCampaignLogId')->willReturn([DispatchCallback::create(1, 'pending', null, [], $this->now)]);
+        $saved = null;
+        $this->callbacks->method('saveEntity')->willReturnCallback(function (DispatchCallback $c) use (&$saved): void {
+            $saved = $c;
+        });
+
+        $this->tracker->adopt(55, [DispatchTracking::REF_EMAIL => 5, DispatchTracking::REF_SMS => null, DispatchTracking::REF_HSM_ID => ''], $this->now);
+
+        $this->assertSame(DispatchCallback::KIND_DISPATCH, $saved->getKind());
+        $this->assertSame(DispatchCallback::createDispatch(55, true, null, null, null, $this->now)->getOutcome(), $saved->getOutcome());
+        $this->assertSame('5', $saved->getRefValue());
+    }
+
+    public function testAdoptSavesOnlyTheRowsThatHadNoLogYet(): void
+    {
+        $free    = $this->existing(DispatchTracking::REF_EMAIL, '1', 1);
+        $already = $this->existing(DispatchTracking::REF_SMS, '2', 2);
+        $already->setCampaignLogId(99);
+        $this->trackings->method('findByRefs')->willReturn([$free, $already]);
+        $this->trackings->expects($this->once())->method('saveEntity')->with($free);
+        $this->callbacks->method('findByTrackingIds')->willReturn([]);
+        $this->callbacks->method('findByCampaignLogId')->willReturn([DispatchCallback::createDispatch(55, true, null, null, null, $this->now)]);
+
+        $this->tracker->adopt(55, [DispatchTracking::REF_EMAIL => '1', DispatchTracking::REF_SMS => '2'], $this->now);
+
+        $this->assertSame(55, $free->getCampaignLogId());
+        $this->assertSame(99, $already->getCampaignLogId());
+    }
+
+    public function testAdoptStillCreatesTheDispatchEntryWhenTheLogOnlyHasCallbacks(): void
+    {
+        $this->trackings->method('findByRefs')->willReturn([]);
+        $callbackOnly = DispatchCallback::create(1, 'success', null, [], $this->now)->withLog(55, 'logSendEmailId', '5');
+        $this->callbacks->method('findByCampaignLogId')->willReturn([$callbackOnly]);
+        $this->callbacks->expects($this->once())->method('saveEntity')->with($this->callback(fn (DispatchCallback $c): bool => DispatchCallback::KIND_DISPATCH === $c->getKind()));
+
+        $this->tracker->adopt(55, [DispatchTracking::REF_EMAIL => '5'], $this->now);
+    }
+
+    public function testAdoptLinksTheHistoryOfEveryRowAndSkipsEntriesAlreadyLinked(): void
+    {
+        $one = $this->existing(DispatchTracking::REF_EMAIL, '1', 1);
+        $two = $this->existing(DispatchTracking::REF_SMS, '2', 2);
+        $linked = DispatchCallback::create(1, 'pending', null, [], $this->now)->withLog(40, 'logSendEmailId', '1');
+        $loose  = DispatchCallback::create(2, 'pending', null, [], $this->now);
+        $stray  = DispatchCallback::create(3, 'pending', null, [], $this->now);
+        $this->trackings->method('findByRefs')->willReturn([$one, $two]);
+        $this->callbacks->method('findByTrackingIds')->with([1, 2])->willReturn([$linked, $stray, $loose]);
+        $this->callbacks->method('findByCampaignLogId')->willReturn([DispatchCallback::createDispatch(55, true, null, null, null, $this->now)]);
+        $this->callbacks->expects($this->once())->method('saveEntity')->with($loose);
+
+        $this->tracker->adopt(55, [DispatchTracking::REF_EMAIL => '1', DispatchTracking::REF_SMS => '2'], $this->now);
+
+        $this->assertSame(40, $linked->getCampaignLogId());
+        $this->assertSame(55, $loose->getCampaignLogId());
+        $this->assertSame('logSendSmsId', $loose->getRefType());
+        $this->assertSame('2', $loose->getRefValue());
+        $this->assertNull($stray->getCampaignLogId());
+    }
+
+    public function testHistoryForLogReturnsEveryFieldOfTheEntries(): void
+    {
+        $entry = DispatchCallback::createDispatch(55, false, 'logSendSmsId', '8', ['error' => 'x'], $this->now, ['por' => 'a@b.com', 'em' => '2026-10-02 10:00']);
+        $this->callbacks->method('findByCampaignLogId')->with(55)->willReturn([$entry]);
+
+        $this->assertSame([[
+            'kind'       => DispatchCallback::KIND_DISPATCH,
+            'outcome'    => $entry->getOutcome(),
+            'refType'    => 'logSendSmsId',
+            'refValue'   => '8',
+            'message'    => $entry->getMessage(),
+            'response'   => ['error' => 'x'],
+            'resend'     => ['por' => 'a@b.com', 'em' => '2026-10-02 10:00'],
+            'receivedAt' => $entry->getReceivedAt(),
+        ]], $this->tracker->historyForLog(55));
+    }
+
+    public function testAnnotateKeepsTheNoteAsGivenOnTheEntryAndAsTextOnTheRow(): void
+    {
+        $row   = $this->existing(DispatchTracking::REF_EMAIL, '1', 1);
+        $other = $this->existing(DispatchTracking::REF_SMS, '2', 2);
+        $first = DispatchCallback::create(1, 'pending', null, [], $this->now);
+        $later = DispatchCallback::create(1, 'success', 'later', [], $this->now);
+        $this->trackings->method('findByRefs')->willReturn([$row, $other]);
+        $this->callbacks->method('findByTrackingIds')->with([1, 2])->willReturn([$first, $later]);
+        $savedRows = [];
+        $this->trackings->method('saveEntity')->willReturnCallback(function (DispatchTracking $t) use (&$savedRows): void {
+            $savedRows[] = $t;
+        });
+        $this->callbacks->expects($this->once())->method('saveEntity')->with($first);
+
+        $this->tracker->annotate(['logSendEmailId' => '1', 'logSendSmsId' => '2'], ['reenvio' => ['por' => 'ç']]);
+
+        $this->assertSame([$row, $other], $savedRows);
+        $this->assertSame("{\n    \"reenvio\": {\n        \"por\": \"ç\"\n    }\n}", $row->getMessage());
+        $this->assertSame(['reenvio' => ['por' => 'ç']], $first->getMessage());
+        $this->assertSame('later', $later->getMessage());
+    }
+
+    public function testApplyGoesOnAfterAnUnknownOrUnchangedItem(): void
+    {
+        $known   = $this->existing(DispatchTracking::REF_EMAIL, '1', 1);
+        $same    = $this->existing(DispatchTracking::REF_EMAIL, '2', 2);
+        $same->applyOutcome('success', null, $this->now);
+        $this->trackings->method('findOneByRef')->willReturnCallback(fn (string $type, string $value): ?DispatchTracking => ['9' => null, '2' => $same, '1' => $known][$value]);
+
+        $summary = $this->tracker->apply([
+            ['refType' => 'logSendEmailId', 'refValue' => '9', 'outcome' => 'success', 'message' => null, 'body' => []],
+            ['refType' => 'logSendEmailId', 'refValue' => '2', 'outcome' => 'success', 'message' => null, 'body' => []],
+            ['refType' => 'logSendEmailId', 'refValue' => '1', 'outcome' => 'error', 'message' => 'boom', 'body' => []],
+        ], $this->now);
+
+        $this->assertSame(['changed' => 1, 'unchanged' => 1, 'unknown' => 1], $summary);
+        $this->assertSame('error', $known->getOutcome());
+    }
+
+    public function testViewForMetadataCarriesEveryFieldOfTheRow(): void
+    {
+        $row = $this->existing(DispatchTracking::REF_SMS, '77', 4);
+        $row->applyOutcome('error', 'boom', $this->now);
+        $this->trackings->method('findByRefs')->willReturn([$row]);
+        $entry = DispatchCallback::create(4, 'error', 'boom', [], $this->now);
+        $this->callbacks->method('findByTrackingIds')->willReturn([$entry]);
+
+        $view = $this->tracker->viewForMetadata(['logSendSmsId' => '77']);
+
+        $this->assertSame([[
+            'refType'       => 'logSendSmsId',
+            'refValue'      => '77',
+            'outcome'       => 'error',
+            'message'       => 'boom',
+            'checkCount'    => $row->getCheckCount(),
+            'lastCheckedAt' => $row->getLastCheckedAt(),
+            'changedAt'     => $row->getChangedAt(),
+            'history'       => [['outcome' => 'error', 'message' => 'boom', 'receivedAt' => $entry->getReceivedAt()]],
+        ]], $view);
+        $this->assertNotNull($view[0]['lastCheckedAt']);
+    }
+
+    public function testViewForMetadataOfIdsNobodyTracksReadsNoHistory(): void
+    {
+        $this->trackings->method('findByRefs')->willReturn([]);
+        $this->callbacks->expects($this->never())->method('findByTrackingIds');
+
+        $this->assertSame([], $this->tracker->viewForMetadata(['logSendEmailId' => '5']));
+    }
+
+    public function testOnlyTextOrNumberIdsOfTheMetadataAreLookedUp(): void
+    {
+        $this->trackings->expects($this->once())->method('findByRefs')->with([
+            'logSendEmailId' => '5',
+            'logSendSmsId'   => 'abc',
+        ])->willReturn([]);
+
+        $this->tracker->viewForMetadata(['logSendEmailId' => 5, 'logSendSmsId' => 'abc', 'logSendHsmId' => '', 'logSendHsmUuid' => ['x'], 'other' => 'ignored']);
+    }
 }
