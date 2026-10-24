@@ -7,10 +7,12 @@ namespace MauticPlugin\N8nDispatchBundle\Tests\Unit\Service;
 use MauticPlugin\N8nDispatchBundle\Service\DispatchListReader;
 use PHPUnit\Framework\TestCase;
 
+require_once __DIR__.'/WakeupProbe.php';
+
 /**
  * The pure halves of DispatchListReader: which template a campaign event
  * points at, and how a contact is named. The queries themselves are plain
- * SQL, checked live.
+ * SQL, checked in Tests/Integration.
  */
 class DispatchListReaderTest extends TestCase
 {
@@ -170,15 +172,5 @@ class DispatchListReaderTest extends TestCase
 
         DispatchListReader::metadataOf($payload);
         $this->assertFalse(WakeupProbe::$woke);
-    }
-}
-
-final class WakeupProbe
-{
-    public static bool $woke = false;
-
-    public function __wakeup(): void
-    {
-        self::$woke = true;
     }
 }
