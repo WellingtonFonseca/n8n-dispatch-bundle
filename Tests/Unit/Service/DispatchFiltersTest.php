@@ -87,4 +87,49 @@ class DispatchFiltersTest extends TestCase
 
         $this->assertSame($query, DispatchFilters::fromQuery($query, $this->sp, 'd/m/Y')->toQuery($this->sp, 'd/m/Y'));
     }
+
+    public function testATemplateIsOnlyReadWhenTheWholeValueIsChannelColonPositiveId(): void
+    {
+        foreach (['xemail:5', 'email:5x', 'email:0', 'email:', 'fax:5', 'email:5 '] as $bad) {
+            $this->assertNull(DispatchFilters::fromQuery(['template' => $bad], $this->sp)->template, $bad);
+        }
+        $this->assertSame(['email', 5], DispatchFilters::fromQuery(['template' => 'email:5'], $this->sp)->template);
+    }
+
+    public function testAnyOneFilterMakesItNotEmpty(): void
+    {
+        $day = new \DateTimeImmutable('2026-10-02');
+
+        foreach ([new DispatchFilters(3), new DispatchFilters(null, ['sms', 1]), new DispatchFilters(null, null, $day), new DispatchFilters(null, null, null, $day), new DispatchFilters(null, null, null, null, 'error')] as $filters) {
+            $this->assertFalse($filters->isEmpty());
+        }
+        $this->assertTrue((new DispatchFilters())->isEmpty());
+    }
+
+    public function testTheQueryOmitsTheDatesThatAreNotSet(): void
+    {
+        $day = new \DateTimeImmutable('2026-10-02 15:00:00', new \DateTimeZone('UTC'));
+
+        $this->assertSame(['from' => '02/10/2026'], (new DispatchFilters(null, null, $day))->toQuery($this->sp, 'd/m/Y'));
+        $this->assertSame(['to' => '02/10/2026'], (new DispatchFilters(null, null, null, $day))->toQuery($this->sp, 'd/m/Y'));
+    }
+
+    public function testTheShownCallbackOfAnUnknownChannelIsNone(): void
+    {
+        $this->assertNull(DispatchFilters::shownRefType('fax'));
+        $this->assertSame('logSendHsmUuid', DispatchFilters::shownRefType('hsm'));
+    }
+
+    public function testTheStatusOfALogNeedsAnIdThatIsATextOrANumberAndNotEmpty(): void
+    {
+        $outcomes = ['logSendEmailId|5' => 'success', 'logSendEmailId|abc' => 'error'];
+
+        $this->assertSame('success', DispatchFilters::statusOf('email', ['logSendEmailId' => 5], $outcomes));
+        $this->assertSame('error', DispatchFilters::statusOf('email', ['logSendEmailId' => 'abc'], $outcomes));
+        $this->assertNull(DispatchFilters::statusOf('email', ['logSendEmailId' => ''], $outcomes));
+        $this->assertNull(DispatchFilters::statusOf('email', ['logSendEmailId' => ['5']], $outcomes));
+        $this->assertNull(DispatchFilters::statusOf('email', ['logSendEmailId' => 5.0], $outcomes));
+        $this->assertNull(DispatchFilters::statusOf('email', [], $outcomes));
+        $this->assertNull(DispatchFilters::statusOf('fax', ['logSendEmailId' => 5], $outcomes));
+    }
 }
