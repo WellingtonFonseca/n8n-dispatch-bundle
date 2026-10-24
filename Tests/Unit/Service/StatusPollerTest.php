@@ -460,4 +460,143 @@ class StatusPollerTest extends TestCase
         $this->assertSame(2, $summary['changed']);
         $this->assertStringContainsString('timeout', strtolower((string) $summary['error']));
     }
+
+    private function pollWith(string $channel = DispatchTracking::CHANNEL_EMAIL, ?string $override = null): array
+    {
+        return $this->poller->poll($channel, 100, 7, DispatchTracking::OUTCOME_PENDING, $override, $this->now);
+    }
+
+    public function testADisabledIntegrationReturnsTheWholeEmptySummaryWithItsError(): void
+    {
+        $this->mockIntegration(false, ['webhook_url' => 'https://n8n.example.test/hook']);
+        $this->tracker->expects($this->never())->method('pending');
+
+        $this->assertSame(
+            ['requested' => 0, 'changed' => 0, 'unchanged' => 0, 'unknown' => 0, 'invalid' => 0, 'calls' => 0, 'error' => 'the N8N Dispatch integration is not configured/enabled.'],
+            $this->pollWith()
+        );
+    }
+
+    public function testAMissingWebhookUrlReturnsItsErrorWithoutAskingTheQueue(): void
+    {
+        $this->mockIntegration(true, ['webhook_url' => '  ']);
+        $this->tracker->expects($this->never())->method('pending');
+
+        $this->assertSame('webhook_url is not configured.', $this->pollWith()['error']);
+    }
+
+    public function testTheOverrideTheUrlAndTheTokenAreTrimmedAndTheHeadersAreExact(): void
+    {
+        $this->mockIntegration(true, ['webhook_url' => ' https://n8n.example.test/hook ', 'webhook_token' => '  tok ']);
+        $this->tracker->method('pending')->willReturn([$this->row('email', 'logSendEmailId', '1', 'g')]);
+        $this->tracker->method('apply')->willReturn(['changed' => 0, 'unchanged' => 0, 'unknown' => 0]);
+        $calls = [];
+        $this->httpClient->method('request')->willReturnCallback(function (string $m, string $url, array $options) use (&$calls): ResponseInterface {
+            $calls[] = [$url, $options['headers']];
+
+            return $this->response(200, '{"items":[]}');
+        });
+
+        $this->pollWith();
+        $this->pollWith(DispatchTracking::CHANNEL_EMAIL, "  http://127.0.0.1:8099/\n");
+
+        $headers = ['Content-Type' => 'application/json', 'X-N8n-Dispatch-Action' => 'email.status', 'X-N8n-Dispatch-Token' => 'tok'];
+        $this->assertSame([['https://n8n.example.test/hook', $headers], ['http://127.0.0.1:8099/', $headers]], $calls);
+    }
+
+    public function testATokenOfOnlySpacesSendsNoTokenHeader(): void
+    {
+        $this->mockIntegration(true, ['webhook_url' => 'https://n8n.example.test/hook', 'webhook_token' => '   ']);
+        $this->tracker->method('pending')->willReturn([$this->row('email', 'logSendEmailId', '1', 'g')]);
+        $this->tracker->method('apply')->willReturn(['changed' => 0, 'unchanged' => 0, 'unknown' => 0]);
+        $this->httpClient->expects($this->once())->method('request')->with('POST', $this->anything(), $this->callback(fn (array $o): bool => !isset($o['headers']['X-N8n-Dispatch-Token'])))->willReturn($this->response(200, '{"items":[]}'));
+
+        $this->pollWith();
+    }
+
+    public function testAFailedCallIsLoggedWithItsChannelAndReason(): void
+    {
+        $this->mockIntegration(true, ['webhook_url' => 'https://n8n.example.test/hook']);
+        $this->tracker->method('pending')->willReturn([$this->row('sms', 'logSendSmsId', '1', 'g')]);
+        $this->httpClient->method('request')->willThrowException(new \RuntimeException('boom'));
+        $logger = $this->createMock(LoggerInterface::class);
+        $logger->expects($this->once())->method('error')->with('N8nDispatch: sms.status call failed: boom');
+        $poller = new StatusPoller($this->integrationHelper, $this->httpClient, $this->tracker, new StatusResponseParser(), $logger, $this->settings);
+
+        $summary = $poller->poll(DispatchTracking::CHANNEL_SMS, 100, 7, DispatchTracking::OUTCOME_PENDING, null, $this->now);
+
+        $this->assertSame('boom', $summary['error']);
+    }
+
+    public function testHttp300IsRefusedWithItsStatus(): void
+    {
+        $this->mockIntegration(true, ['webhook_url' => 'https://n8n.example.test/hook']);
+        $this->tracker->method('pending')->willReturn([$this->row('email', 'logSendEmailId', '1', 'g')]);
+        $this->httpClient->method('request')->willReturn($this->response(300, '{"items":[]}'));
+
+        $this->assertSame('webhook returned HTTP 300.', $this->pollWith()['error']);
+    }
+
+    public function testHttp299IsAccepted(): void
+    {
+        $this->mockIntegration(true, ['webhook_url' => 'https://n8n.example.test/hook']);
+        $this->tracker->method('pending')->willReturn([$this->row('email', 'logSendEmailId', '1', 'g')]);
+        $this->tracker->method('apply')->willReturn(['changed' => 0, 'unchanged' => 0, 'unknown' => 0]);
+        $this->httpClient->method('request')->willReturn($this->response(299, '{"items":[]}'));
+
+        $this->assertNull($this->pollWith()['error']);
+    }
+
+    public function testInvalidItemsAreSummedAcrossCalls(): void
+    {
+        $this->mockIntegration(true, ['webhook_url' => 'https://n8n.example.test/hook']);
+        $this->tracker->method('pending')->willReturnCallback(fn (string $c, string $o, int $limit, int $age, \DateTimeImmutable $now, int $after): array => match ($after) {
+            0       => $this->page([1, 2]),
+            2       => $this->page([3, 4]),
+            default => [],
+        });
+        $this->httpClient->method('request')->willReturn($this->response(200, '{"items":[{"logSendEmailId":1},{"outcome":"success"}]}'));
+        $this->tracker->method('apply')->willReturn(['changed' => 1, 'unchanged' => 0, 'unknown' => 0]);
+
+        $summary = $this->poller->poll(DispatchTracking::CHANNEL_EMAIL, 2, 7, DispatchTracking::OUTCOME_PENDING, null, $this->now);
+
+        $this->assertSame(2, $summary['calls']);
+        $this->assertSame(4, $summary['invalid'], 'two invalid items on each of the two calls');
+    }
+
+    public function testWithoutADelayInTheSettingsThereIsNoPause(): void
+    {
+        $this->mockIntegration(true, ['webhook_url' => 'https://n8n.example.test/hook']);
+        $this->tracker->method('pending')->willReturnCallback(fn (string $c, string $o, int $limit, int $age, \DateTimeImmutable $now, int $after): array => match ($after) {
+            0       => $this->page([1, 2]),
+            2       => $this->page([3, 4]),
+            default => [],
+        });
+        $this->httpClient->method('request')->willReturn($this->response(200, '{"items":[]}'));
+        $this->tracker->method('apply')->willReturn(['changed' => 1, 'unchanged' => 1, 'unknown' => 0]);
+        $settings = $this->createMock(StatusPollSettings::class);
+        $settings->method('current')->willReturn(['timeout' => 180, 'maxDuration' => 300]);
+        $sleeps = [];
+        $poller = new StatusPoller($this->integrationHelper, $this->httpClient, $this->tracker, new StatusResponseParser(), $this->createMock(LoggerInterface::class), $settings, function (int $ms) use (&$sleeps): void { $sleeps[] = $ms; });
+
+        $poller->poll(DispatchTracking::CHANNEL_EMAIL, 2, 7, DispatchTracking::OUTCOME_PENDING, null, $this->now);
+
+        $this->assertSame([], $sleeps);
+    }
+
+    public function testOnlyNumericMirrorIdsGoOutAsNumbers(): void
+    {
+        $this->mockIntegration(true, ['webhook_url' => 'https://n8n.example.test/hook']);
+        $this->tracker->method('pending')->willReturn([
+            $this->row('hsm', 'logSendHsmId', '123', 'g1'),
+            $this->row('hsm', 'logSendHsmUuid', '456', 'g1'),
+            $this->row('hsm', 'logSendHsmId', 'abc', 'g2'),
+        ]);
+        $this->tracker->method('apply')->willReturn(['changed' => 0, 'unchanged' => 0, 'unknown' => 0]);
+        $this->httpClient->expects($this->once())->method('request')->with('POST', $this->anything(), $this->callback(
+            fn (array $o): bool => [['logSendHsmId' => 123, 'logSendHsmUuid' => '456'], ['logSendHsmId' => 'abc']] === $o['json']['items']
+        ))->willReturn($this->response(200, '{"items":[]}'));
+
+        $this->pollWith(DispatchTracking::CHANNEL_HSM);
+    }
 }
