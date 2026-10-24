@@ -1,6 +1,6 @@
 {#
   Same status-badge markup/CSS as SmsTemplate/form.html.twig's own
-  "Campaigns using this template" table (.n8ndispatch-timeline-badge,
+  "Campaigns using this template" table (.n8ndispatch-badge,
   already loaded globally by AssetInjectionSubscriber.php) and the
   contact Timeline card — kept visually consistent across all three.
 #}
@@ -28,7 +28,7 @@
                             <td>{{ usage.eventName }}</td>
                             <td>
                                 {% set status = usage.status in ['test', 'production', 'paused'] ? usage.status : 'test' %}
-                                <span class="n8ndispatch-timeline-badge n8ndispatch-timeline-badge--{{ status }}">
+                                <span class="n8ndispatch-badge n8ndispatch-badge--{{ status }}">
                                     {{ ('mautic.n8ndispatch.campaign.event.status.' ~ status)|trans }}
                                 </span>
                             </td>
