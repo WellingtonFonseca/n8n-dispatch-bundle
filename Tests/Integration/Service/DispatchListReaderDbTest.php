@@ -4,12 +4,12 @@ declare(strict_types=1);
 
 namespace MauticPlugin\N8nDispatchBundle\Tests\Integration\Service;
 
-use Doctrine\DBAL\Connection;
-use Doctrine\DBAL\DriverManager;
 use Doctrine\ORM\EntityManagerInterface;
 use MauticPlugin\N8nDispatchBundle\Service\DispatchFilters;
 use MauticPlugin\N8nDispatchBundle\Service\DispatchListReader;
-use PHPUnit\Framework\TestCase;
+use MauticPlugin\N8nDispatchBundle\Tests\Integration\RollbackDatabaseTestCase;
+
+require_once __DIR__.'/../RollbackDatabaseTestCase.php';
 
 /**
  * The queries of DispatchListReader against the stack's real MySQL. Every row
@@ -17,9 +17,8 @@ use PHPUnit\Framework\TestCase;
  * (also when the test fails), so nothing is left behind and no seed is read;
  * the lists are narrowed to the test's own campaign.
  */
-class DispatchListReaderDbTest extends TestCase
+class DispatchListReaderDbTest extends RollbackDatabaseTestCase
 {
-    private Connection $db;
     private DispatchListReader $reader;
     private string $unique;
     private int $campaignId;
@@ -33,27 +32,7 @@ class DispatchListReaderDbTest extends TestCase
 
     protected function setUp(): void
     {
-        if (!defined('MAUTIC_TABLE_PREFIX')) {
-            define('MAUTIC_TABLE_PREFIX', '');
-        }
-
-        $host = getenv('MAUTIC_DB_HOST');
-        if (false === $host || '' === $host) {
-            $this->markTestSkipped('Needs the stack database (MAUTIC_DB_* variables of the web container).');
-        }
-
-        $this->db = DriverManager::getConnection([
-            'driver'   => 'pdo_mysql',
-            'host'     => $host,
-            'port'     => (int) (getenv('MAUTIC_DB_PORT') ?: 3306),
-            'user'     => (string) getenv('MAUTIC_DB_USER'),
-            'password' => (string) getenv('MAUTIC_DB_PASSWORD'),
-            'dbname'   => (string) getenv('MAUTIC_DB_DATABASE'),
-            'charset'  => 'utf8mb4',
-            // Every value comes back as text, so the casts of the reader are the ones that make ids ints.
-            'driverOptions' => [\PDO::ATTR_STRINGIFY_FETCHES => true],
-        ]);
-        $this->db->beginTransaction();
+        parent::setUp();
 
         $em = $this->createMock(EntityManagerInterface::class);
         $em->method('getConnection')->willReturn($this->db);
@@ -73,26 +52,6 @@ class DispatchListReaderDbTest extends TestCase
             'n8ndispatch.sms.send'   => $this->event('n8ndispatch.sms.send', ['smsTemplate' => $this->smsId, 'status' => 'test'], 2),
             'n8ndispatch.hsm.send'   => $this->event('n8ndispatch.hsm.send', ['hsmTemplateId' => $this->hsmId], 3),
         ];
-    }
-
-    protected function tearDown(): void
-    {
-        if (isset($this->db)) {
-            while ($this->db->isTransactionActive()) {
-                $this->db->rollBack();
-            }
-            $this->db->close();
-        }
-    }
-
-    /**
-     * @param array<string, mixed> $row
-     */
-    private function insert(string $table, array $row): int
-    {
-        $this->db->insert($table, $row);
-
-        return (int) $this->db->lastInsertId();
     }
 
     /**

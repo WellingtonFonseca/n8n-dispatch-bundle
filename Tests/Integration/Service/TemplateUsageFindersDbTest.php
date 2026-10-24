@@ -4,13 +4,13 @@ declare(strict_types=1);
 
 namespace MauticPlugin\N8nDispatchBundle\Tests\Integration\Service;
 
-use Doctrine\DBAL\Connection;
-use Doctrine\DBAL\DriverManager;
 use Doctrine\ORM\EntityManagerInterface;
 use MauticPlugin\N8nDispatchBundle\Service\EmailTemplateUsageFinder;
 use MauticPlugin\N8nDispatchBundle\Service\HsmTemplateUsageFinder;
 use MauticPlugin\N8nDispatchBundle\Service\SmsTemplateUsageFinder;
-use PHPUnit\Framework\TestCase;
+use MauticPlugin\N8nDispatchBundle\Tests\Integration\RollbackDatabaseTestCase;
+
+require_once __DIR__.'/../RollbackDatabaseTestCase.php';
 
 /**
  * The query of the three template usage finders against the stack's real
@@ -18,45 +18,15 @@ use PHPUnit\Framework\TestCase;
  * deleted steps and campaigns do not count. Rows are made by the test inside
  * a transaction rolled back at the end.
  */
-class TemplateUsageFindersDbTest extends TestCase
+class TemplateUsageFindersDbTest extends RollbackDatabaseTestCase
 {
-    private Connection $db;
     private string $unique;
 
     protected function setUp(): void
     {
-        if (!defined('MAUTIC_TABLE_PREFIX')) {
-            define('MAUTIC_TABLE_PREFIX', '');
-        }
-
-        $host = getenv('MAUTIC_DB_HOST');
-        if (false === $host || '' === $host) {
-            $this->markTestSkipped('Needs the stack database (MAUTIC_DB_* variables of the web container).');
-        }
-
-        $this->db = DriverManager::getConnection([
-            'driver'        => 'pdo_mysql',
-            'host'          => $host,
-            'port'          => (int) (getenv('MAUTIC_DB_PORT') ?: 3306),
-            'user'          => (string) getenv('MAUTIC_DB_USER'),
-            'password'      => (string) getenv('MAUTIC_DB_PASSWORD'),
-            'dbname'        => (string) getenv('MAUTIC_DB_DATABASE'),
-            'charset'       => 'utf8mb4',
-            'driverOptions' => [\PDO::ATTR_STRINGIFY_FETCHES => true],
-        ]);
-        $this->db->beginTransaction();
+        parent::setUp();
 
         $this->unique = 'ZZ-usage-'.microtime(true).'-'.random_int(1000, 9999);
-    }
-
-    protected function tearDown(): void
-    {
-        if (isset($this->db)) {
-            while ($this->db->isTransactionActive()) {
-                $this->db->rollBack();
-            }
-            $this->db->close();
-        }
     }
 
     /**
@@ -81,9 +51,7 @@ class TemplateUsageFindersDbTest extends TestCase
 
     private function campaign(string $name, int $published = 1, ?string $deleted = null): int
     {
-        $this->db->insert('campaigns', ['name' => $this->unique.' '.$name, 'is_published' => $published, 'allow_restart' => 0, 'deleted' => $deleted]);
-
-        return (int) $this->db->lastInsertId();
+        return $this->insert('campaigns', ['name' => $this->unique.' '.$name, 'is_published' => $published, 'allow_restart' => 0, 'deleted' => $deleted]);
     }
 
     /**
@@ -91,12 +59,10 @@ class TemplateUsageFindersDbTest extends TestCase
      */
     private function step(int $campaignId, string $type, string $name, array $properties, ?string $deleted = null): int
     {
-        $this->db->insert('campaign_events', [
+        return $this->insert('campaign_events', [
             'campaign_id' => $campaignId, 'name' => $name, 'type' => $type, 'event_type' => 'action',
             'event_order' => 1, 'properties' => serialize($properties), 'failed_count' => 0, 'deleted' => $deleted,
         ]);
-
-        return (int) $this->db->lastInsertId();
     }
 
     /**
