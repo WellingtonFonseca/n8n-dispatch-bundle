@@ -10,7 +10,6 @@ use Mautic\EmailBundle\Event\EmailEvent;
 use MauticPlugin\N8nDispatchBundle\Entity\EmailVariablesRepository;
 use MauticPlugin\N8nDispatchBundle\Service\TemplateVariableScanner;
 use MauticPlugin\N8nDispatchBundle\Service\VariableMappingChecker;
-use Symfony\Component\DependencyInjection\Attribute\Autowire;
 use Symfony\Component\EventDispatcher\EventSubscriberInterface;
 use Symfony\Component\HttpFoundation\RequestStack;
 use Symfony\Contracts\Translation\TranslatorInterface;
@@ -35,7 +34,6 @@ class EmailUnmappedVariablesSubscriber implements EventSubscriberInterface
         private VariableMappingChecker $mappingChecker,
         private EmailVariablesRepository $emailVariablesRepository,
         private TranslatorInterface $translator,
-        #[Autowire(service: 'mautic.core.service.flashbag')]
         private FlashBag $flashBag,
         private RequestStack $requestStack,
     ) {
