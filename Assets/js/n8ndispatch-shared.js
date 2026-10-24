@@ -111,7 +111,7 @@
     }
 
     // Pulsing yellow dot appended to the "Variables N8N" tab's header while some variables are unmapped; the
-    // animation lives in Assets/css/campaign-status-badge.css (.n8ndispatch-tab-dot).
+    // animation lives in Assets/css/n8ndispatch.css (.n8ndispatch-tab-dot).
     function buildTabDotHtml() {
         return '<span class="n8ndispatch-tab-dot" aria-hidden="true"></span>';
     }

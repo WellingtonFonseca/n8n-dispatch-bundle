@@ -36,7 +36,7 @@ class AssetInjectionSubscriberTest extends TestCase
         $hsmJsMtime      = filemtime(__DIR__.'/../../../Assets/js/campaign-hsm-dispatch.js');
         $previewIconsMtime = filemtime(__DIR__.'/../../../Assets/js/campaign-preview-icons.js');
         $checkNowMtime   = filemtime(__DIR__.'/../../../Assets/js/status-poll-check-now.js');
-        $cssMtime        = filemtime(__DIR__.'/../../../Assets/css/campaign-status-badge.css');
+        $cssMtime        = filemtime(__DIR__.'/../../../Assets/css/n8ndispatch.css');
 
         $this->assertStringContainsString(
             '<script src="/plugins/N8nDispatchBundle/Assets/js/n8ndispatch-shared.js?v='.$sharedJsMtime.'"></script>',
@@ -67,7 +67,7 @@ class AssetInjectionSubscriberTest extends TestCase
             $content
         );
         $this->assertStringContainsString(
-            '<link rel="stylesheet" href="/plugins/N8nDispatchBundle/Assets/css/campaign-status-badge.css?v='.$cssMtime.'">',
+            '<link rel="stylesheet" href="/plugins/N8nDispatchBundle/Assets/css/n8ndispatch.css?v='.$cssMtime.'">',
             $content
         );
     }
