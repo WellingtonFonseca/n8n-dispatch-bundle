@@ -71,7 +71,7 @@
  * circle (there's no hover affordance to protect here).
  */
 .n8ndispatch-badge {
-    /* MauticPatchesBundle has a twin for the Mautic lists, .patches-badge (SegmentStatusSubscriber::BADGE_STYLE): keep the two in step. */
+    /* MauticPatchesBundle has a twin for the Mautic lists, .patches-badge (AbstractListStatusSubscriber::BADGE_STYLE): keep the two in step. */
     display: inline-flex;
     align-items: center;
     justify-content: center;
