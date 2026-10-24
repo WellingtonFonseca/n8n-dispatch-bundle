@@ -190,6 +190,7 @@ class SmsCampaignTriggerSubscriberTest extends TestCase
         $this->subscriber->onSmsSend($pendingEvent);
 
         $this->assertCount(1, $pendingEvent->getFailures());
+        $this->assertSame('N8nDispatch: the N8N Dispatch integration is not configured/enabled.', $pendingEvent->getFailures()->first()->getFailedLog()->getReason());
     }
 
     public function testProductionStatusFailAllWhenWebhookUrlIsMissing(): void
@@ -202,6 +203,7 @@ class SmsCampaignTriggerSubscriberTest extends TestCase
         $this->subscriber->onSmsSend($pendingEvent);
 
         $this->assertCount(1, $pendingEvent->getFailures());
+        $this->assertSame('N8nDispatch: webhook_url is not configured.', $pendingEvent->getFailures()->first()->getFailedLog()->getReason());
     }
 
     public function testProductionStatusFailsWithoutDispatchingWhenContactIsOnTheSmsDncList(): void
