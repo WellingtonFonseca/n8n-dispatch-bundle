@@ -7,7 +7,7 @@
  * never used there and the nodes fall back to core's generic
  * 'ri-shapes-fill' with no status badge. Fixed client-side instead, with
  * no core change. The badge markup/CSS are the editor's own (see
- * Assets/css/campaign-status-badge.css); the status comes from
+ * Assets/css/n8ndispatch.css); the status comes from
  * plugin:N8nDispatch:getCampaignEventStatuses.
  *
  * A MutationObserver, not a load hook: Mautic swaps page content over AJAX

@@ -13,7 +13,7 @@ use Symfony\Component\EventDispatcher\EventSubscriberInterface;
  * campaign-sms-dispatch.js, campaign-hsm-dispatch.js,
  * campaign-timeline-scheduled.js, campaign-preview-icons.js,
  * template-status-toggle.js, and
- * campaign-status-badge.css globally,
+ * n8ndispatch.css globally,
  * the same way GrapesJsBuilderBundle injects its own JS/vars via
  * 'page.header.left' (a context rendered on every admin page, not just the
  * campaign builder). Harmless elsewhere — the JS only defines
@@ -58,7 +58,7 @@ class AssetInjectionSubscriber implements EventSubscriberInterface
         $resendJsRelativePath      = 'Assets/js/dispatch-resend.js';
         $middleClickJsRelativePath = 'Assets/js/template-modal-middle-click.js';
         $statusJsRelativePath      = 'Assets/js/template-status-toggle.js';
-        $cssRelativePath           = 'Assets/css/campaign-status-badge.css';
+        $cssRelativePath           = 'Assets/css/n8ndispatch.css';
 
         $customContentEvent->addContent(
             '<script src="/plugins/N8nDispatchBundle/'.$sharedJsRelativePath.'?v='.$this->assetVersion($sharedJsRelativePath).'"></script>'
@@ -80,7 +80,7 @@ class AssetInjectionSubscriber implements EventSubscriberInterface
      * Both assets are served with no Cache-Control/Expires header of their
      * own (plain static files under docroot), which leaves a browser free
      * to keep a heuristically-cached copy indefinitely once it's loaded one
-     * — confirmed live: an edit to campaign-status-badge.css (the Timeline
+     * — confirmed live: an edit to n8ndispatch.css (the Timeline
      * outcome badge colors) didn't show up in an already-open browser
      * session even after the server-side file, and a full page reload,
      * both had the new content; only a hard refresh picked it up. A

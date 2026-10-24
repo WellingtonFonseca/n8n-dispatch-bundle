@@ -23,7 +23,7 @@
   on the SMS Templates list): TYPE_DROPDOWN puts every button added via
   buttonAdd() inside the <ul> as an <li>, none left outside.
 
-  .n8ndispatch-template-actions (campaign-status-badge.css) gives the
+  .n8ndispatch-template-actions (n8ndispatch.css) gives the
   wrapper `order: 1`. #toolbar (core's pageheader.html.twig) is a flex row
   packed to the right edge in DOM order — actions, then
   .toolbar-bundle-buttons, then .toolbar-form-buttons (Save/Apply/Cancel) —
@@ -150,7 +150,7 @@
                                                 <td>{{ usage.eventName }}</td>
                                                 <td>
                                                     {% set status = usage.status in ['test', 'production', 'paused'] ? usage.status : 'test' %}
-                                                    <span class="n8ndispatch-timeline-badge n8ndispatch-timeline-badge--{{ status }}">
+                                                    <span class="n8ndispatch-badge n8ndispatch-badge--{{ status }}">
                                                         {{ ('mautic.n8ndispatch.campaign.event.status.' ~ status)|trans }}
                                                     </span>
                                                 </td>

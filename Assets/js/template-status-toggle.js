@@ -1,5 +1,5 @@
 // Status of the SMS / HSM template lists: an "Ativo" / "Inativo" badge (the n8n badge) at the start of the name, and "Desativar" /
-// "Ativar" in the row menu. Both follow core's toggle icon of the row (hidden by campaign-status-badge.css): the menu item clicks it,
+// "Ativar" in the row menu. Both follow core's toggle icon of the row (hidden by n8ndispatch.css): the menu item clicks it,
 // so core sends the request and checks the permission, and the badge and the item are brought to the icon's state, spinning while
 // core works. The texts come from data attributes the list template prints (translated there).
 (function (root) {
@@ -21,7 +21,7 @@
     function paintBadge(badge, state) {
         if (badge.getAttribute('data-state') === state) { return; }
         var modifier = state === 'busy' ? 'pending' : (state === 'unpublished' ? 'failed' : 'production');
-        badge.className = 'n8ndispatch-timeline-badge n8ndispatch-template-status n8ndispatch-timeline-badge--' + modifier;
+        badge.className = 'n8ndispatch-badge n8ndispatch-template-status n8ndispatch-badge--' + modifier;
         // the word and the color tell the status; only the wait has an icon
         badge.textContent = state === 'busy' ? '' : badge.getAttribute('data-text-' + state);
         if (state === 'busy') { badge.insertAdjacentHTML('afterbegin', '<i class="ri-loader-3-line ri-spin"></i>'); }

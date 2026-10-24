@@ -29,17 +29,17 @@
 {% if n8n %}
     <div class="n8ndispatch-timeline">
         <div class="n8ndispatch-timeline-header">
-            <span class="n8ndispatch-timeline-badge n8ndispatch-timeline-badge--{{ n8n.status }}">
+            <span class="n8ndispatch-badge n8ndispatch-badge--{{ n8n.status }}">
                 {{ ('mautic.n8ndispatch.campaign.event.status.' ~ n8n.status)|trans }}
             </span>
 
             {% if n8n.httpStatusCode is defined %}
                 {% if n8n.httpStatusCode >= 200 and n8n.httpStatusCode < 300 %}
-                <span class="n8ndispatch-timeline-badge n8ndispatch-timeline-badge--success">
+                <span class="n8ndispatch-badge n8ndispatch-badge--success">
                     {{ 'mautic.n8ndispatch.timeline.status.success'|trans }}
                 </span>
                 {% else %}
-                <span class="n8ndispatch-timeline-badge n8ndispatch-timeline-badge--failed">
+                <span class="n8ndispatch-badge n8ndispatch-badge--failed">
                     {{ 'mautic.n8ndispatch.timeline.status.failed'|trans }}
                 </span>
                 {% endif %}
@@ -88,7 +88,7 @@
                     {%- endif -%}
                 </div>
                 <div class="n8ndispatch-callback-row">
-                    <span class="n8ndispatch-timeline-badge n8ndispatch-timeline-badge--{{ badgeClass }}">
+                    <span class="n8ndispatch-badge n8ndispatch-badge--{{ badgeClass }}">
                         {{ ('mautic.n8ndispatch.timeline.callback.outcome.' ~ callback.outcome)|trans }}
                     </span>
                 </div>
@@ -145,16 +145,16 @@
                               just 'Teste' / 'Pausado' when nothing was sent. Callback: its outcome.
                             #}
                             {% if isDispatch and entry.outcome in ['test', 'paused'] %}
-                            <span class="n8ndispatch-timeline-badge n8ndispatch-timeline-badge--{{ entry.outcome }}">
+                            <span class="n8ndispatch-badge n8ndispatch-badge--{{ entry.outcome }}">
                                 {{ ('mautic.n8ndispatch.campaign.event.status.' ~ entry.outcome)|trans }}
                             </span>
                             {% else %}
                             {% if isDispatch %}
-                            <span class="n8ndispatch-timeline-badge n8ndispatch-timeline-badge--production" style="margin-bottom: 4px;">
+                            <span class="n8ndispatch-badge n8ndispatch-badge--production" style="margin-bottom: 4px;">
                                 {{ 'mautic.n8ndispatch.campaign.event.status.production'|trans }}
                             </span><br/>
                             {% endif %}
-                            <span class="n8ndispatch-timeline-badge n8ndispatch-timeline-badge--{{ badgeKey }}">
+                            <span class="n8ndispatch-badge n8ndispatch-badge--{{ badgeKey }}">
                                 {{ (isDispatch ? 'mautic.n8ndispatch.timeline.status.' ~ (entry.outcome == 'success' ? 'success' : 'failed') : 'mautic.n8ndispatch.timeline.callback.outcome.' ~ entry.outcome)|trans }}
                             </span>
                             {% endif %}

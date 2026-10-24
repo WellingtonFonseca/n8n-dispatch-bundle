@@ -70,7 +70,7 @@
  * the canvas badge above, in a flat pill instead of the hover-expanding
  * circle (there's no hover affordance to protect here).
  */
-.n8ndispatch-timeline-badge {
+.n8ndispatch-badge {
     /* MauticPatchesBundle has a twin for the Mautic lists, .patches-badge (SegmentStatusSubscriber::BADGE_STYLE): keep the two in step. */
     display: inline-flex;
     align-items: center;
@@ -87,26 +87,26 @@
     white-space: nowrap;
 }
 
-.n8ndispatch-timeline-badge--test {
+.n8ndispatch-badge--test {
     background-color: #7e57c2;
 }
 
-.n8ndispatch-timeline-badge--production {
+.n8ndispatch-badge--production {
     background-color: #43a047;
 }
 
-.n8ndispatch-timeline-badge--paused {
+.n8ndispatch-badge--paused {
     background-color: #fb8c00;
 }
 
 /* The translucent ones of the twin (.patches-badge--info / --neutral): not used by an n8n screen yet, here so the two families stay equal. */
-.n8ndispatch-timeline-badge--info {
+.n8ndispatch-badge--info {
     background-color: rgba(30, 136, 229, 0.16);
     color: #1e88e5;
     box-shadow: inset 0 0 0 1px rgba(30, 136, 229, 0.45);
 }
 
-.n8ndispatch-timeline-badge--neutral {
+.n8ndispatch-badge--neutral {
     background-color: rgba(120, 120, 120, 0.16);
     color: var(--text-secondary, #6f6f6f);
     box-shadow: inset 0 0 0 1px rgba(120, 120, 120, 0.4);
@@ -123,16 +123,16 @@
    returned in the response body (metadata.n8ndispatch.response.statusCode)
    — only rendered when that field exists, i.e. only for a 'production'
    dispatch that got a parseable response back. White text already comes
-   from the shared .n8ndispatch-timeline-badge base class above. */
-.n8ndispatch-timeline-badge--success {
+   from the shared .n8ndispatch-badge base class above. */
+.n8ndispatch-badge--success {
     background-color: #43a047;
 }
 
-.n8ndispatch-timeline-badge--failed {
+.n8ndispatch-badge--failed {
     background-color: #e53935;
 }
 
-.n8ndispatch-timeline-badge--pending {
+.n8ndispatch-badge--pending {
     background-color: #fb8c00;
 }
 
@@ -429,11 +429,11 @@ textarea.n8ndispatch-json-block {
 }
 
 /* Whether an SMS / HSM template is available for use (details modal): green when active, a neutral gray when not. Gray, not red: an inactive template is not an error. */
-.n8ndispatch-timeline-badge--active {
+.n8ndispatch-badge--active {
     background-color: #43a047;
 }
 
-.n8ndispatch-timeline-badge--inactive {
+.n8ndispatch-badge--inactive {
     background-color: #757575;
 }
 
