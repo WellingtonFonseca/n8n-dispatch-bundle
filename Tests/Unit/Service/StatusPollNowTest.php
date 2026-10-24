@@ -104,4 +104,24 @@ class StatusPollNowTest extends TestCase
 
         $this->assertSame([40, 40, 40], $batches);
     }
+
+    public function testAChannelThatThrowsIsReportedWithZerosAndTheOthersStillRun(): void
+    {
+        $asked = [];
+        $this->poller->method('poll')->willReturnCallback(function (string $channel) use (&$asked): array {
+            $asked[] = $channel;
+            if ('email' === $channel) {
+                throw new \RuntimeException('boom');
+            }
+
+            return $this->summary(0);
+        });
+
+        $result = $this->now->run(new \DateTimeImmutable('2026-10-02 10:00:00'));
+
+        $this->assertSame(['email', 'sms', 'hsm'], $asked);
+        $this->assertFalse($result['ok']);
+        $this->assertSame(['requested' => 0, 'changed' => 0, 'unchanged' => 0, 'unknown' => 0, 'invalid' => 0, 'calls' => 0, 'error' => 'boom'], $result['channels']['email']);
+        $this->assertNull($result['channels']['sms']['error']);
+    }
 }

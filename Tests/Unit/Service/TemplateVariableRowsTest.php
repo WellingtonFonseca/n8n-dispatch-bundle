@@ -38,4 +38,35 @@ class TemplateVariableRowsTest extends TestCase
     {
         $this->assertSame([['name' => '1', 'source' => 'static', 'value' => 'x']], TemplateVariableRows::fromJson('{"1": {"source": "weird", "value": "x"}}'));
     }
+
+    public function testAnEntryThatIsNotAnObjectIsSkippedAndTheNextOnesStillRead(): void
+    {
+        $rows = TemplateVariableRows::fromJson(json_encode(['bad' => 'text', 'also' => 5, 'good' => ['source' => 'static', 'value' => 'x']]));
+
+        $this->assertSame([['name' => 'good', 'source' => 'static', 'value' => 'x']], $rows);
+    }
+
+    public function testAFieldEntryPrefersItsFieldOverTheOldValueKeyAndStaticValuesAreText(): void
+    {
+        $rows = TemplateVariableRows::fromJson(json_encode([
+            'a' => ['source' => 'field', 'field' => 'email', 'value' => 'old'],
+            'b' => ['source' => 'static', 'value' => 42],
+            'c' => ['source' => 'field', 'field' => 7],
+            'd' => ['source' => 'nope', 'value' => 'text'],
+        ]));
+
+        $this->assertSame([['name' => 'a', 'source' => 'field', 'value' => 'email'], ['name' => 'b', 'source' => 'static', 'value' => '42'], ['name' => 'c', 'source' => 'field', 'value' => '7'], ['name' => 'd', 'source' => 'static', 'value' => 'text']], $rows);
+    }
+
+    public function testACustomObjectEntryShowsObjectSlashFieldWithoutLooseSeparators(): void
+    {
+        $rows = TemplateVariableRows::fromJson(json_encode([
+            'a' => ['source' => 'custom_object', 'customObject' => 'disc', 'customObjectField' => 'nome'],
+            'b' => ['source' => 'custom_object', 'customObjectField' => 'nome'],
+            'c' => ['source' => 'custom_object', 'customObject' => 'disc'],
+            'd' => ['source' => 'custom_object'],
+        ]));
+
+        $this->assertSame(['disc / nome', 'nome', 'disc', ''], array_column($rows, 'value'));
+    }
 }

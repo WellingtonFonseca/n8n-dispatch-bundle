@@ -136,4 +136,26 @@ class StatusResponseParserTest extends TestCase
         $this->assertNull($result['items'][2]['message']);
         $this->assertNull($result['items'][3]['message']);
     }
+
+    public function testTheItemsOfTheBodyItselfBeatTheOnesOfItsBodyKey(): void
+    {
+        $result = $this->parser->parse(DispatchTracking::CHANNEL_EMAIL, json_encode([
+            'items' => [['logSendEmailId' => 1, 'outcome' => 'success']],
+            'body'  => ['items' => [['logSendEmailId' => 2, 'outcome' => 'error']]],
+        ]));
+
+        $this->assertSame('1', $result['items'][0]['refValue']);
+    }
+
+    public function testOnlyATextOrANumberIsAnIdAndTheMessageKeepsItsKind(): void
+    {
+        $item = static fn ($id, $message = null): array => ['logSendEmailId' => $id, 'outcome' => 'error', 'message' => $message];
+        $parse = fn (array $items) => $this->parser->parse(DispatchTracking::CHANNEL_EMAIL, json_encode(['items' => $items]));
+
+        $result = $parse([$item(7, 5), $item('x', 1.5), $item('', 'boom'), $item(['7'], 'boom'), $item(8, ''), $item(9, []), $item(10, true), $item(11, ['a' => 1])]);
+
+        $this->assertSame(['7', 'x', '8', '9', '10', '11'], array_column($result['items'], 'refValue'));
+        $this->assertSame(2, $result['invalid']);
+        $this->assertSame([5, 1.5, null, null, null, ['a' => 1]], array_column($result['items'], 'message'));
+    }
 }
