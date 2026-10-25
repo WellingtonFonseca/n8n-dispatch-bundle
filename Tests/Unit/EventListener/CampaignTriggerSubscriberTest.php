@@ -67,7 +67,7 @@ class CampaignTriggerSubscriberTest extends TestCase
     {
         $this->integrationHelper = $this->createMock(IntegrationHelper::class);
         $this->httpClient        = $this->createMock(HttpClientInterface::class);
-        $this->logger            = $this->createMock(LoggerInterface::class);
+        $this->logger            = $this->createStub(LoggerInterface::class);
         $this->emailModel        = $this->createMock(EmailModel::class);
         $this->variableResolver  = $this->createMock(VariableResolver::class);
         $this->copyRepository    = $this->createMock(CopyRepository::class);
@@ -135,10 +135,10 @@ class CampaignTriggerSubscriberTest extends TestCase
 
     private function mockIntegration(bool $isPublished, array $keys): void
     {
-        $settings = $this->createMock(IntegrationSettings::class);
+        $settings = $this->createStub(IntegrationSettings::class);
         $settings->method('isPublished')->willReturn($isPublished);
 
-        $integration = $this->createMock(N8nDispatchIntegration::class);
+        $integration = $this->createStub(N8nDispatchIntegration::class);
         $integration->method('getIntegrationSettings')->willReturn($settings);
         $integration->method('getKeys')->willReturn($keys);
 
@@ -194,7 +194,7 @@ class CampaignTriggerSubscriberTest extends TestCase
         $this->emailModel->method('getEntity')->with(1)->willReturn(new Email());
         $this->mockIntegration(true, ['webhook_url' => 'https://n8n.example.test/webhook/dispatch']);
 
-        $response = $this->createMock(ResponseInterface::class);
+        $response = $this->createStub(ResponseInterface::class);
         $response->method('getStatusCode')->willReturn(200);
 
         $this->httpClient->expects($this->once())
@@ -255,7 +255,7 @@ class CampaignTriggerSubscriberTest extends TestCase
         $this->emailModel->method('getEntity')->with(1)->willReturn(new Email());
         $this->mockIntegration(true, ['webhook_url' => 'https://n8n.example.test/webhook/dispatch', 'webhook_token' => 'secret-token']);
 
-        $response = $this->createMock(ResponseInterface::class);
+        $response = $this->createStub(ResponseInterface::class);
         $response->method('getStatusCode')->willReturn(200);
 
         $this->httpClient->expects($this->once())
@@ -300,7 +300,7 @@ class CampaignTriggerSubscriberTest extends TestCase
             )
             ->willReturn(['fresh' => 'from the Variables tab']);
 
-        $response = $this->createMock(ResponseInterface::class);
+        $response = $this->createStub(ResponseInterface::class);
         $response->method('getStatusCode')->willReturn(200);
         $this->httpClient->method('request')->willReturn($response);
 
@@ -335,7 +335,7 @@ class CampaignTriggerSubscriberTest extends TestCase
             )
             ->willReturn(['legacy' => 'from the old event field']);
 
-        $response = $this->createMock(ResponseInterface::class);
+        $response = $this->createStub(ResponseInterface::class);
         $response->method('getStatusCode')->willReturn(200);
         $this->httpClient->method('request')->willReturn($response);
 
@@ -399,7 +399,7 @@ class CampaignTriggerSubscriberTest extends TestCase
             ->willReturn(true);
         $this->entityManager->method('getReference')->willReturn(new Copy());
 
-        $response = $this->createMock(ResponseInterface::class);
+        $response = $this->createStub(ResponseInterface::class);
         $response->method('getStatusCode')->willReturn(200);
         $this->httpClient->method('request')->willReturn($response);
 
@@ -421,7 +421,7 @@ class CampaignTriggerSubscriberTest extends TestCase
         $this->copyRepository->expects($this->never())->method('saveCopy');
         $this->entityManager->method('getReference')->willReturn(new Copy());
 
-        $response = $this->createMock(ResponseInterface::class);
+        $response = $this->createStub(ResponseInterface::class);
         $response->method('getStatusCode')->willReturn(200);
         $this->httpClient->method('request')->willReturn($response);
 
@@ -459,7 +459,7 @@ class CampaignTriggerSubscriberTest extends TestCase
             }))
             ->willReturn('https://mautic.example.test/email/unsubscribe/xyz');
 
-        $response = $this->createMock(ResponseInterface::class);
+        $response = $this->createStub(ResponseInterface::class);
         $response->method('getStatusCode')->willReturn(200);
 
         $this->httpClient->expects($this->once())
@@ -509,7 +509,7 @@ class CampaignTriggerSubscriberTest extends TestCase
                 return true;
             }));
 
-        $response = $this->createMock(ResponseInterface::class);
+        $response = $this->createStub(ResponseInterface::class);
         $response->method('getStatusCode')->willReturn(200);
         $this->httpClient->method('request')->willReturn($response);
 
@@ -951,7 +951,7 @@ class CampaignTriggerSubscriberTest extends TestCase
 
     private function answering(int $status): void
     {
-        $response = $this->createMock(ResponseInterface::class);
+        $response = $this->createStub(ResponseInterface::class);
         $response->method('getStatusCode')->willReturn($status);
         $response->method('getContent')->willReturn('{"error":"x"}');
         $this->httpClient->method('request')->willReturn($response);

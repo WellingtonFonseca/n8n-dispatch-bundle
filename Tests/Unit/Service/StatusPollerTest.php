@@ -40,10 +40,10 @@ class StatusPollerTest extends TestCase
 
     protected function setUp(): void
     {
-        $this->integrationHelper = $this->createMock(IntegrationHelper::class);
+        $this->integrationHelper = $this->createStub(IntegrationHelper::class);
         $this->httpClient        = $this->createMock(HttpClientInterface::class);
         $this->tracker           = $this->createMock(StatusTracker::class);
-        $this->settings          = $this->createMock(StatusPollSettings::class);
+        $this->settings          = $this->createStub(StatusPollSettings::class);
         $this->settings->method('current')->willReturn(['enabled' => false, 'interval' => 60, 'batch' => 100, 'timeout' => 180, 'maxDuration' => 300]);
         $this->poller            = new StatusPoller(
             $this->integrationHelper,
@@ -58,9 +58,9 @@ class StatusPollerTest extends TestCase
 
     private function mockIntegration(bool $published, array $keys): void
     {
-        $settings = $this->createMock(IntegrationSettings::class);
+        $settings = $this->createStub(IntegrationSettings::class);
         $settings->method('isPublished')->willReturn($published);
-        $integration = $this->createMock(N8nDispatchIntegration::class);
+        $integration = $this->createStub(N8nDispatchIntegration::class);
         $integration->method('getIntegrationSettings')->willReturn($settings);
         $integration->method('getKeys')->willReturn($keys);
         $this->integrationHelper->method('getIntegrationObject')->willReturn($integration);
@@ -425,7 +425,7 @@ class StatusPollerTest extends TestCase
 
     public function testTheTimeoutFollowsTheSettingsScreen(): void
     {
-        $settings = $this->createMock(StatusPollSettings::class);
+        $settings = $this->createStub(StatusPollSettings::class);
         $settings->method('current')->willReturn(['enabled' => false, 'interval' => 60, 'batch' => 100, 'timeout' => 45, 'maxDuration' => 90]);
         $poller = new StatusPoller($this->integrationHelper, $this->httpClient, $this->tracker, new StatusResponseParser(), $this->createMock(LoggerInterface::class), $settings);
 
@@ -576,7 +576,7 @@ class StatusPollerTest extends TestCase
         });
         $this->httpClient->method('request')->willReturn($this->response(200, '{"items":[]}'));
         $this->tracker->method('apply')->willReturn(['changed' => 1, 'unchanged' => 1, 'unknown' => 0]);
-        $settings = $this->createMock(StatusPollSettings::class);
+        $settings = $this->createStub(StatusPollSettings::class);
         $settings->method('current')->willReturn(['timeout' => 180, 'maxDuration' => 300]);
         $sleeps = [];
         $poller = new StatusPoller($this->integrationHelper, $this->httpClient, $this->tracker, new StatusResponseParser(), $this->createMock(LoggerInterface::class), $settings, function (int $ms) use (&$sleeps): void { $sleeps[] = $ms; });

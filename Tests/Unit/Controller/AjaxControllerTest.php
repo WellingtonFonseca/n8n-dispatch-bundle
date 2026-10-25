@@ -11,6 +11,7 @@ use Mautic\CoreBundle\Security\Permissions\CorePermissions;
 use MauticPlugin\N8nDispatchBundle\Controller\AjaxController;
 use MauticPlugin\N8nDispatchBundle\Service\StatusPollNow;
 use MauticPlugin\N8nDispatchBundle\Service\TemplateVariableScanner;
+use PHPUnit\Framework\Attributes\AllowMockObjectsWithoutExpectations;
 use MauticPlugin\CustomObjectsBundle\Model\CustomObjectModel;
 use Mautic\LeadBundle\Model\FieldModel;
 use Mautic\EmailBundle\Entity\Email;
@@ -31,6 +32,7 @@ use Symfony\Contracts\Translation\TranslatorInterface;
  * reflection, skipping CommonController's unrelated, heavy constructor
  * (ManagerRegistry, MauticFactory, UserHelper, ...) entirely.
  */
+#[AllowMockObjectsWithoutExpectations]
 class AjaxControllerTest extends TestCase
 {
     private function buildController(): AjaxController
@@ -116,16 +118,16 @@ class AjaxControllerTest extends TestCase
      */
     private function emailVariablesResponse(Request $request, ?string $savedHtml): array
     {
-        $email = $this->createMock(Email::class);
+        $email = $this->createStub(Email::class);
         $email->method('getCustomHtml')->willReturn($savedHtml);
 
-        $emailModel = $this->createMock(EmailModel::class);
+        $emailModel = $this->createStub(EmailModel::class);
         $emailModel->method('getEntity')->willReturn($email);
 
-        $fieldModel = $this->createMock(FieldModel::class);
+        $fieldModel = $this->createStub(FieldModel::class);
         $fieldModel->method('getFieldList')->willReturn([]);
 
-        $customObjectModel = $this->createMock(CustomObjectModel::class);
+        $customObjectModel = $this->createStub(CustomObjectModel::class);
         $customObjectModel->method('fetchAllPublishedEntities')->willReturn([]);
 
         // sendJsonResponse() needs the container, so a plain JsonResponse stands in for it here.
@@ -179,10 +181,10 @@ class AjaxControllerTest extends TestCase
      */
     private function hsmVariablesResponse(string $text): array
     {
-        $fieldModel = $this->createMock(FieldModel::class);
+        $fieldModel = $this->createStub(FieldModel::class);
         $fieldModel->method('getFieldList')->willReturn([]);
 
-        $customObjectModel = $this->createMock(CustomObjectModel::class);
+        $customObjectModel = $this->createStub(CustomObjectModel::class);
         $customObjectModel->method('fetchAllPublishedEntities')->willReturn([]);
 
         // sendJsonResponse() needs the container, so a plain JsonResponse stands in for it here.
@@ -226,10 +228,10 @@ class AjaxControllerTest extends TestCase
      */
     private function smsVariablesResponse(string $text): array
     {
-        $fieldModel = $this->createMock(FieldModel::class);
+        $fieldModel = $this->createStub(FieldModel::class);
         $fieldModel->method('getFieldList')->willReturn([]);
 
-        $customObjectModel = $this->createMock(CustomObjectModel::class);
+        $customObjectModel = $this->createStub(CustomObjectModel::class);
         $customObjectModel->method('fetchAllPublishedEntities')->willReturn([]);
 
         $controller = new class() extends AjaxController {
@@ -279,7 +281,7 @@ class AjaxControllerTest extends TestCase
             $dateHelper = new DateHelper('F j, Y g:i a', 'D, M d', 'F j, Y', 'g:i a', $this->createMock(TranslatorInterface::class), $this->createMock(CoreParametersHelper::class));
 
             // The controller's $translator property is core's own Translator class, not the interface.
-            $translator = $this->createMock(Translator::class);
+            $translator = $this->createStub(Translator::class);
             $translator->method('trans')->willReturnCallback(
                 fn (string $key, array $params): string => 'Cancelado por '.$params['%email%'].' em '.$params['%date%'].'.'
             );

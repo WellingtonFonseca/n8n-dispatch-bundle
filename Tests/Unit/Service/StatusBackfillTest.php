@@ -32,9 +32,9 @@ class StatusBackfillTest extends TestCase
     protected function setUp(): void
     {
         $this->connection = $this->createMock(Connection::class);
-        $metadata         = $this->createMock(ClassMetadata::class);
+        $metadata         = $this->createStub(ClassMetadata::class);
         $metadata->method('getTableName')->willReturn('tbl');
-        $em = $this->createMock(EntityManagerInterface::class);
+        $em = $this->createStub(EntityManagerInterface::class);
         $em->method('getConnection')->willReturn($this->connection);
         $em->method('getClassMetadata')->willReturn($metadata);
 

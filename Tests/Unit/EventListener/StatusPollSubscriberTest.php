@@ -7,6 +7,7 @@ namespace MauticPlugin\N8nDispatchBundle\Tests\Unit\EventListener;
 use MauticPlugin\N8nDispatchBundle\EventListener\StatusPollSubscriber;
 use MauticPlugin\N8nDispatchBundle\Service\StatusPollLauncher;
 use MauticPlugin\N8nDispatchBundle\Service\StatusPollScheduler;
+use PHPUnit\Framework\Attributes\AllowMockObjectsWithoutExpectations;
 use PHPUnit\Framework\Attributes\DataProvider;
 use PHPUnit\Framework\MockObject\MockObject;
 use PHPUnit\Framework\TestCase;
@@ -16,6 +17,7 @@ use Symfony\Component\Console\Event\ConsoleCommandEvent;
 use Symfony\Component\Console\Input\ArrayInput;
 use Symfony\Component\Console\Output\NullOutput;
 
+#[AllowMockObjectsWithoutExpectations]
 class StatusPollSubscriberTest extends TestCase
 {
     /** @var StatusPollScheduler&MockObject */

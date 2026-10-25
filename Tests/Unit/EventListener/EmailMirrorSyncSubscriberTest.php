@@ -64,10 +64,10 @@ class EmailMirrorSyncSubscriberTest extends TestCase
 
     private function mockIntegration(bool $isPublished, array $keys): void
     {
-        $settings = $this->createMock(IntegrationSettings::class);
+        $settings = $this->createStub(IntegrationSettings::class);
         $settings->method('isPublished')->willReturn($isPublished);
 
-        $integration = $this->createMock(N8nDispatchIntegration::class);
+        $integration = $this->createStub(N8nDispatchIntegration::class);
         $integration->method('getIntegrationSettings')->willReturn($settings);
         $integration->method('getKeys')->willReturn($keys);
 
@@ -126,7 +126,7 @@ class EmailMirrorSyncSubscriberTest extends TestCase
             'webhook_token' => 'super-secret-token',
         ]);
 
-        $response = $this->createMock(ResponseInterface::class);
+        $response = $this->createStub(ResponseInterface::class);
         $response->method('getStatusCode')->willReturn(200);
 
         $this->httpClient->expects($this->once())
@@ -160,7 +160,7 @@ class EmailMirrorSyncSubscriberTest extends TestCase
     {
         $this->mockIntegration(true, ['webhook_url' => 'https://n8n.example.test/webhook/mirror']);
 
-        $response = $this->createMock(ResponseInterface::class);
+        $response = $this->createStub(ResponseInterface::class);
         $response->method('getStatusCode')->willReturn(200);
 
         $this->httpClient->expects($this->once())
@@ -183,7 +183,7 @@ class EmailMirrorSyncSubscriberTest extends TestCase
     {
         $this->mockIntegration(true, ['webhook_url' => 'https://n8n.example.test/webhook/mirror']);
 
-        $response = $this->createMock(ResponseInterface::class);
+        $response = $this->createStub(ResponseInterface::class);
         $response->method('getStatusCode')->willReturn(500);
         $this->httpClient->method('request')->willReturn($response);
 
@@ -216,7 +216,7 @@ class EmailMirrorSyncSubscriberTest extends TestCase
         $email->setCustomHtml('<html><body><p>content</p></body></html>');
         $email->setPreheaderText('Veja como regularizar.');
 
-        $response = $this->createMock(ResponseInterface::class);
+        $response = $this->createStub(ResponseInterface::class);
         $response->method('getStatusCode')->willReturn(200);
 
         $this->httpClient->expects($this->once())
@@ -239,11 +239,11 @@ class EmailMirrorSyncSubscriberTest extends TestCase
     {
         $this->mockIntegration(true, ['webhook_url' => 'https://n8n.example.test/webhook/mirror']);
 
-        $user = $this->createMock(User::class);
+        $user = $this->createStub(User::class);
         $user->method('getEmail')->willReturn('editor@example.test');
         $this->userHelper->method('getUser')->with(true)->willReturn($user);
 
-        $response = $this->createMock(ResponseInterface::class);
+        $response = $this->createStub(ResponseInterface::class);
         $response->method('getStatusCode')->willReturn(200);
 
         $this->httpClient->expects($this->once())
@@ -268,7 +268,7 @@ class EmailMirrorSyncSubscriberTest extends TestCase
 
         $this->userHelper->method('getUser')->with(true)->willReturn(null);
 
-        $response = $this->createMock(ResponseInterface::class);
+        $response = $this->createStub(ResponseInterface::class);
         $response->method('getStatusCode')->willReturn(200);
 
         $this->httpClient->expects($this->once())
@@ -291,7 +291,7 @@ class EmailMirrorSyncSubscriberTest extends TestCase
     public function testUnsubscribeFooterIsInsertedOnFirstSaveAndNotDuplicatedOnASecondSave(): void
     {
         $this->mockIntegration(true, ['webhook_url' => 'https://n8n.example.test/webhook/mirror']);
-        $response = $this->createMock(ResponseInterface::class);
+        $response = $this->createStub(ResponseInterface::class);
         $response->method('getStatusCode')->willReturn(200);
         $this->httpClient->method('request')->willReturn($response);
 
@@ -326,7 +326,7 @@ class EmailMirrorSyncSubscriberTest extends TestCase
     public function testUnsubscribeFooterIsResyncedIfContentBecomesStale(): void
     {
         $this->mockIntegration(true, ['webhook_url' => 'https://n8n.example.test/webhook/mirror']);
-        $response = $this->createMock(ResponseInterface::class);
+        $response = $this->createStub(ResponseInterface::class);
         $response->method('getStatusCode')->willReturn(200);
         $this->httpClient->method('request')->willReturn($response);
 

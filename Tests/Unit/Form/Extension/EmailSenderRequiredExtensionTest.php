@@ -4,10 +4,12 @@ declare(strict_types=1);
 
 namespace MauticPlugin\N8nDispatchBundle\Tests\Unit\Form\Extension;
 
+use PHPUnit\Framework\MockObject\Stub;
 use Mautic\CoreBundle\Service\FlashBag;
 use Mautic\EmailBundle\Entity\Email;
 use Mautic\EmailBundle\Form\Type\EmailType;
 use MauticPlugin\N8nDispatchBundle\Form\Extension\EmailSenderRequiredExtension;
+use PHPUnit\Framework\Attributes\AllowMockObjectsWithoutExpectations;
 use PHPUnit\Framework\Attributes\DataProvider;
 use PHPUnit\Framework\MockObject\MockObject;
 use PHPUnit\Framework\TestCase;
@@ -21,9 +23,10 @@ use Symfony\Component\HttpFoundation\RequestStack;
 use Symfony\Component\Validator\ConstraintViolationInterface;
 use Symfony\Contracts\Translation\TranslatorInterface;
 
+#[AllowMockObjectsWithoutExpectations]
 class EmailSenderRequiredExtensionTest extends TestCase
 {
-    private TranslatorInterface&MockObject $translator;
+    private TranslatorInterface&Stub $translator;
 
     private FlashBag&MockObject $flashBag;
 
@@ -31,7 +34,7 @@ class EmailSenderRequiredExtensionTest extends TestCase
 
     protected function setUp(): void
     {
-        $this->translator   = $this->createMock(TranslatorInterface::class);
+        $this->translator   = $this->createStub(TranslatorInterface::class);
         $this->flashBag     = $this->createMock(FlashBag::class);
         $this->requestStack = new RequestStack();
         $this->requestStack->push(Request::create('/s/emails/edit/7', 'POST'));

@@ -194,12 +194,12 @@ class DispatchResenderTest extends TestCase
         $em = $this->createMock(EntityManagerInterface::class);
         $em->method('find')->willReturn('missing' === $eventType ? null : $log);
 
-        $settings = $this->createMock(IntegrationSettings::class);
+        $settings = $this->createStub(IntegrationSettings::class);
         $settings->method('isPublished')->willReturn($published);
-        $integration = $this->createMock(N8nDispatchIntegration::class);
+        $integration = $this->createStub(N8nDispatchIntegration::class);
         $integration->method('getIntegrationSettings')->willReturn($settings);
         $integration->method('getKeys')->willReturn($keys ?? ['webhook_url' => 'https://n8n.example.test/hook', 'webhook_token' => 'secret-token']);
-        $integrations = $this->createMock(IntegrationHelper::class);
+        $integrations = $this->createStub(IntegrationHelper::class);
         $integrations->method('getIntegrationObject')->willReturn($integration);
 
         $response = $answer ?? $this->createMock(ResponseInterface::class);
@@ -216,7 +216,7 @@ class DispatchResenderTest extends TestCase
         $tracker = $this->createMock(StatusTracker::class);
         $tracker->method('viewForMetadata')->willReturn($callbacks ?? [['refType' => 'logSendHsmUuid', 'outcome' => 'error']]);
 
-        $dates = $this->createMock(StatusExtension::class);
+        $dates = $this->createStub(StatusExtension::class);
         $dates->method('date')->willReturn('DATE');
 
         $resender = new DispatchResender(

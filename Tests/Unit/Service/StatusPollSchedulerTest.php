@@ -24,7 +24,7 @@ class StatusPollSchedulerTest extends TestCase
 
     protected function setUp(): void
     {
-        $this->settings  = $this->createMock(StatusPollSettings::class);
+        $this->settings  = $this->createStub(StatusPollSettings::class);
         $this->runs      = $this->createMock(PollRunRepository::class);
         $this->scheduler = new StatusPollScheduler($this->settings, $this->runs);
         $this->now       = new \DateTimeImmutable('2026-10-02 10:00:00');

@@ -8,10 +8,12 @@ use MauticPlugin\N8nDispatchBundle\Command\StatusBackfillCommand;
 use MauticPlugin\N8nDispatchBundle\Service\StatusBackfill;
 use MauticPlugin\N8nDispatchBundle\Service\StatusPoller;
 use MauticPlugin\N8nDispatchBundle\Service\StatusPollSettings;
+use PHPUnit\Framework\Attributes\AllowMockObjectsWithoutExpectations;
 use PHPUnit\Framework\MockObject\MockObject;
 use PHPUnit\Framework\TestCase;
 use Symfony\Component\Console\Tester\CommandTester;
 
+#[AllowMockObjectsWithoutExpectations]
 class StatusBackfillCommandTest extends TestCase
 {
     /** @var StatusBackfill&MockObject */
@@ -26,7 +28,7 @@ class StatusBackfillCommandTest extends TestCase
     {
         $this->backfill = $this->createMock(StatusBackfill::class);
         $this->poller   = $this->createMock(StatusPoller::class);
-        $settings       = $this->createMock(StatusPollSettings::class);
+        $settings       = $this->createStub(StatusPollSettings::class);
         $settings->method('current')->willReturn(['enabled' => false, 'interval' => 60, 'batch' => 70, 'timeout' => 180, 'maxDuration' => 300]);
         $this->tester = new CommandTester(new StatusBackfillCommand($this->backfill, $this->poller, $settings));
     }

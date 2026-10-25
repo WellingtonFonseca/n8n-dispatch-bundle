@@ -4,6 +4,7 @@ declare(strict_types=1);
 
 namespace MauticPlugin\N8nDispatchBundle\Tests\Unit\Form\Extension;
 
+use PHPUnit\Framework\MockObject\Stub;
 use Mautic\CoreBundle\Service\FlashBag;
 use Mautic\EmailBundle\Entity\Email;
 use Mautic\EmailBundle\Form\Type\EmailType;
@@ -11,6 +12,7 @@ use MauticPlugin\N8nDispatchBundle\Entity\EmailVariablesRepository;
 use MauticPlugin\N8nDispatchBundle\Form\Extension\EmailVariableMappingExtension;
 use MauticPlugin\N8nDispatchBundle\Service\TemplateVariableScanner;
 use MauticPlugin\N8nDispatchBundle\Service\VariableMappingChecker;
+use PHPUnit\Framework\Attributes\AllowMockObjectsWithoutExpectations;
 use PHPUnit\Framework\MockObject\MockObject;
 use PHPUnit\Framework\TestCase;
 use Symfony\Component\Form\FormBuilderInterface;
@@ -25,11 +27,12 @@ use Symfony\Component\HttpFoundation\RequestStack;
 use Symfony\Component\Validator\ConstraintViolationInterface;
 use Symfony\Contracts\Translation\TranslatorInterface;
 
+#[AllowMockObjectsWithoutExpectations]
 class EmailVariableMappingExtensionTest extends TestCase
 {
     private EmailVariablesRepository&MockObject $repository;
 
-    private TranslatorInterface&MockObject $translator;
+    private TranslatorInterface&Stub $translator;
 
     private FlashBag&MockObject $flashBag;
 
@@ -38,7 +41,7 @@ class EmailVariableMappingExtensionTest extends TestCase
     protected function setUp(): void
     {
         $this->repository   = $this->createMock(EmailVariablesRepository::class);
-        $this->translator   = $this->createMock(TranslatorInterface::class);
+        $this->translator   = $this->createStub(TranslatorInterface::class);
         $this->flashBag     = $this->createMock(FlashBag::class);
         $this->requestStack = new RequestStack();
         $this->requestStack->push(Request::create('/s/emails/edit/7', 'POST'));
@@ -198,7 +201,7 @@ class EmailVariableMappingExtensionTest extends TestCase
      */
     private function customHtml(int $errors = 0): FormInterface&MockObject
     {
-        $iterator = $this->createMock(FormErrorIterator::class);
+        $iterator = $this->createStub(FormErrorIterator::class);
         $iterator->method('count')->willReturn($errors);
 
         $customHtml = $this->createMock(FormInterface::class);

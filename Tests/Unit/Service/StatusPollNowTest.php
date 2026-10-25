@@ -24,8 +24,8 @@ class StatusPollNowTest extends TestCase
 
     protected function setUp(): void
     {
-        $this->poller = $this->createMock(StatusPoller::class);
-        $this->settings = $this->createMock(StatusPollSettings::class);
+        $this->poller = $this->createStub(StatusPoller::class);
+        $this->settings = $this->createStub(StatusPollSettings::class);
         $this->settings->method('current')->willReturn(['enabled' => false, 'interval' => 60, 'batch' => 100, 'timeout' => 180, 'maxDuration' => 300]);
         $this->now      = new StatusPollNow($this->poller, $this->settings);
     }
@@ -93,7 +93,7 @@ class StatusPollNowTest extends TestCase
 
     public function testTheBatchSizeFollowsTheSettingsScreen(): void
     {
-        $settings = $this->createMock(StatusPollSettings::class);
+        $settings = $this->createStub(StatusPollSettings::class);
         $settings->method('current')->willReturn(['enabled' => false, 'interval' => 60, 'batch' => 40, 'timeout' => 180, 'maxDuration' => 300]);
         $batches = [];
         $this->poller->method('poll')->willReturnCallback(function (string $channel, int $batch) use (&$batches): array {

@@ -52,7 +52,7 @@ class HsmCampaignTriggerSubscriberTest extends TestCase
         $this->integrationHelper = $this->createMock(IntegrationHelper::class);
         $this->httpClient        = $this->createMock(HttpClientInterface::class);
         $this->logger            = $this->createMock(LoggerInterface::class);
-        $this->variableResolver  = $this->createMock(VariableResolver::class);
+        $this->variableResolver  = $this->createStub(VariableResolver::class);
         $this->dncModel          = $this->createMock(DncModel::class);
         // Default every test to "contactable" so the existing dispatch/
         // pass-path tests don't each have to configure this themselves —
@@ -78,10 +78,10 @@ class HsmCampaignTriggerSubscriberTest extends TestCase
 
     private function mockIntegration(bool $isPublished, array $keys): void
     {
-        $settings = $this->createMock(IntegrationSettings::class);
+        $settings = $this->createStub(IntegrationSettings::class);
         $settings->method('isPublished')->willReturn($isPublished);
 
-        $integration = $this->createMock(N8nDispatchIntegration::class);
+        $integration = $this->createStub(N8nDispatchIntegration::class);
         $integration->method('getIntegrationSettings')->willReturn($settings);
         $integration->method('getKeys')->willReturn($keys);
 
@@ -696,7 +696,7 @@ class HsmCampaignTriggerSubscriberTest extends TestCase
 
     private function answering(int $status, string $body): void
     {
-        $response = $this->createMock(ResponseInterface::class);
+        $response = $this->createStub(ResponseInterface::class);
         $response->method('getStatusCode')->willReturn($status);
         $response->method('getContent')->willReturn($body);
         $this->httpClient->method('request')->willReturn($response);

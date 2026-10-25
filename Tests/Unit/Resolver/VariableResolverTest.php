@@ -10,8 +10,10 @@ use Mautic\LeadBundle\Entity\LeadRepository;
 use Mautic\LeadBundle\Model\LeadModel;
 use MauticPlugin\N8nDispatchBundle\Resolver\CustomObjectVariableResolver;
 use MauticPlugin\N8nDispatchBundle\Resolver\VariableResolver;
+use PHPUnit\Framework\Attributes\AllowMockObjectsWithoutExpectations;
 use PHPUnit\Framework\TestCase;
 
+#[AllowMockObjectsWithoutExpectations]
 class VariableResolverTest extends TestCase
 {
     private CustomObjectVariableResolver $customObjectVariableResolver;

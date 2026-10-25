@@ -12,12 +12,14 @@ use MauticPlugin\N8nDispatchBundle\Entity\EmailVariablesRepository;
 use MauticPlugin\N8nDispatchBundle\EventListener\EmailUnmappedVariablesSubscriber;
 use MauticPlugin\N8nDispatchBundle\Service\TemplateVariableScanner;
 use MauticPlugin\N8nDispatchBundle\Service\VariableMappingChecker;
+use PHPUnit\Framework\Attributes\AllowMockObjectsWithoutExpectations;
 use PHPUnit\Framework\MockObject\MockObject;
 use PHPUnit\Framework\TestCase;
 use Symfony\Component\HttpFoundation\Request;
 use Symfony\Component\HttpFoundation\RequestStack;
 use Symfony\Contracts\Translation\TranslatorInterface;
 
+#[AllowMockObjectsWithoutExpectations]
 class EmailUnmappedVariablesSubscriberTest extends TestCase
 {
     private EmailVariablesRepository&MockObject $repository;

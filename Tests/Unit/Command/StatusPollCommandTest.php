@@ -9,10 +9,12 @@ use MauticPlugin\N8nDispatchBundle\Entity\PollRun;
 use MauticPlugin\N8nDispatchBundle\Entity\PollRunRepository;
 use MauticPlugin\N8nDispatchBundle\Service\StatusPoller;
 use MauticPlugin\N8nDispatchBundle\Service\StatusPollSettings;
+use PHPUnit\Framework\Attributes\AllowMockObjectsWithoutExpectations;
 use PHPUnit\Framework\MockObject\MockObject;
 use PHPUnit\Framework\TestCase;
 use Symfony\Component\Console\Tester\CommandTester;
 
+#[AllowMockObjectsWithoutExpectations]
 class StatusPollCommandTest extends TestCase
 {
     /** @var StatusPoller&MockObject */
@@ -27,7 +29,7 @@ class StatusPollCommandTest extends TestCase
     {
         $this->poller = $this->createMock(StatusPoller::class);
         $this->runs   = $this->createMock(PollRunRepository::class);
-        $settings = $this->createMock(StatusPollSettings::class);
+        $settings = $this->createStub(StatusPollSettings::class);
         $settings->method('current')->willReturn(['enabled' => false, 'interval' => 60, 'batch' => 70, 'timeout' => 180, 'maxDuration' => 300]);
         $this->tester = new CommandTester(new StatusPollCommand($this->poller, $this->runs, $settings));
     }

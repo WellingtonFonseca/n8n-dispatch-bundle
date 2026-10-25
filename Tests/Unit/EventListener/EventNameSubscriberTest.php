@@ -45,9 +45,9 @@ class EventNameSubscriberTest extends TestCase
         $mine  = $this->event('n8ndispatch.email.send');
         $other = $this->event('email.send');
 
-        $unitOfWork = $this->createMock(UnitOfWork::class);
+        $unitOfWork = $this->createStub(UnitOfWork::class);
         $unitOfWork->method('getOriginalEntityData')->willReturn(['properties' => ['email' => 6]]);
-        $em = $this->createMock(EntityManagerInterface::class);
+        $em = $this->createStub(EntityManagerInterface::class);
         $em->method('getUnitOfWork')->willReturn($unitOfWork);
 
         $sync = $this->createMock(EventNameSync::class);
@@ -62,9 +62,9 @@ class EventNameSubscriberTest extends TestCase
     {
         $mine = $this->event('n8ndispatch.sms.send');
 
-        $unitOfWork = $this->createMock(UnitOfWork::class);
+        $unitOfWork = $this->createStub(UnitOfWork::class);
         $unitOfWork->method('getOriginalEntityData')->willReturn([]);
-        $em = $this->createMock(EntityManagerInterface::class);
+        $em = $this->createStub(EntityManagerInterface::class);
         $em->method('getUnitOfWork')->willReturn($unitOfWork);
 
         $sync = $this->createMock(EventNameSync::class);
