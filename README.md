@@ -118,8 +118,9 @@ actions record who did it and when, shown right on the card.
 (Email, SMS, HSM) gets the name of the communication it dispatches, whatever
 was typed, so the contact's History reads `<communication> / <campaign>` (for
 example `Entrega de Trabalho, E 01 / Entrega`) and a copied node or a swapped
-template never keeps the old name. A step with no template picked keeps its
-name. For the steps that already exist, run once (then `--dry-run` first if you
+template never keeps the old name. Renaming an Email, SMS template or HSM
+template renames the steps that use it at once (`EventListener/TemplateRenameSubscriber.php`).
+A step with no template picked keeps its name. For the steps that already exist, run once (then `--dry-run` first if you
 want to see the list): `php bin/console n8ndispatch:events:sync-names`. Code:
 `Service/EventNameSync.php`, `EventListener/EventNameSubscriber.php`,
 `Command/EventNamesSyncCommand.php`.
