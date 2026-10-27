@@ -133,13 +133,13 @@ class DispatchListReaderDbTest extends RollbackDatabaseTestCase
     public function testTheOrderIsTheDispatchDateNewestFirstNotTheLogNumber(): void
     {
         // a resent dispatch keeps its log (low id) but gets a new date: it must come first; made in an order unlike the dates
-        $old     = $this->log('n8ndispatch.email.send', ['n8ndispatch' => ['status' => 'production']], '2026-03-20 09:00:00', 1);
+        $newest  = $this->log('n8ndispatch.email.send', ['n8ndispatch' => ['status' => 'production']], '2026-03-20 09:00:00', 1);
         $middle  = $this->log('n8ndispatch.sms.send', ['n8ndispatch' => ['status' => 'test']], '2026-03-15 09:00:00', 2);
-        $newest  = $this->log('n8ndispatch.hsm.send', ['n8ndispatch' => ['status' => 'production']], '2026-03-10 09:00:00', 3);
+        $oldest  = $this->log('n8ndispatch.hsm.send', ['n8ndispatch' => ['status' => 'production']], '2026-03-10 09:00:00', 3);
 
         $result = $this->reader->search(new DispatchFilters($this->campaignId), 1, 25);
 
-        $this->assertSame([$old, $middle, $newest], array_column($result['items'], 'id'));
+        $this->assertSame([$newest, $middle, $oldest], array_column($result['items'], 'id'));
     }
 
     public function testTheSameDateFallsBackToTheNewestLogFirst(): void
@@ -152,12 +152,12 @@ class DispatchListReaderDbTest extends RollbackDatabaseTestCase
 
     public function testTheStatusFilterKeepsTheSameOrder(): void
     {
-        $old    = $this->log('n8ndispatch.email.send', ['n8ndispatch' => ['httpStatusCode' => 500]], '2026-03-20 09:00:00', 1);
-        $recent = $this->log('n8ndispatch.email.send', ['n8ndispatch' => ['httpStatusCode' => 500]], '2026-03-10 09:00:00', 2);
+        $recent = $this->log('n8ndispatch.email.send', ['n8ndispatch' => ['httpStatusCode' => 500]], '2026-03-20 09:00:00', 1);
+        $old    = $this->log('n8ndispatch.email.send', ['n8ndispatch' => ['httpStatusCode' => 500]], '2026-03-10 09:00:00', 2);
 
         $page = $this->reader->search(new DispatchFilters($this->campaignId, null, null, null, 'failed'), 1, 25);
 
-        $this->assertSame([$old, $recent], array_column($page['items'], 'id'));
+        $this->assertSame([$recent, $old], array_column($page['items'], 'id'));
     }
 
     public function testThePagesCutTheListButNotTheTotal(): void
