@@ -4,7 +4,6 @@ declare(strict_types=1);
 
 namespace MauticPlugin\N8nDispatchBundle\EventListener;
 
-use Doctrine\ORM\EntityManagerInterface;
 use Mautic\CampaignBundle\CampaignEvents;
 use Mautic\CampaignBundle\Entity\Event;
 use Mautic\CampaignBundle\Event\CampaignEvent;
@@ -17,7 +16,7 @@ use Symfony\Component\EventDispatcher\EventSubscriberInterface;
  */
 class EventNameSubscriber implements EventSubscriberInterface
 {
-    public function __construct(private EventNameSync $sync, private EntityManagerInterface $em)
+    public function __construct(private EventNameSync $sync)
     {
     }
 
@@ -32,20 +31,8 @@ class EventNameSubscriber implements EventSubscriberInterface
     {
         foreach ($event->getCampaign()->getEvents() as $campaignEvent) {
             if ($campaignEvent instanceof Event && EventNameSync::handles((string) $campaignEvent->getType())) {
-                $this->sync->sync($campaignEvent, $this->previousProperties($campaignEvent));
+                $this->sync->sync($campaignEvent);
             }
         }
-    }
-
-    /**
-     * What the event's properties were in the database (the template it had before this save), if it is already saved.
-     *
-     * @return array<string, mixed>|null
-     */
-    private function previousProperties(Event $event): ?array
-    {
-        $original = $this->em->getUnitOfWork()->getOriginalEntityData($event)['properties'] ?? null;
-
-        return is_array($original) ? $original : null;
     }
 }

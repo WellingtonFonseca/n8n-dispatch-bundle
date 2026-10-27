@@ -115,15 +115,14 @@ reschedule or cancel it — cancelling asks for confirmation first, and both
 actions record who did it and when, shown right on the card.
 
 **Node name = communication name.** When a campaign is saved, each n8n step
-(Email, SMS, HSM) whose name is blank, or is the default name of its type
-("Enviar pelo n8n (Email)"), gets the name of the communication it dispatches,
-so the contact's History reads `<communication> / <campaign>` (for example
-`Entrega de Trabalho, E 01 / Entrega`) instead of the type name. A name typed
-by the user is never changed; a name that was filled in this way follows the
-template when another one is picked. For the steps that already exist, run once
-(then `--dry-run` first if you want to see the list):
-`php bin/console n8ndispatch:events:sync-names`. Code: `Service/EventNameSync.php`,
-`EventListener/EventNameSubscriber.php`, `Command/EventNamesSyncCommand.php`.
+(Email, SMS, HSM) gets the name of the communication it dispatches, whatever
+was typed, so the contact's History reads `<communication> / <campaign>` (for
+example `Entrega de Trabalho, E 01 / Entrega`) and a copied node or a swapped
+template never keeps the old name. A step with no template picked keeps its
+name. For the steps that already exist, run once (then `--dry-run` first if you
+want to see the list): `php bin/console n8ndispatch:events:sync-names`. Code:
+`Service/EventNameSync.php`, `EventListener/EventNameSubscriber.php`,
+`Command/EventNamesSyncCommand.php`.
 
 **Dispatches screen** (main menu > N8N Dispatch > Disparos, needs Campaigns > Full): one row per dispatch, with the callback badge (HSM: Meta's), the status
 the step had when it was dispatched (test, production or paused; a dash on
