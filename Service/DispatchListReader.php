@@ -29,6 +29,13 @@ class DispatchListReader
         'n8ndispatch.hsm.send'   => [DispatchTracking::CHANNEL_HSM, 'hsmTemplateId'],
     ];
 
+    /**
+     * The table is always newest first by the dispatch date shown in its first column (the log's date_triggered: a resend keeps its
+     * log and gets a new date, so the log number is not the order); the log number breaks a tie. The user cannot change it.
+     */
+    private const ORDER_BY     = 'l.date_triggered';
+    private const NEWEST_FIRST = 'DESC';
+
     private const COLUMNS = 'l.id, l.date_triggered, l.metadata, e.type, e.properties, c.id AS campaign_id, c.name AS campaign_name, l.lead_id, ld.firstname, ld.lastname, ld.email';
 
     public function __construct(
@@ -59,7 +66,8 @@ class DispatchListReader
             $total = (int) $this->filtered($filters)->select('COUNT(l.id)')->executeQuery()->fetchOne();
             $rows  = $this->filtered($filters)
                 ->select(self::COLUMNS)
-                ->orderBy('l.id', 'DESC')
+                ->orderBy(self::ORDER_BY, self::NEWEST_FIRST)
+                ->addOrderBy('l.id', self::NEWEST_FIRST)
                 ->setFirstResult($offset)
                 ->setMaxResults($limit)
                 ->executeQuery()
@@ -70,7 +78,8 @@ class DispatchListReader
 
         $rows = $this->filtered($filters)
             ->select(self::COLUMNS)
-            ->orderBy('l.id', 'DESC')
+            ->orderBy(self::ORDER_BY, self::NEWEST_FIRST)
+            ->addOrderBy('l.id', self::NEWEST_FIRST)
             ->setMaxResults(self::STATUS_SCAN_LIMIT + 1)
             ->executeQuery()
             ->fetchAllAssociative();
