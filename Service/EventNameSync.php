@@ -26,6 +26,12 @@ class EventNameSync
     {
     }
 
+    /** A template name as the campaign event column holds it. */
+    public static function fit(string $templateName): string
+    {
+        return mb_substr($templateName, 0, self::MAX_LENGTH);
+    }
+
     public static function handles(string $type): bool
     {
         return in_array($type, self::TYPES, true);
@@ -46,7 +52,7 @@ class EventNameSync
             return false;
         }
 
-        $templateName = mb_substr($templateName, 0, self::MAX_LENGTH);
+        $templateName = self::fit($templateName);
         if ((string) $event->getName() === $templateName) {
             return false;
         }

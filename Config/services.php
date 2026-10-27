@@ -32,6 +32,10 @@ return function (ContainerConfigurator $configurator): void {
     $services->set(MauticPlugin\N8nDispatchBundle\Service\StatusPollLauncher::class)
         ->args(['%kernel.project_dir%', null]);
 
+    // Doctrine does not pick up an EventSubscriber by autoconfiguration here (core tags its own the same way).
+    $services->get(MauticPlugin\N8nDispatchBundle\EventListener\TemplateRenameSubscriber::class)
+        ->tag('doctrine.event_subscriber');
+
     // Mautic's standard CRUD controller (Controller/SmsTemplateController.php,
     // Controller/HsmTemplateController.php) resolves its model by the
     // 'mautic.<bundle>.model.<name>' id convention.
