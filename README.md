@@ -125,7 +125,7 @@ want to see the list): `php bin/console n8ndispatch:events:sync-names`. Code:
 `Service/EventNameSync.php`, `EventListener/EventNameSubscriber.php`,
 `Command/EventNamesSyncCommand.php`.
 
-**Dispatches screen** (main menu > N8N Dispatch > Disparos, needs Campaigns > Full): one row per dispatch, with the callback badge (HSM: Meta's), the status
+**Dispatches screen** (main menu > N8N Dispatch > Disparos, needs Campaigns > Full): one row per dispatch, always newest first by the dispatch date (a resent dispatch moves up; the order cannot be changed), with the callback badge (HSM: Meta's), the status
 the step had when it was dispatched (test, production or paused; a dash on
 older dispatches that did not record it), links to the campaign, template and contact, and a
 details modal with the same card as the contact's History. Filter by
@@ -134,7 +134,7 @@ on a dispatch whose callback ended in error or whose call was refused) sends
 the same saved body to n8n again, one at a time, and replaces the dispatch's
 response, tracking and callback history with the new ones, with a note of who
 resent it and when; a refused attempt is recorded too. It needs the step to
-be in production, and honours the Do Not Contact list. The campaign shows as `PREFIX - Name` (the prefix of MauticPatchesBundle) in the table, the filter and the details.
+be in production, and honours the Do Not Contact list. An accepted resend also removes the red "last error" mark core keeps on the log (the old failure stays in the History table). The campaign shows as `PREFIX - Name` (the prefix of MauticPatchesBundle) in the table, the filter and the details.
 
 Full architecture, payload formats, and implementation history:
 [wiki/n8n-dispatch-plugin.md](../wiki/n8n-dispatch-plugin.md) — start with
