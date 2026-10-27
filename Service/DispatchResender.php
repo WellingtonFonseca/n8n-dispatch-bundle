@@ -242,6 +242,7 @@ class DispatchResender
         $log->setMetadata($new);
         $log->setDateTriggered(new \DateTime());
         $log->setIsScheduled(false);
+        $this->clearFailedLog($log);
         $this->em->persist($log);
         $this->em->flush();
 
@@ -254,6 +255,22 @@ class DispatchResender
         $this->tracker->annotate($new, $this->callbackMessage($userEmail));
 
         return $this->result(true, 'mautic.n8ndispatch.dispatch.resend.done');
+    }
+
+    /**
+     * Core marks a log whose event failed with a row in campaign_lead_event_failed_log; the Timeline shows its reason
+     * in red ("Último erro") and the alert icon next to the name. An accepted resend means the dispatch worked, so the
+     * row goes (the old failure stays in the History table).
+     */
+    private function clearFailedLog(LeadEventLog $log): void
+    {
+        $failed = $log->getFailedLog();
+        if (null === $failed) {
+            return;
+        }
+
+        $log->setFailedLog(null);
+        $this->em->remove($failed);
     }
 
     /**

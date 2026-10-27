@@ -7,6 +7,7 @@ namespace MauticPlugin\N8nDispatchBundle\Tests\Unit\Service;
 use Doctrine\ORM\EntityManagerInterface;
 use Mautic\CampaignBundle\Entity\Campaign;
 use Mautic\CampaignBundle\Entity\Event;
+use Mautic\CampaignBundle\Entity\FailedLeadEventLog;
 use Mautic\CampaignBundle\Entity\LeadEventLog;
 use Mautic\LeadBundle\Entity\DoNotContact;
 use Mautic\LeadBundle\Entity\Lead;
@@ -453,6 +454,42 @@ class DispatchResenderTest extends TestCase
         $this->assertSame(777, $log->getMetadata()['logSendHsmId']);
         $this->assertFalse($log->getIsScheduled());
         $this->assertGreaterThan(new \DateTime('2020-01-01'), $log->getDateTriggered());
+    }
+
+    public function testAnAcceptedResendRemovesCoresFailedLogSoTheTimelineStopsShowingTheOldError(): void
+    {
+        [$resender, , $log, , $em] = $this->resenderAnswering(200, '{"logSendHsmId":777,"uuid":"u-777"}');
+        $failed = new FailedLeadEventLog();
+        $failed->setLog($log);
+        $failed->setReason('HTTP 404');
+        $log->setFailedLog($failed);
+
+        $em->expects($this->once())->method('remove')->with($failed);
+
+        $this->assertTrue($resender->resend(140, 'a@b.com')['ok']);
+        $this->assertNull($log->getFailedLog());
+    }
+
+    public function testAnAcceptedResendOfALogWithoutAFailedLogRemovesNothing(): void
+    {
+        [$resender, , , , $em] = $this->resenderAnswering(200, '{"logSendHsmId":777,"uuid":"u-777"}');
+
+        $em->expects($this->never())->method('remove');
+
+        $this->assertTrue($resender->resend(140, 'a@b.com')['ok']);
+    }
+
+    public function testARefusedResendKeepsCoresFailedLog(): void
+    {
+        [$resender, , $log, , $em] = $this->resenderAnswering(404, '{"error":"not found"}');
+        $failed = new FailedLeadEventLog();
+        $failed->setLog($log);
+        $log->setFailedLog($failed);
+
+        $em->expects($this->never())->method('remove');
+
+        $this->assertFalse($resender->resend(140, 'a@b.com')['ok']);
+        $this->assertSame($failed, $log->getFailedLog());
     }
 
     public function testARefusedResendUpdatesTheLogAndForgetsTheOldTracking(): void

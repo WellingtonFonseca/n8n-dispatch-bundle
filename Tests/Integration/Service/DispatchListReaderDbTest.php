@@ -130,6 +130,36 @@ class DispatchListReaderDbTest extends RollbackDatabaseTestCase
         $this->assertSame('mautic_n8ndispatch.hsmtemplate_action', $result['items'][0]['templateRoute']['name']);
     }
 
+    public function testTheOrderIsTheDispatchDateNewestFirstNotTheLogNumber(): void
+    {
+        // a resent dispatch keeps its log (low id) but gets a new date: it must come first; made in an order unlike the dates
+        $newest  = $this->log('n8ndispatch.email.send', ['n8ndispatch' => ['status' => 'production']], '2026-03-20 09:00:00', 1);
+        $middle  = $this->log('n8ndispatch.sms.send', ['n8ndispatch' => ['status' => 'test']], '2026-03-15 09:00:00', 2);
+        $oldest  = $this->log('n8ndispatch.hsm.send', ['n8ndispatch' => ['status' => 'production']], '2026-03-10 09:00:00', 3);
+
+        $result = $this->reader->search(new DispatchFilters($this->campaignId), 1, 25);
+
+        $this->assertSame([$newest, $middle, $oldest], array_column($result['items'], 'id'));
+    }
+
+    public function testTheSameDateFallsBackToTheNewestLogFirst(): void
+    {
+        $first  = $this->log('n8ndispatch.email.send', ['n8ndispatch' => []], '2026-03-10 09:00:00', 1);
+        $second = $this->log('n8ndispatch.sms.send', ['n8ndispatch' => []], '2026-03-10 09:00:00', 2);
+
+        $this->assertSame([$second, $first], array_column($this->reader->search(new DispatchFilters($this->campaignId), 1, 25)['items'], 'id'));
+    }
+
+    public function testTheStatusFilterKeepsTheSameOrder(): void
+    {
+        $recent = $this->log('n8ndispatch.email.send', ['n8ndispatch' => ['httpStatusCode' => 500]], '2026-03-20 09:00:00', 1);
+        $old    = $this->log('n8ndispatch.email.send', ['n8ndispatch' => ['httpStatusCode' => 500]], '2026-03-10 09:00:00', 2);
+
+        $page = $this->reader->search(new DispatchFilters($this->campaignId, null, null, null, 'failed'), 1, 25);
+
+        $this->assertSame([$recent, $old], array_column($page['items'], 'id'));
+    }
+
     public function testThePagesCutTheListButNotTheTotal(): void
     {
         [$email, $sms, $hsm] = $this->threeLogs();
