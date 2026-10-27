@@ -17,7 +17,8 @@ use MauticPlugin\N8nDispatchBundle\Twig\EventTemplateExtension;
  */
 class EventNameSync
 {
-    private const TYPES = ['n8ndispatch.email.send', 'n8ndispatch.sms.send', 'n8ndispatch.hsm.send'];
+    /** The campaign action types of this plugin. */
+    public const TYPES = ['n8ndispatch.email.send', 'n8ndispatch.sms.send', 'n8ndispatch.hsm.send'];
 
     /** The longest name the campaign event column holds. */
     private const MAX_LENGTH = 255;

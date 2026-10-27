@@ -48,12 +48,12 @@ class EventNameSyncTest extends TestCase
     public static function anyName(): array
     {
         return [
-            'blank'           => [''],
-            'spaces'          => ['   '],
-            'english type'    => ['Send via n8n (Email)'],
-            'portuguese type' => ['Enviar pelo n8n (Email)'],
-            'typed'           => ['Meu envio de entrega'],
-            'another template' => ['Entrega de Trabalho, E 02'],
+            'blank'                          => [''],
+            'spaces'                         => ['   '],
+            'english type'                   => ['Send via n8n (Email)'],
+            'portuguese type'                => ['Enviar pelo n8n (Email)'],
+            'typed'                          => ['Meu envio de entrega'],
+            'another template'               => ['Entrega de Trabalho, E 02'],
             'old name of a renamed template' => ['Entrega de Trabalho (antigo), E 01'],
         ];
     }
