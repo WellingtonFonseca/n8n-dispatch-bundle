@@ -14,8 +14,8 @@ use Twig\TwigFunction;
  * Gives the campaign canvas card (Resources/views/Event/_email_send.html.twig)
  * the name of the template the event really dispatches:
  * {{ n8ndispatch_event_template_name(event['type'], event['properties']) }}.
- * The event's own name is free text typed in the modal and can point at a
- * different template than the one picked, so the card shows both.
+ * The card shows the template itself (falling back to the event's name when
+ * none is picked); the event's name is kept equal to it by Service/EventNameSync.php.
  */
 class EventTemplateExtension extends AbstractExtension
 {
