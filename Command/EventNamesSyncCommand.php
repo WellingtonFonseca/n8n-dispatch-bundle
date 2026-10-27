@@ -37,7 +37,7 @@ class EventNamesSyncCommand extends Command
         $changed = 0;
         $seen    = 0;
 
-        $events = $this->em->getRepository(Event::class)->findBy(['type' => ['n8ndispatch.email.send', 'n8ndispatch.sms.send', 'n8ndispatch.hsm.send']]);
+        $events = $this->em->getRepository(Event::class)->findBy(['type' => EventNameSync::TYPES]);
 
         foreach ($events as $event) {
             ++$seen;
