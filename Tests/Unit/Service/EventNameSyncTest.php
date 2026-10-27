@@ -10,17 +10,10 @@ use MauticPlugin\N8nDispatchBundle\Twig\EventTemplateExtension;
 use PHPUnit\Framework\Attributes\AllowMockObjectsWithoutExpectations;
 use PHPUnit\Framework\Attributes\DataProvider;
 use PHPUnit\Framework\TestCase;
-use Symfony\Contracts\Translation\TranslatorInterface;
 
 #[AllowMockObjectsWithoutExpectations]
 class EventNameSyncTest extends TestCase
 {
-    private const LABELS = [
-        'mautic.n8ndispatch.campaign.event.email.send' => ['en_US' => 'Send via n8n (Email)', 'pt_BR' => 'Enviar pelo n8n (Email)'],
-        'mautic.n8ndispatch.campaign.event.sms.send'   => ['en_US' => 'Send via n8n (SMS)', 'pt_BR' => 'Enviar pelo n8n (SMS)'],
-        'mautic.n8ndispatch.campaign.event.hsm.send'   => ['en_US' => 'Send via n8n (HSM)', 'pt_BR' => 'Enviar pelo n8n (HSM)'],
-    ];
-
     /**
      * @param array<int, string|null> $templates template name by the id in the properties' 'email' key
      */
@@ -30,10 +23,8 @@ class EventNameSyncTest extends TestCase
         $extension->method('templateName')->willReturnCallback(
             static fn ($type, $properties) => is_array($properties) ? ($templates[(int) ($properties['email'] ?? 0)] ?? null) : null
         );
-        $translator = $this->createMock(TranslatorInterface::class);
-        $translator->method('trans')->willReturnCallback(static fn (string $id, array $p = [], ?string $d = null, ?string $locale = null) => self::LABELS[$id][$locale] ?? $id);
 
-        return new EventNameSync($extension, $translator);
+        return new EventNameSync($extension);
     }
 
     private function event(string $name, int $emailId = 7, string $type = 'n8ndispatch.email.send'): Event
@@ -46,8 +37,8 @@ class EventNameSyncTest extends TestCase
         return $event;
     }
 
-    #[DataProvider('replaceableNames')]
-    public function testReplacesABlankOrDefaultName(string $name): void
+    #[DataProvider('anyName')]
+    public function testTheNameIsAlwaysTheTemplates(string $name): void
     {
         $event = $this->event($name);
 
@@ -55,38 +46,25 @@ class EventNameSyncTest extends TestCase
         $this->assertSame('Entrega de Trabalho, E 01', $event->getName());
     }
 
-    public static function replaceableNames(): array
+    public static function anyName(): array
     {
         return [
-            'blank'          => [''],
-            'spaces'         => ['   '],
-            'english type'   => ['Send via n8n (Email)'],
-            'portuguese type' => ['Enviar pelo n8n (Email)'],
+            'blank'                          => [''],
+            'spaces'                         => ['   '],
+            'english type'                   => ['Send via n8n (Email)'],
+            'portuguese type'                => ['Enviar pelo n8n (Email)'],
+            'typed'                          => ['Meu envio de entrega'],
+            'another template'               => ['Entrega de Trabalho, E 02'],
+            'old name of a renamed template' => ['Entrega de Trabalho (antigo), E 01'],
         ];
     }
 
-    public function testATypedNameIsKept(): void
-    {
-        $event = $this->event('Meu envio de entrega');
-
-        $this->assertFalse($this->sync()->sync($event));
-        $this->assertSame('Meu envio de entrega', $event->getName());
-    }
-
-    public function testChangingTheTemplateRenamesAnEventNamedAfterTheOldOne(): void
+    public function testACopiedNodeWithAnotherTemplateTakesTheNewTemplatesName(): void
     {
         $event = $this->event('Entrega de Trabalho, E 01', 8);
 
-        $this->assertTrue($this->sync()->sync($event, ['email' => 7]));
+        $this->assertTrue($this->sync()->sync($event));
         $this->assertSame('Entrega de Trabalho, E 02', $event->getName());
-    }
-
-    public function testChangingTheTemplateKeepsATypedName(): void
-    {
-        $event = $this->event('Meu envio', 8);
-
-        $this->assertFalse($this->sync()->sync($event, ['email' => 7]));
-        $this->assertSame('Meu envio', $event->getName());
     }
 
     public function testNothingChangesWhenTheNameIsAlreadyTheTemplates(): void
@@ -94,12 +72,25 @@ class EventNameSyncTest extends TestCase
         $this->assertFalse($this->sync()->sync($this->event('Entrega de Trabalho, E 01')));
     }
 
+    public function testPaddingAroundTheTemplateNameIsCleaned(): void
+    {
+        $event = $this->event(' Entrega de Trabalho, E 01 ');
+
+        $this->assertTrue($this->sync()->sync($event));
+        $this->assertSame('Entrega de Trabalho, E 01', $event->getName());
+    }
+
+    public function testAnEventWithoutATypeIsIgnored(): void
+    {
+        $this->assertFalse($this->sync()->sync(new Event()));
+    }
+
     public function testNoTemplatePickedOrGoneLeavesTheName(): void
     {
-        $event = $this->event('', 99);
+        $event = $this->event('Meu envio', 99);
 
         $this->assertFalse($this->sync()->sync($event));
-        $this->assertSame('', $event->getName());
+        $this->assertSame('Meu envio', $event->getName());
     }
 
     public function testOtherActionTypesAreIgnored(): void
