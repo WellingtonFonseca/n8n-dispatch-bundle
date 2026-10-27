@@ -307,6 +307,20 @@
     color: var(--support-warning);
 }
 
+/*
+ * The date field of "reschedule" (#timeline-reschedule): core's campaign.js builds it with an INLINE `color: #000000` and no
+ * background of its own, so on a dark theme it read black on the dark card. !important is needed to beat the inline color; the field
+ * gets the theme's own field colors. The light themes are untouched.
+ */
+:root[theme="dark"] .n8ndispatch-timeline-scheduled #timeline-reschedule,
+:root[theme="solarized-dark"] .n8ndispatch-timeline-scheduled #timeline-reschedule {
+    color: var(--text-primary) !important;
+    background-color: var(--field-01);
+    border: 1px solid var(--border-subtle-01);
+    border-radius: var(--border-radius-sm);
+    padding: 0 6px;
+}
+
 .n8ndispatch-timeline-json {
     margin: 8px 0 0;
     padding: 10px 12px;
