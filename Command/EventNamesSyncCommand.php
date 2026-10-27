@@ -15,10 +15,10 @@ use Symfony\Component\Console\Output\OutputInterface;
 
 /**
  * Names the campaign actions of this plugin that already exist after the communication they dispatch (what
- * EventNameSubscriber does on every campaign save from now on): the ones with a blank name or the name of the action's
- * type. A name someone typed is left alone. Run once after the plugin is updated; running it again changes nothing.
+ * EventNameSubscriber does on every campaign save): every action whose name is not the template's. Running it again
+ * changes nothing.
  */
-#[AsCommand(name: 'n8ndispatch:events:sync-names', description: 'Names the existing n8n campaign actions after the communication they dispatch (only blank or default names).')]
+#[AsCommand(name: 'n8ndispatch:events:sync-names', description: 'Names the existing n8n campaign actions after the communication they dispatch (every one whose name differs from the template name).')]
 class EventNamesSyncCommand extends Command
 {
     public function __construct(private EntityManagerInterface $em, private EventNameSync $sync)
