@@ -43,6 +43,15 @@ class N8nDispatchIntegrationTest extends TestCase
         return $builder->getForm();
     }
 
+    public function testTheChangeLogIsTheCustomNoteOfTheFirstTab(): void
+    {
+        $note = $this->integration()->getFormNotes('custom');
+
+        $this->assertSame('@N8nDispatch/Integration/_changelog.html.twig', $note['template']);
+        $this->assertTrue($note['custom'], 'core only draws the note when custom is set');
+        $this->assertNotEmpty($note['parameters']['days']);
+    }
+
     public function testTheAuthTokenIsAPasswordInput(): void
     {
         $form = $this->keysForm([]);

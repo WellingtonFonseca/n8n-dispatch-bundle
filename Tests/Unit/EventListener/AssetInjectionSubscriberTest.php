@@ -36,6 +36,7 @@ class AssetInjectionSubscriberTest extends TestCase
         $hsmJsMtime      = filemtime(__DIR__.'/../../../Assets/js/campaign-hsm-dispatch.js');
         $previewIconsMtime = filemtime(__DIR__.'/../../../Assets/js/campaign-preview-icons.js');
         $checkNowMtime   = filemtime(__DIR__.'/../../../Assets/js/status-poll-check-now.js');
+        $changelogMtime  = filemtime(__DIR__.'/../../../Assets/js/plugin-changelog-tab.js');
         $cssMtime        = filemtime(__DIR__.'/../../../Assets/css/n8ndispatch.css');
 
         $this->assertStringContainsString(
@@ -67,6 +68,10 @@ class AssetInjectionSubscriberTest extends TestCase
             $content
         );
         $this->assertStringContainsString(
+            '<script src="/plugins/N8nDispatchBundle/Assets/js/plugin-changelog-tab.js?v='.$changelogMtime.'"></script>',
+            $content
+        );
+        $this->assertStringContainsString(
             '<link rel="stylesheet" href="/plugins/N8nDispatchBundle/Assets/css/n8ndispatch.css?v='.$cssMtime.'">',
             $content
         );
@@ -78,7 +83,7 @@ class AssetInjectionSubscriberTest extends TestCase
 
         (new AssetInjectionSubscriber())->injectViewCustomContent($event);
 
-        $scripts = ['n8ndispatch-shared', 'email-tab-variables', 'email-sender-alert', 'campaign-sms-dispatch', 'campaign-hsm-dispatch', 'campaign-timeline-scheduled', 'campaign-preview-icons', 'status-poll-check-now', 'dispatch-resend', 'template-modal-middle-click', 'template-status-toggle'];
+        $scripts = ['n8ndispatch-shared', 'email-tab-variables', 'email-sender-alert', 'campaign-sms-dispatch', 'campaign-hsm-dispatch', 'campaign-timeline-scheduled', 'campaign-preview-icons', 'status-poll-check-now', 'plugin-changelog-tab', 'dispatch-resend', 'template-modal-middle-click', 'template-status-toggle'];
         $expected = '';
         foreach ($scripts as $name) {
             $expected .= '<script src="/plugins/N8nDispatchBundle/Assets/js/'.$name.'.js?v='.filemtime(__DIR__.'/../../../Assets/js/'.$name.'.js').'"></script>';
