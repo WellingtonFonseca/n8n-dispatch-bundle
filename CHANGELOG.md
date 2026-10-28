@@ -2,6 +2,9 @@
 
 Um bloco por dia, do mais novo para o mais antigo. Formato fixo: `## AAAA-MM-DD` e uma linha `- ` por mudança (a tela do plugin lê este arquivo).
 
+## 2026-10-28
+- Novo histórico de mudanças por dia (este arquivo), em uma aba própria do modal do plugin em Configurações > Plugins
+
 ## 2026-10-27
 - O nome de uma ação de campanha sempre segue o template que ela dispara, e muda junto quando o template é renomeado
 - Reenviar um disparo aceito pelo n8n limpa a marca de falha do Mautic
