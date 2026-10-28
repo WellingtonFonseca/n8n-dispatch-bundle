@@ -45,6 +45,55 @@
         badge.setAttribute('data-state', state);
     }
 
+    /** How much a badge grows when it opens: its content, up to 140px, minus what it has. */
+    function growth(badge) {
+        return Math.max(0, Math.min(badge.scrollWidth, 140) - badge.offsetWidth);
+    }
+
+    /** What the open badge does not fit in its cell: the badge at rest plus what it grows, past the room the cell has. 0 when it fits. */
+    function overflow(restWidth, grow, room) {
+        return Math.max(0, restWidth + grow - room);
+    }
+
+    /**
+     * The widths of the columns while a badge in column `index` is open: that column grows by `extra` (what does not fit, often nothing: the header is
+     * wider than the badge), the others keep what they have. Fixing the widths is what keeps the table from sharing the room again among its columns
+     * (the names would re-wrap, a row change height and the badge slide from under the pointer).
+     */
+    function pushPlan(widths, index, extra) {
+        var grow = Math.max(0, extra), out = widths.map(function (w, k) { return k === index ? w + grow : w; });
+
+        return {widths: out, total: out.reduce(function (a, b) { return a + b; }, 0)};
+    }
+
+    var PUSHED = 'data-status-pushed';
+    var BADGES = 'td.col-template-status .n8ndispatch-template-status';
+
+    /** Opening a badge fixes the widths of the table and widens its own column only by what does not fit in it (pushPlan). */
+    function openBadge(badge) {
+        var table = badge.closest('table'), cell = badge.closest('td');
+        if (!table || !cell || table.hasAttribute(PUSHED)) { return; }
+        var heads = table.querySelectorAll('thead th'), widths = [];
+        for (var k = 0; k < heads.length; k++) { widths.push(heads[k].getBoundingClientRect().width); }
+        var style = window.getComputedStyle(cell);
+        var room = cell.clientWidth - parseFloat(style.paddingLeft) - parseFloat(style.paddingRight);
+        var plan = pushPlan(widths, cell.cellIndex, overflow(badge.offsetWidth, growth(badge), room));
+        table.setAttribute(PUSHED, table.style.cssText + '|' + Array.prototype.map.call(heads, function (h) { return h.style.width; }).join(','));
+        table.style.tableLayout = 'fixed';
+        table.style.width = plan.total + 'px';
+        for (var j = 0; j < heads.length; j++) { heads[j].style.width = plan.widths[j] + 'px'; }
+    }
+
+    /** Gives the table back its own widths. */
+    function closeBadge(badge) {
+        var table = badge.closest('table');
+        if (!table || !table.hasAttribute(PUSHED)) { return; }
+        var saved = table.getAttribute(PUSHED).split('|'), widths = saved[saved.length - 1].split(','), heads = table.querySelectorAll('thead th');
+        table.removeAttribute(PUSHED);
+        table.style.cssText = saved.slice(0, -1).join('|');
+        for (var k = 0; k < heads.length; k++) { heads[k].style.width = widths[k] || ''; }
+    }
+
     function paintItem(item, state) {
         var action = state === 'unpublished' ? 'activate' : 'deactivate';
         if (state === 'busy' || item.getAttribute('data-n8n-status-action') === action) { return; }
@@ -75,6 +124,15 @@
             if (icon) { icon.click(); }
         });
 
+        doc.addEventListener('mouseover', function (event) {
+            var badge = event.target.closest && event.target.closest(BADGES);
+            if (badge) { openBadge(badge); }
+        });
+        doc.addEventListener('mouseout', function (event) {
+            var badge = event.target.closest && event.target.closest(BADGES);
+            if (badge && !(event.relatedTarget && badge.contains(event.relatedTarget))) { closeBadge(badge); }
+        });
+
         var pending = false;
         new win.MutationObserver(function () {
             if (pending) { return; }
@@ -83,7 +141,7 @@
         }).observe(doc.body || doc.documentElement, {childList: true, subtree: true, attributes: true, attributeFilter: ['class', 'data-status']});
     }
 
-    var api = {stateOf: stateOf, paintBadge: paintBadge, sync: sync, install: install};
+    var api = {growth: growth, overflow: overflow, pushPlan: pushPlan, stateOf: stateOf, paintBadge: paintBadge, sync: sync, install: install};
 
     if (typeof module !== 'undefined' && module.exports) {
         module.exports = api;
