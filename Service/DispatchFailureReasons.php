@@ -18,7 +18,8 @@ class DispatchFailureReasons
 
     public const SMS_TEMPLATE_NOT_FOUND = 'mautic.n8ndispatch.failure.sms_template_not_found';
     public const HSM_TEMPLATE_NOT_FOUND = 'mautic.n8ndispatch.failure.hsm_template_not_found';
-    public const EMAIL_TEMPLATE_MISSING = 'mautic.n8ndispatch.failure.email_template_missing';
+    public const EMAIL_TEMPLATE_NOT_SET = 'mautic.n8ndispatch.failure.email_template_not_set';
+    public const EMAIL_TEMPLATE_DELETED = 'mautic.n8ndispatch.failure.email_template_deleted';
     public const INTEGRATION_DISABLED   = 'mautic.n8ndispatch.failure.integration_disabled';
     public const WEBHOOK_MISSING        = 'mautic.n8ndispatch.failure.webhook_missing';
     public const DO_NOT_CONTACT         = 'mautic.n8ndispatch.failure.do_not_contact';

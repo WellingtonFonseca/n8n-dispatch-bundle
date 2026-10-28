@@ -26,7 +26,7 @@ abstract class AbstractTemplateUsageFinder
     protected const PROPERTY_KEY = '';
 
     public function __construct(
-        private EntityManagerInterface $em,
+        protected EntityManagerInterface $em,
     ) {
     }
 

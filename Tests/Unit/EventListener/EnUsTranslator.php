@@ -7,7 +7,7 @@ namespace MauticPlugin\N8nDispatchBundle\Tests\Unit\EventListener;
 use Symfony\Contracts\Translation\TranslatorInterface;
 
 /**
- * Translator for tests that serves the plugin's real en_US messages (Translations/en_US/messages.ini and flashes.ini), so a test
+ * Translator for tests that serves the plugin's real en_US messages (Translations/en_US/messages.ini, flashes.ini and validators.ini), so a test
  * asserts the text the user would read in English, and a missing or misspelled key shows up as the key itself.
  */
 final class EnUsTranslator implements TranslatorInterface
@@ -36,7 +36,7 @@ final class EnUsTranslator implements TranslatorInterface
     {
         $messages = [];
 
-        foreach (['messages', 'flashes'] as $domain) {
+        foreach (['messages', 'flashes', 'validators'] as $domain) {
             foreach (file(__DIR__.'/../../../Translations/en_US/'.$domain.'.ini', FILE_IGNORE_NEW_LINES | FILE_SKIP_EMPTY_LINES) as $line) {
                 if (1 === preg_match('/^([A-Za-z0-9_.\-]+)="(.*)"\s*$/', $line, $match)) {
                     $messages[$match[1]] = $match[2];
