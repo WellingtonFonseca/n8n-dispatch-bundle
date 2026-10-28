@@ -140,6 +140,10 @@ Full architecture, payload formats, and implementation history:
 [wiki/n8n-dispatch-plugin.md](../wiki/n8n-dispatch-plugin.md) — start with
 its "Current state" section.
 
+## Change log
+
+`CHANGELOG.md` lists the changes by day (newest first, one `## YYYY-MM-DD` block per day, one `- ` line per change, no versions). Settings > Plugins > N8N Dispatch shows it in its own "Histórico de mudanças" tab (`Service/Changelog.php` reads the file, `Assets/js/plugin-changelog-tab.js` adds the tab). Add a line to the block of the day to update it; no code changes.
+
 ## Running the test suite
 
 ```bash
