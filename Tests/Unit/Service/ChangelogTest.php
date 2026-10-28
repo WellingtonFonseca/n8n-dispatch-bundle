@@ -26,6 +26,16 @@ class ChangelogTest extends TestCase
         $this->assertSame([['date' => '2026-10-02', 'items' => ['kept', 'under a h3']]], $days);
     }
 
+    public function testAHeadingThatIsNotADateEndsTheDay(): void
+    {
+        $days = Changelog::parse("## 2026-10-02\n- kept\n## Unreleased\n- draft\n## 2026-10-01\n- older\n");
+
+        $this->assertSame([
+            ['date' => '2026-10-02', 'items' => ['kept']],
+            ['date' => '2026-10-01', 'items' => ['older']],
+        ], $days);
+    }
+
     public function testWindowsLineEndingsWork(): void
     {
         $this->assertSame([['date' => '2026-10-02', 'items' => ['a', 'b']]], Changelog::parse("## 2026-10-02\r\n- a\r\n- b\r\n"));

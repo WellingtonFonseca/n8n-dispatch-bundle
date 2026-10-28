@@ -6,18 +6,18 @@
 
 {% if days %}
     <div class="n8ndispatch-changelog-block" data-tab-label="{{ 'mautic.n8ndispatch.settings.changelog'|trans }}" data-onload-callback="n8ndispatchChangelogTab">
-    <h4 class="n8ndispatch-changelog-title mt-lg mb-sm">{{ 'mautic.n8ndispatch.settings.changelog'|trans }}</h4>
-    <div class="n8ndispatch-changelog">
-        {% for day in days %}
-            <div class="n8ndispatch-changelog__day">
-                <strong>{{ day.date }}</strong>
-                <ul>
-                    {% for item in day.items %}
-                        <li>{{ item }}</li>
-                    {% endfor %}
-                </ul>
-            </div>
-        {% endfor %}
-    </div>
+        <h4 class="n8ndispatch-changelog-title mt-lg mb-sm">{{ 'mautic.n8ndispatch.settings.changelog'|trans }}</h4>
+        <div class="n8ndispatch-changelog">
+            {% for day in days %}
+                <div class="n8ndispatch-changelog__day">
+                    <strong>{{ day.date }}</strong>
+                    <ul>
+                        {% for item in day.items %}
+                            <li>{{ item }}</li>
+                        {% endfor %}
+                    </ul>
+                </div>
+            {% endfor %}
+        </div>
     </div>
 {% endif %}
