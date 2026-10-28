@@ -7,7 +7,7 @@ namespace MauticPlugin\N8nDispatchBundle\Service;
 /**
  * The plugin's CHANGELOG.md, read for the plugin screen: one block per day, newest first.
  * Format: a "## YYYY-MM-DD" line, then one "- " line per change. Anything else is ignored,
- * and a change before the first date has no day to belong to, so it is ignored too.
+ * and a change outside a dated day (before the first date, or under another "##" heading) is ignored too.
  */
 class Changelog
 {
@@ -28,16 +28,25 @@ class Changelog
      */
     public static function parse(string $markdown): array
     {
-        $days = [];
+        $days   = [];
+        $isOpen = false;
 
         foreach (preg_split('/\R/', $markdown) ?: [] as $line) {
             if (1 === preg_match('/^##\s+(\d{4}-\d{2}-\d{2})\s*$/', $line, $match)) {
                 $days[] = ['date' => $match[1], 'items' => []];
+                $isOpen = true;
 
                 continue;
             }
 
-            if ([] !== $days && 1 === preg_match('/^-\s+(.+?)\s*$/', $line, $match)) {
+            // any other "##" heading (e.g. "## Unreleased") ends the day: its changes are not the previous day's
+            if (1 === preg_match('/^##(?!#)/', $line)) {
+                $isOpen = false;
+
+                continue;
+            }
+
+            if ($isOpen && 1 === preg_match('/^-\s+(.+?)\s*$/', $line, $match)) {
                 $days[array_key_last($days)]['items'][] = $match[1];
             }
         }
