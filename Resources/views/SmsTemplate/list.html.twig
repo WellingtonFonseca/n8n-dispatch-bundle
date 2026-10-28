@@ -50,6 +50,9 @@
                             'delete': permissions['sms:smses:deleteown'] or permissions['sms:smses:deleteother'],
                         },
                     }) }}
+                    <th class="col-template-status pa-0" scope="col">
+                        <span class="btn btn-ghost btn-block jc-space-between" style="pointer-events: none; color: inherit;"><span class="fw-b">{{ 'mautic.n8ndispatch.template.status.column'|trans }}</span></span>
+                    </th>
                     {{ include('@MauticCore/Helper/tableheader.html.twig', {
                         'sessionVar': 'n8ndispatch.smstemplate',
                         'orderBy': 'st.name',
@@ -93,11 +96,15 @@
                                 'translationBase': 'mautic.n8ndispatch.smstemplate',
                             }) -}}
                         </td>
+                        <td class="col-template-status">
+                            {% set statusText = (item.isPublished() ? 'mautic.core.form.active' : 'mautic.core.form.inactive')|trans %}
+                            <span class="n8ndispatch-badge n8ndispatch-template-status n8ndispatch-badge--{{ item.isPublished() ? 'production' : 'failed' }}"
+                                  data-state="{{ item.isPublished() ? 'published' : 'unpublished' }}"
+                                  data-text-published="{{ 'mautic.core.form.active'|trans }}" data-text-unpublished="{{ 'mautic.core.form.inactive'|trans }}"
+                                  title="{{ statusText }}" aria-label="{{ statusText }}"><i class="{{ item.isPublished() ? 'ri-play-fill' : 'ri-stop-fill' }}" aria-hidden="true"></i><span class="n8ndispatch-template-status__text">{{ statusText }}</span></span>
+                        </td>
                         <td>
                             <div>
-                                <span class="n8ndispatch-badge n8ndispatch-template-status n8ndispatch-badge--{{ item.isPublished() ? 'production' : 'failed' }}"
-                                      data-state="{{ item.isPublished() ? 'published' : 'unpublished' }}"
-                                      data-text-published="{{ 'mautic.core.form.active'|trans }}" data-text-unpublished="{{ 'mautic.core.form.inactive'|trans }}">{{ (item.isPublished() ? 'mautic.core.form.active' : 'mautic.core.form.inactive')|trans }}</span>
                                 {{- include('@MauticCore/Helper/publishstatus_icon.html.twig', {
                                     'item': item,
                                     'model': 'n8ndispatch.smstemplate',
