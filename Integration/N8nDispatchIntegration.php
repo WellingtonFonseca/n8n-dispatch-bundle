@@ -9,6 +9,7 @@ use Mautic\CoreBundle\Form\Type\YesNoButtonGroupType;
 use Mautic\PluginBundle\Integration\AbstractIntegration;
 use MauticPlugin\N8nDispatchBundle\Entity\PollRun;
 use MauticPlugin\N8nDispatchBundle\Form\Type\VisiblePasswordType;
+use MauticPlugin\N8nDispatchBundle\Service\Changelog;
 use MauticPlugin\N8nDispatchBundle\Service\StatusPollSettings;
 use Symfony\Component\Form\Extension\Core\Type\IntegerType;
 use Symfony\Component\Form\Extension\Core\Type\TextareaType;
@@ -42,6 +43,25 @@ class N8nDispatchIntegration extends AbstractIntegration
     public function getAuthenticationType(): string
     {
         return 'none';
+    }
+
+    /**
+     * The change log under the fields of the first tab (core draws the 'custom' note there).
+     * Core asks for the other sections too, and wants its own [text, type] pair for them.
+     *
+     * @return array<int|string, mixed>
+     */
+    public function getFormNotes($section)
+    {
+        if ('custom' !== $section) {
+            return parent::getFormNotes($section);
+        }
+
+        return [
+            'custom'     => true,
+            'template'   => '@N8nDispatch/Integration/_changelog.html.twig',
+            'parameters' => ['days' => Changelog::days()],
+        ];
     }
 
     /**

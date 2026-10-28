@@ -1,0 +1,23 @@
+{#
+  The plugin's change log (Integration::getFormNotes('custom'), drawn under the fields of the first tab of its settings
+  screen). Assets/js/plugin-changelog-tab.js moves it into a tab of its own.
+  Needs: days (Service/Changelog::days()), a list of {date, items}.
+#}
+
+{% if days %}
+    <div class="n8ndispatch-changelog-block" data-tab-label="{{ 'mautic.n8ndispatch.settings.changelog'|trans }}" data-onload-callback="n8ndispatchChangelogTab">
+    <h4 class="n8ndispatch-changelog-title mt-lg mb-sm">{{ 'mautic.n8ndispatch.settings.changelog'|trans }}</h4>
+    <div class="n8ndispatch-changelog">
+        {% for day in days %}
+            <div class="n8ndispatch-changelog__day">
+                <strong>{{ day.date }}</strong>
+                <ul>
+                    {% for item in day.items %}
+                        <li>{{ item }}</li>
+                    {% endfor %}
+                </ul>
+            </div>
+        {% endfor %}
+    </div>
+    </div>
+{% endif %}
