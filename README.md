@@ -88,6 +88,16 @@ the campaign's source segment conditions on that object. Which items those
 are is decided by the Custom Objects plugin (`SegmentItemResolver`), shared
 with other plugins; both plugins must be deployed together.
 
+On the Email's **Variables N8N** tab, a variable that reads a contact field or
+a Custom Object field also has a **Calculation** box (SMS and HSM have none).
+The number typed there is added to the field when the Email is dispatched
+(negative subtracts): days for a date field (up to 3650 either way, the time
+is kept), a value for a contact number field and for a Custom Object int or
+decimal field (no limit, the places of the field are kept). Only a Custom
+Object decimal field uses the places of the number typed (`2.3` or `2,3`); a
+date, an int and a contact number use its whole part (`15.5` is `15`). A
+field of any other type is not changed.
+
 Both template screens split their edit page into a **Template** tab and a
 **Campaigns** tab listing every campaign using the template, and a template
 in use can't be deleted (singly or in a batch). The same holds for an Email

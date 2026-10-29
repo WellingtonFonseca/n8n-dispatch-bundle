@@ -2,6 +2,13 @@
 
 Um bloco por dia, do mais novo para o mais antigo. Formato fixo: `## AAAA-MM-DD` e uma linha `- ` por mudança (a tela do plugin lê este arquivo).
 
+## 2026-10-29
+- Na aba Variáveis N8N do Email, uma variável de campo do contato ou de campo de Custom Object ganha o campo Cálculo: o número digitado é somado ao campo no disparo (negativo subtrai)
+- Em campo de data, o cálculo soma dias (no máximo 3650 dias para cada lado) e mantém a hora; a data sai no idioma do template
+- Em campo número do contato e em campo int ou decimal de Custom Object, o cálculo soma o valor, sem limite, e mantém as casas do campo
+- Só o campo decimal do Custom Object usa as casas do número digitado (2.3 ou 2,3); data, int e número usam só a parte inteira (15.5 vale 15)
+- A explicação do cálculo aparece uma vez, no topo da aba, abaixo do texto sobre os placeholders; SMS e HSM não têm o campo
+
 ## 2026-10-28
 - As listas de templates de SMS e HSM têm a coluna Status com o ícone de ativo e inativo, que abre ao passar o mouse; Ativar e Desativar é o primeiro item do menu da linha
 - O badge de status abre dentro da coluna, sem empurrar as outras, e os nomes não quebram de linha
