@@ -29,8 +29,12 @@ final class DateFormatter
      * or if $value doesn't actually match Mautic's own stored format —
      * safer than throwing away a value dispatch would otherwise have
      * sent, in case storage ever returns something unexpected.
+     *
+     * $addDays moves a date/datetime by calendar days (negative goes back) before it is
+     * formatted: 'start + 10 days'. It is done on the stored wall clock in UTC, so the
+     * time of day of a datetime never shifts, and a value that is not a date is not touched.
      */
-    public static function format(string $value, string $type, string $locale = LocaleConventions::DEFAULT_LOCALE): string
+    public static function format(string $value, string $type, string $locale = LocaleConventions::DEFAULT_LOCALE, int $addDays = 0): string
     {
         if ('' === $value || !isset(self::SOURCE_FORMATS[$type])) {
             return $value;
@@ -38,7 +42,7 @@ final class DateFormatter
 
         $date = false;
         foreach (self::SOURCE_FORMATS[$type] as $format) {
-            $date = \DateTime::createFromFormat('!'.$format, $value);
+            $date = \DateTime::createFromFormat('!'.$format, $value, new \DateTimeZone('UTC'));
 
             if (false !== $date && $date->format($format) === $value) {
                 break;
@@ -48,6 +52,10 @@ final class DateFormatter
 
         if (false === $date) {
             return $value;
+        }
+
+        if (0 !== $addDays) {
+            $date->modify(sprintf('%+d days', $addDays));
         }
 
         return $date->format(LocaleConventions::dateFormat($locale, $type));

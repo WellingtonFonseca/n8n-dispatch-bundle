@@ -207,4 +207,28 @@ class CustomObjectVariableResolverTest extends TestCase
 
         $this->assertSame("a\nb", $this->resolver->resolve($this->contact, $campaign, 'disciplina', 'nome', "\n"));
     }
+
+    public function testDaysAreAddedToEveryDateOfTheItems(): void
+    {
+        $this->itemsSelected([1, 2]);
+        $this->expectValuesFetchedFor([1, 2], 'inicio', ['2026-09-01', '2026-10-31']);
+
+        $this->assertSame('11/09/2026<br>10/11/2026', $this->resolver->resolve($this->contact, new Campaign(), 'disciplina', 'inicio', '<br>', 'pt_BR', 10));
+    }
+
+    public function testDaysFollowTheLanguageAndTheSeparator(): void
+    {
+        $this->itemsSelected([1, 2]);
+        $this->expectValuesFetchedFor([1, 2], 'inicio', ['2026-09-01', '2026-10-31']);
+
+        $this->assertSame('08/12/2026, 10/11/2026', $this->resolver->resolve($this->contact, new Campaign(), 'disciplina', 'inicio', ', ', 'en_US', -20));
+    }
+
+    public function testDaysAreNotAddedToFieldsThatAreNotDates(): void
+    {
+        $this->itemsSelected([1]);
+        $this->expectValuesFetchedFor([1], 'valor', ['1.100000']);
+
+        $this->assertSame('1,10', $this->resolver->resolve($this->contact, new Campaign(), 'disciplina', 'valor', '<br>', 'pt_BR', 10));
+    }
 }

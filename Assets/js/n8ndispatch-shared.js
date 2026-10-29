@@ -268,7 +268,23 @@
             + '</div>';
     }
 
-    function variableRowHtml(name, existingEntry, fields, customObjects) {
+    // 'Calculation [10]': days added to a date variable. Only the Email's Variables tab asks for it (the response of
+    // getEmailVariables says dateOffset), and only for a contact field or a Custom Object field; the dispatch ignores it
+    // for a field that is not a date. Shown with the source it belongs to, like the field selects.
+    function dateOffsetBlock(entry, source) {
+        var shown = 'field' === source || 'custom_object' === source ? '' : ' style="display:none"';
+        var days  = null == entry.dateOffsetDays ? '' : entry.dateOffsetDays;
+
+        return '<div class="n8ndispatch-var-offset mt-xs"' + shown + '>'
+            + '<div class="input-group">'
+            + '<span class="input-group-addon">' + escapePlain(translate('mautic.n8ndispatch.js.offset.label', 'Calculation')) + '</span>'
+            + '<input type="number" step="1" class="form-control n8ndispatch-var-offset-days" placeholder="0" value="' + escapeHtml(days) + '">'
+            + '</div>'
+            + '<small class="text-muted">' + escapePlain(translate('mautic.n8ndispatch.js.offset.help', 'Negative values subtract from the field. Date fields are applied in days.')) + '</small>'
+            + '</div>';
+    }
+
+    function variableRowHtml(name, existingEntry, fields, customObjects, allowDateOffset) {
         var entry  = mQuery.extend({}, DEFAULT_ENTRY, existingEntry || {});
         var source = entry.source || 'static';
 
@@ -303,7 +319,7 @@
             + '<label class="control-label">{{' + escapeHtml(name) + '}}</label>'
             + '<div class="row">'
             + '<div class="col-xs-4">' + sourceSelect + '</div>'
-            + '<div class="col-xs-8">' + valueBlock + '</div>'
+            + '<div class="col-xs-8">' + valueBlock + (allowDateOffset ? dateOffsetBlock(entry, source) : '') + '</div>'
             + '</div>'
             + '</div>';
     }
@@ -333,7 +349,7 @@
 
         var html = '';
         mQuery.each(response.variables || [], function (i, name) {
-            html += variableRowHtml(name, existing[name], response.fields, response.customObjects, false);
+            html += variableRowHtml(name, existing[name], response.fields, response.customObjects, !!response.dateOffset);
         });
 
         $container.html(html);
@@ -381,6 +397,7 @@
             $row.find('.n8ndispatch-var-value').toggle('static' === source);
             $row.find('.n8ndispatch-var-field').toggle('field' === source);
             $row.find('.n8ndispatch-var-custom-object').toggle('custom_object' === source);
+            $row.find('.n8ndispatch-var-offset').toggle('field' === source || 'custom_object' === source);
 
             syncHiddenField($container, $hidden);
         });
@@ -397,7 +414,7 @@
         });
 
         $container.find(
-            '.n8ndispatch-var-value, .n8ndispatch-var-field, .n8ndispatch-var-custom-object-field'
+            '.n8ndispatch-var-value, .n8ndispatch-var-field, .n8ndispatch-var-custom-object-field, .n8ndispatch-var-offset-days'
         ).on('keyup change', function () {
             syncHiddenField($container, $hidden);
         });
@@ -419,6 +436,12 @@
                 entry.customObjectField = $row.find('.n8ndispatch-var-custom-object-field').val();
             } else {
                 entry.value = $row.find('.n8ndispatch-var-value').val();
+            }
+
+            // only a field can be a date; 0 or nothing typed leaves the key out, so a row that adds no days saves as before
+            var offset = 'field' === source || 'custom_object' === source ? parseInt($row.find('.n8ndispatch-var-offset-days').val(), 10) : NaN;
+            if (!isNaN(offset) && 0 !== offset) {
+                entry.dateOffsetDays = offset;
             }
 
             values[name] = entry;

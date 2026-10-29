@@ -351,4 +351,17 @@ class AjaxControllerTest extends TestCase
         $this->assertTrue($body['ok']);
         $this->assertSame($channels, $body['channels']);
     }
+
+    public function testEmailVariablesTellsTheTabThatDateVariablesCanAddDays(): void
+    {
+        $data = $this->emailVariablesResponse(new Request([], ['emailId' => 7]), '<p>{{n8n_nome}}</p>');
+
+        $this->assertTrue($data['dateOffset']);
+    }
+
+    public function testTheSmsAndHsmRowsDoNotGetTheDaysBox(): void
+    {
+        $this->assertArrayNotHasKey('dateOffset', $this->smsVariablesResponse('Ola {{1}}'));
+        $this->assertArrayNotHasKey('dateOffset', $this->hsmVariablesResponse('Ola {{1}}'));
+    }
 }

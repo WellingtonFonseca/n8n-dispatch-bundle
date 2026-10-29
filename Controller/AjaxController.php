@@ -75,6 +75,8 @@ class AjaxController extends CommonAjaxController
             'invalidVariables' => $invalidVariables,
             'fields'           => $fields,
             'customObjects'    => $customObjects,
+            // the Email's Variables tab lets a date variable add days ('start + 10 days'); SMS and HSM rows do not
+            'dateOffset'       => true,
         ]);
     }
 
