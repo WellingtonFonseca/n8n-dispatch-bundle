@@ -237,7 +237,9 @@ class VariableResolverTest extends TestCase
             'zero'                  => [0, '21/10/2026'],
             'empty text'            => ['', '21/10/2026'],
             'not a number'          => ['dez', '21/10/2026'],
-            'a decimal'             => ['1.5', '21/10/2026'],
+            'a decimal uses the whole days' => ['1.5', '22/10/2026'],
+            'a decimal below one day'       => ['0.9', '21/10/2026'],
+            'a comma decimal'               => ['2,7', '23/10/2026'],
             'null'                  => [null, '21/10/2026'],
             'a list'                => [[10], '21/10/2026'],
             'more than ten years'   => [99999, '18/10/2036'],
@@ -310,6 +312,17 @@ class VariableResolverTest extends TestCase
         $this->assertSame(['a' => '5', 'b' => '5015'], $resolved);
     }
 
+    public function testADecimalCalculationIsUsedWithItsPlacesOnlyByADecimalField(): void
+    {
+        $resolved = $this->resolver->resolveAll(
+            ['a' => ['source' => 'field', 'field' => 'discstart', 'dateOffsetDays' => '2.5']],
+            $this->contactWithStart('15', 'number'),
+            new Campaign()
+        );
+
+        $this->assertSame(['a' => '17'], $resolved);
+    }
+
     public function testStaticValuesNeverGetDays(): void
     {
         $resolved = $this->resolver->resolveAll(['x' => ['source' => 'static', 'value' => '2026-10-21', 'dateOffsetDays' => 10]], new Lead(), new Campaign());
@@ -324,7 +337,7 @@ class VariableResolverTest extends TestCase
 
         $this->customObjectVariableResolver->expects($this->once())
             ->method('resolve')
-            ->with($contact, $campaign, 'disciplines', 'discstart', '<br>', 'pt_BR', 10)
+            ->with($contact, $campaign, 'disciplines', 'discstart', '<br>', 'pt_BR', '10')
             ->willReturn('31/10/2026');
 
         $resolved = $this->resolver->resolveAll(
@@ -343,7 +356,7 @@ class VariableResolverTest extends TestCase
 
         $this->customObjectVariableResolver->expects($this->once())
             ->method('resolve')
-            ->with($contact, $campaign, 'disciplines', 'discstart', '<br>', 'pt_BR', 0)
+            ->with($contact, $campaign, 'disciplines', 'discstart', '<br>', 'pt_BR', '0')
             ->willReturn('21/10/2026');
 
         $this->resolver->resolveAll(['inicio' => ['source' => 'custom_object', 'customObject' => 'disciplines', 'customObjectField' => 'discstart']], $contact, $campaign);
@@ -356,19 +369,22 @@ class VariableResolverTest extends TestCase
         // the callers that read a fixed field straight into the payload (inst_id_*) never pass days
         $this->assertSame('21/10/2026', $this->resolver->resolveContactField($contact, 'discstart'));
         $this->assertSame('21/10/2026', $this->resolver->resolveContactField($contact, 'discstart', 'pt_BR'));
-        $this->assertSame('26/10/2026', $this->resolver->resolveContactField($contact, 'discstart', 'pt_BR', 5));
-        $this->assertSame('16/10/2026', $this->resolver->resolveContactField($contact, 'discstart', 'pt_BR', -5));
+        $this->assertSame('26/10/2026', $this->resolver->resolveContactField($contact, 'discstart', 'pt_BR', '5'));
+        $this->assertSame('16/10/2026', $this->resolver->resolveContactField($contact, 'discstart', 'pt_BR', '-5'));
     }
 
-    public function testAddDaysReadsOnlyWholeNumbersAndDoesNotCutThem(): void
+    public function testAddDaysKeepsAnyNumberAsTextAndDropsTheRest(): void
     {
-        $this->assertSame(0, VariableResolver::addDays([]));
-        $this->assertSame(3650, VariableResolver::addDays(['dateOffsetDays' => 3650]));
-        $this->assertSame(3651, VariableResolver::addDays(['dateOffsetDays' => 3651]));
-        $this->assertSame(3649, VariableResolver::addDays(['dateOffsetDays' => 3649]));
-        $this->assertSame(-5000, VariableResolver::addDays(['dateOffsetDays' => -5000]));
-        $this->assertSame(-3649, VariableResolver::addDays(['dateOffsetDays' => '-3649']));
-        $this->assertSame(0, VariableResolver::addDays(['dateOffsetDays' => '1e3']));
-        $this->assertSame(0, VariableResolver::addDays(['dateOffsetDays' => 1.5]));
+        $this->assertSame('0', VariableResolver::addDays([]));
+        $this->assertSame('3650', VariableResolver::addDays(['dateOffsetDays' => 3650]));
+        $this->assertSame('5000', VariableResolver::addDays(['dateOffsetDays' => 5000]));
+        $this->assertSame('-3649', VariableResolver::addDays(['dateOffsetDays' => '-3649']));
+        $this->assertSame('13.2', VariableResolver::addDays(['dateOffsetDays' => '13.2']));
+        $this->assertSame('-0.5', VariableResolver::addDays(['dateOffsetDays' => ' -0,5 ']));
+        $this->assertSame('0', VariableResolver::addDays(['dateOffsetDays' => '1e3']));
+        $this->assertSame('0', VariableResolver::addDays(['dateOffsetDays' => '13.']));
+        $this->assertSame('0', VariableResolver::addDays(['dateOffsetDays' => 'dez']));
+        $this->assertSame('0', VariableResolver::addDays(['dateOffsetDays' => 1.5]));
+        $this->assertSame('0', VariableResolver::addDays(['dateOffsetDays' => null]));
     }
 }

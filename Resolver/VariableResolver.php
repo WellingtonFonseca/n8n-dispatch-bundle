@@ -65,21 +65,25 @@ class VariableResolver
     }
 
     /**
-     * The days to add to a date variable ('start + 10 days'), set on the Email's Variables tab as `dateOffsetDays`
-     * (negative goes back). Anything that is not a whole number, or none, is 0. The ten-year limit of a date is in
+     * The number of the Calculation box of a field variable, set on the Email's Variables tab as `dateOffsetDays`
+     * (negative subtracts): days for a date, a value for a number. Kept as text ('13', '-0.5'; a comma is read as a
+     * point) so no float rounds it. Anything that is not a number, or none, is '0'. Each formatter takes what it
+     * needs: a date and an int use the whole part, a decimal uses the places. The ten-year limit of a date is in
      * DateFormatter; a number has no limit.
      *
      * @param array<string, mixed> $entry
      */
-    public static function addDays(array $entry): int
+    public static function addDays(array $entry): string
     {
-        $days = $entry['dateOffsetDays'] ?? 0;
+        $amount = $entry['dateOffsetDays'] ?? 0;
 
-        if (!is_int($days) && !(is_string($days) && 1 === preg_match('/^[+-]?\d+$/', trim($days)))) {
-            return 0;
+        if (!is_int($amount) && !is_string($amount)) {
+            return '0';
         }
 
-        return (int) $days;
+        $amount = str_replace(',', '.', trim((string) $amount));
+
+        return 1 === preg_match('/^[+-]?\d+(\.\d+)?$/', $amount) ? $amount : '0';
     }
 
     /**
@@ -88,7 +92,7 @@ class VariableResolver
      * 'inst_id_lyceum') straight into the dispatch payload, outside of the
      * variablesJson source-picker mechanism this class otherwise serves.
      */
-    public function resolveContactField(Lead $contact, string $fieldAlias, string $language = LocaleConventions::DEFAULT_LOCALE, int $addDays = 0): string
+    public function resolveContactField(Lead $contact, string $fieldAlias, string $language = LocaleConventions::DEFAULT_LOCALE, string $calculation = '0'): string
     {
         if ('' === $fieldAlias) {
             return '';
@@ -116,6 +120,6 @@ class VariableResolver
         $field = $contact->getField($fieldAlias);
         $type  = is_array($field) ? (string) ($field['type'] ?? '') : '';
 
-        return NumberCalculator::add(DateFormatter::format((string) $value, $type, $language, $addDays), $type, $addDays);
+        return NumberCalculator::add(DateFormatter::format((string) $value, $type, $language, (int) $calculation), $type, $calculation);
     }
 }

@@ -16,28 +16,34 @@ final class NumberCalculator
     private const TYPES = ['number', 'int', 'decimal'];
 
     /**
-     * Returns $value unchanged for another $type, for $add of 0, or when $value is not a plain number (empty,
+     * Returns $value unchanged for another $type, for an $amount of 0, or when $value is not a plain number (empty,
      * text, scientific notation) — same "never throw a dispatchable value away" stance as DateFormatter.
-     * The result keeps the places of $value.
+     * $amount is the text of the box ('13', '-0.5'): only a 'decimal' uses its places, the other types use its
+     * whole part. The result keeps the places of $value (more, if $amount has more).
      */
-    public static function add(string $value, string $type, int $add): string
+    public static function add(string $value, string $type, string $amount): string
     {
-        if (0 === $add || !in_array($type, self::TYPES, true) || 1 !== preg_match('/^(-?)(\d+)(?:\.(\d+))?$/', $value, $parts)) {
+        if (!in_array($type, self::TYPES, true)
+            || 1 !== preg_match('/^(-?)(\d+)(?:\.(\d+))?$/', $value, $parts)
+            || 1 !== preg_match('/^([+-]?)(\d+)(?:\.(\d+))?$/', $amount, $addParts)) {
             return $value;
         }
 
-        $fraction = $parts[3] ?? '';
-        $scale       = strlen($fraction);
-        $leftSign = '-' === $parts[1] ? -1 : 1;
-        $leftDigits  = self::trim($parts[2].$fraction);
-        $rightDigits = self::trim(ltrim((string) $add, '-').str_repeat('0', $scale));
-        $rightSign   = $add < 0 ? -1 : 1;
+        $addFraction = 'decimal' === $type ? ($addParts[3] ?? '') : '';
+        $fraction    = $parts[3] ?? '';
+        $scale       = max(strlen($fraction), strlen($addFraction));
+        $leftSign    = '-' === $parts[1] ? -1 : 1;
+        $leftDigits  = self::trim($parts[2].str_pad($fraction, $scale, '0'));
+        $rightDigits = self::trim($addParts[2].str_pad($addFraction, $scale, '0'));
 
-        [$sign, $digits] = self::signedAdd($leftSign, $leftDigits, $rightSign, $rightDigits);
+        if ('0' === $rightDigits) {
+            return $value;
+        }
+
+        [$sign, $digits] = self::signedAdd($leftSign, $leftDigits, '-' === $addParts[1] ? -1 : 1, $rightDigits);
 
         $digits = str_pad($digits, $scale + 1, '0', STR_PAD_LEFT);
-        $whole  = substr($digits, 0, strlen($digits) - $scale);
-        $result = $whole.(0 < $scale ? '.'.substr($digits, -$scale) : '');
+        $result = substr($digits, 0, strlen($digits) - $scale).(0 < $scale ? '.'.substr($digits, -$scale) : '');
 
         return (-1 === $sign && 1 === preg_match('/[1-9]/', $digits) ? '-' : '').$result;
     }

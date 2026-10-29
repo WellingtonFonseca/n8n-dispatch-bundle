@@ -36,7 +36,7 @@ class CustomObjectVariableResolver
     ) {
     }
 
-    public function resolve(Lead $contact, Campaign $campaign, string $customObjectAlias, string $targetFieldAlias, string $separator = '<br>', string $language = LocaleConventions::DEFAULT_LOCALE, int $addDays = 0): string
+    public function resolve(Lead $contact, Campaign $campaign, string $customObjectAlias, string $targetFieldAlias, string $separator = '<br>', string $language = LocaleConventions::DEFAULT_LOCALE, string $calculation = '0'): string
     {
         try {
             $customObject = $this->customObjectModel->fetchEntityByAlias($customObjectAlias);
@@ -82,7 +82,7 @@ class CustomObjectVariableResolver
         // formatter ignores the other's types.
         $values = array_map(
             static fn (string $value): string => DecimalFormatter::format(
-                NumberCalculator::add(DateFormatter::format($value, (string) $targetField->getType(), $language, $addDays), (string) $targetField->getType(), $addDays),
+                NumberCalculator::add(DateFormatter::format($value, (string) $targetField->getType(), $language, (int) $calculation), (string) $targetField->getType(), $calculation),
                 (string) $targetField->getType(),
                 $language
             ),

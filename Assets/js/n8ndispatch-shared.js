@@ -278,7 +278,7 @@
         return '<div class="n8ndispatch-var-offset mt-xs"' + shown + '>'
             + '<div class="input-group">'
             + '<span class="input-group-addon">' + escapePlain(translate('mautic.n8ndispatch.js.offset.label', 'Calculation')) + '</span>'
-            + '<input type="number" step="1" class="form-control n8ndispatch-var-offset-days" placeholder="0" value="' + escapeHtml(days) + '">'
+            + '<input type="number" step="any" class="form-control n8ndispatch-var-offset-days" placeholder="0" value="' + escapeHtml(days) + '">'
             + '</div>'
             + '<ul class="text-muted n8ndispatch-var-offset-help" style="font-size:14px;padding-left:18px;margin-bottom:0">'
             + '<li>' + escapePlain(translate('mautic.n8ndispatch.js.offset.help.negative', 'Negative values subtract from the field.')) + '</li>'
@@ -286,6 +286,18 @@
             + '<li>' + escapePlain(translate('mautic.n8ndispatch.js.offset.help.number', 'Number fields get the value added, with no limit.')) + '</li>'
             + '</ul>'
             + '</div>';
+    }
+
+    // The text of the Calculation box as it is saved: a whole number, a decimal as text, or null when it is
+    // empty, 0 or not a number. A comma is read as a point.
+    function parseCalculation(text) {
+        var clean = String(text || '').replace(',', '.').trim();
+
+        if (!/^[+-]?\d+(\.\d+)?$/.test(clean) || 0 === parseFloat(clean)) {
+            return null;
+        }
+
+        return /^[+-]?\d+$/.test(clean) ? parseInt(clean, 10) : clean;
     }
 
     function variableRowHtml(name, existingEntry, fields, customObjects, allowDateOffset) {
@@ -442,9 +454,10 @@
                 entry.value = $row.find('.n8ndispatch-var-value').val();
             }
 
-            // only a field can be a date; 0 or nothing typed leaves the key out, so a row that adds no days saves as before
-            var offset = 'field' === source || 'custom_object' === source ? parseInt($row.find('.n8ndispatch-var-offset-days').val(), 10) : NaN;
-            if (!isNaN(offset) && 0 !== offset) {
+            // only a field can be calculated; 0 or nothing typed leaves the key out, so a row with no calculation saves as before.
+            // A whole number is saved as a number, a decimal as text (13.2 -> "13.2"): no float rounds it.
+            var offset = 'field' === source || 'custom_object' === source ? parseCalculation($row.find('.n8ndispatch-var-offset-days').val()) : null;
+            if (null !== offset) {
                 entry.dateOffsetDays = offset;
             }
 

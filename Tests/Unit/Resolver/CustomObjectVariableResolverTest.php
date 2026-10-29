@@ -213,7 +213,7 @@ class CustomObjectVariableResolverTest extends TestCase
         $this->itemsSelected([1, 2]);
         $this->expectValuesFetchedFor([1, 2], 'inicio', ['2026-09-01', '2026-10-31']);
 
-        $this->assertSame('11/09/2026<br>10/11/2026', $this->resolver->resolve($this->contact, new Campaign(), 'disciplina', 'inicio', '<br>', 'pt_BR', 10));
+        $this->assertSame('11/09/2026<br>10/11/2026', $this->resolver->resolve($this->contact, new Campaign(), 'disciplina', 'inicio', '<br>', 'pt_BR', '10'));
     }
 
     public function testDaysFollowTheLanguageAndTheSeparator(): void
@@ -221,14 +221,14 @@ class CustomObjectVariableResolverTest extends TestCase
         $this->itemsSelected([1, 2]);
         $this->expectValuesFetchedFor([1, 2], 'inicio', ['2026-09-01', '2026-10-31']);
 
-        $this->assertSame('08/12/2026, 10/11/2026', $this->resolver->resolve($this->contact, new Campaign(), 'disciplina', 'inicio', ', ', 'en_US', -20));
+        $this->assertSame('08/12/2026, 10/11/2026', $this->resolver->resolve($this->contact, new Campaign(), 'disciplina', 'inicio', ', ', 'en_US', '-20'));
     }
 
     public function testTheCalculationIsAddedToAnIntAndToADecimalOfTheItems(): void
     {
         $this->itemsSelected([1, 2]);
         $this->expectValuesFetchedFor([1, 2], 'posicao', ['15', '3']);
-        $this->assertSame('5<br>-7', $this->resolver->resolve($this->contact, new Campaign(), 'disciplina', 'posicao', '<br>', 'pt_BR', -10));
+        $this->assertSame('5<br>-7', $this->resolver->resolve($this->contact, new Campaign(), 'disciplina', 'posicao', '<br>', 'pt_BR', '-10'));
     }
 
     public function testTheCalculationOfADecimalKeepsTheFormat(): void
@@ -236,7 +236,21 @@ class CustomObjectVariableResolverTest extends TestCase
         $this->itemsSelected([1]);
         $this->expectValuesFetchedFor([1], 'valor', ['1.100000']);
 
-        $this->assertSame('11,10', $this->resolver->resolve($this->contact, new Campaign(), 'disciplina', 'valor', '<br>', 'pt_BR', 10));
+        $this->assertSame('11,10', $this->resolver->resolve($this->contact, new Campaign(), 'disciplina', 'valor', '<br>', 'pt_BR', '10'));
+    }
+
+    public function testTheCalculationOfADecimalUsesItsPlacesAndAnIntUsesTheWholePart(): void
+    {
+        $this->itemsSelected([1]);
+        $this->expectValuesFetchedFor([1], 'valor', ['1.100000']);
+        $this->assertSame('14,30', $this->resolver->resolve($this->contact, new Campaign(), 'disciplina', 'valor', '<br>', 'pt_BR', '13.2'));
+    }
+
+    public function testTheCalculationOfAnIntIgnoresTheFraction(): void
+    {
+        $this->itemsSelected([1]);
+        $this->expectValuesFetchedFor([1], 'posicao', ['15']);
+        $this->assertSame('28', $this->resolver->resolve($this->contact, new Campaign(), 'disciplina', 'posicao', '<br>', 'pt_BR', '13.9'));
     }
 
     public function testTheCalculationIsNotAppliedToAText(): void
@@ -244,6 +258,6 @@ class CustomObjectVariableResolverTest extends TestCase
         $this->itemsSelected([1]);
         $this->expectValuesFetchedFor([1], 'nome', ['15']);
 
-        $this->assertSame('15', $this->resolver->resolve($this->contact, new Campaign(), 'disciplina', 'nome', '<br>', 'pt_BR', 10));
+        $this->assertSame('15', $this->resolver->resolve($this->contact, new Campaign(), 'disciplina', 'nome', '<br>', 'pt_BR', '10'));
     }
 }
