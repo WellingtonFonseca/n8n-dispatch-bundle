@@ -46,6 +46,7 @@ class NumberCalculatorTest extends TestCase
         yield 'text before the amount' => ['15', 'int', 'x10', '15'];
         yield 'text after the amount' => ['15', 'int', '10x', '15'];
         yield 'zero leaves a value as it is written' => ['007', 'int', '0', '007'];
+        yield 'zero with places leaves a value as it is written' => ['007', 'int', '0.0', '007'];
         yield 'amount is empty' => ['15', 'int', '', '15'];
         yield 'not a number type' => ['15', 'text', '10', '15'];
         yield 'date type is not touched' => ['2026-10-21', 'date', '10', '2026-10-21'];
