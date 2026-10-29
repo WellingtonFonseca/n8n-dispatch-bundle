@@ -75,6 +75,12 @@
                     }) }}
                     {{ include('@MauticCore/Helper/tableheader.html.twig', {
                         'sessionVar': 'n8ndispatch.hsmtemplate',
+                        'orderBy': 'ht.type',
+                        'text': 'mautic.n8ndispatch.campaign.event.hsm.type',
+                        'class': 'col-hsmtemplate-type',
+                    }) }}
+                    {{ include('@MauticCore/Helper/tableheader.html.twig', {
+                        'sessionVar': 'n8ndispatch.hsmtemplate',
                         'orderBy': 'ht.id',
                         'text': 'mautic.core.id',
                         'class': 'visible-md visible-lg col-hsmtemplate-id',
@@ -132,6 +138,7 @@
                         </td>
                         <td>{{ item.getRouter() }}</td>
                         <td>{{ item.getHsmTemplate() }}</td>
+                        <td class="col-hsmtemplate-type">{{ ('mautic.n8ndispatch.hsmtemplate.type.' ~ item.getType())|trans }}</td>
                         <td class="visible-md visible-lg">{{ item.getId() }}</td>
                     </tr>
                 {% endfor %}
