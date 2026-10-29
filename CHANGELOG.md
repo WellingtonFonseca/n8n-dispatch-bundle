@@ -3,6 +3,10 @@
 Um bloco por dia, do mais novo para o mais antigo. Formato fixo: `## AAAA-MM-DD` e uma linha `- ` por mudança (a tela do plugin lê este arquivo).
 
 ## 2026-10-28
+- As listas de templates de SMS e HSM têm a coluna Status com o ícone de ativo e inativo, que abre ao passar o mouse; Ativar e Desativar é o primeiro item do menu da linha
+- O badge de status abre dentro da coluna, sem empurrar as outras, e os nomes não quebram de linha
+- A lista de templates de HSM tem a coluna Tipo, entre o Template HSM e o ID, com o nome do tipo (Texto ou Imagem Carrossel)
+- Com o plugin ativo, a tela do contato oferece o Não Contatar de SMS (e de HSM, que segue o canal de SMS); os disparos já respeitavam essa lista
 - Novo histórico de mudanças por dia (este arquivo), em uma aba própria do modal do plugin em Configurações > Plugins
 
 ## 2026-10-27
