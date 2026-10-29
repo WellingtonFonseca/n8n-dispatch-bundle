@@ -224,11 +224,26 @@ class CustomObjectVariableResolverTest extends TestCase
         $this->assertSame('08/12/2026, 10/11/2026', $this->resolver->resolve($this->contact, new Campaign(), 'disciplina', 'inicio', ', ', 'en_US', -20));
     }
 
-    public function testDaysAreNotAddedToFieldsThatAreNotDates(): void
+    public function testTheCalculationIsAddedToAnIntAndToADecimalOfTheItems(): void
+    {
+        $this->itemsSelected([1, 2]);
+        $this->expectValuesFetchedFor([1, 2], 'posicao', ['15', '3']);
+        $this->assertSame('5<br>-7', $this->resolver->resolve($this->contact, new Campaign(), 'disciplina', 'posicao', '<br>', 'pt_BR', -10));
+    }
+
+    public function testTheCalculationOfADecimalKeepsTheFormat(): void
     {
         $this->itemsSelected([1]);
         $this->expectValuesFetchedFor([1], 'valor', ['1.100000']);
 
-        $this->assertSame('1,10', $this->resolver->resolve($this->contact, new Campaign(), 'disciplina', 'valor', '<br>', 'pt_BR', 10));
+        $this->assertSame('11,10', $this->resolver->resolve($this->contact, new Campaign(), 'disciplina', 'valor', '<br>', 'pt_BR', 10));
+    }
+
+    public function testTheCalculationIsNotAppliedToAText(): void
+    {
+        $this->itemsSelected([1]);
+        $this->expectValuesFetchedFor([1], 'nome', ['15']);
+
+        $this->assertSame('15', $this->resolver->resolve($this->contact, new Campaign(), 'disciplina', 'nome', '<br>', 'pt_BR', 10));
     }
 }

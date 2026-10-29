@@ -121,4 +121,13 @@ class DateFormatterTest extends TestCase
         $this->assertSame('not-a-date', DateFormatter::format('not-a-date', 'date', 'pt_BR', 10));
         $this->assertSame('', DateFormatter::format('', 'date', 'pt_BR', 10));
     }
+
+    public function testTheDaysAreCutAtTenYearsEitherWay(): void
+    {
+        $this->assertSame('18/10/2036', DateFormatter::format('2026-10-21', 'date', 'pt_BR', 3650));
+        $this->assertSame(DateFormatter::format('2026-10-21', 'date', 'pt_BR', 3650), DateFormatter::format('2026-10-21', 'date', 'pt_BR', 3651));
+        $this->assertSame(DateFormatter::format('2026-10-21', 'date', 'pt_BR', 3650), DateFormatter::format('2026-10-21', 'date', 'pt_BR', 9999999));
+        $this->assertSame(DateFormatter::format('2026-10-21', 'date', 'pt_BR', -3650), DateFormatter::format('2026-10-21', 'date', 'pt_BR', -3651));
+        $this->assertNotSame(DateFormatter::format('2026-10-21', 'date', 'pt_BR', 3649), DateFormatter::format('2026-10-21', 'date', 'pt_BR', 3650));
+    }
 }

@@ -14,7 +14,6 @@ use Mautic\LeadBundle\Model\LeadModel;
  */
 class VariableResolver
 {
-    private const MAX_DAYS = 3650;
 
     public function __construct(
         private CustomObjectVariableResolver $customObjectVariableResolver,
@@ -67,8 +66,8 @@ class VariableResolver
 
     /**
      * The days to add to a date variable ('start + 10 days'), set on the Email's Variables tab as `dateOffsetDays`
-     * (negative goes back). Anything that is not a whole number, or none, is 0; more than ten years either way is
-     * cut to ten years, so a typo cannot push a date out of the range PHP formats.
+     * (negative goes back). Anything that is not a whole number, or none, is 0. The ten-year limit of a date is in
+     * DateFormatter; a number has no limit.
      *
      * @param array<string, mixed> $entry
      */
@@ -80,7 +79,7 @@ class VariableResolver
             return 0;
         }
 
-        return max(-self::MAX_DAYS, min(self::MAX_DAYS, (int) $days));
+        return (int) $days;
     }
 
     /**
@@ -117,6 +116,6 @@ class VariableResolver
         $field = $contact->getField($fieldAlias);
         $type  = is_array($field) ? (string) ($field['type'] ?? '') : '';
 
-        return DateFormatter::format((string) $value, $type, $language, $addDays);
+        return NumberCalculator::add(DateFormatter::format((string) $value, $type, $language, $addDays), $type, $addDays);
     }
 }

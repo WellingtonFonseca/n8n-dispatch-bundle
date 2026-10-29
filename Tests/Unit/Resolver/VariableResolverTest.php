@@ -299,6 +299,17 @@ class VariableResolverTest extends TestCase
         $this->assertSame(['nome' => 'Wellington'], $resolved);
     }
 
+    public function testTheCalculationIsAddedToANumberFieldWithNoLimit(): void
+    {
+        $resolved = $this->resolver->resolveAll(
+            ['a' => ['source' => 'field', 'field' => 'discstart', 'dateOffsetDays' => -10], 'b' => ['source' => 'field', 'field' => 'discstart', 'dateOffsetDays' => 5000]],
+            $this->contactWithStart('15', 'number'),
+            new Campaign()
+        );
+
+        $this->assertSame(['a' => '5', 'b' => '5015'], $resolved);
+    }
+
     public function testStaticValuesNeverGetDays(): void
     {
         $resolved = $this->resolver->resolveAll(['x' => ['source' => 'static', 'value' => '2026-10-21', 'dateOffsetDays' => 10]], new Lead(), new Campaign());
@@ -349,13 +360,13 @@ class VariableResolverTest extends TestCase
         $this->assertSame('16/10/2026', $this->resolver->resolveContactField($contact, 'discstart', 'pt_BR', -5));
     }
 
-    public function testAddDaysReadsOnlyWholeNumbersAndCutsAtTenYears(): void
+    public function testAddDaysReadsOnlyWholeNumbersAndDoesNotCutThem(): void
     {
         $this->assertSame(0, VariableResolver::addDays([]));
         $this->assertSame(3650, VariableResolver::addDays(['dateOffsetDays' => 3650]));
-        $this->assertSame(3650, VariableResolver::addDays(['dateOffsetDays' => 3651]));
+        $this->assertSame(3651, VariableResolver::addDays(['dateOffsetDays' => 3651]));
         $this->assertSame(3649, VariableResolver::addDays(['dateOffsetDays' => 3649]));
-        $this->assertSame(-3650, VariableResolver::addDays(['dateOffsetDays' => -3651]));
+        $this->assertSame(-5000, VariableResolver::addDays(['dateOffsetDays' => -5000]));
         $this->assertSame(-3649, VariableResolver::addDays(['dateOffsetDays' => '-3649']));
         $this->assertSame(0, VariableResolver::addDays(['dateOffsetDays' => '1e3']));
         $this->assertSame(0, VariableResolver::addDays(['dateOffsetDays' => 1.5]));

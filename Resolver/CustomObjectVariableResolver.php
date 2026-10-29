@@ -82,7 +82,7 @@ class CustomObjectVariableResolver
         // formatter ignores the other's types.
         $values = array_map(
             static fn (string $value): string => DecimalFormatter::format(
-                DateFormatter::format($value, (string) $targetField->getType(), $language, $addDays),
+                NumberCalculator::add(DateFormatter::format($value, (string) $targetField->getType(), $language, $addDays), (string) $targetField->getType(), $addDays),
                 (string) $targetField->getType(),
                 $language
             ),

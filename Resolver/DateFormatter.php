@@ -19,6 +19,9 @@ final class DateFormatter
      * 'date' field comes back as 'Y-m-d 00:00:00' (the bare 'Y-m-d' is kept for
      * contact fields and for storage that returns a plain date).
      */
+    /** Ten years either way: more would push a date out of the range PHP formats. */
+    public const MAX_DAYS = 3650;
+
     private const SOURCE_FORMATS = [
         'date'     => ['Y-m-d', 'Y-m-d H:i:s'],
         'datetime' => ['Y-m-d H:i:s'],
@@ -31,7 +34,7 @@ final class DateFormatter
      * sent, in case storage ever returns something unexpected.
      *
      * $addDays moves a date/datetime by calendar days (negative goes back) before it is
-     * formatted: 'start + 10 days'. It is done on the stored wall clock in UTC, so the
+     * formatted: 'start + 10 days', cut to ten years (MAX_DAYS) either way. It is done on the stored wall clock in UTC, so the
      * time of day of a datetime never shifts, and a value that is not a date is not touched.
      */
     public static function format(string $value, string $type, string $locale = LocaleConventions::DEFAULT_LOCALE, int $addDays = 0): string
@@ -55,7 +58,7 @@ final class DateFormatter
         }
 
         if (0 !== $addDays) {
-            $date->modify(sprintf('%+d days', $addDays));
+            $date->modify(sprintf('%+d days', max(-self::MAX_DAYS, min(self::MAX_DAYS, $addDays))));
         }
 
         return $date->format(LocaleConventions::dateFormat($locale, $type));
