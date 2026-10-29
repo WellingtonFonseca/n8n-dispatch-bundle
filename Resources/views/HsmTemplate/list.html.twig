@@ -51,6 +51,9 @@
                             'delete': permissions['sms:smses:deleteown'] or permissions['sms:smses:deleteother'],
                         },
                     }) }}
+                    <th class="col-template-status pa-0" scope="col">
+                        <span class="btn btn-ghost btn-block jc-space-between" style="pointer-events: none; color: inherit;"><span class="fw-b">{{ 'mautic.n8ndispatch.template.status.column'|trans }}</span></span>
+                    </th>
                     {{ include('@MauticCore/Helper/tableheader.html.twig', {
                         'sessionVar': 'n8ndispatch.hsmtemplate',
                         'orderBy': 'ht.name',
@@ -69,6 +72,12 @@
                         'orderBy': 'ht.hsmTemplate',
                         'text': 'mautic.n8ndispatch.campaign.event.hsm.template',
                         'class': 'col-hsmtemplate-template',
+                    }) }}
+                    {{ include('@MauticCore/Helper/tableheader.html.twig', {
+                        'sessionVar': 'n8ndispatch.hsmtemplate',
+                        'orderBy': 'ht.type',
+                        'text': 'mautic.n8ndispatch.campaign.event.hsm.type',
+                        'class': 'col-hsmtemplate-type',
                     }) }}
                     {{ include('@MauticCore/Helper/tableheader.html.twig', {
                         'sessionVar': 'n8ndispatch.hsmtemplate',
@@ -106,11 +115,15 @@
                                 'translationBase': 'mautic.n8ndispatch.hsmtemplate',
                             }) -}}
                         </td>
+                        <td class="col-template-status">
+                            {% set statusText = (item.isPublished() ? 'mautic.core.form.active' : 'mautic.core.form.inactive')|trans %}
+                            <span class="n8ndispatch-badge n8ndispatch-template-status n8ndispatch-badge--{{ item.isPublished() ? 'production' : 'failed' }}"
+                                  data-state="{{ item.isPublished() ? 'published' : 'unpublished' }}"
+                                  data-text-published="{{ 'mautic.core.form.active'|trans }}" data-text-unpublished="{{ 'mautic.core.form.inactive'|trans }}"
+                                  title="{{ statusText }}" aria-label="{{ statusText }}"><i class="{{ item.isPublished() ? 'ri-play-fill' : 'ri-stop-fill' }}" aria-hidden="true"></i><span class="n8ndispatch-template-status__text">{{ statusText }}</span></span>
+                        </td>
                         <td>
                             <div>
-                                <span class="n8ndispatch-badge n8ndispatch-template-status n8ndispatch-badge--{{ item.isPublished() ? 'production' : 'failed' }}"
-                                      data-state="{{ item.isPublished() ? 'published' : 'unpublished' }}"
-                                      data-text-published="{{ 'mautic.core.form.active'|trans }}" data-text-unpublished="{{ 'mautic.core.form.inactive'|trans }}">{{ (item.isPublished() ? 'mautic.core.form.active' : 'mautic.core.form.inactive')|trans }}</span>
                                 {{- include('@MauticCore/Helper/publishstatus_icon.html.twig', {
                                     'item': item,
                                     'model': 'n8ndispatch.hsmtemplate',
@@ -125,6 +138,7 @@
                         </td>
                         <td>{{ item.getRouter() }}</td>
                         <td>{{ item.getHsmTemplate() }}</td>
+                        <td class="col-hsmtemplate-type">{{ ('mautic.n8ndispatch.hsmtemplate.type.' ~ item.getType())|trans }}</td>
                         <td class="visible-md visible-lg">{{ item.getId() }}</td>
                     </tr>
                 {% endfor %}

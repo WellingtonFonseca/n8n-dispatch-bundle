@@ -1,4 +1,4 @@
-// Status of the SMS / HSM template lists: an "Ativo" / "Inativo" badge (the n8n badge) at the start of the name, and "Desativar" /
+// Status of the SMS / HSM template lists: an "Ativo" / "Inativo" badge (the n8n badge, an icon that opens on hover) in the Status column, and "Desativar" /
 // "Ativar" in the row menu. Both follow core's toggle icon of the row (hidden by n8ndispatch.css): the menu item clicks it,
 // so core sends the request and checks the permission, and the badge and the item are brought to the icon's state, spinning while
 // core works. The texts come from data attributes the list template prints (translated there).
@@ -18,13 +18,30 @@
         return icon.getAttribute('data-status') === 'unpublished' ? 'unpublished' : 'published';
     }
 
+    /**
+     * Writes the state into a badge: an icon (play on green, stop on red) plus the word, which is the badge's title and shows when it
+     * opens on hover (n8ndispatch.css); while core works only a spinner, orange. Nothing is touched when it already shows the state.
+     */
     function paintBadge(badge, state) {
         if (badge.getAttribute('data-state') === state) { return; }
         var modifier = state === 'busy' ? 'pending' : (state === 'unpublished' ? 'failed' : 'production');
+        var doc = badge.ownerDocument, icon = doc.createElement('i');
         badge.className = 'n8ndispatch-badge n8ndispatch-template-status n8ndispatch-badge--' + modifier;
-        // the word and the color tell the status; only the wait has an icon
-        badge.textContent = state === 'busy' ? '' : badge.getAttribute('data-text-' + state);
-        if (state === 'busy') { badge.insertAdjacentHTML('afterbegin', '<i class="ri-loader-3-line ri-spin"></i>'); }
+        badge.textContent = '';
+        icon.setAttribute('aria-hidden', 'true');
+        if (state === 'busy') {
+            icon.className = 'ri-loader-3-line ri-spin';
+            badge.appendChild(icon);
+        } else {
+            var text = badge.getAttribute('data-text-' + state), word = doc.createElement('span');
+            icon.className = state === 'unpublished' ? 'ri-stop-fill' : 'ri-play-fill';
+            word.className = 'n8ndispatch-template-status__text';
+            word.textContent = text;
+            badge.appendChild(icon);
+            badge.appendChild(word);
+            badge.setAttribute('title', text);
+            badge.setAttribute('aria-label', text);
+        }
         badge.setAttribute('data-state', state);
     }
 
@@ -66,7 +83,7 @@
         }).observe(doc.body || doc.documentElement, {childList: true, subtree: true, attributes: true, attributeFilter: ['class', 'data-status']});
     }
 
-    var api = {stateOf: stateOf, sync: sync, install: install};
+    var api = {stateOf: stateOf, paintBadge: paintBadge, sync: sync, install: install};
 
     if (typeof module !== 'undefined' && module.exports) {
         module.exports = api;

@@ -3,6 +3,7 @@
 declare(strict_types=1);
 
 use MauticPlugin\N8nDispatchBundle\Integration\N8nDispatchIntegration;
+use MauticPlugin\N8nDispatchBundle\Service\N8nSmsTransport;
 
 $n8nConfig = [
     'name'        => 'N8N Dispatch',
@@ -72,6 +73,15 @@ $n8nConfig = [
     ],
 
     'services' => [
+        'other' => [
+            // turns core's `sms` channel on while the plugin is active (Do Not Contact of SMS and HSM on the contact page); it sends nothing
+            'mautic.n8ndispatch.sms_transport' => [
+                'class'        => N8nSmsTransport::class,
+                'arguments'    => ['translator'],
+                'tag'          => 'mautic.sms_transport',
+                'tagArguments' => ['integrationAlias' => N8nDispatchIntegration::NAME],
+            ],
+        ],
         'integrations' => [
             'mautic.integration.n8ndispatch' => [
                 'class'     => N8nDispatchIntegration::class,
