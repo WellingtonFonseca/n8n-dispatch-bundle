@@ -14,6 +14,8 @@ use Mautic\LeadBundle\Model\LeadModel;
  */
 class VariableResolver
 {
+    private const MAX_DAYS = 3650;
+
     public function __construct(
         private CustomObjectVariableResolver $customObjectVariableResolver,
         private LeadModel $leadModel,
@@ -49,17 +51,36 @@ class VariableResolver
     private function resolveOne(array $entry, Lead $contact, Campaign $campaign, string $multiValueSeparator, string $language): string
     {
         return match ($entry['source'] ?? 'static') {
-            'field'         => $this->resolveContactField($contact, (string) ($entry['field'] ?? ''), $language),
+            'field'         => $this->resolveContactField($contact, (string) ($entry['field'] ?? ''), $language, self::addDays($entry)),
             'custom_object' => $this->customObjectVariableResolver->resolve(
                 $contact,
                 $campaign,
                 (string) ($entry['customObject'] ?? ''),
                 (string) ($entry['customObjectField'] ?? ''),
                 $multiValueSeparator,
-                $language
+                $language,
+                self::addDays($entry)
             ),
             default => (string) ($entry['value'] ?? ''),
         };
+    }
+
+    /**
+     * The days to add to a date variable ('start + 10 days'), set on the Email's Variables tab as `dateOffsetDays`
+     * (negative goes back). Anything that is not a whole number, or none, is 0; more than ten years either way is
+     * cut to ten years, so a typo cannot push a date out of the range PHP formats.
+     *
+     * @param array<string, mixed> $entry
+     */
+    public static function addDays(array $entry): int
+    {
+        $days = $entry['dateOffsetDays'] ?? 0;
+
+        if (!is_int($days) && !(is_string($days) && 1 === preg_match('/^[+-]?\d+$/', trim($days)))) {
+            return 0;
+        }
+
+        return max(-self::MAX_DAYS, min(self::MAX_DAYS, (int) $days));
     }
 
     /**
@@ -68,7 +89,7 @@ class VariableResolver
      * 'inst_id_lyceum') straight into the dispatch payload, outside of the
      * variablesJson source-picker mechanism this class otherwise serves.
      */
-    public function resolveContactField(Lead $contact, string $fieldAlias, string $language = LocaleConventions::DEFAULT_LOCALE): string
+    public function resolveContactField(Lead $contact, string $fieldAlias, string $language = LocaleConventions::DEFAULT_LOCALE, int $addDays = 0): string
     {
         if ('' === $fieldAlias) {
             return '';
@@ -96,6 +117,6 @@ class VariableResolver
         $field = $contact->getField($fieldAlias);
         $type  = is_array($field) ? (string) ($field['type'] ?? '') : '';
 
-        return DateFormatter::format((string) $value, $type, $language);
+        return DateFormatter::format((string) $value, $type, $language, $addDays);
     }
 }
