@@ -14,6 +14,9 @@ namespace MauticPlugin\N8nDispatchBundle\Resolver;
  */
 final class DateFormatter
 {
+    /** Ten years either way: more would push a date out of the range PHP formats. */
+    public const MAX_DAYS = 3650;
+
     /**
      * Stored formats tried in order. Mautic's date column is a DATETIME, so a
      * 'date' field comes back as 'Y-m-d 00:00:00' (the bare 'Y-m-d' is kept for
@@ -29,8 +32,12 @@ final class DateFormatter
      * or if $value doesn't actually match Mautic's own stored format —
      * safer than throwing away a value dispatch would otherwise have
      * sent, in case storage ever returns something unexpected.
+     *
+     * $addDays moves a date/datetime by calendar days (negative goes back) before it is
+     * formatted: 'start + 10 days', cut to ten years (MAX_DAYS) either way. It is done on the stored wall clock in UTC, so the
+     * time of day of a datetime never shifts, and a value that is not a date is not touched.
      */
-    public static function format(string $value, string $type, string $locale = LocaleConventions::DEFAULT_LOCALE): string
+    public static function format(string $value, string $type, string $locale = LocaleConventions::DEFAULT_LOCALE, int $addDays = 0): string
     {
         if ('' === $value || !isset(self::SOURCE_FORMATS[$type])) {
             return $value;
@@ -38,7 +45,7 @@ final class DateFormatter
 
         $date = false;
         foreach (self::SOURCE_FORMATS[$type] as $format) {
-            $date = \DateTime::createFromFormat('!'.$format, $value);
+            $date = \DateTime::createFromFormat('!'.$format, $value, new \DateTimeZone('UTC'));
 
             if (false !== $date && $date->format($format) === $value) {
                 break;
@@ -48,6 +55,10 @@ final class DateFormatter
 
         if (false === $date) {
             return $value;
+        }
+
+        if (0 !== $addDays) {
+            $date->modify(sprintf('%+d days', max(-self::MAX_DAYS, min(self::MAX_DAYS, $addDays))));
         }
 
         return $date->format(LocaleConventions::dateFormat($locale, $type));

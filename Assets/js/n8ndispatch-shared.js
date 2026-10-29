@@ -268,7 +268,40 @@
             + '</div>';
     }
 
-    function variableRowHtml(name, existingEntry, fields, customObjects) {
+    // A calculation applies to a field of the contact or of a Custom Object, never to a fixed value.
+    function isFieldSource(source) {
+        return 'field' === source || 'custom_object' === source;
+    }
+
+    // 'Calculation [10]': the number added to a date (days) or to a number variable. Only the Email's Variables tab asks for it
+    // (the response of getEmailVariables says dateOffset); the dispatch leaves a field of another type as it is. Shown with
+    // the source it belongs to, like the field selects.
+    function dateOffsetBlock(entry, source) {
+        var shown = isFieldSource(source) ? '' : ' style="display:none"';
+        var days  = null == entry.dateOffsetDays ? '' : entry.dateOffsetDays;
+
+        return '<div class="n8ndispatch-var-offset mt-xs"' + shown + '>'
+            + '<div class="input-group">'
+            + '<span class="input-group-addon">' + escapePlain(translate('mautic.n8ndispatch.js.offset.label', 'Calculation')) + '</span>'
+            + '<input type="text" inputmode="decimal" class="form-control n8ndispatch-var-offset-days" placeholder="0" value="' + escapeHtml(days) + '">'
+            + '</div>'
+            + '</div>';
+    }
+
+    // The text of the Calculation box as it is saved: a whole number, a decimal as text, or null when it is
+    // empty, 0 or not a number. A comma is read as a point.
+    function parseCalculation(text) {
+        var clean = String(text || '').replace(',', '.').trim();
+
+        if (!/^[+-]?\d+(\.\d+)?$/.test(clean) || 0 === parseFloat(clean)) {
+            return null;
+        }
+
+        // a whole number is a JSON number only while it is exact (up to 15 digits); a longer one stays text
+        return /^[+-]?\d+$/.test(clean) && Number.isSafeInteger(parseInt(clean, 10)) ? parseInt(clean, 10) : clean;
+    }
+
+    function variableRowHtml(name, existingEntry, fields, customObjects, allowDateOffset) {
         var entry  = mQuery.extend({}, DEFAULT_ENTRY, existingEntry || {});
         var source = entry.source || 'static';
 
@@ -303,7 +336,7 @@
             + '<label class="control-label">{{' + escapeHtml(name) + '}}</label>'
             + '<div class="row">'
             + '<div class="col-xs-4">' + sourceSelect + '</div>'
-            + '<div class="col-xs-8">' + valueBlock + '</div>'
+            + '<div class="col-xs-8">' + valueBlock + (allowDateOffset ? dateOffsetBlock(entry, source) : '') + '</div>'
             + '</div>'
             + '</div>';
     }
@@ -333,7 +366,7 @@
 
         var html = '';
         mQuery.each(response.variables || [], function (i, name) {
-            html += variableRowHtml(name, existing[name], response.fields, response.customObjects, false);
+            html += variableRowHtml(name, existing[name], response.fields, response.customObjects, !!response.dateOffset);
         });
 
         $container.html(html);
@@ -381,6 +414,7 @@
             $row.find('.n8ndispatch-var-value').toggle('static' === source);
             $row.find('.n8ndispatch-var-field').toggle('field' === source);
             $row.find('.n8ndispatch-var-custom-object').toggle('custom_object' === source);
+            $row.find('.n8ndispatch-var-offset').toggle(isFieldSource(source));
 
             syncHiddenField($container, $hidden);
         });
@@ -397,7 +431,7 @@
         });
 
         $container.find(
-            '.n8ndispatch-var-value, .n8ndispatch-var-field, .n8ndispatch-var-custom-object-field'
+            '.n8ndispatch-var-value, .n8ndispatch-var-field, .n8ndispatch-var-custom-object-field, .n8ndispatch-var-offset-days'
         ).on('keyup change', function () {
             syncHiddenField($container, $hidden);
         });
@@ -419,6 +453,13 @@
                 entry.customObjectField = $row.find('.n8ndispatch-var-custom-object-field').val();
             } else {
                 entry.value = $row.find('.n8ndispatch-var-value').val();
+            }
+
+            // only a field can be calculated; 0 or nothing typed leaves the key out, so a row with no calculation saves as before.
+            // A whole number is saved as a number, a decimal (or a very long whole number) as text (13.2 -> "13.2"): no float rounds it.
+            var offset = isFieldSource(source) ? parseCalculation($row.find('.n8ndispatch-var-offset-days').val()) : null;
+            if (null !== offset) {
+                entry.dateOffsetDays = offset;
             }
 
             values[name] = entry;

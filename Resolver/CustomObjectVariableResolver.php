@@ -36,7 +36,7 @@ class CustomObjectVariableResolver
     ) {
     }
 
-    public function resolve(Lead $contact, Campaign $campaign, string $customObjectAlias, string $targetFieldAlias, string $separator = '<br>', string $language = LocaleConventions::DEFAULT_LOCALE): string
+    public function resolve(Lead $contact, Campaign $campaign, string $customObjectAlias, string $targetFieldAlias, string $separator = '<br>', string $language = LocaleConventions::DEFAULT_LOCALE, string $calculation = '0'): string
     {
         try {
             $customObject = $this->customObjectModel->fetchEntityByAlias($customObjectAlias);
@@ -80,10 +80,11 @@ class CustomObjectVariableResolver
         // does for contact fields. Decimal values lose their storage padding
         // and follow the language's separator (DecimalFormatter); each
         // formatter ignores the other's types.
+        $type   = (string) $targetField->getType();
         $values = array_map(
             static fn (string $value): string => DecimalFormatter::format(
-                DateFormatter::format($value, (string) $targetField->getType(), $language),
-                (string) $targetField->getType(),
+                FieldCalculator::apply($value, $type, $language, $calculation),
+                $type,
                 $language
             ),
             $this->itemMatcher->fetchFieldValues($itemIds, $targetField)

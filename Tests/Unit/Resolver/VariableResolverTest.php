@@ -217,4 +217,176 @@ class VariableResolverTest extends TestCase
 
         $this->assertSame(['disciplina' => "disciplina 1\ndisciplina 2"], $resolved);
     }
+
+    private function contactWithStart(string $value = '2026-10-21', string $type = 'date'): Lead
+    {
+        $contact = new Lead();
+        $contact->setFields(['core' => ['discstart' => ['type' => $type, 'value' => $value]]]);
+
+        return $contact;
+    }
+
+    /** @return array<string, array{mixed, string}> */
+    public static function offsets(): array
+    {
+        return [
+            'ten days'              => [10, '31/10/2026'],
+            'a number as text'      => ['10', '31/10/2026'],
+            'with a plus sign'      => ['+10', '31/10/2026'],
+            'spaces around it'      => [' 10 ', '31/10/2026'],
+            'minus'                 => [-10, '11/10/2026'],
+            'minus as text'         => ['-10', '11/10/2026'],
+            'zero'                  => [0, '21/10/2026'],
+            'empty text'            => ['', '21/10/2026'],
+            'not a number'          => ['dez', '21/10/2026'],
+            'a decimal uses the whole days' => ['1.5', '22/10/2026'],
+            'a decimal below one day'       => ['0.9', '21/10/2026'],
+            'a comma decimal'               => ['2,7', '23/10/2026'],
+            'null'                  => [null, '21/10/2026'],
+            'a list'                => [[10], '21/10/2026'],
+            'more than ten years'   => [99999, '18/10/2036'],
+            'less than ten years'   => [-99999, '23/10/2016'],
+        ];
+    }
+
+    #[\PHPUnit\Framework\Attributes\DataProvider('offsets')]
+    public function testAContactDateFieldAddsTheDaysOfTheEntry(mixed $days, string $expected): void
+    {
+        $resolved = $this->resolver->resolveAll(
+            ['avaliacao' => ['source' => 'field', 'field' => 'discstart', 'dateOffsetDays' => $days]],
+            $this->contactWithStart(),
+            new Campaign()
+        );
+
+        $this->assertSame(['avaliacao' => $expected], $resolved);
+    }
+
+    public function testAnEntryWithoutDaysIsAsBefore(): void
+    {
+        $resolved = $this->resolver->resolveAll(['inicio' => ['source' => 'field', 'field' => 'discstart']], $this->contactWithStart(), new Campaign());
+
+        $this->assertSame(['inicio' => '21/10/2026'], $resolved);
+    }
+
+    public function testTheDaysFollowTheLanguageOfTheTemplate(): void
+    {
+        $resolved = $this->resolver->resolveAll(
+            ['avaliacao' => ['source' => 'field', 'field' => 'discstart', 'dateOffsetDays' => 10]],
+            $this->contactWithStart(),
+            new Campaign(),
+            '<br>',
+            'en_US'
+        );
+
+        $this->assertSame(['avaliacao' => '10/31/2026'], $resolved);
+    }
+
+    public function testAContactDatetimeFieldAddsDaysAndKeepsTheTime(): void
+    {
+        $resolved = $this->resolver->resolveAll(
+            ['avaliacao' => ['source' => 'field', 'field' => 'discstart', 'dateOffsetDays' => 10]],
+            $this->contactWithStart('2026-10-21 14:30:00', 'datetime'),
+            new Campaign()
+        );
+
+        $this->assertSame(['avaliacao' => '31/10/2026 14:30:00'], $resolved);
+    }
+
+    public function testDaysAreNotAddedToAFieldThatIsNotADate(): void
+    {
+        $resolved = $this->resolver->resolveAll(
+            ['nome' => ['source' => 'field', 'field' => 'discstart', 'dateOffsetDays' => 10]],
+            $this->contactWithStart('Wellington', 'text'),
+            new Campaign()
+        );
+
+        $this->assertSame(['nome' => 'Wellington'], $resolved);
+    }
+
+    public function testTheCalculationIsAddedToANumberFieldWithNoLimit(): void
+    {
+        $resolved = $this->resolver->resolveAll(
+            ['a' => ['source' => 'field', 'field' => 'discstart', 'dateOffsetDays' => -10], 'b' => ['source' => 'field', 'field' => 'discstart', 'dateOffsetDays' => 5000]],
+            $this->contactWithStart('15', 'number'),
+            new Campaign()
+        );
+
+        $this->assertSame(['a' => '5', 'b' => '5015'], $resolved);
+    }
+
+    public function testADecimalCalculationIsUsedWithItsPlacesOnlyByADecimalField(): void
+    {
+        $resolved = $this->resolver->resolveAll(
+            ['a' => ['source' => 'field', 'field' => 'discstart', 'dateOffsetDays' => '2.5']],
+            $this->contactWithStart('15', 'number'),
+            new Campaign()
+        );
+
+        $this->assertSame(['a' => '17'], $resolved);
+    }
+
+    public function testStaticValuesNeverGetDays(): void
+    {
+        $resolved = $this->resolver->resolveAll(['x' => ['source' => 'static', 'value' => '2026-10-21', 'dateOffsetDays' => 10]], new Lead(), new Campaign());
+
+        $this->assertSame(['x' => '2026-10-21'], $resolved);
+    }
+
+    public function testACustomObjectEntryPassesTheDaysToTheCustomObjectResolver(): void
+    {
+        $contact  = new Lead();
+        $campaign = new Campaign();
+
+        $this->customObjectVariableResolver->expects($this->once())
+            ->method('resolve')
+            ->with($contact, $campaign, 'disciplines', 'discstart', '<br>', 'pt_BR', '10')
+            ->willReturn('31/10/2026');
+
+        $resolved = $this->resolver->resolveAll(
+            ['avaliacao' => ['source' => 'custom_object', 'customObject' => 'disciplines', 'customObjectField' => 'discstart', 'dateOffsetDays' => '10']],
+            $contact,
+            $campaign
+        );
+
+        $this->assertSame(['avaliacao' => '31/10/2026'], $resolved);
+    }
+
+    public function testACustomObjectEntryWithoutDaysPassesZero(): void
+    {
+        $contact  = new Lead();
+        $campaign = new Campaign();
+
+        $this->customObjectVariableResolver->expects($this->once())
+            ->method('resolve')
+            ->with($contact, $campaign, 'disciplines', 'discstart', '<br>', 'pt_BR', '0')
+            ->willReturn('21/10/2026');
+
+        $this->resolver->resolveAll(['inicio' => ['source' => 'custom_object', 'customObject' => 'disciplines', 'customObjectField' => 'discstart']], $contact, $campaign);
+    }
+
+    public function testResolveContactFieldAddsNothingByDefaultAndTheGivenDaysWhenAsked(): void
+    {
+        $contact = $this->contactWithStart();
+
+        // the callers that read a fixed field straight into the payload (inst_id_*) never pass days
+        $this->assertSame('21/10/2026', $this->resolver->resolveContactField($contact, 'discstart'));
+        $this->assertSame('21/10/2026', $this->resolver->resolveContactField($contact, 'discstart', 'pt_BR'));
+        $this->assertSame('26/10/2026', $this->resolver->resolveContactField($contact, 'discstart', 'pt_BR', '5'));
+        $this->assertSame('16/10/2026', $this->resolver->resolveContactField($contact, 'discstart', 'pt_BR', '-5'));
+    }
+
+    public function testCalculationTextKeepsAnyNumberAsTextAndDropsTheRest(): void
+    {
+        $this->assertSame('0', VariableResolver::calculationText([]));
+        $this->assertSame('3650', VariableResolver::calculationText(['dateOffsetDays' => 3650]));
+        $this->assertSame('5000', VariableResolver::calculationText(['dateOffsetDays' => 5000]));
+        $this->assertSame('-3649', VariableResolver::calculationText(['dateOffsetDays' => '-3649']));
+        $this->assertSame('13.2', VariableResolver::calculationText(['dateOffsetDays' => '13.2']));
+        $this->assertSame('-0.5', VariableResolver::calculationText(['dateOffsetDays' => ' -0,5 ']));
+        $this->assertSame('0', VariableResolver::calculationText(['dateOffsetDays' => '1e3']));
+        $this->assertSame('0', VariableResolver::calculationText(['dateOffsetDays' => '13.']));
+        $this->assertSame('0', VariableResolver::calculationText(['dateOffsetDays' => 'dez']));
+        $this->assertSame('0', VariableResolver::calculationText(['dateOffsetDays' => 1.5]));
+        $this->assertSame('0', VariableResolver::calculationText(['dateOffsetDays' => null]));
+    }
 }

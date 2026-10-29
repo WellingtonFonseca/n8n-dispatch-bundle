@@ -49,17 +49,40 @@ class VariableResolver
     private function resolveOne(array $entry, Lead $contact, Campaign $campaign, string $multiValueSeparator, string $language): string
     {
         return match ($entry['source'] ?? 'static') {
-            'field'         => $this->resolveContactField($contact, (string) ($entry['field'] ?? ''), $language),
+            'field'         => $this->resolveContactField($contact, (string) ($entry['field'] ?? ''), $language, self::calculationText($entry)),
             'custom_object' => $this->customObjectVariableResolver->resolve(
                 $contact,
                 $campaign,
                 (string) ($entry['customObject'] ?? ''),
                 (string) ($entry['customObjectField'] ?? ''),
                 $multiValueSeparator,
-                $language
+                $language,
+                self::calculationText($entry)
             ),
             default => (string) ($entry['value'] ?? ''),
         };
+    }
+
+    /**
+     * The number of the Calculation box of a field variable, set on the Email's Variables tab as `dateOffsetDays`
+     * (negative subtracts): days for a date, a value for a number. Kept as text ('13', '-0.5'; a comma is read as a
+     * point) so no float rounds it. Anything that is not a number, or none, is '0'. Each formatter takes what it
+     * needs: a date and an int use the whole part, a decimal uses the places. The ten-year limit of a date is in
+     * DateFormatter; a number has no limit.
+     *
+     * @param array<string, mixed> $entry
+     */
+    public static function calculationText(array $entry): string
+    {
+        $amount = $entry['dateOffsetDays'] ?? 0;
+
+        if (!is_int($amount) && !is_string($amount)) {
+            return '0';
+        }
+
+        $amount = str_replace(',', '.', trim((string) $amount));
+
+        return 1 === preg_match('/^[+-]?\d+(\.\d+)?$/', $amount) ? $amount : '0';
     }
 
     /**
@@ -68,7 +91,7 @@ class VariableResolver
      * 'inst_id_lyceum') straight into the dispatch payload, outside of the
      * variablesJson source-picker mechanism this class otherwise serves.
      */
-    public function resolveContactField(Lead $contact, string $fieldAlias, string $language = LocaleConventions::DEFAULT_LOCALE): string
+    public function resolveContactField(Lead $contact, string $fieldAlias, string $language = LocaleConventions::DEFAULT_LOCALE, string $calculation = '0'): string
     {
         if ('' === $fieldAlias) {
             return '';
@@ -96,6 +119,6 @@ class VariableResolver
         $field = $contact->getField($fieldAlias);
         $type  = is_array($field) ? (string) ($field['type'] ?? '') : '';
 
-        return DateFormatter::format((string) $value, $type, $language);
+        return FieldCalculator::apply((string) $value, $type, $language, $calculation);
     }
 }
