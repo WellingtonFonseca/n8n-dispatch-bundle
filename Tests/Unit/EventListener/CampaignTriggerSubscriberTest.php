@@ -218,6 +218,34 @@ class CampaignTriggerSubscriberTest extends TestCase
         $this->assertCount(0, $pendingEvent->getFailures());
     }
 
+    public function testProductionStatusFailsSayingTheStepHasNoEmailWhenNoneWasPicked(): void
+    {
+        $pendingEvent = $this->buildPendingEvent(['status' => 'production']);
+
+        $this->emailModel->expects($this->never())->method('getEntity');
+        $this->httpClient->expects($this->never())->method('request');
+
+        $this->subscriber->onEmailSend($pendingEvent);
+
+        $failures = $pendingEvent->getFailures();
+        $this->assertCount(1, $failures);
+        $this->assertSame('N8nDispatch: this step has no Email picked.', $failures->first()->getFailedLog()->getReason());
+    }
+
+    public function testProductionStatusFailsSayingWhichEmailWasDeleted(): void
+    {
+        $pendingEvent = $this->buildPendingEvent(['email' => 7, 'status' => 'production']);
+
+        $this->emailModel->method('getEntity')->with(7)->willReturn(null);
+        $this->httpClient->expects($this->never())->method('request');
+
+        $this->subscriber->onEmailSend($pendingEvent);
+
+        $failures = $pendingEvent->getFailures();
+        $this->assertCount(1, $failures);
+        $this->assertSame('N8nDispatch: Email #7 of this step was deleted.', $failures->first()->getFailedLog()->getReason());
+    }
+
     public function testProductionStatusFailAllWhenIntegrationNotConfigured(): void
     {
         $pendingEvent = $this->buildPendingEvent(['email' => 1, 'status' => 'production']);

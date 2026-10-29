@@ -123,7 +123,10 @@ class CampaignTriggerSubscriber implements EventSubscriberInterface
         }
 
         if (null === $email) {
-            $event->failAll($this->failureReasons->translated(DispatchFailureReasons::EMAIL_TEMPLATE_MISSING));
+            // No id at all (a step saved without an Email) and an id whose Email is gone are different things to fix.
+            $event->failAll($emailId > 0
+                ? $this->failureReasons->translated(DispatchFailureReasons::EMAIL_TEMPLATE_DELETED, ['%id%' => $emailId])
+                : $this->failureReasons->translated(DispatchFailureReasons::EMAIL_TEMPLATE_NOT_SET));
 
             return;
         }

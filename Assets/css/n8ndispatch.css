@@ -455,13 +455,52 @@ textarea.n8ndispatch-json-block {
     margin-bottom: 12px;
 }
 
-/* Status of the SMS / HSM template lists (Assets/js/template-status-toggle.js): the badge is the Timeline one with a fixed width (the
-   one of INATIVO), core's toggle icon is hidden, and the first menu item is red / green on hover like the status it leads to. */
+/* Status of the SMS / HSM template lists (Assets/js/template-status-toggle.js): a column of its own right after the menu column, with the Timeline
+   badge as a 22px circle holding an icon (play on green, stop on red); on hover it opens to the right and shows the word, as the status badge of
+   the campaign card, pushing the next cell (it is in the flow of the cell). Core's toggle icon is hidden, and the first menu item is red / green
+   on hover like the status it leads to. Duplicated on purpose in MauticPatchesBundle (list-status icon badge of its own lists). */
+#smsTemplateTable td,
+#hsmTemplateTable td {
+    white-space: nowrap; /* the cells never wrap: an open badge widens its column and the table scrolls, no row changes height under the pointer */
+}
+
 .n8ndispatch-template-status {
-    min-width: 76px;
-    justify-content: center;
-    margin-right: 8px;
+    display: inline-flex;
+    vertical-align: middle;
     box-sizing: border-box;
+    height: 22px;
+    min-width: 0;
+    max-width: 22px;
+    margin: 0;
+    padding: 0;
+    gap: 0;
+    justify-content: flex-start;
+    overflow: hidden;
+    transition: max-width 0.2s ease, box-shadow 0.2s ease;
+}
+
+.n8ndispatch-template-status:hover {
+    max-width: 140px;
+    box-shadow: rgba(0, 0, 0, 0.2) 0 1px 4px 0;
+}
+
+.n8ndispatch-template-status > i {
+    flex: 0 0 22px;
+    width: 22px;
+    height: 22px;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+}
+
+.n8ndispatch-template-status__text {
+    padding: 0 10px 0 0;
+    opacity: 0;
+    transition: opacity 0.15s ease 0.05s;
+}
+
+.n8ndispatch-template-status:hover .n8ndispatch-template-status__text {
+    opacity: 1;
 }
 
 #hsmTemplateTable i[class*="-publish-icon"],
@@ -485,9 +524,10 @@ a[data-n8n-status-action]:hover * {
     color: inherit !important;
 }
 
-/* The description under the name is hidden in the lists that have the status badge (the same as the segment, campaign and email lists
-   of MauticPatchesBundle): it is still on the form and the details. */
-td:has(.n8ndispatch-template-status) > div.text-muted {
+/* The description under the name is hidden in the template lists (the same as the segment, campaign and email lists of MauticPatchesBundle): it
+   is still on the form and the details. */
+#smsTemplateTable td > div.text-muted,
+#hsmTemplateTable td > div.text-muted {
     display: none !important;
 }
 
