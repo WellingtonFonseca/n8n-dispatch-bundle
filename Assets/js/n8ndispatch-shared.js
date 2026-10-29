@@ -268,11 +268,16 @@
             + '</div>';
     }
 
-    // 'Calculation [10]': days added to a date variable. Only the Email's Variables tab asks for it (the response of
-    // getEmailVariables says dateOffset), and only for a contact field or a Custom Object field; the dispatch ignores it
-    // for a field that is not a date. Shown with the source it belongs to, like the field selects.
+    // A calculation applies to a field of the contact or of a Custom Object, never to a fixed value.
+    function isFieldSource(source) {
+        return 'field' === source || 'custom_object' === source;
+    }
+
+    // 'Calculation [10]': the number added to a date (days) or to a number variable. Only the Email's Variables tab asks for it
+    // (the response of getEmailVariables says dateOffset); the dispatch leaves a field of another type as it is. Shown with
+    // the source it belongs to, like the field selects.
     function dateOffsetBlock(entry, source) {
-        var shown = 'field' === source || 'custom_object' === source ? '' : ' style="display:none"';
+        var shown = isFieldSource(source) ? '' : ' style="display:none"';
         var days  = null == entry.dateOffsetDays ? '' : entry.dateOffsetDays;
 
         return '<div class="n8ndispatch-var-offset mt-xs"' + shown + '>'
@@ -408,7 +413,7 @@
             $row.find('.n8ndispatch-var-value').toggle('static' === source);
             $row.find('.n8ndispatch-var-field').toggle('field' === source);
             $row.find('.n8ndispatch-var-custom-object').toggle('custom_object' === source);
-            $row.find('.n8ndispatch-var-offset').toggle('field' === source || 'custom_object' === source);
+            $row.find('.n8ndispatch-var-offset').toggle(isFieldSource(source));
 
             syncHiddenField($container, $hidden);
         });
@@ -451,7 +456,7 @@
 
             // only a field can be calculated; 0 or nothing typed leaves the key out, so a row with no calculation saves as before.
             // A whole number is saved as a number, a decimal as text (13.2 -> "13.2"): no float rounds it.
-            var offset = 'field' === source || 'custom_object' === source ? parseCalculation($row.find('.n8ndispatch-var-offset-days').val()) : null;
+            var offset = isFieldSource(source) ? parseCalculation($row.find('.n8ndispatch-var-offset-days').val()) : null;
             if (null !== offset) {
                 entry.dateOffsetDays = offset;
             }

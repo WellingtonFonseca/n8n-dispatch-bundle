@@ -23,7 +23,7 @@ final class NumberCalculator
      */
     public static function add(string $value, string $type, string $amount): string
     {
-        if (!in_array($type, self::TYPES, true)
+        if ('0' === $amount || !in_array($type, self::TYPES, true)
             || 1 !== preg_match('/^(-?)(\d+)(?:\.(\d+))?$/', $value, $parts)
             || 1 !== preg_match('/^([+-]?)(\d+)(?:\.(\d+))?$/', $amount, $addParts)) {
             return $value;
@@ -33,8 +33,8 @@ final class NumberCalculator
         $fraction    = $parts[3] ?? '';
         $scale       = max(strlen($fraction), strlen($addFraction));
         $leftSign    = '-' === $parts[1] ? -1 : 1;
-        $leftDigits  = self::trim($parts[2].str_pad($fraction, $scale, '0'));
-        $rightDigits = self::trim($addParts[2].str_pad($addFraction, $scale, '0'));
+        $leftDigits  = self::stripZeros($parts[2].str_pad($fraction, $scale, '0'));
+        $rightDigits = self::stripZeros($addParts[2].str_pad($addFraction, $scale, '0'));
 
         if ('0' === $rightDigits) {
             return $value;
@@ -48,7 +48,7 @@ final class NumberCalculator
         return (-1 === $sign && 1 === preg_match('/[1-9]/', $digits) ? '-' : '').$result;
     }
 
-    private static function trim(string $digits): string
+    private static function stripZeros(string $digits): string
     {
         $digits = ltrim($digits, '0');
 
@@ -110,6 +110,6 @@ final class NumberCalculator
             $out    = ($step + 10 * $borrow).$out;
         }
 
-        return self::trim($out);
+        return self::stripZeros($out);
     }
 }

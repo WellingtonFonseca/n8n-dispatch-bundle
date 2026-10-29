@@ -80,10 +80,11 @@ class CustomObjectVariableResolver
         // does for contact fields. Decimal values lose their storage padding
         // and follow the language's separator (DecimalFormatter); each
         // formatter ignores the other's types.
+        $type   = (string) $targetField->getType();
         $values = array_map(
             static fn (string $value): string => DecimalFormatter::format(
-                NumberCalculator::add(DateFormatter::format($value, (string) $targetField->getType(), $language, (int) $calculation), (string) $targetField->getType(), $calculation),
-                (string) $targetField->getType(),
+                FieldCalculator::apply($value, $type, $language, $calculation),
+                $type,
                 $language
             ),
             $this->itemMatcher->fetchFieldValues($itemIds, $targetField)

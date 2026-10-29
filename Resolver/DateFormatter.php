@@ -14,14 +14,14 @@ namespace MauticPlugin\N8nDispatchBundle\Resolver;
  */
 final class DateFormatter
 {
+    /** Ten years either way: more would push a date out of the range PHP formats. */
+    public const MAX_DAYS = 3650;
+
     /**
      * Stored formats tried in order. Mautic's date column is a DATETIME, so a
      * 'date' field comes back as 'Y-m-d 00:00:00' (the bare 'Y-m-d' is kept for
      * contact fields and for storage that returns a plain date).
      */
-    /** Ten years either way: more would push a date out of the range PHP formats. */
-    public const MAX_DAYS = 3650;
-
     private const SOURCE_FORMATS = [
         'date'     => ['Y-m-d', 'Y-m-d H:i:s'],
         'datetime' => ['Y-m-d H:i:s'],

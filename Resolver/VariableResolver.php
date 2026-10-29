@@ -14,7 +14,6 @@ use Mautic\LeadBundle\Model\LeadModel;
  */
 class VariableResolver
 {
-
     public function __construct(
         private CustomObjectVariableResolver $customObjectVariableResolver,
         private LeadModel $leadModel,
@@ -120,6 +119,6 @@ class VariableResolver
         $field = $contact->getField($fieldAlias);
         $type  = is_array($field) ? (string) ($field['type'] ?? '') : '';
 
-        return NumberCalculator::add(DateFormatter::format((string) $value, $type, $language, (int) $calculation), $type, $calculation);
+        return FieldCalculator::apply((string) $value, $type, $language, $calculation);
     }
 }
