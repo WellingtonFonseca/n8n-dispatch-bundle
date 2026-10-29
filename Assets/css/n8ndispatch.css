@@ -459,8 +459,9 @@ textarea.n8ndispatch-json-block {
    badge as a 22px circle holding an icon (play on green, stop on red); on hover it opens to the right and shows the word, as the status badge of
    the campaign card, pushing the next cell (it is in the flow of the cell). Core's toggle icon is hidden, and the first menu item is red / green
    on hover like the status it leads to. Duplicated on purpose in MauticPatchesBundle (list-status icon badge of its own lists). */
-td.col-template-status {
-    white-space: nowrap;
+#smsTemplateTable td,
+#hsmTemplateTable td {
+    white-space: nowrap; /* the cells never wrap: an open badge widens its column and the table scrolls, no row changes height under the pointer */
 }
 
 .n8ndispatch-template-status {

@@ -79,24 +79,3 @@ test('paintBadge: a badge that already shows the state is not touched', () => {
 
     assert.deepStrictEqual(b.children, ['untouched']);
 });
-
-test('growth: a badge grows to its content, up to 140px, minus the 22px it has', () => {
-    assert.strictEqual(api.growth({scrollWidth: 60, offsetWidth: 22}), 38);
-    assert.strictEqual(api.growth({scrollWidth: 400, offsetWidth: 22}), 118);
-    assert.strictEqual(api.growth({scrollWidth: 22, offsetWidth: 22}), 0);
-});
-
-test('overflow: the columns are pushed only by what the open badge does not fit in the cell', () => {
-    assert.strictEqual(api.overflow(22, 118, 90), 50);
-    assert.strictEqual(api.overflow(22, 68, 90), 0, 'it fits exactly');
-    assert.strictEqual(api.overflow(22, 38, 90), 0, 'it fits with room to spare');
-});
-
-test('pushPlan: the opening badge widens its own column by the extra, every other column keeps its width', () => {
-    const plan = api.pushPlan([40, 90, 60, 300], 1, 50);
-
-    assert.deepStrictEqual(plan.widths, [40, 140, 60, 300]);
-    assert.strictEqual(plan.total, 540);
-    assert.deepStrictEqual(api.pushPlan([10, 20], 0, 0), {widths: [10, 20], total: 30}, 'nothing extra: widths fixed as they are');
-    assert.deepStrictEqual(api.pushPlan([10, 20], 0, -5), {widths: [10, 20], total: 30});
-});
