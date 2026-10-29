@@ -280,7 +280,7 @@
             + '<span class="input-group-addon">' + escapePlain(translate('mautic.n8ndispatch.js.offset.label', 'Calculation')) + '</span>'
             + '<input type="number" step="1" class="form-control n8ndispatch-var-offset-days" placeholder="0" value="' + escapeHtml(days) + '">'
             + '</div>'
-            + '<small class="text-muted">' + escapePlain(translate('mautic.n8ndispatch.js.offset.help', 'Negative values subtract from the field. Date fields are applied in days.')) + '</small>'
+            + '<small class="text-muted" style="font-size:14px">' + escapePlain(translate('mautic.n8ndispatch.js.offset.help', 'Negative values subtract from the field. Date fields are applied in days.')) + '</small>'
             + '</div>';
     }
 
