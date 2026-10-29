@@ -4,6 +4,7 @@ declare(strict_types=1);
 
 namespace MauticPlugin\N8nDispatchBundle\Tests\Unit\EventListener;
 
+use Doctrine\DBAL\ArrayParameterType;
 use Doctrine\DBAL\Connection;
 use Doctrine\ORM\EntityManagerInterface;
 use MauticPlugin\N8nDispatchBundle\EventListener\CampaignEmailStepGuardSubscriber;
@@ -302,5 +303,30 @@ class CampaignEmailStepGuardSubscriberTest extends TestCase
         $this->subscriber([])->guard($event);
 
         return $event;
+    }
+
+    public function testAnEmailGivenAsNumericTextIsLookedUpAsANumber(): void
+    {
+        $event = $this->event(self::NEW, ['name' => 'C', 'events' => [$this->step(['email' => '7'])]]);
+
+        $this->subscriber([7], $queries, $asked)->guard($event);
+
+        $this->assertNull($this->refusal($event), 'the text "7" is the Email 7, found by its number');
+        $this->assertSame([7], $asked, 'the ids go to the query as numbers');
+    }
+
+    public function testTheLookupIsOneQueryOnTheEmailsTableWithTheIdsAsIntegers(): void
+    {
+        $connection = $this->createMock(Connection::class);
+        $connection->expects($this->once())->method('fetchFirstColumn')
+            ->with('SELECT id FROM '.MAUTIC_TABLE_PREFIX.'emails WHERE id IN (?)', [[7]], [ArrayParameterType::INTEGER])
+            ->willReturn([7]);
+        $em = $this->createMock(EntityManagerInterface::class);
+        $em->method('getConnection')->willReturn($connection);
+        $event = $this->event(self::NEW, ['name' => 'C', 'events' => [$this->step(['email' => 7])]]);
+
+        (new CampaignEmailStepGuardSubscriber($em, new EnUsTranslator()))->guard($event);
+
+        $this->assertNull($this->refusal($event));
     }
 }
