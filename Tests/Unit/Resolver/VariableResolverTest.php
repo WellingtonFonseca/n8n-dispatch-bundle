@@ -373,18 +373,18 @@ class VariableResolverTest extends TestCase
         $this->assertSame('16/10/2026', $this->resolver->resolveContactField($contact, 'discstart', 'pt_BR', '-5'));
     }
 
-    public function testAddDaysKeepsAnyNumberAsTextAndDropsTheRest(): void
+    public function testCalculationTextKeepsAnyNumberAsTextAndDropsTheRest(): void
     {
-        $this->assertSame('0', VariableResolver::addDays([]));
-        $this->assertSame('3650', VariableResolver::addDays(['dateOffsetDays' => 3650]));
-        $this->assertSame('5000', VariableResolver::addDays(['dateOffsetDays' => 5000]));
-        $this->assertSame('-3649', VariableResolver::addDays(['dateOffsetDays' => '-3649']));
-        $this->assertSame('13.2', VariableResolver::addDays(['dateOffsetDays' => '13.2']));
-        $this->assertSame('-0.5', VariableResolver::addDays(['dateOffsetDays' => ' -0,5 ']));
-        $this->assertSame('0', VariableResolver::addDays(['dateOffsetDays' => '1e3']));
-        $this->assertSame('0', VariableResolver::addDays(['dateOffsetDays' => '13.']));
-        $this->assertSame('0', VariableResolver::addDays(['dateOffsetDays' => 'dez']));
-        $this->assertSame('0', VariableResolver::addDays(['dateOffsetDays' => 1.5]));
-        $this->assertSame('0', VariableResolver::addDays(['dateOffsetDays' => null]));
+        $this->assertSame('0', VariableResolver::calculationText([]));
+        $this->assertSame('3650', VariableResolver::calculationText(['dateOffsetDays' => 3650]));
+        $this->assertSame('5000', VariableResolver::calculationText(['dateOffsetDays' => 5000]));
+        $this->assertSame('-3649', VariableResolver::calculationText(['dateOffsetDays' => '-3649']));
+        $this->assertSame('13.2', VariableResolver::calculationText(['dateOffsetDays' => '13.2']));
+        $this->assertSame('-0.5', VariableResolver::calculationText(['dateOffsetDays' => ' -0,5 ']));
+        $this->assertSame('0', VariableResolver::calculationText(['dateOffsetDays' => '1e3']));
+        $this->assertSame('0', VariableResolver::calculationText(['dateOffsetDays' => '13.']));
+        $this->assertSame('0', VariableResolver::calculationText(['dateOffsetDays' => 'dez']));
+        $this->assertSame('0', VariableResolver::calculationText(['dateOffsetDays' => 1.5]));
+        $this->assertSame('0', VariableResolver::calculationText(['dateOffsetDays' => null]));
     }
 }

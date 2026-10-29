@@ -283,7 +283,7 @@
         return '<div class="n8ndispatch-var-offset mt-xs"' + shown + '>'
             + '<div class="input-group">'
             + '<span class="input-group-addon">' + escapePlain(translate('mautic.n8ndispatch.js.offset.label', 'Calculation')) + '</span>'
-            + '<input type="number" step="any" class="form-control n8ndispatch-var-offset-days" placeholder="0" value="' + escapeHtml(days) + '">'
+            + '<input type="text" inputmode="decimal" class="form-control n8ndispatch-var-offset-days" placeholder="0" value="' + escapeHtml(days) + '">'
             + '</div>'
             + '</div>';
     }
@@ -297,7 +297,8 @@
             return null;
         }
 
-        return /^[+-]?\d+$/.test(clean) ? parseInt(clean, 10) : clean;
+        // a whole number is a JSON number only while it is exact (up to 15 digits); a longer one stays text
+        return /^[+-]?\d+$/.test(clean) && Number.isSafeInteger(parseInt(clean, 10)) ? parseInt(clean, 10) : clean;
     }
 
     function variableRowHtml(name, existingEntry, fields, customObjects, allowDateOffset) {
@@ -455,7 +456,7 @@
             }
 
             // only a field can be calculated; 0 or nothing typed leaves the key out, so a row with no calculation saves as before.
-            // A whole number is saved as a number, a decimal as text (13.2 -> "13.2"): no float rounds it.
+            // A whole number is saved as a number, a decimal (or a very long whole number) as text (13.2 -> "13.2"): no float rounds it.
             var offset = isFieldSource(source) ? parseCalculation($row.find('.n8ndispatch-var-offset-days').val()) : null;
             if (null !== offset) {
                 entry.dateOffsetDays = offset;

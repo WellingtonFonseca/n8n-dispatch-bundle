@@ -49,7 +49,7 @@ class VariableResolver
     private function resolveOne(array $entry, Lead $contact, Campaign $campaign, string $multiValueSeparator, string $language): string
     {
         return match ($entry['source'] ?? 'static') {
-            'field'         => $this->resolveContactField($contact, (string) ($entry['field'] ?? ''), $language, self::addDays($entry)),
+            'field'         => $this->resolveContactField($contact, (string) ($entry['field'] ?? ''), $language, self::calculationText($entry)),
             'custom_object' => $this->customObjectVariableResolver->resolve(
                 $contact,
                 $campaign,
@@ -57,7 +57,7 @@ class VariableResolver
                 (string) ($entry['customObjectField'] ?? ''),
                 $multiValueSeparator,
                 $language,
-                self::addDays($entry)
+                self::calculationText($entry)
             ),
             default => (string) ($entry['value'] ?? ''),
         };
@@ -72,7 +72,7 @@ class VariableResolver
      *
      * @param array<string, mixed> $entry
      */
-    public static function addDays(array $entry): string
+    public static function calculationText(array $entry): string
     {
         $amount = $entry['dateOffsetDays'] ?? 0;
 
