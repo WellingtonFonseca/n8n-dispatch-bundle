@@ -74,6 +74,44 @@ class TemplateVariableScannerTest extends TestCase
         $this->assertSame([], $this->scanner->extractWithoutPrefix('<p>Hello</p>'));
     }
 
+    public function testTheVariablesOfAnEmailAreThoseOfItsSubjectAndItsHtml(): void
+    {
+        $this->assertSame(['n8n_a', 'n8n_b'], $this->scanner->extractFromEmail('Oi {{n8n_a}}', '<p>{{n8n_b}}</p>'));
+    }
+
+    public function testAVariableOfBothTheSubjectAndTheHtmlIsListedOnce(): void
+    {
+        $this->assertSame(['n8n_a', 'n8n_b'], $this->scanner->extractFromEmail('{{n8n_a}} {{n8n_b}}', '{{n8n_b}} {{n8n_a}}'));
+    }
+
+    public function testTheListHasNoGapsWhenTheSubjectRepeatsAVariableOfTheHtml(): void
+    {
+        $this->assertSame(['n8n_a', 'n8n_b'], $this->scanner->extractFromEmail('{{n8n_a}}', '{{n8n_a}} {{n8n_b}}'));
+    }
+
+    public function testTheReservedVariableInTheMiddleLeavesNoGap(): void
+    {
+        $this->assertSame(['n8n_a', 'n8n_b'], $this->scanner->extract('{{n8n_a}} {{n8ndispatch_unsubscribe_url}} {{n8n_b}}'));
+    }
+
+    public function testAVariableNeverStartsInTheSubjectAndEndsInTheHtml(): void
+    {
+        $this->assertSame([], $this->scanner->extractFromEmail('Oi {{n8n_a', '}} fim'));
+    }
+
+    public function testAnEmailWithoutSubjectOrHtmlHasNoVariables(): void
+    {
+        $this->assertSame([], $this->scanner->extractFromEmail(null, null));
+        $this->assertSame(['n8n_a'], $this->scanner->extractFromEmail(null, '{{n8n_a}}'));
+        $this->assertSame(['n8n_a'], $this->scanner->extractFromEmail('{{n8n_a}}', null));
+    }
+
+    public function testTheVariablesOfAnEmailWithoutThePrefixComeFromBothTexts(): void
+    {
+        $this->assertSame(['nome', 'curso'], $this->scanner->extractWithoutPrefixFromEmail('Oi {{nome}} {{n8n_ok}}', '<p>{{curso}} {{n8n_ok}}</p>'));
+        $this->assertSame([], $this->scanner->extractWithoutPrefixFromEmail('{{n8n_a}}', '{{n8n_b}} {{n8ndispatch_unsubscribe_url}}'));
+    }
+
     public function testFindNonNumericAcceptsOnlyDigitPlaceholders(): void
     {
         $this->assertSame([], $this->scanner->findNonNumeric('Hello {{1}}, your class is {{ 2 }} at {{03}}.'));
@@ -84,6 +122,11 @@ class TemplateVariableScannerTest extends TestCase
         $text = '{{1}} {{valor}} {{ n8n_nome }} {{1a}} {{valor}} {{ nome completo }} {{}}';
 
         $this->assertSame(['valor', 'n8n_nome', '1a', 'nome completo', ''], $this->scanner->findNonNumeric($text));
+    }
+
+    public function testFindNonNumericListsANameThatOnlyEndsInDigits(): void
+    {
+        $this->assertSame(['a1', 'x2y3'], $this->scanner->findNonNumeric('{{a1}} {{x2y3}} {{12}}'));
     }
 
     public function testFindNonNumericIgnoresTextWithoutPlaceholders(): void

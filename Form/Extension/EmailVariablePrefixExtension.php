@@ -65,7 +65,15 @@ class EmailVariablePrefixExtension extends AbstractTypeExtension
                 return;
             }
 
-            if ([] === $this->variableScanner->extractWithoutPrefix((string) $email->getCustomHtml())) {
+            // The HTML and the subject are checked on their own, so the error lands on the field that has the problem.
+            $badFields = [];
+            foreach (['customHtml' => $email->getCustomHtml(), 'subject' => $email->getSubject()] as $field => $text) {
+                if ([] !== $this->variableScanner->extractWithoutPrefix((string) $text)) {
+                    $badFields[$field] = $text;
+                }
+            }
+
+            if ([] === $badFields) {
                 return;
             }
 
@@ -76,9 +84,11 @@ class EmailVariablePrefixExtension extends AbstractTypeExtension
 
             $message = $this->translator->trans('mautic.n8ndispatch.email.alert.prefix', ['%tab%' => $tab, '%prefix%' => $prefix]);
 
-            // Core's API error handling reads $error->getCause()->getCode(), so the cause can't be null.
-            $violation = new ConstraintViolation($message, null, [], $email, 'customHtml', $email->getCustomHtml());
-            $event->getForm()->get('customHtml')->addError(new FormError($message, null, [], null, $violation));
+            foreach ($badFields as $field => $text) {
+                // Core's API error handling reads $error->getCause()->getCode(), so the cause can't be null.
+                $violation = new ConstraintViolation($message, null, [], $email, $field, $text);
+                $event->getForm()->get($field)->addError(new FormError($message, null, [], null, $violation));
+            }
 
             if (!str_starts_with((string) $this->requestStack->getCurrentRequest()?->getPathInfo(), '/api/')) {
                 $this->flashBag->add(

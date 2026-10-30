@@ -99,6 +99,54 @@ class EmailVariablePrefixExtensionTest extends TestCase
         $this->submit('{{nome}}', $this->createMock(FormInterface::class));
     }
 
+    public function testAVariableOfTheSubjectNeedsThePrefixToo(): void
+    {
+        $customHtml = $this->createMock(FormInterface::class);
+        $customHtml->expects($this->never())->method('addError');
+        $subject = $this->createMock(FormInterface::class);
+        $subject->expects($this->once())->method('addError')->with($this->callback(
+            fn (FormError $e): bool => 'mautic.n8ndispatch.email.alert.prefix {"%tab%":"Variables N8N","%prefix%":"n8n_"}' === $e->getMessage()
+                && $e->getCause() instanceof ConstraintViolationInterface
+                && 'subject' === $e->getCause()->getPropertyPath()
+                && 'Oi {{nome}}' === $e->getCause()->getInvalidValue()
+        ));
+        $this->flashBag->expects($this->once())->method('add');
+
+        $this->submit('<p>{{n8n_nome}}</p>', $customHtml, 7, 'Oi {{nome}}', $subject);
+    }
+
+    public function testTheErrorLandsOnTheHtmlAndOnTheSubjectWhenBothHaveTheProblem(): void
+    {
+        $customHtml = $this->createMock(FormInterface::class);
+        $customHtml->expects($this->once())->method('addError')->with($this->callback(fn (FormError $e): bool => 'customHtml' === $e->getCause()->getPropertyPath()));
+        $subject = $this->createMock(FormInterface::class);
+        $subject->expects($this->once())->method('addError')->with($this->callback(fn (FormError $e): bool => 'subject' === $e->getCause()->getPropertyPath()));
+        // one flash for the save, not one per field
+        $this->flashBag->expects($this->once())->method('add');
+
+        $this->submit('<p>{{nome}}</p>', $customHtml, 7, 'Oi {{curso}}', $subject);
+    }
+
+    public function testASubjectWithThePrefixOrWithoutVariablesIsFine(): void
+    {
+        $customHtml = $this->createMock(FormInterface::class);
+        $customHtml->expects($this->never())->method('addError');
+        $subject = $this->createMock(FormInterface::class);
+        $subject->expects($this->never())->method('addError');
+        $this->flashBag->expects($this->never())->method('add');
+
+        $this->submit('<p>{{n8n_nome}}</p>', $customHtml, 7, 'Oi {{n8n_nome}} {contactfield=firstname}', $subject);
+        $this->submit('<p>{{n8n_nome}}</p>', $customHtml, 7, 'Sem variaveis', $subject);
+    }
+
+    public function testNeverBlocksTheFirstSaveOfANewEmailEvenWithAVariableInTheSubject(): void
+    {
+        $subject = $this->createMock(FormInterface::class);
+        $subject->expects($this->never())->method('addError');
+
+        $this->submit('<p>ok</p>', $this->createMock(FormInterface::class), null, 'Oi {{nome}}', $subject);
+    }
+
     public function testNeverBlocksTheFirstSaveOfANewEmail(): void
     {
         // Templates often come from other tools that don't use the prefix; they get adjusted from the second save on.
@@ -120,14 +168,15 @@ class EmailVariablePrefixExtensionTest extends TestCase
     /**
      * @param int|null $id null stands for an Email that was never saved (its first save)
      */
-    private function submit(?string $html, FormInterface&MockObject $customHtml, ?int $id = 7): void
+    private function submit(?string $html, FormInterface&MockObject $customHtml, ?int $id = 7, ?string $subject = null, ?FormInterface $subjectField = null): void
     {
         $email = $this->createMock(Email::class);
         $email->method('getId')->willReturn($id);
         $email->method('getCustomHtml')->willReturn($html);
+        $email->method('getSubject')->willReturn($subject);
 
         $form = $this->createMock(FormInterface::class);
-        $form->method('get')->with('customHtml')->willReturn($customHtml);
+        $form->method('get')->willReturnMap([['customHtml', $customHtml], ['subject', $subjectField ?? $this->createMock(FormInterface::class)]]);
 
         $this->listener()(new FormEvent($form, $email));
     }

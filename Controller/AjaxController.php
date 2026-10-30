@@ -63,11 +63,13 @@ class AjaxController extends CommonAjaxController
         // 'html' is sent by email-tab-variables.js when the builder is
         // closed: the new content only lives in the page's textarea until
         // the Email form itself is saved, so the saved customHtml is stale.
-        $html      = $request->request->has('html') ? (string) $request->request->get('html') : (string) $email->getCustomHtml();
-        $variables = $variableScanner->extract($html);
+        $html = $request->request->has('html') ? (string) $request->request->get('html') : (string) $email->getCustomHtml();
+        // Same for the subject, typed in the form and not saved yet.
+        $subject   = $request->request->has('subject') ? (string) $request->request->get('subject') : (string) $email->getSubject();
+        $variables = $variableScanner->extractFromEmail($subject, $html);
 
         // The ones missing the n8n_ prefix, so the edit page can warn about them before the user tries to save.
-        $invalidVariables = $variableScanner->extractWithoutPrefix($html);
+        $invalidVariables = $variableScanner->extractWithoutPrefixFromEmail($subject, $html);
 
         return $this->sendJsonResponse([
             'success'          => 1,

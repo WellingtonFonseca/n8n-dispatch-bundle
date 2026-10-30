@@ -56,7 +56,7 @@ class EmailUnmappedVariablesSubscriber implements EventSubscriberInterface
         }
 
         $email = $event->getEmail();
-        $names = $this->variableScanner->extract((string) $email->getCustomHtml());
+        $names = $this->variableScanner->extractFromEmail($email->getSubject(), $email->getCustomHtml());
 
         if ([] === $names) {
             return;

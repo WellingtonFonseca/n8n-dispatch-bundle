@@ -73,23 +73,38 @@ class EmailVariableMappingExtension extends AbstractTypeExtension
                 return;
             }
 
-            $names = $this->variableScanner->extract((string) $email->getCustomHtml());
+            $htmlNames    = $this->variableScanner->extract((string) $email->getCustomHtml());
+            $subjectNames = $this->variableScanner->extract((string) $email->getSubject());
+            $names        = $this->variableScanner->extractFromEmail($email->getSubject(), $email->getCustomHtml());
 
             if ([] === $names) {
                 return;
             }
 
-            $mapping = json_decode((string) $this->emailVariablesRepository->getVariablesJsonForEmail((int) $email->getId()), true);
-
-            if ([] === $this->mappingChecker->findUnmapped($names, is_array($mapping) ? $mapping : [])) {
+            // The prefix check flagged the subject: same as for the HTML, rename first, map second.
+            $subject = [] === $subjectNames ? null : $event->getForm()->get('subject');
+            if (null !== $subject && count($subject->getErrors()) > 0) {
                 return;
+            }
+
+            $mapping = json_decode((string) $this->emailVariablesRepository->getVariablesJsonForEmail((int) $email->getId()), true);
+            $mapping = is_array($mapping) ? $mapping : [];
+
+            if ([] === $this->mappingChecker->findUnmapped($names, $mapping)) {
+                return;
+            }
+
+            // The error lands on the HTML when a variable of it is unmapped, else on the subject (the only one left).
+            if ([] === $this->mappingChecker->findUnmapped($htmlNames, $mapping)) {
+                $customHtml = $subject;
             }
 
             $tab     = $this->translator->trans('mautic.n8ndispatch.email.tab.label');
             $message = $this->translator->trans('mautic.n8ndispatch.email.error.unmapped', ['%tab%' => $tab]);
 
             // Core's API error handling reads $error->getCause()->getCode(), so the cause can't be null.
-            $violation = new ConstraintViolation($message, null, [], $email, 'customHtml', $email->getCustomHtml());
+            $field     = $customHtml === $subject ? 'subject' : 'customHtml';
+            $violation = new ConstraintViolation($message, null, [], $email, $field, 'subject' === $field ? $email->getSubject() : $email->getCustomHtml());
             $customHtml->addError(new FormError($message, null, [], null, $violation));
 
             if (!str_starts_with((string) $this->requestStack->getCurrentRequest()?->getPathInfo(), '/api/')) {
