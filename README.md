@@ -103,9 +103,9 @@ the campaign's source segment conditions on that object. Which items those
 are is decided by the Custom Objects plugin (`SegmentItemResolver`), shared
 with other plugins; both plugins must be deployed together.
 
-On the Email's **Variables N8N** tab, a variable that reads a contact field or
-a Custom Object field also has a **Calculation** box (SMS and HSM have none).
-The number typed there is added to the field when the Email is dispatched
+On the **Variables N8N** tab of the Email, and on the variable rows of an SMS and an HSM Template, a variable that reads a contact field or
+a Custom Object field also has a **Calculation** box.
+The number typed there is added to the field when the message is dispatched
 (negative subtracts): days for a date field (up to 3650 either way, the time
 is kept), a value for a contact number field and for a Custom Object int or
 decimal field (no limit, the places of the field are kept). Only a Custom
