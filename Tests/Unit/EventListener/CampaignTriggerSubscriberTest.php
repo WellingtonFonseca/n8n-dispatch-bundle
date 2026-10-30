@@ -1056,6 +1056,63 @@ class CampaignTriggerSubscriberTest extends TestCase
         return ['test' => ['test'], 'paused' => ['paused']];
     }
 
+    /**
+     * @dataProvider simulatedModes
+     */
+    #[\PHPUnit\Framework\Attributes\DataProvider('simulatedModes')]
+    public function testATestOrPausedStepPassesWithoutAStatusTracker(string $mode): void
+    {
+        $subscriber = new CampaignTriggerSubscriber(
+            $this->integrationHelper,
+            $this->httpClient,
+            $this->logger,
+            $this->emailModel,
+            $this->variableResolver,
+            $this->mailHashHelper,
+            $this->entityManager,
+            $this->dncModel,
+            $this->emailVariablesRepository,
+            new DispatchFailureReasons(new EnUsTranslator()),
+        );
+        $event = $this->buildPendingEvent(['email' => 1, 'status' => $mode]);
+        $this->emailModel->method('getEntity')->willReturn(new Email());
+
+        $subscriber->onEmailSend($event);
+
+        $this->assertCount(1, $event->getSuccessful());
+        $this->assertCount(0, $event->getFailures());
+    }
+
+    public function testAContactWithoutAnEmailAddressIsStillDispatched(): void
+    {
+        $event = $this->buildPendingEvent(['email' => 1, 'status' => 'production']);
+        $event->getPending()->first()->setLead(new Lead());
+        $this->emailModel->method('getEntity')->willReturn(new Email());
+        $this->mockIntegration(true, ['webhook_url' => 'https://n8n.example.test/webhook/dispatch']);
+        $response = $this->createMock(ResponseInterface::class);
+        $response->method('getStatusCode')->willReturn(200);
+        $this->httpClient->expects($this->once())->method('request')->willReturn($response);
+
+        $this->subscriber->onEmailSend($event);
+
+        $this->assertCount(1, $event->getSuccessful());
+    }
+
+    public function testAnEmailWithoutSubjectOrHtmlIsSnapshottedAsEmptyTexts(): void
+    {
+        $event = $this->buildPendingEvent(['email' => 1, 'status' => 'production']);
+        $this->emailModel->method('getEntity')->willReturn(new Email());
+        $this->mockIntegration(true, ['webhook_url' => 'https://n8n.example.test/webhook/dispatch']);
+        $response = $this->createMock(ResponseInterface::class);
+        $response->method('getStatusCode')->willReturn(200);
+        $this->httpClient->method('request')->willReturn($response);
+        $this->copyRepository->method('findByHash')->willReturn(null);
+        $this->copyRepository->expects($this->once())->method('saveCopy')->with(md5(''), $this->identicalTo(''), $this->identicalTo(''), $this->identicalTo(''))->willReturn(true);
+        $this->entityManager->method('getReference')->willReturn(new Copy());
+
+        $this->subscriber->onEmailSend($event);
+    }
+
     public function testAStepWithoutAnEmailLooksUpNeitherTheEmailNorItsVariables(): void
     {
         $this->emailModel->expects($this->never())->method('getEntity');
