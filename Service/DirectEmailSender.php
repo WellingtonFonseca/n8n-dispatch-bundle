@@ -31,6 +31,13 @@ class DirectEmailSender
     public const SKIPPED = 'skipped';
     public const FAILED  = 'failed';
 
+    /**
+     * Seconds the SMTP connection may stay silent. Symfony's mailer waits for php.ini's default_socket_timeout (60 s) at
+     * every step, so a server that accepts the connection and never answers held the cron for over a minute per contact;
+     * a batch of a hundred stopped it for hours. It is set only around the send and put back.
+     */
+    public const SMTP_TIMEOUT = 20;
+
     public function __construct(
         private EmailSendMode $mode,
         private EmailModel $emailModel,
@@ -56,6 +63,12 @@ class DirectEmailSender
      */
     public function send(Lead $contact, Email $email, int $eventId, array $variables): array
     {
+        // An Email with no HTML and no theme would go out with nothing but the unsubscribe footer: refused before it reaches anyone,
+        // and every contact of the step stays waiting for the Email to be fixed (core tries a failed step again).
+        if ('' === trim((string) $email->getCustomHtml()) && '' === trim((string) $email->getTemplate())) {
+            return $this->result(self::FAILED, $this->failureReasons->translated(DispatchFailureReasons::EMAIL_EMPTY, ['%id%' => (int) $email->getId()]));
+        }
+
         $credentials = $this->credentials($contact);
 
         if ('' === $credentials['email']) {
@@ -71,6 +84,8 @@ class DirectEmailSender
         // the one this send makes is the first with a higher id. Ids, not dates: a Stat read back from the database has its
         // time shifted by the time zone, one still in memory does not.
         $lastStatId = $this->lastStatId($contactId, $eventId);
+
+        $previousTimeout = ini_set('default_socket_timeout', (string) self::SMTP_TIMEOUT);
 
         try {
             $errors = $this->emailModel->sendEmail($email, [$contactId => $credentials], [
@@ -88,6 +103,10 @@ class DirectEmailSender
             $this->logger->error('N8nDispatch: direct send failed for contact '.$contactId.': '.$e->getMessage());
 
             return $this->result(self::FAILED, $this->failureReasons->reason($e->getMessage()));
+        } finally {
+            if (false !== $previousTimeout) {
+                ini_set('default_socket_timeout', $previousTimeout);
+            }
         }
 
         if (is_array($errors) && isset($errors[$contactId])) {

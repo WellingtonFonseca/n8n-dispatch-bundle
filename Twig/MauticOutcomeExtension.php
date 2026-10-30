@@ -36,20 +36,22 @@ class MauticOutcomeExtension extends AbstractExtension
 
     /**
      * @param mixed $metadata the log's metadata, as the card sees it
-     * @param mixed $leadId   the contact, when the caller has it
-     * @param mixed $logId    the campaign log, to find the contact when the caller has not
+     * @param mixed $leadId   the contact, when the caller has it and no log
+     * @param mixed $logId    the campaign log: it gives the contact, the step and the moment
      *
      * @return array<string, mixed>
      */
     public function outcome(mixed $metadata, mixed $leadId, mixed $logId): array
     {
         $metadata = is_array($metadata) ? $metadata : [];
-        $lead     = is_numeric($leadId) ? (int) $leadId : 0;
 
-        if ($lead <= 0 && is_numeric($logId) && (int) $logId > 0) {
-            $lead = $this->outcome->leadOfLog((int) $logId);
+        // The log knows the contact, the step and the moment; the Stat of an Email Mautic held back is found by them.
+        if (is_numeric($logId) && (int) $logId > 0) {
+            $facts = $this->outcome->factsOfLog((int) $logId);
+
+            return $this->outcome->detail($facts['lead'] > 0 ? $facts['lead'] : (is_numeric($leadId) ? (int) $leadId : 0), $metadata, $facts['event'], $facts['since']);
         }
 
-        return $this->outcome->detail($lead, $metadata);
+        return $this->outcome->detail(is_numeric($leadId) ? (int) $leadId : 0, $metadata);
     }
 }

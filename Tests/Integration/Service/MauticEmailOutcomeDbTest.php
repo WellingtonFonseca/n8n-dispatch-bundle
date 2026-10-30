@@ -97,6 +97,93 @@ class MauticEmailOutcomeDbTest extends RollbackDatabaseTestCase
         $this->assertSame('opened', $this->outcome->states(['k' => ['lead' => $this->leadId, 'statIds' => [$stat], 'outcome' => 'queued']])['k']);
     }
 
+    /**
+     * @param array<string, mixed> $extra
+     */
+    private function late(string $sentAt, array $extra = [], ?int $event = null, ?int $leadId = null): int
+    {
+        return $this->stat($sentAt, $extra + ['source_id' => $event ?? 55], $leadId);
+    }
+
+    /**
+     * @return array<string, mixed>
+     */
+    private function held(?string $outcome = 'queued', string $since = '2026-05-01 10:00:00', int $event = 55, ?int $leadId = null): array
+    {
+        return ['lead' => $leadId ?? $this->leadId, 'statIds' => [], 'outcome' => $outcome, 'event' => $event, 'since' => $since];
+    }
+
+    public function testTheStatAnEmailGotWhenMauticSentItLaterIsFoundByContactStepAndTime(): void
+    {
+        $this->late('2026-05-01 10:30:00', ['is_read' => 1]);
+
+        $this->assertSame('opened', $this->outcome->states(['k' => $this->held()])['k']);
+        $this->assertSame('opened', $this->outcome->detail($this->leadId, ['n8ndispatch' => ['outcome' => 'queued']], 55, '2026-05-01 10:00:00')['state']);
+        $this->assertCount(1, $this->outcome->detail($this->leadId, ['n8ndispatch' => ['outcome' => 'queued']], 55, '2026-05-01 10:00:00')['attempts']);
+    }
+
+    public function testAStatMadeInTheVerySecondOfTheLogIsItsLateStat(): void
+    {
+        $this->late('2026-05-01 10:00:00', ['is_read' => 1]);
+
+        $this->assertSame('opened', $this->outcome->states(['k' => $this->held()])['k']);
+    }
+
+    public function testTheNewestLateStatIsTheOneThatCounts(): void
+    {
+        $this->late('2026-05-01 10:30:00', ['is_failed' => 1]);
+        $this->late('2026-05-01 11:30:00', ['is_read' => 1]);
+
+        $this->assertSame('opened', $this->outcome->states(['k' => $this->held()])['k']);
+    }
+
+    public function testAStatOfBeforeTheLogOfAnotherStepOrAnotherContactIsNotItsLateStat(): void
+    {
+        $this->late('2026-05-01 09:59:59'); // before the log
+        $this->late('2026-05-01 10:30:00', [], 56); // another step
+        $this->late('2026-05-01 10:30:00', [], null, $this->lead()); // another contact
+        $this->insert('email_stats', ['email_id' => $this->emailId, 'lead_id' => $this->leadId, 'email_address' => 'x@example.test', 'date_sent' => '2026-05-01 10:30:00', 'is_read' => 0, 'is_failed' => 0, 'viewed_in_browser' => 0, 'retry_count' => 0, 'open_count' => 0, 'source' => 'email', 'source_id' => 55]); // not from a campaign step
+
+        $this->assertSame('queued', $this->outcome->states(['k' => $this->held()])['k']);
+    }
+
+    public function testADispatchTheStepSaidFailedOrSkippedNeverTakesALateStat(): void
+    {
+        $this->late('2026-05-01 10:30:00', ['is_read' => 1]);
+
+        $states = $this->outcome->states(['f' => $this->held('failed'), 's' => $this->held('skipped')]);
+
+        $this->assertSame(['f' => 'failed', 's' => 'skipped'], $states);
+    }
+
+    public function testADispatchWithItsOwnStatNeverLooksForALateOne(): void
+    {
+        $own = $this->stat('2026-05-01 10:05:00');
+        $this->late('2026-05-01 10:30:00', ['is_read' => 1]);
+
+        $this->assertSame('sent', $this->outcome->states(['k' => ['lead' => $this->leadId, 'statIds' => [$own]] + $this->held()])['k']);
+    }
+
+    public function testAHeldDispatchWithoutTheStepOrTheMomentOfItsLogLooksForNothing(): void
+    {
+        $this->late('2026-05-01 10:30:00', ['is_read' => 1]);
+
+        $this->assertSame('queued', $this->outcome->states(['a' => ['lead' => $this->leadId, 'statIds' => []], 'b' => $this->held('queued', ''), 'c' => $this->held('queued', '2026-05-01 10:00:00', 0)])['a']);
+        $this->assertSame('queued', $this->outcome->states(['b' => $this->held('queued', '   ')])['b']);
+        $this->assertSame('queued', $this->outcome->states(['c' => $this->held('queued', '2026-05-01 10:00:00', 0)])['c']);
+    }
+
+    public function testManyHeldDispatchesFindTheirOwnLateStats(): void
+    {
+        $other = $this->lead();
+        $this->late('2026-05-01 10:30:00', ['is_read' => 1]);
+        $this->late('2026-05-01 10:30:00', ['is_failed' => 1], null, $other);
+
+        $states = $this->outcome->states(['ana' => $this->held(), 'beto' => $this->held('queued', '2026-05-01 10:00:00', 55, $other), 'nobody' => $this->held('queued', '2026-05-01 10:00:00', 99)]);
+
+        $this->assertSame(['ana' => 'opened', 'beto' => 'failed', 'nobody' => 'queued'], $states);
+    }
+
     public function testASentEmailThatNobodyReadIsSent(): void
     {
         $this->assertSame('sent', $this->state([$this->stat('2026-05-01 10:00:00')]));

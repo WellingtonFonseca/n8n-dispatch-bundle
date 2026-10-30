@@ -25,6 +25,7 @@ use MauticPlugin\N8nDispatchBundle\Resolver\VariableResolver;
 use MauticPlugin\N8nDispatchBundle\Service\DirectEmailSender;
 use MauticPlugin\N8nDispatchBundle\Service\DispatchFailureReasons;
 use MauticPlugin\N8nDispatchBundle\Service\DispatchOutcomeRecorder;
+use MauticPlugin\N8nDispatchBundle\Service\MauticEmailOutcome;
 use MauticPlugin\N8nDispatchBundle\Service\StatusTracker;
 use MauticPlugin\N8nDispatchBundle\Service\WebhookSettings;
 use MauticPlugin\N8nDispatchBundle\UnsubscribeVariable;
@@ -60,6 +61,12 @@ use Symfony\Contracts\HttpClient\ResponseInterface;
  */
 class CampaignTriggerSubscriber implements EventSubscriberInterface
 {
+    /**
+     * Consecutive sends through Mautic's mailer that failed with the very same error: past this the rest of the batch is not
+     * tried (see dispatchDirect()).
+     */
+    private const STOP_AFTER = 3;
+
     private const CONTEXT = 'n8ndispatch.email.send';
     private const ACTION  = 'email.send';
 
@@ -294,6 +301,13 @@ class CampaignTriggerSubscriber implements EventSubscriberInterface
         $event->setChannel('email', $emailId);
         $eventId = (int) $event->getEvent()->getId();
 
+        // The same error three times in a row is the mailer or the network (an SMTP that is down or silent, a blocked sender), not
+        // a contact: trying the rest only makes each of them wait for the same failure, and a silent server held the cron for
+        // minutes per contact. The rest of the batch fails at once with that reason and core tries it again later.
+        $streak     = 0;
+        $lastReason = null;
+        $stopped    = null;
+
         /** @var Lead $contact */
         foreach ($event->getContacts() as $logId => $contact) {
             /** @var LeadEventLog $log */
@@ -303,9 +317,16 @@ class CampaignTriggerSubscriber implements EventSubscriberInterface
                 continue;
             }
 
+            if (null !== $stopped) {
+                $event->fail($log, $stopped);
+
+                continue;
+            }
+
             $variables = $this->variableResolver->resolveAll($variablesConfig, $contact, $campaign, '<br>', $language);
             $result    = $this->directSender->send($contact, $email, $eventId, $variables);
 
+            // A step core retries after a failure comes back here with the Stats of its earlier attempts on the log.
             $log->appendToMetadata(['n8ndispatch' => [
                 'mode'               => 'mautic',
                 'status'             => $status,
@@ -315,14 +336,25 @@ class CampaignTriggerSubscriber implements EventSubscriberInterface
                 'language'           => $language,
                 'variables'          => $variables,
                 'outcome'            => $result['outcome'],
-                'statId'             => $result['statId'],
-            ]]);
+            ] + MauticEmailOutcome::statFields($log->getMetadata(), $result['statId'])]);
 
             match ($result['outcome']) {
                 DirectEmailSender::FAILED  => $event->fail($log, (string) $result['reason']),
                 DirectEmailSender::SKIPPED => $event->passWithError($log, (string) $result['reason']),
                 default                    => $event->pass($log),
             };
+
+            if (DirectEmailSender::FAILED === $result['outcome']) {
+                $streak     = $result['reason'] === $lastReason ? $streak + 1 : 1;
+                $lastReason = $result['reason'];
+
+                if ($streak >= self::STOP_AFTER) {
+                    $stopped = $this->failureReasons->translated(DispatchFailureReasons::SEND_STOPPED, ['%count%' => $streak, '%reason%' => (string) $lastReason]);
+                }
+            } elseif (DirectEmailSender::SKIPPED !== $result['outcome']) {
+                $streak     = 0;
+                $lastReason = null;
+            }
         }
     }
 

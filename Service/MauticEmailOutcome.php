@@ -112,32 +112,110 @@ class MauticEmailOutcome
     }
 
     /**
-     * The contact a campaign log belongs to (a Timeline card knows its log, not always the contact); 0 when the log is gone.
+     * The Stat fields of a dispatch's block once one more attempt has (or has not) made a Stat: 'statId' keeps the first one
+     * and 'statIds' the list of every attempt, only when there is more than one. A step Mautic retries by itself after a
+     * failure, and a resend, both add to the Stats the log already has.
+     *
+     * @param array<string, mixed> $metadata the log's metadata before this attempt
+     *
+     * @return array{statId: ?int, statIds?: list<int>}
      */
-    public function leadOfLog(int $logId): int
+    public static function statFields(array $metadata, ?int $newStatId): array
     {
-        return (int) $this->em->getConnection()->createQueryBuilder()
-            ->select('lead_id')
+        $ids = self::statIdsOf($metadata);
+
+        if (null !== $newStatId && !in_array($newStatId, $ids, true)) {
+            $ids[] = $newStatId;
+        }
+
+        return ['statId' => $ids[0] ?? null] + (count($ids) > 1 ? ['statIds' => $ids] : []);
+    }
+
+    /**
+     * A dispatch Mautic held back (a frequency rule, its queue) has no Stat when the step ends; Mautic sends it later, and the
+     * Stat it makes then is of the same contact and step, made after the log. Found here by that, for the logs that have no
+     * Stat and were not refused.
+     *
+     * @param array<int|string, array{lead: int, statIds: list<int>, outcome?: ?string, event?: int, since?: ?string}> $logs
+     *
+     * @return array<int|string, int> log key => stat id
+     */
+    private function lateStatIds(array $logs): array
+    {
+        $waiting = [];
+        foreach ($logs as $key => $log) {
+            if ([] === $log['statIds'] && !in_array($log['outcome'] ?? null, ['failed', 'skipped'], true) && ($log['event'] ?? 0) > 0 && '' !== trim((string) ($log['since'] ?? ''))) {
+                $waiting[$key] = $log;
+            }
+        }
+
+        if ([] === $waiting) {
+            return [];
+        }
+
+        $rows = $this->em->getConnection()->createQueryBuilder()
+            ->select('id, lead_id, source_id, date_sent')
+            ->from(MAUTIC_TABLE_PREFIX.'email_stats')
+            ->where('lead_id IN (:leads)')
+            ->andWhere('source = :source')
+            ->andWhere('source_id IN (:events)')
+            ->andWhere('date_sent >= :since')
+            ->setParameter('leads', array_values(array_unique(array_map(static fn (array $log): int => $log['lead'], $waiting))), ArrayParameterType::INTEGER)
+            ->setParameter('source', 'campaign.event')
+            ->setParameter('events', array_values(array_unique(array_map(static fn (array $log): int => (int) $log['event'], $waiting))), ArrayParameterType::INTEGER)
+            ->setParameter('since', min(array_map(static fn (array $log): string => (string) $log['since'], $waiting)))
+            ->orderBy('id', 'ASC')
+            ->executeQuery()
+            ->fetchAllAssociative();
+
+        $found = [];
+        foreach ($waiting as $key => $log) {
+            foreach ($rows as $row) {
+                if ((int) $row['lead_id'] === $log['lead'] && (int) $row['source_id'] === (int) $log['event'] && (string) $row['date_sent'] >= (string) $log['since']) {
+                    $found[$key] = (int) $row['id'];
+                }
+            }
+        }
+
+        return $found;
+    }
+
+    /**
+     * The contact, the step and the moment of a campaign log (a Timeline card knows its log, not always the rest).
+     *
+     * @return array{lead: int, event: int, since: ?string} zeros and null when the log is gone
+     */
+    public function factsOfLog(int $logId): array
+    {
+        $row = $this->em->getConnection()->createQueryBuilder()
+            ->select('lead_id, event_id, date_triggered')
             ->from(MAUTIC_TABLE_PREFIX.'campaign_lead_event_log')
             ->where('id = :id')
             ->setParameter('id', $logId)
             ->executeQuery()
-            ->fetchOne();
+            ->fetchAssociative();
+
+        return false === $row
+            ? ['lead' => 0, 'event' => 0, 'since' => null]
+            : ['lead' => (int) $row['lead_id'], 'event' => (int) $row['event_id'], 'since' => null === $row['date_triggered'] ? null : (string) $row['date_triggered']];
     }
 
     /**
      * The state of many dispatches at once, for the list and its filter.
      *
-     * @param array<int|string, array{lead: int, statIds: list<int>, outcome?: ?string}> $logs by any key (the log id); the outcome
-     *                                                                                          the step recorded, for a dispatch with no Stat
+     * @param array<int|string, array{lead: int, statIds: list<int>, outcome?: ?string, event?: int, since?: ?string}> $logs by any key (the log id); the outcome
+     *                                                                                          the step recorded, and the step and the moment of the log, for a dispatch with no Stat yet
      *
      * @return array<int|string, string> the same keys => a state
      */
     public function states(array $logs): array
     {
+        $late = $this->lateStatIds($logs);
+
         $allIds = [];
-        foreach ($logs as $log) {
-            $allIds = array_merge($allIds, $log['statIds']);
+        foreach ($logs as $key => $log) {
+            $logs[$key]['statIds'] = array_merge($log['statIds'], isset($late[$key]) ? [$late[$key]] : []);
+            $allIds                = array_merge($allIds, $logs[$key]['statIds']);
         }
 
         $stats = $this->stats($allIds);
@@ -162,12 +240,15 @@ class MauticEmailOutcome
      * the open and the clicks of that send, and the Do Not Contact the contact asked for or got after the last send.
      *
      * @param array<string, mixed> $metadata
+     * @param int                  $eventId  the step of the log, with $since (its moment), to find the Stat of an Email Mautic held back
      *
      * @return array{state: string, attempts: list<array{statId: int, sentAt: ?\DateTimeImmutable, failed: bool, openedAt: ?\DateTimeImmutable, lastOpenedAt: ?\DateTimeImmutable, openCount: int, clicks: list<array{url: string, count: int, lastAt: ?\DateTimeImmutable}>}>, dnc: array{state: string, at: ?\DateTimeImmutable, comments: string}|null}
      */
-    public function detail(int $leadId, array $metadata): array
+    public function detail(int $leadId, array $metadata, int $eventId = 0, ?string $since = null): array
     {
-        $stats = $this->stats(self::statIdsOf($metadata));
+        $statIds = self::statIdsOf($metadata);
+        $late    = $this->lateStatIds([0 => ['lead' => $leadId, 'statIds' => $statIds, 'outcome' => self::outcomeOf($metadata), 'event' => $eventId, 'since' => $since]]);
+        $stats   = $this->stats(isset($late[0]) ? array_merge($statIds, [$late[0]]) : $statIds);
         ksort($stats);
         $stats = array_values($stats);
         $dnc   = $this->doNotContact([$leadId])[$leadId] ?? [];

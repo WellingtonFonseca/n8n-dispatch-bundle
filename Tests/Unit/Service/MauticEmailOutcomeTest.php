@@ -46,6 +46,32 @@ class MauticEmailOutcomeTest extends TestCase
         yield 'not an array'               => [['n8ndispatch' => 'x'], []];
     }
 
+    /**
+     * @dataProvider statFieldCases
+     *
+     * @param array<string, mixed>                $metadata
+     * @param array{statId: ?int, statIds?: list<int>} $expected
+     */
+    public function testTheStatFieldsOfADispatchOnceOneMoreAttemptRan(array $metadata, ?int $new, array $expected): void
+    {
+        $this->assertSame($expected, MauticEmailOutcome::statFields($metadata, $new));
+    }
+
+    /**
+     * @return iterable<string, array{array<string, mixed>, ?int, array<string, mixed>}>
+     */
+    public static function statFieldCases(): iterable
+    {
+        yield 'the first send'              => [[], 10, ['statId' => 10]];
+        yield 'the first send was held'     => [[], null, ['statId' => null]];
+        yield 'a second attempt'            => [['n8ndispatch' => ['statId' => 10]], 11, ['statId' => 10, 'statIds' => [10, 11]]];
+        yield 'a third attempt'             => [['n8ndispatch' => ['statId' => 10, 'statIds' => [10, 11]]], 12, ['statId' => 10, 'statIds' => [10, 11, 12]]];
+        yield 'an attempt that made none'   => [['n8ndispatch' => ['statId' => 10]], null, ['statId' => 10]];
+        yield 'the same Stat twice'         => [['n8ndispatch' => ['statId' => 10]], 10, ['statId' => 10]];
+        yield 'the first made none'         => [['n8ndispatch' => ['statId' => null]], 12, ['statId' => 12]];
+        yield 'older ones first'            => [['n8ndispatch' => ['statIds' => [20, 5]]], 30, ['statId' => 5, 'statIds' => [5, 20, 30]]];
+    }
+
     public function testTheOutcomeTheStepRecorded(): void
     {
         $this->assertSame('failed', MauticEmailOutcome::outcomeOf(['n8ndispatch' => ['outcome' => 'failed']]));

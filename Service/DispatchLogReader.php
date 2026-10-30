@@ -90,6 +90,11 @@ class DispatchLogReader
      */
     public function dispatchOf(string $channel, array $metadata): ?array
     {
+        // An Email that went out through Mautic's own mailer has no answer of n8n to read back: its result is core's Stat.
+        if (MauticEmailOutcome::isDirect($metadata)) {
+            return null;
+        }
+
         $n8n = $metadata['n8ndispatch'] ?? null;
         $mode = is_array($n8n) ? ($n8n['status'] ?? null) : null;
 

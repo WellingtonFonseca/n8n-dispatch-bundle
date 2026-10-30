@@ -143,7 +143,7 @@ class DispatchListReaderMauticDbTest extends RollbackDatabaseTestCase
         $this->assertCount(count($logs), $items);
     }
 
-    public function testTheLeadOfALogIsFound(): void
+    public function testTheContactTheStepAndTheMomentOfALogAreFound(): void
     {
         $lead = $this->lead();
         $log  = $this->log($lead, $this->direct(null, 'queued'), '2026-05-01 10:00:00');
@@ -151,7 +151,16 @@ class DispatchListReaderMauticDbTest extends RollbackDatabaseTestCase
         $em->method('getConnection')->willReturn($this->db);
         $outcome = new MauticEmailOutcome($em);
 
-        $this->assertSame($lead, $outcome->leadOfLog($log));
-        $this->assertSame(0, $outcome->leadOfLog($log + 1000000));
+        $this->assertSame(['lead' => $lead, 'event' => $this->eventId, 'since' => '2026-05-01 10:00:00'], $outcome->factsOfLog($log));
+        $this->assertSame(['lead' => 0, 'event' => 0, 'since' => null], $outcome->factsOfLog($log + 1000000));
+    }
+
+    public function testAnEmailMauticHeldBackAndSentLaterShowsItsStatInTheTable(): void
+    {
+        $lead = $this->lead();
+        $log  = $this->log($lead, $this->direct(null, 'queued'), '2026-05-01 10:00:00');
+        $this->stat($lead, ['date_sent' => '2026-05-01 10:20:00', 'is_read' => 1]);
+
+        $this->assertSame('opened', $this->reader->find($log)['mauticState']);
     }
 }

@@ -36,7 +36,7 @@ class DispatchListReader
     private const ORDER_BY     = 'l.date_triggered';
     private const NEWEST_FIRST = 'DESC';
 
-    private const COLUMNS = 'l.id, l.date_triggered, l.metadata, e.type, e.properties, c.id AS campaign_id, c.name AS campaign_name, l.lead_id, ld.firstname, ld.lastname, ld.email';
+    private const COLUMNS = 'l.id, l.event_id, l.date_triggered, l.metadata, e.type, e.properties, c.id AS campaign_id, c.name AS campaign_name, l.lead_id, ld.firstname, ld.lastname, ld.email';
 
     public function __construct(
         private EntityManagerInterface $em,
@@ -474,7 +474,13 @@ class DispatchListReader
             $metadata = self::metadataOf($row['metadata']);
 
             if (MauticEmailOutcome::isDirect($metadata)) {
-                $logs[$i] = ['lead' => (int) $row['lead_id'], 'statIds' => MauticEmailOutcome::statIdsOf($metadata), 'outcome' => MauticEmailOutcome::outcomeOf($metadata)];
+                $logs[$i] = [
+                    'lead'    => (int) $row['lead_id'],
+                    'statIds' => MauticEmailOutcome::statIdsOf($metadata),
+                    'outcome' => MauticEmailOutcome::outcomeOf($metadata),
+                    'event'   => (int) $row['event_id'],
+                    'since'   => null === $row['date_triggered'] ? null : (string) $row['date_triggered'],
+                ];
             }
         }
 

@@ -360,20 +360,8 @@ class DispatchResender
 
         $new = array_diff_key($metadata, array_flip(['errors', 'failed', 'reason', 'n8ndispatch_resend']));
 
-        $statIds                      = MauticEmailOutcome::statIdsOf($metadata);
-        $new['n8ndispatch']           = $metadata['n8ndispatch'];
+        $new['n8ndispatch']            = array_diff_key($metadata['n8ndispatch'], array_flip(['statId', 'statIds'])) + MauticEmailOutcome::statFields($metadata, $result['statId']);
         $new['n8ndispatch']['outcome'] = $result['outcome'];
-        unset($new['n8ndispatch']['statIds']);
-
-        if (null !== $result['statId']) {
-            $statIds[] = $result['statId'];
-        }
-
-        // The first Stat stays in 'statId', the list of every attempt's in 'statIds' (a lone one needs no list).
-        $new['n8ndispatch']['statId'] = $statIds[0] ?? null;
-        if (count($statIds) > 1) {
-            $new['n8ndispatch']['statIds'] = $statIds;
-        }
 
         $new['n8ndispatch_resend'] = $this->note($userEmail);
 

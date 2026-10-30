@@ -35,26 +35,35 @@ class MauticOutcomeExtensionTest extends TestCase
         $this->assertFalse($this->extension->isDirect(null));
     }
 
-    public function testTheOutcomeIsReadForTheContactTheCardKnows(): void
+    public function testTheContactTheStepAndTheMomentComeFromTheLog(): void
     {
-        $metadata = ['n8ndispatch' => ['mode' => 'mautic', 'statId' => 4]];
-        $this->outcome->expects($this->never())->method('leadOfLog');
-        $this->outcome->expects($this->once())->method('detail')->with(27, $metadata)->willReturn(['state' => 'sent']);
+        $metadata = ['n8ndispatch' => ['mode' => 'mautic', 'statId' => null]];
+        $this->outcome->expects($this->once())->method('factsOfLog')->with(90)->willReturn(['lead' => 31, 'event' => 8, 'since' => '2026-05-01 10:00:00']);
+        $this->outcome->expects($this->once())->method('detail')->with(31, $metadata, 8, '2026-05-01 10:00:00')->willReturn(['state' => 'queued']);
 
-        $this->assertSame(['state' => 'sent'], $this->extension->outcome($metadata, '27', 90));
+        $this->assertSame(['state' => 'queued'], $this->extension->outcome($metadata, null, '90'));
     }
 
-    public function testTheContactIsFoundByTheLogWhenTheCardHasNotGotIt(): void
+    public function testTheContactTheCardKnowsIsTheFallbackWhenTheLogIsGone(): void
     {
-        $this->outcome->expects($this->once())->method('leadOfLog')->with(90)->willReturn(31);
-        $this->outcome->expects($this->once())->method('detail')->with(31, [])->willReturn(['state' => 'queued']);
+        $this->outcome->method('factsOfLog')->willReturn(['lead' => 0, 'event' => 0, 'since' => null]);
+        $this->outcome->expects($this->once())->method('detail')->with(27, [], 0, null)->willReturn(['state' => 'queued']);
 
-        $this->assertSame(['state' => 'queued'], $this->extension->outcome([], null, '90'));
+        $this->extension->outcome([], '27', 90);
+    }
+
+    public function testWithoutALogTheContactTheCardKnowsIsUsedAndNothingIsLookedUp(): void
+    {
+        $metadata = ['n8ndispatch' => ['mode' => 'mautic', 'statId' => 4]];
+        $this->outcome->expects($this->never())->method('factsOfLog');
+        $this->outcome->expects($this->once())->method('detail')->with(27, $metadata)->willReturn(['state' => 'sent']);
+
+        $this->assertSame(['state' => 'sent'], $this->extension->outcome($metadata, '27', null));
     }
 
     public function testWithNeitherTheContactNorTheLogItAsksForNoContact(): void
     {
-        $this->outcome->expects($this->never())->method('leadOfLog');
+        $this->outcome->expects($this->never())->method('factsOfLog');
         $this->outcome->expects($this->once())->method('detail')->with(0, [])->willReturn(['state' => 'queued']);
 
         $this->extension->outcome('junk', 'x', 0);

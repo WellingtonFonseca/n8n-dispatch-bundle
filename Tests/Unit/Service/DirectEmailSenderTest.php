@@ -54,6 +54,7 @@ class DirectEmailSenderTest extends TestCase
     {
         $email = $this->createMock(Email::class);
         $email->method('getId')->willReturn(55);
+        $email->method('getCustomHtml')->willReturn('<p>Ola {{n8n_nome}}</p>');
         if (null !== $categoryId) {
             $category = $this->createMock(Category::class);
             $category->method('getId')->willReturn($categoryId);
@@ -325,6 +326,83 @@ class DirectEmailSenderTest extends TestCase
         $this->assertSame(DirectEmailSender::QUEUED, $result['outcome']);
         $this->assertNull($result['statId']);
         $this->assertNull($result['reason']);
+    }
+
+    public function testTheMailerWaitsOnlyAShortWhileForAnSmtpThatDoesNotAnswerAndTheSettingIsPutBack(): void
+    {
+        $original = ini_get('default_socket_timeout');
+        ini_set('default_socket_timeout', '45'); // a value of its own: the test must not pass because another test left 20 behind
+        $during = null;
+        $this->emailModel->method('sendEmail')->willReturnCallback(function () use (&$during): array {
+            $during = ini_get('default_socket_timeout');
+
+            return [];
+        });
+        $this->stats->method('findOneBy')->willReturn(null);
+
+        try {
+            $this->sender->send($this->contact(), $this->email(), 77, []);
+
+            $this->assertSame('20', $during);
+            $this->assertSame(20, DirectEmailSender::SMTP_TIMEOUT);
+            $this->assertSame('45', ini_get('default_socket_timeout'));
+        } finally {
+            ini_set('default_socket_timeout', (string) $original);
+        }
+    }
+
+    public function testTheSocketTimeoutIsPutBackWhenTheMailerThrows(): void
+    {
+        $original = ini_get('default_socket_timeout');
+        ini_set('default_socket_timeout', '45');
+        $this->emailModel->method('sendEmail')->willThrowException(new \RuntimeException('boom'));
+
+        try {
+            $this->sender->send($this->contact(), $this->email(), 77, []);
+
+            $this->assertSame('45', ini_get('default_socket_timeout'));
+        } finally {
+            ini_set('default_socket_timeout', (string) $original);
+        }
+    }
+
+    /**
+     * @dataProvider emptyEmails
+     */
+    public function testAnEmailWithNoHtmlAndNoThemeIsRefusedBeforeItReachesAnyone(?string $html, ?string $theme): void
+    {
+        $email = $this->createMock(Email::class);
+        $email->method('getId')->willReturn(55);
+        $email->method('getCustomHtml')->willReturn($html);
+        $email->method('getTemplate')->willReturn($theme);
+        $this->emailModel->expects($this->never())->method('sendEmail');
+
+        $result = $this->sender->send($this->contact(), $email, 77, []);
+
+        $this->assertSame(DirectEmailSender::FAILED, $result['outcome']);
+        $this->assertSame('N8nDispatch: Email #55 has no content (no HTML and no theme).', $result['reason']);
+    }
+
+    /**
+     * @return iterable<string, array{?string, ?string}>
+     */
+    public static function emptyEmails(): iterable
+    {
+        yield 'nothing'           => [null, null];
+        yield 'empty strings'     => ['', ''];
+        yield 'blanks'            => ["  \n ", '  '];
+    }
+
+    public function testAnEmailWithOnlyATheme(): void
+    {
+        $email = $this->createMock(Email::class);
+        $email->method('getId')->willReturn(55);
+        $email->method('getCustomHtml')->willReturn('');
+        $email->method('getTemplate')->willReturn('blank');
+        $this->emailModel->expects($this->once())->method('sendEmail')->willReturn([]);
+        $this->stats->method('findOneBy')->willReturn(null);
+
+        $this->assertSame(DirectEmailSender::QUEUED, $this->sender->send($this->contact(), $email, 77, [])['outcome']);
     }
 
     public function testTheOwnerOfTheContactIsPassedForTheOwnerIsMailerFeature(): void
