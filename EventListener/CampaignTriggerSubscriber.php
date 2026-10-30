@@ -22,6 +22,7 @@ use MauticPlugin\N8nDispatchBundle\Entity\DispatchTracking;
 use MauticPlugin\N8nDispatchBundle\N8nDispatchEvents;
 use MauticPlugin\N8nDispatchBundle\Resolver\LocaleConventions;
 use MauticPlugin\N8nDispatchBundle\Resolver\VariableResolver;
+use MauticPlugin\N8nDispatchBundle\Service\DirectEmailSender;
 use MauticPlugin\N8nDispatchBundle\Service\DispatchFailureReasons;
 use MauticPlugin\N8nDispatchBundle\Service\DispatchOutcomeRecorder;
 use MauticPlugin\N8nDispatchBundle\Service\StatusTracker;
@@ -74,6 +75,7 @@ class CampaignTriggerSubscriber implements EventSubscriberInterface
         private EmailVariablesRepository $emailVariablesRepository,
         private DispatchFailureReasons $failureReasons,
         private ?StatusTracker $statusTracker = null,
+        private ?DirectEmailSender $directSender = null,
     ) {
     }
 
@@ -131,6 +133,12 @@ class CampaignTriggerSubscriber implements EventSubscriberInterface
             return;
         }
 
+        if (null !== $this->directSender && $this->directSender->isOn()) {
+            $this->dispatchDirect($event, $campaign, $emailId, $email, $status, $variablesConfig, $language);
+
+            return;
+        }
+
         $webhook = WebhookSettings::forAction($this->integrationHelper, self::ACTION);
 
         if (is_string($webhook)) {
@@ -172,18 +180,7 @@ class CampaignTriggerSubscriber implements EventSubscriberInterface
         array $headers,
         ?string $templateCopyHash,
     ): void {
-        // This dispatch path never goes through Mautic's own mailer, so
-        // core's native DNC enforcement (EmailModel::sendEmail() checking
-        // this same table before it ever queues a message) never runs for
-        // it either — including for a contact who used the very unsubscribe
-        // link this listener itself generates (buildUnsubscribeUrl() below),
-        // which lands here as a plain 'email'-channel DNC row via core's own
-        // PublicController::unsubscribeAction(). Checked first, before any
-        // variable resolution or the HTTP call, so an opted-out contact is
-        // never sent to n8n at all.
-        if (DoNotContact::IS_CONTACTABLE !== $this->dncModel->isContactable($contact, 'email')) {
-            $event->fail($log, $this->failureReasons->translated(DispatchFailureReasons::DO_NOT_CONTACT, ['%channel%' => 'email']));
-
+        if ($this->failIfNotContactable($event, $log, $contact)) {
             return;
         }
 
@@ -249,6 +246,83 @@ class CampaignTriggerSubscriber implements EventSubscriberInterface
             $this->createStat($email, $contact, $contactEmail, $idHash, $templateCopyHash, true);
             $this->logger->error('N8nDispatch: dispatch failed for contact '.$contact->getId().': '.$e->getMessage());
             $event->fail($log, $this->failureReasons->reason($e->getMessage()));
+        }
+    }
+
+    /**
+     * Fails the contact, with no call at all, when it is on the Do Not Contact list for the email channel.
+     *
+     * Before anything is resolved or sent, for both ways out. The n8n path never goes through Mautic's own mailer,
+     * so core's native DNC enforcement (EmailModel::sendEmail() checking this same table before it queues a
+     * message) never runs for it, including for a contact who used the unsubscribe link this listener itself
+     * generates (buildUnsubscribeUrl()), which lands here as a plain 'email'-channel DNC row via core's
+     * PublicController::unsubscribeAction(). Checked first, an opted-out contact is never sent to n8n at all.
+     * The direct path asks again inside the mailer (and gets the bounce too), this one keeps the same reason
+     * on the History for both.
+     *
+     * @return bool true when the contact was failed
+     */
+    private function failIfNotContactable(PendingEvent $event, LeadEventLog $log, Lead $contact): bool
+    {
+        if (DoNotContact::IS_CONTACTABLE === $this->dncModel->isContactable($contact, 'email')) {
+            return false;
+        }
+
+        $event->fail($log, $this->failureReasons->translated(DispatchFailureReasons::DO_NOT_CONTACT, ['%channel%' => 'email']));
+
+        return true;
+    }
+
+    /**
+     * The Email of a production step sent straight through Mautic's mailer (see Service/DirectEmailSender.php),
+     * for an instance whose Email send mode is 'mautic'. No webhook, no Stat of ours and no template copy: the
+     * mailer makes its own, which is what core's tracking, "view in browser" and unsubscribe read. The log keeps
+     * what went out and the id of that Stat, so the Dispatches screen can read the result from Mautic itself.
+     *
+     * @param array<string, array<string, mixed>> $variablesConfig
+     */
+    private function dispatchDirect(PendingEvent $event, Campaign $campaign, int $emailId, Email $email, string $status, array $variablesConfig, string $language): void
+    {
+        // Core's own action does not send an unpublished Email either; failing (not passing) lets the step go
+        // out once the Email is published again.
+        if (!$email->isPublished()) {
+            $event->failAll($this->failureReasons->translated(DispatchFailureReasons::EMAIL_NOT_PUBLISHED, ['%id%' => $emailId]));
+
+            return;
+        }
+
+        $event->setChannel('email', $emailId);
+        $eventId = (int) $event->getEvent()->getId();
+
+        /** @var Lead $contact */
+        foreach ($event->getContacts() as $logId => $contact) {
+            /** @var LeadEventLog $log */
+            $log = $event->getPending()->get($logId);
+
+            if ($this->failIfNotContactable($event, $log, $contact)) {
+                continue;
+            }
+
+            $variables = $this->variableResolver->resolveAll($variablesConfig, $contact, $campaign, '<br>', $language);
+            $result    = $this->directSender->send($contact, $email, $eventId, $variables);
+
+            $log->appendToMetadata(['n8ndispatch' => [
+                'mode'               => 'mautic',
+                'status'             => $status,
+                'mautic_template_id' => $emailId,
+                'contact_id'         => $contact->getId(),
+                'contact_email'      => $contact->getEmail(),
+                'language'           => $language,
+                'variables'          => $variables,
+                'outcome'            => $result['outcome'],
+                'statId'             => $result['statId'],
+            ]]);
+
+            match ($result['outcome']) {
+                DirectEmailSender::FAILED  => $event->fail($log, (string) $result['reason']),
+                DirectEmailSender::SKIPPED => $event->passWithError($log, (string) $result['reason']),
+                default                    => $event->pass($log),
+            };
         }
     }
 
