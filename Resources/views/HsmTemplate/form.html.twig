@@ -149,10 +149,13 @@
                             <div class="hidden" id="n8ndispatch-hsm-config"
                                  data-numeric-alert-text="{{ 'mautic.n8ndispatch.template.error.numeric_variables'|trans({}, 'validators') }}"
                                  data-unmapped-alert-text="{{ 'mautic.n8ndispatch.template.alert.unmapped_variables'|trans({}, 'validators') }}"></div>
-                            <div class="row">
-                                <div class="col-xs-12">
-                                    {{ form_row(form.text) }}
-                                    <p class="help-block">{{ 'mautic.n8ndispatch.hsmtemplate.text.help'|trans }}</p>
+                            {# Core's form_row, with the help between the label and the textarea. #}
+                            <div class="row form-group">
+                                <div class="col-xs-12{{ form.text.vars.errors|length ? ' has-error' : '' }}">
+                                    {{ form_label(form.text) }}
+                                    <p class="help-block n8ndispatch-text-help">{{ 'mautic.n8ndispatch.hsmtemplate.text.help'|trans }}</p>
+                                    {{ form_widget(form.text) }}
+                                    {{ form_errors(form.text) }}
                                 </div>
                             </div>
                         </div>

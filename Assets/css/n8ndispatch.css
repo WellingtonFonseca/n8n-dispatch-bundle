@@ -570,3 +570,8 @@ a[data-n8n-status-action]:hover * {
 .n8ndispatch-mautic-note {
     margin: 0 0 8px;
 }
+
+/* The help under the label of the SMS and HSM text: 14px like the Calculation list, so it is read. */
+.form-group p.help-block.n8ndispatch-text-help {
+    font-size: 14px;
+}

@@ -3,6 +3,8 @@
 Um bloco por dia, do mais novo para o mais antigo. Formato fixo: `## AAAA-MM-DD` e uma linha `- ` por mudança (a tela do plugin lê este arquivo).
 
 ## 2026-10-30
+- Os templates de SMS e de HSM também têm o campo Cálculo nas variáveis de campo do contato e de Custom Object, com a mesma explicação e as mesmas regras do Email
+- Nos formulários de SMS e de HSM, o texto que explica os placeholders numéricos ficou entre o título Texto do SMS (ou do HSM) e o campo, em fonte maior
 - Novo modo de envio do Email por instância, em Configurações > Plugins > N8N Dispatch, aba Habilitar/Autenticar, campo Enviar o Email por: n8n (padrão) ou Mautic. Atualizar o plugin não muda o modo de nenhuma instância
 - No modo Mautic o Email sai pelo mailer do próprio Mautic: respeita Não Contatar e bounce, usa o link de descadastro e o rastreio de abertura e de clique do Mautic. As campanhas, os templates e as variáveis continuam os mesmos; SMS e HSM seguem pelo n8n
 - Nesse modo a tela Disparos e o card do contato mostram o que o Mautic sabe (na fila, enviado, aberto, clicou, falhou, bounce, descadastrou), com uma linha por tentativa, e o filtro de status usa o mesmo resultado

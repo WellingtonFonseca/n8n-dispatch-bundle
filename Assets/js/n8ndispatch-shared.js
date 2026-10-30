@@ -273,8 +273,8 @@
         return 'field' === source || 'custom_object' === source;
     }
 
-    // 'Calculation [10]': the number added to a date (days) or to a number variable. Only the Email's Variables tab asks for it
-    // (the response of getEmailVariables says dateOffset); the dispatch leaves a field of another type as it is. Shown with
+    // 'Calculation [10]': the number added to a date (days) or to a number variable. Email, SMS and HSM ask for it
+    // (the response says dateOffset); the dispatch leaves a field of another type as it is. Shown with
     // the source it belongs to, like the field selects.
     function dateOffsetBlock(entry, source) {
         var shown = isFieldSource(source) ? '' : ' style="display:none"';
@@ -286,6 +286,27 @@
             + '<input type="text" inputmode="decimal" class="form-control n8ndispatch-var-offset-days" placeholder="0" value="' + escapeHtml(days) + '">'
             + '</div>'
             + '</div>';
+    }
+
+    // The list that explains the Calculation box, once above the rows. The Email tab prints it in its twig; the SMS and
+    // HSM forms have no twig of their own, so it is built here, from the same texts, when the page has none.
+    function calculationHelpHtml() {
+        var items = [
+            ['negative', 'Negative values subtract from the field.'],
+            ['date', 'Date fields are applied in days, up to 3650 days.'],
+            ['number', 'Number fields get the value added, with no limit.'],
+            ['decimal', 'In decimal fields, 2.3 and 2,3 are both accepted.'],
+            ['whole', 'In date, int and number fields, a decimal value uses only the whole part, e.g. 15.5 -> 15.']
+        ];
+        var list = '';
+
+        mQuery.each(items, function (i, item) {
+            list += '<li>' + escapePlain(translate('mautic.n8ndispatch.js.calculation.' + item[0], item[1])) + '</li>';
+        });
+
+        return '<div class="text-muted n8ndispatch-var-offset-help">'
+            + '<p class="mb-xs">' + escapePlain(translate('mautic.n8ndispatch.js.calculation.title', 'Calculation:')) + '</p>'
+            + '<ul>' + list + '</ul></div>';
     }
 
     // The text of the Calculation box as it is saved: a whole number, a decimal as text, or null when it is
@@ -368,6 +389,10 @@
         mQuery.each(response.variables || [], function (i, name) {
             html += variableRowHtml(name, existing[name], response.fields, response.customObjects, !!response.dateOffset);
         });
+
+        if (html && response.dateOffset && 0 === mQuery('.n8ndispatch-var-offset-help').not($container.find('.n8ndispatch-var-offset-help')).length) {
+            html = calculationHelpHtml() + html;
+        }
 
         $container.html(html);
         syncHiddenField($container, $hidden);
