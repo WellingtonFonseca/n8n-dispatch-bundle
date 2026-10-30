@@ -2,6 +2,15 @@
 
 Um bloco por dia, do mais novo para o mais antigo. Formato fixo: `## AAAA-MM-DD` e uma linha `- ` por mudança (a tela do plugin lê este arquivo).
 
+## 2026-10-30
+- Novo modo de envio do Email por instância, em Configurações > Plugins > N8N Dispatch, aba Habilitar/Autenticar, campo Enviar o Email por: n8n (padrão) ou Mautic. Atualizar o plugin não muda o modo de nenhuma instância
+- No modo Mautic o Email sai pelo mailer do próprio Mautic: respeita Não Contatar e bounce, usa o link de descadastro e o rastreio de abertura e de clique do Mautic. As campanhas, os templates e as variáveis continuam os mesmos; SMS e HSM seguem pelo n8n
+- Nesse modo a tela Disparos e o card do contato mostram o que o Mautic sabe (na fila, enviado, aberto, clicou, falhou, bounce, descadastrou), com uma linha por tentativa, e o filtro de status usa o mesmo resultado
+- Reenviar vale para o Email que o mailer do Mautic recusou: sai de novo como uma nova tentativa e o histórico guarda todas
+- Se o SMTP não responde, cada contato espera no máximo 20 segundos e três falhas seguidas com o mesmo erro param o lote; o Mautic tenta o resto depois
+- Um Email sem HTML e sem tema não é enviado nesse modo; os contatos esperam o Email ser corrigido
+- A variável {{n8n_...}} também vale no assunto do Email: aparece na aba Variáveis N8N, precisa do prefixo n8n_ e do mapeamento, como no corpo
+
 ## 2026-10-29
 - Na aba Variáveis N8N do Email, uma variável de campo do contato ou de campo de Custom Object ganha o campo Cálculo: o número digitado é somado ao campo no disparo (negativo subtrai)
 - Em campo de data, o cálculo soma dias (no máximo 3650 dias para cada lado) e mantém a hora; a data sai no idioma do template

@@ -70,13 +70,28 @@ All calls go to the configured `webhook_url`; n8n tells them apart by the
 | Feature | Where | `X-N8n-Dispatch-Action` |
 |---|---|---|
 | Sync an Email template to Mirror on every save (UI or API) | automatic | `email.save` |
-| **Send via n8n (Email)** — pick a Mautic Email, map its `{{variables}}` | Campaign Action | `email.send` |
+| **Send via n8n (Email)** — pick a Mautic Email, map its `{{variables}}` (in the body and in the subject). By default it calls the webhook; on an instance set to **Mautic** (below) it sends through Mautic's own mailer | Campaign Action | `email.send` |
 | **Send via n8n (SMS)** — pick an SMS Template | Campaign Action | `sms.send` |
 | **Send via n8n (HSM)** — pick an HSM Template | Campaign Action | `hsm.send` |
 | **SMS Templates (n8n)** — message text + variable mapping, reused by many campaigns. The name in the list opens a read-only details modal (a middle click on the name opens the same modal, not a new tab: `Assets/js/template-modal-middle-click.js`) (Active / Inactive badge, Template and Campaigns tabs, Close / Edit in the footer). In the list, the status is a badge (ATIVO / INATIVO) at the start of the name with Desativar / Ativar as the first item of the row menu, and the description is hidden | Channels menu | — |
 | **HSM Templates (n8n)** — router, WhatsApp-side template reference, send type (Text or Image Carousel: 2 to 10 https image URLs, sent as `cards`), and `{{variable}}` mapping, reused by many campaigns. The name in the list opens the same kind of read-only details modal; the list has the same status badge and menu item, and the Router and HSM Template columns after the name | Channels menu | — |
 | **SMS channel of core** — the plugin registers an SMS transport (`Service/N8nSmsTransport.php`) that sends nothing: core offers its `sms` channel, and with it the Do Not Contact of SMS (and HSM, which follows it) on the contact page, only while some SMS transport is enabled. Core's own "Send text message" action fails with a message that points to the n8n actions | Contact page, while the plugin is active | — |
 | **Dispatches** — every dispatch the three actions made, with filters, details and **Resend** for the ones in error | N8N Dispatch menu, with the n8n logo as its icon (needs Campaigns > Full) | — (resend: the original's) |
+
+**Email send mode (per instance).** Settings > Plugins > N8N Dispatch >
+*Habilitar/Autenticar*, field **Enviar o Email por**, under the token: `n8n`
+(the default; updating the plugin never changes it) or `Mautic`. With `Mautic`
+the Email of a campaign step goes out through Mautic's mailer, as a marketing
+Email: Do Not Contact and bounce are respected, the unsubscribe link and the
+one-click header are Mautic's, and the Stat, the tracked links and the open
+pixel are core's. The plugin still resolves the `{{variables}}` and hands them
+to the mailer. The Dispatches screen and the contact's Timeline then show what
+Mautic knows (sent, opened, clicked, failed, bounced, unsubscribed, queued, with
+one row per attempt), and **Resend** sends a refused Email again as a new Stat.
+SMS and HSM always go through n8n. The instance needs its own SMTP
+(`mailer_dsn`), SPF / DKIM and bounce handling. A server that does not answer
+costs at most 20 s per contact and three failures in a row with the same error
+stop the batch (core tries the rest again later).
 
 Each campaign step has a **status**: `test` (records the payload on the
 contact's Timeline without calling n8n), `production` (real call), or
@@ -106,7 +121,7 @@ drops it) and the REST API answers 409.
 
 **Rules checked when a template is saved** (screen and API):
 
-- **Email**: every `{{variable}}` must start with `n8n_` and be mapped on the
+- **Email**: every `{{variable}}` of the HTML and of the subject must start with `n8n_` and be mapped on the
   *Variables N8N* tab (both from the second save on; the first save of a new
   Email is never blocked), and *From name* and *From address* are required on
   every save. The edit page shows a yellow alert above the tabs and a pulsing
