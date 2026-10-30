@@ -75,6 +75,25 @@ class EmailUnmappedVariablesSubscriberTest extends TestCase
         $this->save('<p>{{n8n_nome}} {{n8n_curso}}</p>');
     }
 
+    public function testWarnsWhenOnlyTheSubjectHasAVariableWithNoMapping(): void
+    {
+        $this->repository->method('getVariablesJsonForEmail')->willReturn(null);
+        $this->translator->method('trans')->willReturn('Tab');
+
+        $this->flashBag->expects($this->once())->method('add');
+
+        $this->save('<p>sem variavel</p>', 'Oi {{n8n_nome}}');
+    }
+
+    public function testStaysQuietWhenTheVariableOfTheSubjectIsMapped(): void
+    {
+        $this->repository->method('getVariablesJsonForEmail')->willReturn(json_encode(['n8n_nome' => ['source' => 'static', 'value' => 'Maria']]));
+
+        $this->flashBag->expects($this->never())->method('add');
+
+        $this->save('<p>sem variavel</p>', 'Oi {{n8n_nome}} {contactfield=firstname}');
+    }
+
     public function testStaysQuietWhenEveryVariableIsMapped(): void
     {
         $this->repository->method('getVariablesJsonForEmail')->willReturn(json_encode([
@@ -142,16 +161,17 @@ class EmailUnmappedVariablesSubscriberTest extends TestCase
         $subscriber->onEmailPostSave($this->event('<p>{{n8n_nome}}</p>'));
     }
 
-    private function save(string $html): void
+    private function save(string $html, ?string $subject = null): void
     {
-        $this->subscriber()->onEmailPostSave($this->event($html));
+        $this->subscriber()->onEmailPostSave($this->event($html, $subject));
     }
 
-    private function event(string $html): EmailEvent
+    private function event(string $html, ?string $subject = null): EmailEvent
     {
         $email = $this->createMock(Email::class);
         $email->method('getId')->willReturn(7);
         $email->method('getCustomHtml')->willReturn($html);
+        $email->method('getSubject')->willReturn($subject);
 
         return new EmailEvent($email);
     }

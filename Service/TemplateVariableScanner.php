@@ -39,6 +39,29 @@ class TemplateVariableScanner
     }
 
     /**
+     * The variables of an Email: those of its subject and of its HTML, each read on its own (a variable cannot
+     * start in the subject and end in the HTML). What the plugin does with the variables of the HTML (the
+     * Variables tab, the prefix rule, the unmapped warning) it does for the subject too, so a {{n8n_name}} in the
+     * subject is filled the way one in the body is.
+     *
+     * @return list<string>
+     */
+    public function extractFromEmail(?string $subject, ?string $html): array
+    {
+        return array_values(array_unique(array_merge($this->extract((string) $subject), $this->extract((string) $html))));
+    }
+
+    /**
+     * The variables from extractFromEmail() that don't start with REQUIRED_PREFIX.
+     *
+     * @return list<string>
+     */
+    public function extractWithoutPrefixFromEmail(?string $subject, ?string $html): array
+    {
+        return $this->withoutPrefix($this->extractFromEmail($subject, $html));
+    }
+
+    /**
      * The variables from extract() that don't start with REQUIRED_PREFIX.
      * The reserved unsubscribe variable is never listed, extract() already drops it.
      *
@@ -46,8 +69,18 @@ class TemplateVariableScanner
      */
     public function extractWithoutPrefix(string $html): array
     {
+        return $this->withoutPrefix($this->extract($html));
+    }
+
+    /**
+     * @param list<string> $names
+     *
+     * @return list<string>
+     */
+    private function withoutPrefix(array $names): array
+    {
         return array_values(array_filter(
-            $this->extract($html),
+            $names,
             static fn (string $name): bool => !str_starts_with($name, self::REQUIRED_PREFIX)
         ));
     }

@@ -26,6 +26,11 @@ class DispatchFailureReasons
     public const NO_PHONE               = 'mautic.n8ndispatch.failure.no_phone';
     public const HTTP_STATUS            = 'mautic.n8ndispatch.failure.http_status';
     public const EMPTY_RESPONSE         = 'mautic.n8ndispatch.failure.empty_response';
+    public const NO_EMAIL_ADDRESS       = 'mautic.n8ndispatch.failure.no_email_address';
+    public const CATEGORY_UNSUBSCRIBED  = 'mautic.n8ndispatch.failure.category_unsubscribed';
+    public const EMAIL_NOT_PUBLISHED    = 'mautic.n8ndispatch.failure.email_not_published';
+    public const SEND_STOPPED           = 'mautic.n8ndispatch.failure.send_stopped';
+    public const EMAIL_EMPTY            = 'mautic.n8ndispatch.failure.email_empty';
 
     public function __construct(private TranslatorInterface $translator)
     {

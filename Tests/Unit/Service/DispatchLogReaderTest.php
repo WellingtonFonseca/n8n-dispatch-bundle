@@ -248,4 +248,12 @@ class DispatchLogReaderTest extends TestCase
         $this->assertNull($dispatch(['response' => "  \n"])['response']);
         $this->assertNull($dispatch(['response' => 5])['response']);
     }
+
+    public function testADispatchSentThroughMauticHasNothingOfN8nToBackfill(): void
+    {
+        $metadata = ['n8ndispatch' => ['mode' => 'mautic', 'status' => 'production', 'outcome' => 'sent', 'statId' => 5]];
+
+        $this->assertNull((new DispatchLogReader())->dispatchOf('email', $metadata));
+        $this->assertSame([], (new DispatchLogReader())->refs('email', $metadata));
+    }
 }

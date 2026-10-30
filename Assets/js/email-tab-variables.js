@@ -151,11 +151,27 @@
 
         $hidden.off('n8ndispatch:synced.n8nalert').on('n8ndispatch:synced.n8nalert', updateUnmappedAlert);
 
+        // The subject is a text of the Email where a variable can be too: what is typed in the form is sent on
+        // every refresh, the saved one would be stale. The HTML of the builder, once it was closed, is kept for
+        // the refreshes that the subject triggers.
+        var subjectField = function () {
+            return $form.find('#emailform_subject');
+        };
+        var builderHtml = null;
+
         function refreshVariables(html) {
             var data = {emailId: emailId};
 
             if (typeof html === 'string') {
-                data.html = html;
+                builderHtml = html;
+            }
+
+            if (null !== builderHtml) {
+                data.html = builderHtml;
+            }
+
+            if (0 < subjectField().length) {
+                data.subject = subjectField().val() || '';
             }
 
             Mautic.ajaxActionRequest('plugin:N8nDispatch:getEmailVariables', data, function (response) {
@@ -179,6 +195,11 @@
                 shared.renderVariablesFromResponse($el, response);
             });
         }
+
+        // Delegated on the form, so a subject field that core draws again is still heard.
+        $form.off('change.n8nvars').on('change.n8nvars', '#emailform_subject', function () {
+            refreshVariables();
+        });
 
         refreshVariables();
         $el.data('n8ndispatchRefresh', refreshVariables);

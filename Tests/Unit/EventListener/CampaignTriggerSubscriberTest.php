@@ -28,9 +28,11 @@ use MauticPlugin\N8nDispatchBundle\EventListener\CampaignTriggerSubscriber;
 use MauticPlugin\N8nDispatchBundle\Integration\N8nDispatchIntegration;
 use MauticPlugin\N8nDispatchBundle\Resolver\VariableResolver;
 use MauticPlugin\N8nDispatchBundle\UnsubscribeVariable;
+use MauticPlugin\N8nDispatchBundle\Service\DirectEmailSender;
 use MauticPlugin\N8nDispatchBundle\Service\DispatchFailureReasons;
 use MauticPlugin\N8nDispatchBundle\Service\StatusTracker;
 use PHPUnit\Framework\Attributes\AllowMockObjectsWithoutExpectations;
+use PHPUnit\Framework\MockObject\MockObject;
 use PHPUnit\Framework\TestCase;
 use Psr\Log\LoggerInterface;
 use Symfony\Contracts\HttpClient\HttpClientInterface;
@@ -1053,6 +1055,460 @@ class CampaignTriggerSubscriberTest extends TestCase
     public static function simulatedModes(): array
     {
         return ['test' => ['test'], 'paused' => ['paused']];
+    }
+
+    /**
+     * @dataProvider simulatedModes
+     */
+    #[\PHPUnit\Framework\Attributes\DataProvider('simulatedModes')]
+    public function testATestOrPausedStepPassesWithoutAStatusTracker(string $mode): void
+    {
+        $subscriber = new CampaignTriggerSubscriber(
+            $this->integrationHelper,
+            $this->httpClient,
+            $this->logger,
+            $this->emailModel,
+            $this->variableResolver,
+            $this->mailHashHelper,
+            $this->entityManager,
+            $this->dncModel,
+            $this->emailVariablesRepository,
+            new DispatchFailureReasons(new EnUsTranslator()),
+        );
+        $event = $this->buildPendingEvent(['email' => 1, 'status' => $mode]);
+        $this->emailModel->method('getEntity')->willReturn(new Email());
+
+        $subscriber->onEmailSend($event);
+
+        $this->assertCount(1, $event->getSuccessful());
+        $this->assertCount(0, $event->getFailures());
+    }
+
+    public function testAContactWithoutAnEmailAddressIsStillDispatched(): void
+    {
+        $event = $this->buildPendingEvent(['email' => 1, 'status' => 'production']);
+        $event->getPending()->first()->setLead(new Lead());
+        $this->emailModel->method('getEntity')->willReturn(new Email());
+        $this->mockIntegration(true, ['webhook_url' => 'https://n8n.example.test/webhook/dispatch']);
+        $response = $this->createMock(ResponseInterface::class);
+        $response->method('getStatusCode')->willReturn(200);
+        $this->httpClient->expects($this->once())->method('request')->willReturn($response);
+
+        $this->subscriber->onEmailSend($event);
+
+        $this->assertCount(1, $event->getSuccessful());
+    }
+
+    public function testAnEmailWithoutSubjectOrHtmlIsSnapshottedAsEmptyTexts(): void
+    {
+        $event = $this->buildPendingEvent(['email' => 1, 'status' => 'production']);
+        $this->emailModel->method('getEntity')->willReturn(new Email());
+        $this->mockIntegration(true, ['webhook_url' => 'https://n8n.example.test/webhook/dispatch']);
+        $response = $this->createMock(ResponseInterface::class);
+        $response->method('getStatusCode')->willReturn(200);
+        $this->httpClient->method('request')->willReturn($response);
+        $this->copyRepository->method('findByHash')->willReturn(null);
+        $this->copyRepository->expects($this->once())->method('saveCopy')->with(md5(''), $this->identicalTo(''), $this->identicalTo(''), $this->identicalTo(''))->willReturn(true);
+        $this->entityManager->method('getReference')->willReturn(new Copy());
+
+        $this->subscriber->onEmailSend($event);
+    }
+
+    /**
+     * @param array{outcome?: string, reason?: ?string, statId?: ?int} $answer
+     */
+    private function directSubscriber(array $answer = ['outcome' => 'sent', 'reason' => null, 'statId' => 4321], bool $on = true): array
+    {
+        $sender = $this->createMock(DirectEmailSender::class);
+        $sender->method('isOn')->willReturn($on);
+        $sender->method('send')->willReturn($answer + ['outcome' => 'sent', 'reason' => null, 'statId' => null]);
+
+        $subscriber = new CampaignTriggerSubscriber(
+            $this->integrationHelper,
+            $this->httpClient,
+            $this->logger,
+            $this->emailModel,
+            $this->variableResolver,
+            $this->mailHashHelper,
+            $this->entityManager,
+            $this->dncModel,
+            $this->emailVariablesRepository,
+            new DispatchFailureReasons(new EnUsTranslator()),
+            $this->statusTracker,
+            $sender,
+        );
+
+        return [$subscriber, $sender];
+    }
+
+    public function testInDirectModeTheEmailGoesToTheMailerAndNeverToTheWebhook(): void
+    {
+        [$subscriber, $sender] = $this->directSubscriber();
+        $event = $this->buildPendingEvent(['email' => 1, 'status' => 'production']);
+        $email = new Email();
+        $this->emailModel->method('getEntity')->with(1)->willReturn($email);
+        $this->httpClient->expects($this->never())->method('request');
+        $this->emailModel->expects($this->never())->method('saveEmailStat');
+        $this->copyRepository->expects($this->never())->method('saveCopy');
+        $sender->expects($this->once())->method('send')
+            ->with($this->isInstanceOf(Lead::class), $email, 0, ['foo' => 'bar']);
+
+        $subscriber->onEmailSend($event);
+
+        $this->assertCount(1, $event->getSuccessful());
+        $this->assertCount(0, $event->getFailures());
+        $log = $event->getSuccessful()->first();
+        $this->assertSame(['mode' => 'mautic', 'status' => 'production', 'mautic_template_id' => 1, 'contact_id' => 0, 'contact_email' => 'contact@example.test', 'language' => $email->getLanguage(), 'variables' => ['foo' => 'bar'], 'outcome' => 'sent', 'statId' => 4321], $log->getMetadata()['n8ndispatch']);
+    }
+
+    public function testInDirectModeNoWebhookIsNeeded(): void
+    {
+        [$subscriber] = $this->directSubscriber();
+        $event = $this->buildPendingEvent(['email' => 1, 'status' => 'production']);
+        $this->emailModel->method('getEntity')->willReturn(new Email());
+        $this->integrationHelper->expects($this->never())->method('getIntegrationObject');
+
+        $subscriber->onEmailSend($event);
+
+        $this->assertCount(1, $event->getSuccessful());
+    }
+
+    public function testInDirectModeTheChannelOfTheStepIsTheEmail(): void
+    {
+        [$subscriber] = $this->directSubscriber();
+        $event = $this->buildPendingEvent(['email' => 1, 'status' => 'production']);
+        $this->emailModel->method('getEntity')->willReturn(new Email());
+
+        $subscriber->onEmailSend($event);
+
+        $log = $event->getSuccessful()->first();
+        $this->assertSame('email', $log->getChannel());
+        $this->assertSame(1, $log->getChannelId());
+    }
+
+    public function testInDirectModeAnEmailTheMailerHeldBackStillPassesTheStep(): void
+    {
+        [$subscriber] = $this->directSubscriber(['outcome' => 'queued']);
+        $event = $this->buildPendingEvent(['email' => 1, 'status' => 'production']);
+        $this->emailModel->method('getEntity')->willReturn(new Email());
+
+        $subscriber->onEmailSend($event);
+
+        $this->assertCount(1, $event->getSuccessful());
+        $this->assertSame('queued', $event->getSuccessful()->first()->getMetadata()['n8ndispatch']['outcome']);
+        $this->assertNull($event->getSuccessful()->first()->getMetadata()['n8ndispatch']['statId']);
+    }
+
+    public function testInDirectModeASkippedContactPassesWithTheReasonAndIsNotRetried(): void
+    {
+        [$subscriber] = $this->directSubscriber(['outcome' => 'skipped', 'reason' => 'N8nDispatch: the contact has no email address.']);
+        $event = $this->buildPendingEvent(['email' => 1, 'status' => 'production']);
+        $this->emailModel->method('getEntity')->willReturn(new Email());
+
+        $subscriber->onEmailSend($event);
+
+        $this->assertCount(0, $event->getFailures());
+        $this->assertCount(1, $event->getSuccessful());
+        $metadata = $event->getSuccessful()->first()->getMetadata();
+        $this->assertSame('N8nDispatch: the contact has no email address.', $metadata['reason']);
+        $this->assertSame('skipped', $metadata['n8ndispatch']['outcome']);
+    }
+
+    public function testInDirectModeAFailureOfTheMailerFailsTheContactWithItsReason(): void
+    {
+        [$subscriber] = $this->directSubscriber(['outcome' => 'failed', 'reason' => 'N8nDispatch: 550 mailbox unavailable']);
+        $event = $this->buildPendingEvent(['email' => 1, 'status' => 'production']);
+        $this->emailModel->method('getEntity')->willReturn(new Email());
+
+        $subscriber->onEmailSend($event);
+
+        $this->assertCount(0, $event->getSuccessful());
+        $this->assertCount(1, $event->getFailures());
+        $log = $event->getFailures()->first();
+        $this->assertSame('N8nDispatch: 550 mailbox unavailable', $log->getMetadata()['reason']);
+        $this->assertSame('failed', $log->getMetadata()['n8ndispatch']['outcome']);
+    }
+
+    public function testInDirectModeAContactOnTheDncListIsFailedBeforeTheMailerIsAsked(): void
+    {
+        [$subscriber, $sender] = $this->directSubscriber();
+        $dnc = $this->createMock(DncModel::class);
+        $dnc->method('isContactable')->willReturn(DoNotContact::UNSUBSCRIBED);
+        $subscriber = new CampaignTriggerSubscriber(
+            $this->integrationHelper, $this->httpClient, $this->logger, $this->emailModel, $this->variableResolver,
+            $this->mailHashHelper, $this->entityManager, $dnc, $this->emailVariablesRepository,
+            new DispatchFailureReasons(new EnUsTranslator()), $this->statusTracker, $sender,
+        );
+        $event = $this->buildPendingEvent(['email' => 1, 'status' => 'production']);
+        $this->emailModel->method('getEntity')->willReturn(new Email());
+        $sender->expects($this->never())->method('send');
+
+        $subscriber->onEmailSend($event);
+
+        $this->assertCount(1, $event->getFailures());
+        $this->assertStringContainsString('Do Not Contact', $event->getFailures()->first()->getMetadata()['reason']);
+    }
+
+    public function testInDirectModeAContactOnTheDncListDoesNotStopTheOthersOfTheBatch(): void
+    {
+        [, $sender] = $this->directSubscriber();
+        $dnc = $this->createMock(DncModel::class);
+        $dnc->method('isContactable')->willReturnOnConsecutiveCalls(DoNotContact::UNSUBSCRIBED, DoNotContact::IS_CONTACTABLE);
+        $subscriber = new CampaignTriggerSubscriber(
+            $this->integrationHelper, $this->httpClient, $this->logger, $this->emailModel, $this->variableResolver,
+            $this->mailHashHelper, $this->entityManager, $dnc, $this->emailVariablesRepository,
+            new DispatchFailureReasons(new EnUsTranslator()), $this->statusTracker, $sender,
+        );
+        $this->emailModel->method('getEntity')->willReturn(new Email());
+
+        $event = new Event();
+        $event->setType('n8ndispatch.email.send');
+        $event->setCampaign(new Campaign());
+        $event->setProperties(['email' => 1, 'status' => 'production']);
+        $logs = new ArrayCollection();
+        foreach ([1, 2] as $id) {
+            $contact = new Lead();
+            $contact->setEmail('c'.$id.'@example.test');
+            $log = new LeadEventLog();
+            (new \ReflectionProperty($log, 'id'))->setValue($log, $id);
+            $log->setLead($contact);
+            $logs->set($id, $log);
+        }
+        $pending = new PendingEvent(new ActionAccessor([]), $event, $logs);
+        $sender->expects($this->once())->method('send');
+
+        $subscriber->onEmailSend($pending);
+
+        $this->assertCount(1, $pending->getFailures());
+        $this->assertCount(1, $pending->getSuccessful());
+    }
+
+    public function testInDirectModeAnEmailThatIsNotPublishedFailsTheWholeStep(): void
+    {
+        [$subscriber, $sender] = $this->directSubscriber();
+        $event = $this->buildPendingEvent(['email' => 1, 'status' => 'production']);
+        $email = new Email();
+        $email->setIsPublished(false);
+        $this->emailModel->method('getEntity')->willReturn($email);
+        $sender->expects($this->never())->method('send');
+
+        $subscriber->onEmailSend($event);
+
+        $this->assertCount(1, $event->getFailures());
+        $this->assertSame('N8nDispatch: Email #1 is not published.', $event->getFailures()->first()->getMetadata()['reason']);
+    }
+
+    public function testInDirectModeAStepWithoutAnEmailStillFailsSayingSo(): void
+    {
+        [$subscriber, $sender] = $this->directSubscriber();
+        $event = $this->buildPendingEvent(['status' => 'production']);
+        $sender->expects($this->never())->method('send');
+
+        $subscriber->onEmailSend($event);
+
+        $this->assertCount(1, $event->getFailures());
+        $this->assertStringContainsString('no Email picked', $event->getFailures()->first()->getMetadata()['reason']);
+    }
+
+    /**
+     * @dataProvider simulatedModes
+     */
+    #[\PHPUnit\Framework\Attributes\DataProvider('simulatedModes')]
+    public function testInDirectModeATestOrPausedStepStillOnlyRecordsThePayload(string $mode): void
+    {
+        [$subscriber, $sender] = $this->directSubscriber();
+        $event = $this->buildPendingEvent(['email' => 1, 'status' => $mode]);
+        $this->emailModel->method('getEntity')->willReturn(new Email());
+        $sender->expects($this->never())->method('send');
+
+        $subscriber->onEmailSend($event);
+
+        $this->assertSame($mode, $event->getSuccessful()->first()->getMetadata()['n8ndispatch']['status']);
+        $this->assertArrayHasKey('mautic_template_id', $event->getSuccessful()->first()->getMetadata()['n8ndispatch']);
+    }
+
+    public function testWithTheDirectSendOffTheEmailStillGoesToTheWebhook(): void
+    {
+        [$subscriber, $sender] = $this->directSubscriber(on: false);
+        $event = $this->buildPendingEvent(['email' => 1, 'status' => 'production']);
+        $this->emailModel->method('getEntity')->willReturn(new Email());
+        $this->mockIntegration(true, ['webhook_url' => 'https://n8n.example.test/webhook/dispatch']);
+        $response = $this->createMock(ResponseInterface::class);
+        $response->method('getStatusCode')->willReturn(200);
+        $this->httpClient->expects($this->once())->method('request')->willReturn($response);
+        $sender->expects($this->never())->method('send');
+
+        $subscriber->onEmailSend($event);
+
+        $this->assertCount(1, $event->getSuccessful());
+    }
+
+    /**
+     * A batch of $count contacts and the subscriber in direct mode with a sender that answers each call in turn.
+     *
+     * @param list<array{outcome: string, reason: ?string, statId: ?int}> $answers
+     *
+     * @return array{CampaignTriggerSubscriber, PendingEvent, MockObject}
+     */
+    private function directBatch(int $count, array $answers): array
+    {
+        $sender = $this->createMock(DirectEmailSender::class);
+        $sender->method('isOn')->willReturn(true);
+        $sender->method('send')->willReturnOnConsecutiveCalls(...$answers);
+
+        $subscriber = new CampaignTriggerSubscriber(
+            $this->integrationHelper, $this->httpClient, $this->logger, $this->emailModel, $this->variableResolver,
+            $this->mailHashHelper, $this->entityManager, $this->dncModel, $this->emailVariablesRepository,
+            new DispatchFailureReasons(new EnUsTranslator()), $this->statusTracker, $sender,
+        );
+        $this->emailModel->method('getEntity')->willReturn(new Email());
+
+        $event = new Event();
+        $event->setType('n8ndispatch.email.send');
+        $event->setCampaign(new Campaign());
+        $event->setProperties(['email' => 1, 'status' => 'production']);
+        $logs = new ArrayCollection();
+        foreach (range(1, $count) as $id) {
+            $contact = new Lead();
+            $contact->setEmail('c'.$id.'@example.test');
+            $log = new LeadEventLog();
+            (new \ReflectionProperty($log, 'id'))->setValue($log, $id);
+            $log->setLead($contact);
+            $logs->set($id, $log);
+        }
+
+        return [$subscriber, new PendingEvent(new ActionAccessor([]), $event, $logs), $sender];
+    }
+
+    private static function failure(string $reason = 'N8nDispatch: Connection timed out'): array
+    {
+        return ['outcome' => 'failed', 'reason' => $reason, 'statId' => null];
+    }
+
+    private static function sentOk(int $statId): array
+    {
+        return ['outcome' => 'sent', 'reason' => null, 'statId' => $statId];
+    }
+
+    public function testInDirectModeTheBatchStopsAfterThreeSendsInARowFailWithTheSameError(): void
+    {
+        [$subscriber, $event, $sender] = $this->directBatch(6, [self::failure(), self::failure(), self::failure(), self::failure(), self::failure(), self::failure()]);
+        $sender->expects($this->exactly(3))->method('send');
+
+        $subscriber->onEmailSend($event);
+
+        $this->assertCount(6, $event->getFailures());
+        $this->assertCount(0, $event->getSuccessful());
+        $reasons = array_map(static fn (LeadEventLog $log): string => $log->getMetadata()['reason'], $event->getFailures()->toArray());
+        $this->assertSame(['N8nDispatch: Connection timed out', 'N8nDispatch: Connection timed out', 'N8nDispatch: Connection timed out'], array_slice(array_values($reasons), 0, 3));
+        $this->assertSame(
+            'N8nDispatch: not tried: the last 3 sends through Mautic failed with the same error (N8nDispatch: Connection timed out). Mautic tries it again later.',
+            array_values($reasons)[3]
+        );
+        $this->assertSame(array_values($reasons)[3], array_values($reasons)[5]);
+    }
+
+    public function testInDirectModeDifferentErrorsNeverStopTheBatch(): void
+    {
+        [$subscriber, $event, $sender] = $this->directBatch(5, [self::failure('N8nDispatch: 550 a'), self::failure('N8nDispatch: 550 b'), self::failure('N8nDispatch: 550 c'), self::failure('N8nDispatch: 550 d'), self::sentOk(9)]);
+        $sender->expects($this->exactly(5))->method('send');
+
+        $subscriber->onEmailSend($event);
+
+        $this->assertCount(4, $event->getFailures());
+        $this->assertCount(1, $event->getSuccessful());
+    }
+
+    public function testInDirectModeASendThatWorksStartsTheCountAgain(): void
+    {
+        [$subscriber, $event, $sender] = $this->directBatch(5, [self::failure(), self::failure(), self::sentOk(9), self::failure(), self::failure()]);
+        $sender->expects($this->exactly(5))->method('send');
+
+        $subscriber->onEmailSend($event);
+
+        $this->assertCount(4, $event->getFailures());
+        $this->assertCount(1, $event->getSuccessful());
+    }
+
+    public function testInDirectModeAContactLeftOutNeitherCountsNorStartsTheCountAgain(): void
+    {
+        $skipped = ['outcome' => 'skipped', 'reason' => 'N8nDispatch: the contact has no email address.', 'statId' => null];
+        [$subscriber, $event, $sender] = $this->directBatch(5, [self::failure(), self::failure(), $skipped, self::failure(), self::sentOk(9)]);
+        $sender->expects($this->exactly(4))->method('send');
+
+        $subscriber->onEmailSend($event);
+
+        // two failures, the one left out, the third failure (it stops the batch) and the fifth contact, never tried
+        $this->assertCount(4, $event->getFailures());
+        $this->assertCount(1, $event->getSuccessful());
+    }
+
+    public function testInDirectModeAContactLeftOutByTheStopOrTheDncListStillGetsTheBlockOfAMauticDispatch(): void
+    {
+        $dnc = $this->createMock(DncModel::class);
+        $dnc->method('isContactable')->willReturnOnConsecutiveCalls(DoNotContact::IS_CONTACTABLE, DoNotContact::IS_CONTACTABLE, DoNotContact::IS_CONTACTABLE, DoNotContact::UNSUBSCRIBED, DoNotContact::IS_CONTACTABLE);
+        [, $event, $sender] = $this->directBatch(5, [self::failure(), self::failure(), self::failure()]);
+        $subscriber = new CampaignTriggerSubscriber(
+            $this->integrationHelper, $this->httpClient, $this->logger, $this->emailModel, $this->variableResolver,
+            $this->mailHashHelper, $this->entityManager, $dnc, $this->emailVariablesRepository,
+            new DispatchFailureReasons(new EnUsTranslator()), $this->statusTracker, $sender,
+        );
+        $event->getPending()->get(5)->setMetadata(['n8ndispatch' => ['statId' => 10]]);
+
+        $subscriber->onEmailSend($event);
+
+        foreach ([4, 5] as $id) { // 4: on the Do Not Contact list, 5: left out by the stop
+            $n8n = $event->getPending()->get($id)->getMetadata()['n8ndispatch'];
+            $this->assertSame('mautic', $n8n['mode']);
+            $this->assertSame('failed', $n8n['outcome']);
+            $this->assertSame('production', $n8n['status']);
+            $this->assertSame(['foo' => 'bar'], $n8n['variables'], 'the values a resend sends');
+        }
+
+        $this->assertSame(10, $event->getPending()->get(5)->getMetadata()['n8ndispatch']['statId'], 'the Stats of earlier attempts stay');
+    }
+
+    public function testInDirectModeTheStatsOfEarlierAttemptsStayOnTheLogWhenCoreTriesAgain(): void
+    {
+        [$subscriber, $event] = $this->directBatch(1, [self::sentOk(11)]);
+        $log = $event->getPending()->first();
+        $log->setMetadata(['failed' => 1, 'reason' => 'x', 'n8ndispatch' => ['mode' => 'mautic', 'statId' => 10, 'outcome' => 'failed']]);
+
+        $subscriber->onEmailSend($event);
+
+        $n8n = $log->getMetadata()['n8ndispatch'];
+        $this->assertSame(10, $n8n['statId']);
+        $this->assertSame([10, 11], $n8n['statIds']);
+        $this->assertSame('sent', $n8n['outcome']);
+    }
+
+    public function testInDirectModeAnAttemptThatMadeNoStatKeepsTheEarlierOnes(): void
+    {
+        [$subscriber, $event] = $this->directBatch(1, [self::failure()]);
+        $log = $event->getPending()->first();
+        $log->setMetadata(['n8ndispatch' => ['mode' => 'mautic', 'statId' => 10, 'outcome' => 'sent']]);
+
+        $subscriber->onEmailSend($event);
+
+        $this->assertSame(10, $log->getMetadata()['n8ndispatch']['statId']);
+        $this->assertArrayNotHasKey('statIds', $log->getMetadata()['n8ndispatch']);
+    }
+
+    public function testInDirectModeAnAnsweredBatchReturnsToTheDncGuardAfterTheStop(): void
+    {
+        $dnc = $this->createMock(DncModel::class);
+        $dnc->method('isContactable')->willReturnOnConsecutiveCalls(DoNotContact::IS_CONTACTABLE, DoNotContact::IS_CONTACTABLE, DoNotContact::IS_CONTACTABLE, DoNotContact::UNSUBSCRIBED);
+        [, $event, $sender] = $this->directBatch(4, [self::failure(), self::failure(), self::failure()]);
+        $subscriber = new CampaignTriggerSubscriber(
+            $this->integrationHelper, $this->httpClient, $this->logger, $this->emailModel, $this->variableResolver,
+            $this->mailHashHelper, $this->entityManager, $dnc, $this->emailVariablesRepository,
+            new DispatchFailureReasons(new EnUsTranslator()), $this->statusTracker, $sender,
+        );
+
+        $subscriber->onEmailSend($event);
+
+        $reasons = array_map(static fn (LeadEventLog $log): string => $log->getMetadata()['reason'], array_values($event->getFailures()->toArray()));
+        $this->assertStringContainsString('Do Not Contact', $reasons[3], 'the fourth contact is left out for its own reason, not for the stop');
     }
 
     public function testAStepWithoutAnEmailLooksUpNeitherTheEmailNorItsVariables(): void

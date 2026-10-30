@@ -176,6 +176,81 @@ class EmailVariableMappingExtensionTest extends TestCase
         $this->submit(7, '<p>{{n8n_nome}}</p>', $customHtml);
     }
 
+    public function testBlocksAnEmailWhoseSubjectHasAnUnmappedVariable(): void
+    {
+        $this->repository->method('getVariablesJsonForEmail')->with(7)->willReturn(json_encode(['n8n_nome' => ['source' => 'static', 'value' => 'x']]));
+        $customHtml = $this->customHtml();
+        $customHtml->expects($this->never())->method('addError');
+        $subject = $this->customHtml();
+        $subject->expects($this->once())->method('addError')->with($this->callback(
+            fn (FormError $e): bool => 'mautic.n8ndispatch.email.error.unmapped {"%tab%":"Variables N8N"}' === $e->getMessage()
+                && $e->getCause() instanceof ConstraintViolationInterface
+                && 'subject' === $e->getCause()->getPropertyPath()
+                && 'Oi {{n8n_curso}}' === $e->getCause()->getInvalidValue()
+        ));
+        $this->flashBag->expects($this->once())->method('add');
+
+        $this->submit(7, '<p>{{n8n_nome}}</p>', $customHtml, 'Oi {{n8n_curso}}', $subject);
+    }
+
+    public function testAllowsASubjectWhoseVariablesAreMapped(): void
+    {
+        $this->repository->method('getVariablesJsonForEmail')->willReturn(json_encode(['n8n_nome' => ['source' => 'static', 'value' => 'x']]));
+        $customHtml = $this->customHtml();
+        $customHtml->expects($this->never())->method('addError');
+        $subject = $this->customHtml();
+        $subject->expects($this->never())->method('addError');
+
+        $this->submit(7, '<p>sem variavel</p>', $customHtml, 'Oi {{n8n_nome}}', $subject);
+    }
+
+    public function testTheErrorIsOnTheHtmlWhenItsVariableIsUnmappedEvenIfTheSubjectIsMapped(): void
+    {
+        $this->repository->method('getVariablesJsonForEmail')->willReturn(json_encode(['n8n_nome' => ['source' => 'static', 'value' => 'x']]));
+        $customHtml = $this->customHtml();
+        $customHtml->expects($this->once())->method('addError')->with($this->callback(fn (FormError $e): bool => 'customHtml' === $e->getCause()->getPropertyPath()));
+        $subject = $this->customHtml();
+        $subject->expects($this->never())->method('addError');
+
+        $this->submit(7, '<p>{{n8n_curso}}</p>', $customHtml, 'Oi {{n8n_nome}}', $subject);
+    }
+
+    public function testOneErrorOnTheHtmlWhenBothHaveAnUnmappedVariable(): void
+    {
+        $this->repository->method('getVariablesJsonForEmail')->willReturn(null);
+        $customHtml = $this->customHtml();
+        $customHtml->expects($this->once())->method('addError');
+        $subject = $this->customHtml();
+        $subject->expects($this->never())->method('addError');
+        $this->flashBag->expects($this->once())->method('add');
+
+        $this->submit(7, '<p>{{n8n_a}}</p>', $customHtml, 'Oi {{n8n_b}}', $subject);
+    }
+
+    public function testLeavesItToThePrefixCheckWhenTheSubjectAlreadyHasAnError(): void
+    {
+        $this->repository->expects($this->never())->method('getVariablesJsonForEmail');
+        $customHtml = $this->customHtml();
+        $customHtml->expects($this->never())->method('addError');
+        $subject = $this->customHtml(1);
+        $subject->expects($this->never())->method('addError');
+        $this->flashBag->expects($this->never())->method('add');
+
+        $this->submit(7, '<p>ok</p>', $customHtml, 'Oi {{nome}}', $subject);
+    }
+
+    public function testASubjectWithoutVariablesNeverLooksAtTheSubjectField(): void
+    {
+        $this->repository->method('getVariablesJsonForEmail')->willReturn(null);
+        $customHtml = $this->customHtml();
+        $customHtml->expects($this->once())->method('addError');
+        $subject = $this->createMock(FormInterface::class);
+        $subject->expects($this->never())->method('getErrors');
+        $subject->expects($this->never())->method('addError');
+
+        $this->submit(7, '<p>{{n8n_nome}}</p>', $customHtml, 'Oi {contactfield=firstname}', $subject);
+    }
+
     public function testIgnoresDataThatIsNotAnEmail(): void
     {
         $form = $this->createMock(FormInterface::class);
@@ -211,14 +286,15 @@ class EmailVariableMappingExtensionTest extends TestCase
         return $customHtml;
     }
 
-    private function submit(?int $id, string $html, FormInterface $customHtml): void
+    private function submit(?int $id, string $html, FormInterface $customHtml, ?string $subject = null, ?FormInterface $subjectField = null): void
     {
         $email = $this->createMock(Email::class);
         $email->method('getId')->willReturn($id);
         $email->method('getCustomHtml')->willReturn($html);
+        $email->method('getSubject')->willReturn($subject);
 
         $form = $this->createMock(FormInterface::class);
-        $form->method('get')->with('customHtml')->willReturn($customHtml);
+        $form->method('get')->willReturnMap([['customHtml', $customHtml], ['subject', $subjectField ?? $this->customHtml()]]);
 
         $this->listener()(new FormEvent($form, $email));
     }

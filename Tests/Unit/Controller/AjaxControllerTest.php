@@ -116,10 +116,11 @@ class AjaxControllerTest extends TestCase
     /**
      * @return array<string, mixed>
      */
-    private function emailVariablesResponse(Request $request, ?string $savedHtml): array
+    private function emailVariablesResponse(Request $request, ?string $savedHtml, ?string $savedSubject = null): array
     {
         $email = $this->createStub(Email::class);
         $email->method('getCustomHtml')->willReturn($savedHtml);
+        $email->method('getSubject')->willReturn($savedSubject);
 
         $emailModel = $this->createStub(EmailModel::class);
         $emailModel->method('getEntity')->willReturn($email);
@@ -167,6 +168,22 @@ class AjaxControllerTest extends TestCase
 
         $this->assertSame(['n8n_nome'], $data['variables']);
         $this->assertSame([], $data['invalidVariables']);
+    }
+
+    public function testEmailVariablesListsTheOnesOfTheSavedSubjectToo(): void
+    {
+        $data = $this->emailVariablesResponse(new Request([], ['emailId' => 7]), '<p>{{n8n_nome}}</p>', 'Oi {{n8n_nome}} {{curso}} {contactfield=firstname}');
+
+        $this->assertSame(['n8n_nome', 'curso'], $data['variables']);
+        $this->assertSame(['curso'], $data['invalidVariables']);
+    }
+
+    public function testEmailVariablesChecksTheSubjectOfTheFormWhenItIsSent(): void
+    {
+        $data = $this->emailVariablesResponse(new Request([], ['emailId' => 7, 'subject' => 'Oi {{novo}}']), '<p>{{n8n_nome}}</p>', 'Oi {{n8n_antigo}}');
+
+        $this->assertSame(['novo', 'n8n_nome'], $data['variables']);
+        $this->assertSame(['novo'], $data['invalidVariables']);
     }
 
     public function testEmailVariablesChecksTheBuilderHtmlWhenItIsSent(): void

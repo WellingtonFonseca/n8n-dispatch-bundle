@@ -127,6 +127,38 @@ class N8nDispatchIntegrationTest extends TestCase
         $this->assertStringNotContainsString('"', $attr['postaddon_attr']['onclick'], 'single quotes only, it sits inside an attribute');
     }
 
+    private function sendModeField(array $saved): \Symfony\Component\Form\FormInterface
+    {
+        return $this->keysForm($saved)->get('email_send_mode');
+    }
+
+    public function testTheKeysTabOffersTheEmailSendModeWithN8nAsTheDefault(): void
+    {
+        $field = $this->sendModeField([]);
+
+        $this->assertSame('n8n', $field->getData());
+        $this->assertSame(['n8n', 'mautic'], array_values($field->getConfig()->getOption('choices')));
+    }
+
+    public function testTheSavedEmailSendModeIsTheOneShown(): void
+    {
+        $this->assertSame('mautic', $this->sendModeField(['email_send_mode' => 'mautic'])->getData());
+        $this->assertSame('n8n', $this->sendModeField(['email_send_mode' => 'garbage'])->getData());
+    }
+
+    public function testTheEmailSendModeIsRightUnderTheToken(): void
+    {
+        $this->assertSame(['webhook_url', 'webhook_token', 'email_send_mode'], array_keys($this->keysForm([])->all()));
+    }
+
+    public function testTheEmailSendModeIsNotOnTheFeaturesTab(): void
+    {
+        $builder = $this->factory()->createBuilder(FormType::class);
+        $this->integration()->appendToForm($builder, [], 'features');
+
+        $this->assertFalse($builder->getForm()->has('email_send_mode'));
+    }
+
     public function testTheLastRunFieldAsksToBeSwappedForAPreBlock(): void
     {
         $builder = $this->factory()->createBuilder(FormType::class);

@@ -6,6 +6,7 @@ namespace MauticPlugin\N8nDispatchBundle\Service;
 
 use Doctrine\ORM\EntityManagerInterface;
 use Mautic\CampaignBundle\Entity\LeadEventLog;
+use Mautic\EmailBundle\Entity\Email;
 use Mautic\LeadBundle\Entity\DoNotContact;
 use Mautic\LeadBundle\Model\DoNotContact as DncModel;
 use Mautic\PluginBundle\Helper\IntegrationHelper;
@@ -57,6 +58,7 @@ class DispatchResender
         private DispatchFailureReasons $failureReasons,
         private TranslatorInterface $translator,
         private LoggerInterface $logger,
+        private ?DirectEmailSender $directSender = null,
     ) {
     }
 
@@ -187,6 +189,11 @@ class DispatchResender
 
         $metadata = $log->getMetadata();
 
+        // Not a webhook call: the Email goes out again through Mautic's mailer, as a new Stat.
+        if (MauticEmailOutcome::isDirect($metadata)) {
+            return $this->resendDirect($log, $metadata, $userEmail);
+        }
+
         if ('production' !== ($log->getEvent()->getProperties()['status'] ?? 'test')) {
             return $this->result(false, 'mautic.n8ndispatch.dispatch.resend.not_production');
         }
@@ -294,6 +301,87 @@ class DispatchResender
         $this->tracker->recordDispatch((int) $log->getId(), false, [], self::responseOf($rawBody), null, self::resendInfo($userEmail, new \DateTimeImmutable('now', new \DateTimeZone('UTC'))));
 
         return $this->failed($reason);
+    }
+
+    /**
+     * "Reenviar" of an Email that went out through Mautic's own mailer: only a send the mailer refused, with the step still in
+     * production. It goes out again with the values of the first send (nothing is resolved again, like the n8n resend), as
+     * ONE MORE Stat, so the number of Stats of the dispatch is its number of attempts. The same log row is updated (a log is
+     * unique per step, contact and rotation): the new Stat joins the old ones, the failure marks go and a note says who
+     * resent it and when. A resend that fails again is recorded the same way and stays resendable.
+     *
+     * @param array<string, mixed> $metadata
+     *
+     * @return array{ok: bool, message: string}
+     */
+    private function resendDirect(LeadEventLog $log, array $metadata, ?string $userEmail): array
+    {
+        $properties = $log->getEvent()->getProperties();
+
+        if ('production' !== ($properties['status'] ?? 'test')) {
+            return $this->result(false, 'mautic.n8ndispatch.dispatch.resend.not_production');
+        }
+
+        if (null === $this->directSender) {
+            return $this->result(false, 'mautic.n8ndispatch.dispatch.resend.direct_not_available');
+        }
+
+        if (!self::isFailed($metadata) || 'failed' !== MauticEmailOutcome::outcomeOf($metadata)) {
+            return $this->result(false, 'mautic.n8ndispatch.dispatch.resend.direct_not_refused');
+        }
+
+        $email = $this->em->find(Email::class, (int) ($properties['email'] ?? 0));
+
+        if (null === $email) {
+            return $this->failed($this->failureReasons->translated(DispatchFailureReasons::EMAIL_TEMPLATE_DELETED, ['%id%' => (int) ($properties['email'] ?? 0)]));
+        }
+
+        if (!$email->isPublished()) {
+            return $this->failed($this->failureReasons->translated(DispatchFailureReasons::EMAIL_NOT_PUBLISHED, ['%id%' => (int) $email->getId()]));
+        }
+
+        if (DoNotContact::IS_CONTACTABLE !== $this->dncModel->isContactable($log->getLead(), 'email')) {
+            return $this->failed($this->failureReasons->translated(DispatchFailureReasons::DO_NOT_CONTACT, ['%channel%' => 'email']));
+        }
+
+        return $this->sendAgain($log, $metadata, $email, $userEmail);
+    }
+
+    /**
+     * @param array<string, mixed> $metadata
+     *
+     * @return array{ok: bool, message: string}
+     */
+    private function sendAgain(LeadEventLog $log, array $metadata, Email $email, ?string $userEmail): array
+    {
+        $variables = is_array($metadata['n8ndispatch']['variables'] ?? null) ? $metadata['n8ndispatch']['variables'] : [];
+        $result    = $this->directSender->send($log->getLead(), $email, (int) $log->getEvent()->getId(), $variables);
+        $refused   = in_array($result['outcome'], [DirectEmailSender::FAILED, DirectEmailSender::SKIPPED], true);
+
+        $new = array_diff_key($metadata, array_flip(['errors', 'failed', 'reason', 'n8ndispatch_resend']));
+
+        $new['n8ndispatch']            = array_diff_key($metadata['n8ndispatch'], array_flip(['statId', 'statIds'])) + MauticEmailOutcome::statFields($metadata, $result['statId']);
+        $new['n8ndispatch']['outcome'] = $result['outcome'];
+
+        $new['n8ndispatch_resend'] = $this->note($userEmail);
+
+        if ($refused) {
+            $new['failed'] = 1;
+            $new['reason'] = (string) $result['reason'];
+        }
+
+        $log->setMetadata($new);
+        $log->setDateTriggered(new \DateTime());
+        $log->setIsScheduled(false);
+
+        if (!$refused) {
+            $this->clearFailedLog($log);
+        }
+
+        $this->em->persist($log);
+        $this->em->flush();
+
+        return $refused ? $this->failed((string) $result['reason']) : $this->result(true, 'mautic.n8ndispatch.dispatch.resend.done');
     }
 
     /**
