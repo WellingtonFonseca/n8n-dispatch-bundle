@@ -40,6 +40,7 @@ class DispatchListReader
 
     public function __construct(
         private EntityManagerInterface $em,
+        private ?MauticEmailOutcome $mautic = null,
     ) {
     }
 
@@ -174,7 +175,7 @@ class DispatchListReader
      * One dispatch of the table by its log id, for the details modal; null
      * when it is not one of them (another event type, no dispatch attempted).
      *
-     * @return array{id: int, channel: string, dispatchedAt: ?\DateTimeImmutable, campaignId: int, campaignName: string, stepStatus: ?string, templateName: string, templateRoute: array{name: string, params: array<string, int|string>}|null, contactId: int, contactEmail: string, contactName: string, failed: bool, metadata: array<string, mixed>}|null
+     * @return array{id: int, channel: string, dispatchedAt: ?\DateTimeImmutable, campaignId: int, campaignName: string, stepStatus: ?string, templateName: string, templateRoute: array{name: string, params: array<string, int|string>}|null, contactId: int, contactEmail: string, contactName: string, failed: bool, mauticState: ?string, metadata: array<string, mixed>}|null
      */
     public function find(int $id): ?array
     {
@@ -191,7 +192,7 @@ class DispatchListReader
     /**
      * @param list<array<string, mixed>> $rows
      *
-     * @return list<array{id: int, channel: string, dispatchedAt: ?\DateTimeImmutable, campaignId: int, campaignName: string, stepStatus: ?string, templateName: string, templateRoute: array{name: string, params: array<string, int|string>}|null, contactId: int, contactEmail: string, contactName: string, failed: bool, metadata: array<string, mixed>}>
+     * @return list<array{id: int, channel: string, dispatchedAt: ?\DateTimeImmutable, campaignId: int, campaignName: string, stepStatus: ?string, templateName: string, templateRoute: array{name: string, params: array<string, int|string>}|null, contactId: int, contactEmail: string, contactName: string, failed: bool, mauticState: ?string, metadata: array<string, mixed>}>
      */
     private function mapRows(array $rows): array
     {
@@ -201,6 +202,9 @@ class DispatchListReader
         }
 
         $names = $this->templateNames($refs);
+
+        // An Email that went out through Mautic's own mailer: what Mautic knows of it (Stat, clicks, Do Not Contact), one read for the page.
+        $mauticStates = $this->mauticStates($rows);
 
         $items = [];
         foreach ($rows as $i => $row) {
@@ -222,6 +226,7 @@ class DispatchListReader
                 'contactEmail'  => trim((string) $row['email']),
                 'contactName'   => self::contactName($row['firstname'], $row['lastname'], $row['email'], (int) $row['lead_id']),
                 'failed'        => DispatchResender::isFailed(self::metadataOf($row['metadata'])),
+                'mauticState'   => $mauticStates[$i] ?? null,
                 'metadata'      => self::metadataOf($row['metadata']),
             ];
         }
@@ -433,16 +438,47 @@ class DispatchListReader
             }
         }
 
+        $mauticStates = $this->mauticStates($rows);
+
         $kept = [];
         foreach ($rows as $i => $row) {
             $channel = DispatchLogReader::channelOf((string) $row['type']) ?? '';
 
-            if ($status === DispatchFilters::statusOf($channel, $metadata[$i], $outcomes)) {
+            $rowStatus = isset($mauticStates[$i])
+                ? DispatchFilters::mauticStatusOf($metadata[$i], $mauticStates[$i])
+                : DispatchFilters::statusOf($channel, $metadata[$i], $outcomes);
+
+            if ($status === $rowStatus) {
                 $kept[] = $row;
             }
         }
 
         return $kept;
+    }
+
+    /**
+     * The state Mautic reports for each row that went out through its own mailer, by the row's position; rows of n8n are not in it.
+     *
+     * @param list<array<string, mixed>> $rows
+     *
+     * @return array<int, string>
+     */
+    private function mauticStates(array $rows): array
+    {
+        if (null === $this->mautic) {
+            return [];
+        }
+
+        $logs = [];
+        foreach ($rows as $i => $row) {
+            $metadata = self::metadataOf($row['metadata']);
+
+            if (MauticEmailOutcome::isDirect($metadata)) {
+                $logs[$i] = ['lead' => (int) $row['lead_id'], 'statIds' => MauticEmailOutcome::statIdsOf($metadata), 'outcome' => MauticEmailOutcome::outcomeOf($metadata)];
+            }
+        }
+
+        return [] === $logs ? [] : $this->mautic->states($logs);
     }
 
     private function baseQuery(): \Doctrine\DBAL\Query\QueryBuilder

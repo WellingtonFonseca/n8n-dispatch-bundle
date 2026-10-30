@@ -187,6 +187,11 @@ class DispatchResender
 
         $metadata = $log->getMetadata();
 
+        // The body kept on the log of a dispatch that went out through Mautic's mailer is not a webhook payload.
+        if (MauticEmailOutcome::isDirect($metadata)) {
+            return $this->result(false, 'mautic.n8ndispatch.dispatch.resend.direct_not_available');
+        }
+
         if ('production' !== ($log->getEvent()->getProperties()['status'] ?? 'test')) {
             return $this->result(false, 'mautic.n8ndispatch.dispatch.resend.not_production');
         }

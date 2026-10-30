@@ -345,6 +345,22 @@ class DispatchResenderTest extends TestCase
         $this->assertSame(['ok' => false, 'message' => 'Dispatch not found.'], $resender->resend(140, 'a@b.com'));
     }
 
+    public function testADispatchSentThroughMauticIsNotResentToTheWebhook(): void
+    {
+        [$resender, , , $http] = $this->resenderAnswering(
+            200,
+            '{}',
+            true,
+            null,
+            'n8ndispatch.email.send',
+            ['failed' => 1, 'reason' => 'N8nDispatch: 550', 'n8ndispatch' => ['mode' => 'mautic', 'status' => 'production', 'mautic_template_id' => 7, 'outcome' => 'failed', 'statId' => null]],
+            []
+        );
+        $http->expects($this->never())->method('request');
+
+        $this->assertSame(['ok' => false, 'message' => 'Resending an Email sent through Mautic is not available yet.'], $resender->resend(140, 'a@b.com'));
+    }
+
     public function testAStepNotInProductionIsNotResent(): void
     {
         [$resender, , $log, $http] = $this->resenderAnswering(200, '{}');

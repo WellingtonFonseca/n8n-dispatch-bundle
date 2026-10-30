@@ -132,4 +132,31 @@ class DispatchFiltersTest extends TestCase
         $this->assertNull(DispatchFilters::statusOf('email', [], $outcomes));
         $this->assertNull(DispatchFilters::statusOf('fax', ['logSendEmailId' => 5], $outcomes));
     }
+
+    /**
+     * @dataProvider mauticStates
+     *
+     * @param array<string, mixed> $metadata
+     */
+    public function testTheStatusOfAnEmailSentThroughMautic(array $metadata, string $state, string $status): void
+    {
+        $this->assertSame($status, DispatchFilters::mauticStatusOf($metadata, $state));
+    }
+
+    /**
+     * @return iterable<string, array{array<string, mixed>, string, string}>
+     */
+    public static function mauticStates(): iterable
+    {
+        yield 'sent'                      => [[], 'sent', 'success'];
+        yield 'opened'                    => [[], 'opened', 'success'];
+        yield 'clicked'                   => [[], 'clicked', 'success'];
+        yield 'unsubscribed'              => [[], 'unsubscribed', 'success'];
+        yield 'bounced'                   => [[], 'bounced', 'error'];
+        yield 'failed on the Stat'        => [[], 'failed', 'error'];
+        yield 'held back'                 => [[], 'queued', 'pending'];
+        yield 'the step did not go'       => [['failed' => 1, 'reason' => 'x'], 'failed', 'failed'];
+        yield 'left out of the step'      => [['failed' => 1, 'reason' => 'x'], 'skipped', 'failed'];
+        yield 'a refusal wins over a state' => [['failed' => 1], 'opened', 'failed'];
+    }
 }

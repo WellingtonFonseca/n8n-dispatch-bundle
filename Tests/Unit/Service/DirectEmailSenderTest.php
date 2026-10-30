@@ -275,11 +275,10 @@ class DirectEmailSenderTest extends TestCase
     {
         $stat = $this->createMock(Stat::class);
         $stat->method('getId')->willReturn(4321);
-        $stat->method('getDateSent')->willReturn(new \DateTime('+1 minute'));
         $this->emailModel->method('sendEmail')->willReturn([]);
-        $this->stats->expects($this->once())->method('findOneBy')
+        $this->stats->expects($this->exactly(2))->method('findOneBy')
             ->with(['lead' => 9, 'source' => 'campaign.event', 'sourceId' => 77], ['id' => 'DESC'])
-            ->willReturn($stat);
+            ->willReturnOnConsecutiveCalls(null, $stat);
 
         $result = $this->sender->send($this->contact(), $this->email(), 77, []);
 
@@ -288,11 +287,25 @@ class DirectEmailSenderTest extends TestCase
         $this->assertNull($result['reason']);
     }
 
-    public function testAStatOlderThanThisSendIsNotThisSends(): void
+    public function testAContactWhoCameBackGetsTheNewStatNotTheOldOne(): void
+    {
+        $old = $this->createMock(Stat::class);
+        $old->method('getId')->willReturn(100);
+        $new = $this->createMock(Stat::class);
+        $new->method('getId')->willReturn(101);
+        $this->emailModel->method('sendEmail')->willReturn([]);
+        $this->stats->method('findOneBy')->willReturnOnConsecutiveCalls($old, $new);
+
+        $result = $this->sender->send($this->contact(), $this->email(), 77, []);
+
+        $this->assertSame(DirectEmailSender::SENT, $result['outcome']);
+        $this->assertSame(101, $result['statId']);
+    }
+
+    public function testAStatThatWasThereBeforeThisSendIsNotThisSends(): void
     {
         $stat = $this->createMock(Stat::class);
         $stat->method('getId')->willReturn(4321);
-        $stat->method('getDateSent')->willReturn(new \DateTime('-1 day'));
         $this->emailModel->method('sendEmail')->willReturn([]);
         $this->stats->method('findOneBy')->willReturn($stat);
 

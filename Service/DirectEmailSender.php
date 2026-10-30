@@ -67,7 +67,10 @@ class DirectEmailSender
         }
 
         $contactId = (int) $contact->getId();
-        $startedAt = time();
+        // The newest Stat this step already has for the contact (a contact that comes back to the campaign has older ones):
+        // the one this send makes is the first with a higher id. Ids, not dates: a Stat read back from the database has its
+        // time shifted by the time zone, one still in memory does not.
+        $lastStatId = $this->lastStatId($contactId, $eventId);
 
         try {
             $errors = $this->emailModel->sendEmail($email, [$contactId => $credentials], [
@@ -96,17 +99,22 @@ class DirectEmailSender
                 : $this->result(self::FAILED, $reason);
         }
 
+        $statId = $this->lastStatId($contactId, $eventId);
+
+        return $statId > $lastStatId ? $this->result(self::SENT, null, $statId) : $this->result(self::QUEUED, null);
+    }
+
+    /**
+     * The id of the newest Stat of the contact for this campaign step; 0 when there is none.
+     */
+    private function lastStatId(int $contactId, int $eventId): int
+    {
         $stat = $this->emailModel->getStatRepository()->findOneBy(
             ['lead' => $contactId, 'source' => 'campaign.event', 'sourceId' => $eventId],
             ['id' => 'DESC']
         );
 
-        // Whole seconds: the Stat read back from the database has no fraction, the clock here has.
-        if (null === $stat || $stat->getDateSent()->getTimestamp() < $startedAt) {
-            return $this->result(self::QUEUED, null);
-        }
-
-        return $this->result(self::SENT, null, (int) $stat->getId());
+        return null === $stat ? 0 : (int) $stat->getId();
     }
 
     /**

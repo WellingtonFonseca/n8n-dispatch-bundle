@@ -132,7 +132,7 @@
                           only knows edit/clone/delete.
                         #}
                         {% set callbacks = n8ndispatch_status(item.metadata)|filter(c => c.refType != 'logSendHsmId') %}
-                        {% set canResend = item.failed or callbacks|filter(c => c.outcome == 'error')|length > 0 %}
+                        {% set canResend = item.mauticState is null and (item.failed or callbacks|filter(c => c.outcome == 'error')|length > 0) %}
                         <td>
                             <div class="input-group input-group-sm">
                                 <div class="ml-xs">
@@ -183,6 +183,12 @@
                               HSM has two, Mirror and Meta, and only Meta's is shown. No ids
                               (test, paused or failed dispatch) shows a dash.
                             #}
+                            {# An Email sent through Mautic's own mailer: the state Mautic reports (Stat, clicks, Do Not Contact), not n8n's callback. #}
+                            {% if item.mauticState is not null %}
+                                <span class="n8ndispatch-badge n8ndispatch-badge--{{ {'queued': 'pending', 'sent': 'success', 'opened': 'success', 'clicked': 'success', 'failed': 'failed', 'bounced': 'failed', 'skipped': 'failed', 'unsubscribed': 'paused'}[item.mauticState] }}">
+                                    {{ ('mautic.n8ndispatch.timeline.mautic.state.' ~ item.mauticState)|trans }}
+                                </span>
+                            {% else %}
                             {% for callback in callbacks %}
                                 {% set badgeClass = {'success': 'success', 'error': 'failed', 'pending': 'pending'}[callback.outcome] %}
                                 <span class="n8ndispatch-badge n8ndispatch-badge--{{ badgeClass }}"{% if callback.message %} title="{{ callback.message }}"{% endif %}>
@@ -196,6 +202,7 @@
                                     -
                                 {% endif %}
                             {% endfor %}
+                            {% endif %}
                         </td>
                         <td>
                             {# The mode the step was in when it was dispatched (same badge as the campaign builder and the card; the step may have changed since): only 'production' can be resent. #}

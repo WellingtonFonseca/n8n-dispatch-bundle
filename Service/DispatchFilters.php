@@ -116,6 +116,25 @@ final class DispatchFilters
         return $outcomes[$refType.'|'.$value] ?? null;
     }
 
+    /**
+     * The status of a dispatch that went out through Mautic's own mailer: 'failed' when the step itself did not go through (the
+     * mailer refused it, the contact was left out), else what Mautic reports of the Email (see MauticEmailOutcome::resultOf()).
+     *
+     * @param array<string, mixed> $metadata
+     */
+    public static function mauticStatusOf(array $metadata, string $state): string
+    {
+        if (DispatchResender::isFailed($metadata)) {
+            return self::STATUS_FAILED;
+        }
+
+        return match (MauticEmailOutcome::resultOf($state)) {
+            'error'   => self::STATUS_ERROR,
+            'pending' => self::STATUS_PENDING,
+            default   => self::STATUS_SUCCESS,
+        };
+    }
+
     private static function dayStart(mixed $value, \DateTimeZone $timeZone, string $format): ?\DateTimeImmutable
     {
         return self::day($value, $timeZone, $format)?->setTime(0, 0, 0)->setTimezone(new \DateTimeZone('UTC'));

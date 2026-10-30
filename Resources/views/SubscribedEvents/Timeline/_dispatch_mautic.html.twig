@@ -1,0 +1,91 @@
+{#
+  The dispatch part of the card of an Email that went out through Mautic's own mailer (the plugin's Email send mode
+  'mautic'), shown by _dispatch_details.html.twig in place of the n8n one: the contact's Timeline and the details modal of
+  the Dispatches screen both include it. Everything here is read from Mautic when the card is drawn (Service/MauticEmailOutcome.php):
+  the Stat of each send, its tracked clicks and the Do Not Contact list. An open is what the tracking pixel reports, so it is only
+  approximate: some mail clients block or cache the image.
+
+  Variables
+    - item  the campaign log as an array (metadata, lead_id, log_id)
+    - n8n   item.metadata.n8ndispatch
+#}
+{% set mautic = n8ndispatch_mautic_outcome(item.metadata, item.lead_id|default(null), item.log_id|default(null)) %}
+{% set badgeClass = {'queued': 'pending', 'sent': 'success', 'opened': 'success', 'clicked': 'success', 'failed': 'failed', 'bounced': 'failed', 'skipped': 'failed', 'unsubscribed': 'paused'}[mautic.state] %}
+<div class="n8ndispatch-timeline n8ndispatch-timeline--mautic">
+    <div class="n8ndispatch-timeline-header">
+        <span class="n8ndispatch-badge n8ndispatch-badge--{{ n8n.status }}">
+            {{ ('mautic.n8ndispatch.campaign.event.status.' ~ n8n.status)|trans }}
+        </span>
+        <span class="n8ndispatch-badge n8ndispatch-badge--{{ badgeClass }}">
+            {{ ('mautic.n8ndispatch.timeline.mautic.state.' ~ mautic.state)|trans }}
+        </span>
+    </div>
+
+    <p class="n8ndispatch-timeline-label">{{ 'mautic.n8ndispatch.timeline.mautic.title'|trans }}:</p>
+
+    {% if mautic.state == 'queued' %}
+        <p class="text-muted n8ndispatch-mautic-note">{{ 'mautic.n8ndispatch.timeline.mautic.queued_note'|trans }}</p>
+    {% elseif mautic.attempts %}
+        {% set last = mautic.attempts|first %}
+        <ul class="n8ndispatch-mautic-facts">
+            <li>{{ 'mautic.n8ndispatch.timeline.mautic.sent_at'|trans({'%date%': n8ndispatch_date(last.sentAt)}) }}</li>
+            {% if last.openedAt %}
+                <li>{{ 'mautic.n8ndispatch.timeline.mautic.opened_at'|trans({'%date%': n8ndispatch_date(last.openedAt), '%count%': last.openCount}) }}</li>
+            {% else %}
+                <li class="text-muted">{{ 'mautic.n8ndispatch.timeline.mautic.not_opened'|trans }}</li>
+            {% endif %}
+            {% for click in last.clicks %}
+                <li>{{ 'mautic.n8ndispatch.timeline.mautic.clicked'|trans({'%count%': click.count, '%date%': n8ndispatch_date(click.lastAt)}) }}: <span class="n8ndispatch-mautic-url">{{ click.url }}</span></li>
+            {% else %}
+                <li class="text-muted">{{ 'mautic.n8ndispatch.timeline.mautic.no_clicks'|trans }}</li>
+            {% endfor %}
+            {% if mautic.dnc %}
+                <li class="text-danger">{{ ('mautic.n8ndispatch.timeline.mautic.dnc.' ~ mautic.dnc.state)|trans({'%date%': n8ndispatch_date(mautic.dnc.at)}) }}{% if mautic.dnc.comments %}: {{ mautic.dnc.comments }}{% endif %}</li>
+            {% endif %}
+        </ul>
+    {% endif %}
+
+    {% set jsonOptions = constant('JSON_PRETTY_PRINT') b-or constant('JSON_UNESCAPED_UNICODE') b-or constant('JSON_UNESCAPED_SLASHES') %}
+    {% if n8n.variables is defined and n8n.variables %}
+        <p class="n8ndispatch-timeline-label">{{ 'mautic.n8ndispatch.timeline.mautic.variables'|trans }}:</p>
+        <pre class="n8ndispatch-timeline-json">{{ n8n.variables|json_encode(jsonOptions) }}</pre>
+    {% endif %}
+
+    {#
+      One row per send: the number of rows is the number of attempts (a resend is a new Stat), newest first, each with its own
+      open and clicks. Same table markup as the n8n History (core's table), so the two look alike.
+    #}
+    {% if mautic.attempts %}
+    <details class="n8ndispatch-callback-history">
+        <summary class="n8ndispatch-timeline-label n8ndispatch-callback-title">{{ 'mautic.n8ndispatch.timeline.mautic.attempts'|trans({'%count%': mautic.attempts|length}) }}:</summary>
+        <div class="table-responsive">
+        <table class="table table-hover n8ndispatch-callback-history-table n8ndispatch-mautic-attempts">
+            <thead>
+                <tr>
+                    <th>{{ 'mautic.n8ndispatch.timeline.mautic.attempt'|trans }}</th>
+                    <th>{{ 'mautic.n8ndispatch.timeline.callback.history.date'|trans }}</th>
+                    <th>{{ 'mautic.n8ndispatch.timeline.callback.history.status'|trans }}</th>
+                    <th>{{ 'mautic.n8ndispatch.timeline.mautic.opens'|trans }}</th>
+                    <th>{{ 'mautic.n8ndispatch.timeline.mautic.clicks'|trans }}</th>
+                </tr>
+            </thead>
+            <tbody>
+            {% for attempt in mautic.attempts %}
+                <tr>
+                    <td>{{ mautic.attempts|length - loop.index0 }}</td>
+                    <td>{{ n8ndispatch_date(attempt.sentAt) }}</td>
+                    <td>
+                        <span class="n8ndispatch-badge n8ndispatch-badge--{{ attempt.failed ? 'failed' : 'success' }}">
+                            {{ ('mautic.n8ndispatch.timeline.status.' ~ (attempt.failed ? 'failed' : 'success'))|trans }}
+                        </span>
+                    </td>
+                    <td>{% if attempt.openedAt %}{{ n8ndispatch_date(attempt.openedAt) }} ({{ attempt.openCount }}){% else %}-{% endif %}</td>
+                    <td>{% for click in attempt.clicks %}<div><span class="n8ndispatch-mautic-url">{{ click.url }}</span> ({{ click.count }})</div>{% else %}-{% endfor %}</td>
+                </tr>
+            {% endfor %}
+            </tbody>
+        </table>
+        </div>
+    </details>
+    {% endif %}
+</div>

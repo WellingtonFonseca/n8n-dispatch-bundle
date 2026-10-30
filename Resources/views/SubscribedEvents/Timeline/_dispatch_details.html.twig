@@ -26,7 +26,10 @@
 {% endif %}
 
 {% set n8n = item.metadata.n8ndispatch is defined ? item.metadata.n8ndispatch : null %}
-{% if n8n %}
+{# An Email sent through Mautic's own mailer: its card reads what Mautic knows (Stat, clicks, Do Not Contact), there is nothing of n8n to show. #}
+{% if n8n and n8ndispatch_is_direct(item.metadata) %}
+    {% include '@N8nDispatch/SubscribedEvents/Timeline/_dispatch_mautic.html.twig' with {'item': item, 'n8n': n8n} only %}
+{% elseif n8n %}
     <div class="n8ndispatch-timeline">
         <div class="n8ndispatch-timeline-header">
             <span class="n8ndispatch-badge n8ndispatch-badge--{{ n8n.status }}">
