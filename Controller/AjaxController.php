@@ -77,7 +77,7 @@ class AjaxController extends CommonAjaxController
             'invalidVariables' => $invalidVariables,
             'fields'           => $fields,
             'customObjects'    => $customObjects,
-            // the Email's Variables tab shows the Calculation box (a number added to a date or a number field); SMS and HSM rows do not
+            // the Calculation box (a number added to a date or a number field) is shown on the Email, SMS and HSM variable rows
             'dateOffset'       => true,
         ]);
     }
@@ -225,6 +225,7 @@ class AjaxController extends CommonAjaxController
             'nonNumericVariables' => $nonNumericVariables,
             'fields'              => $fields,
             'customObjects'       => $customObjects,
+            'dateOffset'          => true,
         ]);
     }
 
@@ -255,6 +256,7 @@ class AjaxController extends CommonAjaxController
             'nonNumericVariables' => $nonNumericVariables,
             'fields'              => $fields,
             'customObjects'       => $customObjects,
+            'dateOffset'          => true,
         ]);
     }
 

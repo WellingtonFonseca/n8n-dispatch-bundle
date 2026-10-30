@@ -376,9 +376,9 @@ class AjaxControllerTest extends TestCase
         $this->assertTrue($data['dateOffset']);
     }
 
-    public function testTheSmsAndHsmRowsDoNotGetTheDaysBox(): void
+    public function testTheSmsAndHsmRowsGetTheCalculationBox(): void
     {
-        $this->assertArrayNotHasKey('dateOffset', $this->smsVariablesResponse('Ola {{1}}'));
-        $this->assertArrayNotHasKey('dateOffset', $this->hsmVariablesResponse('Ola {{1}}'));
+        $this->assertTrue($this->smsVariablesResponse('Ola {{1}}')['dateOffset']);
+        $this->assertTrue($this->hsmVariablesResponse('Ola {{1}}')['dateOffset']);
     }
 }
