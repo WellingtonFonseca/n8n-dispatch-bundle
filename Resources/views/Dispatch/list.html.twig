@@ -132,7 +132,8 @@
                           only knows edit/clone/delete.
                         #}
                         {% set callbacks = n8ndispatch_status(item.metadata)|filter(c => c.refType != 'logSendHsmId') %}
-                        {% set canResend = item.mauticState is null and (item.failed or callbacks|filter(c => c.outcome == 'error')|length > 0) %}
+                        {# An Email sent through Mautic can be resent when its mailer refused it; one of n8n when its callback ended in error or the call was refused. #}
+                        {% set canResend = item.mauticState is null ? (item.failed or callbacks|filter(c => c.outcome == 'error')|length > 0) : (item.failed and item.mauticState == 'failed') %}
                         <td>
                             <div class="input-group input-group-sm">
                                 <div class="ml-xs">

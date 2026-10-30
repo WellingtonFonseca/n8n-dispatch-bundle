@@ -21,6 +21,11 @@
         </span>
     </div>
 
+    {# Who resent it and when, under the badges. #}
+    {% if item.metadata.n8ndispatch_resend is defined and item.metadata.n8ndispatch_resend %}
+    <pre class="n8ndispatch-timeline-json">{{ item.metadata.n8ndispatch_resend }}</pre>
+    {% endif %}
+
     <p class="n8ndispatch-timeline-label">{{ 'mautic.n8ndispatch.timeline.mautic.title'|trans }}:</p>
 
     {% if mautic.state == 'queued' %}

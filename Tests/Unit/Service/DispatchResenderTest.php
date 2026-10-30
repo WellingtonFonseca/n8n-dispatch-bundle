@@ -9,12 +9,14 @@ use Mautic\CampaignBundle\Entity\Campaign;
 use Mautic\CampaignBundle\Entity\Event;
 use Mautic\CampaignBundle\Entity\FailedLeadEventLog;
 use Mautic\CampaignBundle\Entity\LeadEventLog;
+use Mautic\EmailBundle\Entity\Email;
 use Mautic\LeadBundle\Entity\DoNotContact;
 use Mautic\LeadBundle\Entity\Lead;
 use Mautic\LeadBundle\Model\DoNotContact as DncModel;
 use Mautic\PluginBundle\Entity\Integration as IntegrationSettings;
 use Mautic\PluginBundle\Helper\IntegrationHelper;
 use MauticPlugin\N8nDispatchBundle\Integration\N8nDispatchIntegration;
+use MauticPlugin\N8nDispatchBundle\Service\DirectEmailSender;
 use MauticPlugin\N8nDispatchBundle\Service\DispatchFailureReasons;
 use MauticPlugin\N8nDispatchBundle\Service\DispatchResender;
 use MauticPlugin\N8nDispatchBundle\Service\StatusTracker;
@@ -345,20 +347,235 @@ class DispatchResenderTest extends TestCase
         $this->assertSame(['ok' => false, 'message' => 'Dispatch not found.'], $resender->resend(140, 'a@b.com'));
     }
 
-    public function testADispatchSentThroughMauticIsNotResentToTheWebhook(): void
+    /** @var array<string, mixed> the id each class was looked up by */
+    private array $found = [];
+
+    /**
+     * The resender of an Email sent through Mautic's own mailer.
+     *
+     * @param array<string, mixed>                                  $metadata
+     * @param array{outcome: string, reason: ?string, statId: ?int} $answer  what the direct sender answers
+     *
+     * @return array{DispatchResender, LeadEventLog, MockObject, MockObject, MockObject} the resender, the log, the sender, the entity manager, the http client
+     */
+    private function directResender(array $metadata, array $answer = ['outcome' => 'sent', 'reason' => null, 'statId' => 502], ?Email $email = null, bool $withSender = true, string $status = 'production', int $contactable = DoNotContact::IS_CONTACTABLE, bool $emailGone = false): array
     {
-        [$resender, , , $http] = $this->resenderAnswering(
-            200,
-            '{}',
-            true,
-            null,
-            'n8ndispatch.email.send',
-            ['failed' => 1, 'reason' => 'N8nDispatch: 550', 'n8ndispatch' => ['mode' => 'mautic', 'status' => 'production', 'mautic_template_id' => 7, 'outcome' => 'failed', 'statId' => null]],
-            []
-        );
+        $log = new LeadEventLog();
+        (new \ReflectionProperty($log, 'id'))->setValue($log, 140);
+        $event = new Event();
+        (new \ReflectionProperty($event, 'id'))->setValue($event, 66);
+        $event->setCampaign(new Campaign());
+        $event->setType('n8ndispatch.email.send');
+        $event->setProperties(['status' => $status, 'email' => 7]);
+        $log->setEvent($event);
+        $log->setLead(new Lead());
+        $log->setMetadata($metadata);
+        $log->setIsScheduled(true);
+        $log->setDateTriggered(new \DateTime('2020-01-01'));
+
+        $em = $this->createMock(EntityManagerInterface::class);
+        $em->method('find')->willReturnCallback(function (string $class, $id) use ($log, $emailGone, $email) {
+            $this->found[$class] = $id;
+
+            return LeadEventLog::class === $class ? $log : ($emailGone ? null : ($email ?? new Email()));
+        });
+
+        $http = $this->createMock(HttpClientInterface::class);
         $http->expects($this->never())->method('request');
 
-        $this->assertSame(['ok' => false, 'message' => 'Resending an Email sent through Mautic is not available yet.'], $resender->resend(140, 'a@b.com'));
+        $dnc = $this->createMock(DncModel::class);
+        $dnc->method('isContactable')->willReturn($contactable);
+
+        $dates = $this->createMock(StatusExtension::class);
+        $dates->method('date')->willReturn('DATE');
+
+        $sender = $this->createMock(DirectEmailSender::class);
+        $sender->method('send')->willReturn($answer);
+
+        $resender = new DispatchResender(
+            $em,
+            $this->createMock(IntegrationHelper::class),
+            $http,
+            $dnc,
+            $this->createMock(StatusTracker::class),
+            $dates,
+            new DispatchFailureReasons(new EnUsTranslator()),
+            new EnUsTranslator(),
+            $this->createMock(LoggerInterface::class),
+            $withSender ? $sender : null,
+        );
+
+        return [$resender, $log, $sender, $em, $http];
+    }
+
+    /**
+     * @return array<string, mixed>
+     */
+    private function refusedByMautic(array $extra = []): array
+    {
+        return ['failed' => 1, 'reason' => 'N8nDispatch: 550 mailbox unavailable', 'n8ndispatch' => ['mode' => 'mautic', 'status' => 'production', 'mautic_template_id' => 7, 'contact_email' => 'a@b.com', 'variables' => ['n8n_nome' => 'Zeca'], 'outcome' => 'failed', 'statId' => null]] + $extra;
+    }
+
+    public function testAnEmailMauticRefusedIsSentAgainThroughTheMailerWithTheValuesOfTheFirstSend(): void
+    {
+        $email = new Email();
+        [$resender, $log, $sender, , $http] = $this->directResender($this->refusedByMautic(), ['outcome' => 'sent', 'reason' => null, 'statId' => 502], $email);
+        $sender->expects($this->once())->method('send')->with($log->getLead(), $email, 66, ['n8n_nome' => 'Zeca']);
+        $http->expects($this->never())->method('request');
+
+        $result = $resender->resend(140, 'a@b.com');
+
+        $this->assertSame(['ok' => true, 'message' => 'Resent.'], $result);
+        $this->assertSame([LeadEventLog::class => 140, Email::class => 7], $this->found, 'the Email of the step, by its id');
+    }
+
+    public function testAnAcceptedDirectResendClearsTheFailureAndRecordsTheNewStatAndWhoDidIt(): void
+    {
+        [$resender, $log, , $em] = $this->directResender($this->refusedByMautic(['errors' => ['x']]));
+        $failed = new FailedLeadEventLog();
+        $failed->setLog($log);
+        $log->setFailedLog($failed);
+        $em->expects($this->once())->method('remove')->with($failed);
+        $em->expects($this->once())->method('persist')->with($log);
+        $em->expects($this->once())->method('flush');
+
+        $resender->resend(140, 'a@b.com');
+
+        $metadata = $log->getMetadata();
+        $this->assertArrayNotHasKey('failed', $metadata);
+        $this->assertArrayNotHasKey('reason', $metadata);
+        $this->assertArrayNotHasKey('errors', $metadata);
+        $this->assertSame('sent', $metadata['n8ndispatch']['outcome']);
+        $this->assertSame(502, $metadata['n8ndispatch']['statId']);
+        $this->assertArrayNotHasKey('statIds', $metadata['n8ndispatch'], 'one attempt needs no list');
+        $this->assertSame(['Resent on DATE', 'By a@b.com'], explode("\n", $metadata['n8ndispatch_resend']));
+        $this->assertSame('Zeca', $metadata['n8ndispatch']['variables']['n8n_nome']);
+        $this->assertFalse($log->getIsScheduled());
+        $this->assertGreaterThan(new \DateTime('2020-01-01'), $log->getDateTriggered());
+        $this->assertNull($log->getFailedLog());
+    }
+
+    public function testEveryAttemptKeepsItsStatInTheList(): void
+    {
+        $metadata                           = $this->refusedByMautic();
+        $metadata['n8ndispatch']['statId']  = 300;
+        $metadata['n8ndispatch']['statIds'] = [300, 400];
+        [$resender, $log]                   = $this->directResender($metadata, ['outcome' => 'sent', 'reason' => null, 'statId' => 502]);
+
+        $resender->resend(140, null);
+
+        $this->assertSame(300, $log->getMetadata()['n8ndispatch']['statId']);
+        $this->assertSame([300, 400, 502], $log->getMetadata()['n8ndispatch']['statIds']);
+        $this->assertSame('Resent on DATE', $log->getMetadata()['n8ndispatch_resend'], 'nobody to name');
+    }
+
+    public function testASecondStatJoinsTheFirstWhenTheFirstSendLeftNone(): void
+    {
+        [$resender, $log] = $this->directResender($this->refusedByMautic());
+
+        $resender->resend(140, null);
+
+        $this->assertSame(502, $log->getMetadata()['n8ndispatch']['statId']);
+    }
+
+    public function testAnEmailTheMailerHeldBackPassesTheResendWithNoNewStat(): void
+    {
+        [$resender, $log] = $this->directResender($this->refusedByMautic(), ['outcome' => 'queued', 'reason' => null, 'statId' => null]);
+
+        $result = $resender->resend(140, null);
+
+        $this->assertTrue($result['ok']);
+        $this->assertSame('queued', $log->getMetadata()['n8ndispatch']['outcome']);
+        $this->assertNull($log->getMetadata()['n8ndispatch']['statId']);
+        $this->assertArrayNotHasKey('failed', $log->getMetadata());
+    }
+
+    public function testAResendTheMailerRefusesAgainIsRecordedAndStaysResendable(): void
+    {
+        [$resender, $log, , $em] = $this->directResender($this->refusedByMautic(), ['outcome' => 'failed', 'reason' => 'N8nDispatch: 550 again', 'statId' => null]);
+        $failed = new FailedLeadEventLog();
+        $failed->setLog($log);
+        $log->setFailedLog($failed);
+        $em->expects($this->never())->method('remove');
+        $em->expects($this->once())->method('flush');
+
+        $result = $resender->resend(140, 'a@b.com');
+
+        $this->assertSame(['ok' => false, 'message' => 'The resend failed: N8nDispatch: 550 again'], $result);
+        $metadata = $log->getMetadata();
+        $this->assertSame(1, $metadata['failed']);
+        $this->assertSame('N8nDispatch: 550 again', $metadata['reason']);
+        $this->assertSame('failed', $metadata['n8ndispatch']['outcome']);
+        $this->assertSame('Resent on DATE'."\n".'By a@b.com', $metadata['n8ndispatch_resend']);
+        $this->assertSame($failed, $log->getFailedLog());
+        $this->assertFalse($log->getIsScheduled());
+    }
+
+    public function testAContactLeftOutOnTheResendIsReportedAndRecorded(): void
+    {
+        [$resender, $log] = $this->directResender($this->refusedByMautic(), ['outcome' => 'skipped', 'reason' => 'N8nDispatch: the contact has no email address.', 'statId' => null]);
+
+        $result = $resender->resend(140, null);
+
+        $this->assertFalse($result['ok']);
+        $this->assertSame('skipped', $log->getMetadata()['n8ndispatch']['outcome']);
+        $this->assertSame(1, $log->getMetadata()['failed']);
+    }
+
+    public function testOnlyAStepInProductionIsResentThroughMautic(): void
+    {
+        [$resender, , $sender] = $this->directResender($this->refusedByMautic(), status: 'paused');
+        $sender->expects($this->never())->method('send');
+
+        $this->assertSame(['ok' => false, 'message' => 'The campaign step is not in production.'], $resender->resend(140, null));
+    }
+
+    public function testOnlyASendTheMailerRefusedIsResentThroughMautic(): void
+    {
+        foreach ([
+            ['n8ndispatch' => ['mode' => 'mautic', 'status' => 'production', 'outcome' => 'sent', 'statId' => 3]],
+            ['failed' => 1, 'n8ndispatch' => ['mode' => 'mautic', 'status' => 'production', 'outcome' => 'skipped', 'statId' => null]],
+            ['n8ndispatch' => ['mode' => 'mautic', 'status' => 'production', 'outcome' => 'failed', 'statId' => null]],
+        ] as $metadata) {
+            [$resender, , $sender] = $this->directResender($metadata);
+            $sender->expects($this->never())->method('send');
+
+            $this->assertSame(['ok' => false, 'message' => "Only a send that Mautic's mailer refused can be resent."], $resender->resend(140, null));
+        }
+    }
+
+    public function testWithoutTheDirectSenderThereIsNothingToResendWith(): void
+    {
+        [$resender] = $this->directResender($this->refusedByMautic(), withSender: false);
+
+        $this->assertSame(['ok' => false, 'message' => 'Resending an Email sent through Mautic is not available yet.'], $resender->resend(140, null));
+    }
+
+    public function testADeletedOrUnpublishedEmailIsReportedNotSent(): void
+    {
+        $unpublished = new Email();
+        $unpublished->setIsPublished(false);
+        [$resender, , $sender] = $this->directResender($this->refusedByMautic(), email: $unpublished);
+        $sender->expects($this->never())->method('send');
+        $this->assertSame(['ok' => false, 'message' => 'The resend failed: N8nDispatch: Email #0 is not published.'], $resender->resend(140, null));
+
+        [$resender, , $sender] = $this->directResender($this->refusedByMautic(), emailGone: true);
+        $sender->expects($this->never())->method('send');
+        $this->assertSame(['ok' => false, 'message' => 'The resend failed: N8nDispatch: Email #7 of this step was deleted.'], $resender->resend(140, null));
+    }
+
+    public function testTheDoNotContactListStopsADirectResendToo(): void
+    {
+        [$resender, $log, $sender, $em] = $this->directResender($this->refusedByMautic(), contactable: DoNotContact::UNSUBSCRIBED);
+        $sender->expects($this->never())->method('send');
+        $em->expects($this->never())->method('flush');
+
+        $result = $resender->resend(140, null);
+
+        $this->assertFalse($result['ok']);
+        $this->assertSame('The resend failed: N8nDispatch: contact is on the Do Not Contact list for email.', $result['message']);
+        $this->assertSame(1, $log->getMetadata()['failed']);
+        $this->assertSame('2020-01-01', $log->getDateTriggered()->format('Y-m-d'), 'nothing recorded when nothing was sent');
     }
 
     public function testAStepNotInProductionIsNotResent(): void
