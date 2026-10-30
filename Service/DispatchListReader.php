@@ -204,7 +204,8 @@ class DispatchListReader
         $names = $this->templateNames($refs);
 
         // An Email that went out through Mautic's own mailer: what Mautic knows of it (Stat, clicks, Do Not Contact), one read for the page.
-        $mauticStates = $this->mauticStates($rows);
+        $metadata     = array_map(static fn (array $row): array => self::metadataOf($row['metadata']), $rows);
+        $mauticStates = $this->mauticStates($rows, $metadata);
 
         $items = [];
         foreach ($rows as $i => $row) {
@@ -219,15 +220,15 @@ class DispatchListReader
                 'dispatchedAt'  => self::dispatchedAt($row['date_triggered']),
                 'campaignId'    => (int) $row['campaign_id'],
                 'campaignName'  => $this->campaignName((int) $row['campaign_id'], (string) $row['campaign_name']),
-                'stepStatus'    => self::dispatchStatus(self::metadataOf($row['metadata'])),
+                'stepStatus'    => self::dispatchStatus($metadata[$i]),
                 'templateName'  => null !== $ref ? ($names[$ref[0]][$ref[1]] ?? '#'.$ref[1]) : '-',
                 'templateRoute' => $found ? self::templateRoute($ref[0], $ref[1]) : null,
                 'contactId'     => (int) $row['lead_id'],
                 'contactEmail'  => trim((string) $row['email']),
                 'contactName'   => self::contactName($row['firstname'], $row['lastname'], $row['email'], (int) $row['lead_id']),
-                'failed'        => DispatchResender::isFailed(self::metadataOf($row['metadata'])),
+                'failed'        => DispatchResender::isFailed($metadata[$i]),
                 'mauticState'   => $mauticStates[$i] ?? null,
-                'metadata'      => self::metadataOf($row['metadata']),
+                'metadata'      => $metadata[$i],
             ];
         }
 
@@ -438,7 +439,7 @@ class DispatchListReader
             }
         }
 
-        $mauticStates = $this->mauticStates($rows);
+        $mauticStates = $this->mauticStates($rows, $metadata);
 
         $kept = [];
         foreach ($rows as $i => $row) {
@@ -459,11 +460,12 @@ class DispatchListReader
     /**
      * The state Mautic reports for each row that went out through its own mailer, by the row's position; rows of n8n are not in it.
      *
-     * @param list<array<string, mixed>> $rows
+     * @param list<array<string, mixed>>         $rows
+     * @param array<int, array<string, mixed>>   $metadata the rows' metadata, already decoded
      *
      * @return array<int, string>
      */
-    private function mauticStates(array $rows): array
+    private function mauticStates(array $rows, array $metadata): array
     {
         if (null === $this->mautic) {
             return [];
@@ -471,13 +473,11 @@ class DispatchListReader
 
         $logs = [];
         foreach ($rows as $i => $row) {
-            $metadata = self::metadataOf($row['metadata']);
-
-            if (MauticEmailOutcome::isDirect($metadata)) {
+            if (MauticEmailOutcome::isDirect($metadata[$i])) {
                 $logs[$i] = [
                     'lead'    => (int) $row['lead_id'],
-                    'statIds' => MauticEmailOutcome::statIdsOf($metadata),
-                    'outcome' => MauticEmailOutcome::outcomeOf($metadata),
+                    'statIds' => MauticEmailOutcome::statIdsOf($metadata[$i]),
+                    'outcome' => MauticEmailOutcome::outcomeOf($metadata[$i]),
                     'event'   => (int) $row['event_id'],
                     'since'   => null === $row['date_triggered'] ? null : (string) $row['date_triggered'],
                 ];

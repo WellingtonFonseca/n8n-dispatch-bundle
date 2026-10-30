@@ -286,7 +286,7 @@ class MauticEmailOutcomeDbTest extends RollbackDatabaseTestCase
     public function testTheDetailListsTheAttemptsNewestFirstWithTheirOwnOpenAndClicks(): void
     {
         $first  = $this->stat('2026-05-01 10:00:00', ['is_failed' => 1]);
-        $second = $this->stat('2026-05-02 10:00:00', ['is_read' => 1, 'date_read' => '2026-05-02 10:05:00', 'last_opened' => '2026-05-02 12:00:00', 'open_count' => 3]);
+        $second = $this->stat('2026-05-02 10:00:00', ['is_read' => 1, 'date_read' => '2026-05-02 10:05:00', 'open_count' => 3]);
         $this->hit('2026-05-01 10:30:00', 'https://example.test/first'); // between the two sends: the first attempt's
         $this->hit('2026-05-02 10:30:00', 'https://example.test/b');
         $this->hit('2026-05-02 11:30:00', 'https://example.test/b');
@@ -303,7 +303,6 @@ class MauticEmailOutcomeDbTest extends RollbackDatabaseTestCase
         $this->assertSame('UTC', $newest['sentAt']->getTimezone()->getName());
         $this->assertFalse($newest['failed']);
         $this->assertSame('2026-05-02 10:05:00', $newest['openedAt']->format('Y-m-d H:i:s'));
-        $this->assertSame('2026-05-02 12:00:00', $newest['lastOpenedAt']->format('Y-m-d H:i:s'));
         $this->assertSame(3, $newest['openCount']);
         $this->assertSame(
             [['https://example.test/b', 2, '2026-05-02 11:30:00'], ['https://example.test/c', 1, '2026-05-02 11:00:00']],

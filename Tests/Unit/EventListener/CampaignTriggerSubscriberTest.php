@@ -1444,6 +1444,31 @@ class CampaignTriggerSubscriberTest extends TestCase
         $this->assertCount(1, $event->getSuccessful());
     }
 
+    public function testInDirectModeAContactLeftOutByTheStopOrTheDncListStillGetsTheBlockOfAMauticDispatch(): void
+    {
+        $dnc = $this->createMock(DncModel::class);
+        $dnc->method('isContactable')->willReturnOnConsecutiveCalls(DoNotContact::IS_CONTACTABLE, DoNotContact::IS_CONTACTABLE, DoNotContact::IS_CONTACTABLE, DoNotContact::UNSUBSCRIBED, DoNotContact::IS_CONTACTABLE);
+        [, $event, $sender] = $this->directBatch(5, [self::failure(), self::failure(), self::failure()]);
+        $subscriber = new CampaignTriggerSubscriber(
+            $this->integrationHelper, $this->httpClient, $this->logger, $this->emailModel, $this->variableResolver,
+            $this->mailHashHelper, $this->entityManager, $dnc, $this->emailVariablesRepository,
+            new DispatchFailureReasons(new EnUsTranslator()), $this->statusTracker, $sender,
+        );
+        $event->getPending()->get(5)->setMetadata(['n8ndispatch' => ['statId' => 10]]);
+
+        $subscriber->onEmailSend($event);
+
+        foreach ([4, 5] as $id) { // 4: on the Do Not Contact list, 5: left out by the stop
+            $n8n = $event->getPending()->get($id)->getMetadata()['n8ndispatch'];
+            $this->assertSame('mautic', $n8n['mode']);
+            $this->assertSame('failed', $n8n['outcome']);
+            $this->assertSame('production', $n8n['status']);
+            $this->assertSame(['foo' => 'bar'], $n8n['variables'], 'the values a resend sends');
+        }
+
+        $this->assertSame(10, $event->getPending()->get(5)->getMetadata()['n8ndispatch']['statId'], 'the Stats of earlier attempts stay');
+    }
+
     public function testInDirectModeTheStatsOfEarlierAttemptsStayOnTheLogWhenCoreTriesAgain(): void
     {
         [$subscriber, $event] = $this->directBatch(1, [self::sentOk(11)]);

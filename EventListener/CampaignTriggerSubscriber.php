@@ -25,6 +25,7 @@ use MauticPlugin\N8nDispatchBundle\Resolver\VariableResolver;
 use MauticPlugin\N8nDispatchBundle\Service\DirectEmailSender;
 use MauticPlugin\N8nDispatchBundle\Service\DispatchFailureReasons;
 use MauticPlugin\N8nDispatchBundle\Service\DispatchOutcomeRecorder;
+use MauticPlugin\N8nDispatchBundle\Service\EmailSendMode;
 use MauticPlugin\N8nDispatchBundle\Service\MauticEmailOutcome;
 use MauticPlugin\N8nDispatchBundle\Service\StatusTracker;
 use MauticPlugin\N8nDispatchBundle\Service\WebhookSettings;
@@ -313,30 +314,26 @@ class CampaignTriggerSubscriber implements EventSubscriberInterface
             /** @var LeadEventLog $log */
             $log = $event->getPending()->get($logId);
 
+            // Resolved first: a contact left out below still gets its block on the log, so the screens read it as a dispatch of
+            // Mautic (not of n8n) and a resend has the values to send.
+            $variables = $this->variableResolver->resolveAll($variablesConfig, $contact, $campaign, '<br>', $language);
+
             if ($this->failIfNotContactable($event, $log, $contact)) {
+                $this->recordDirect($log, $contact, $emailId, $status, $language, $variables, 'failed', null);
+
                 continue;
             }
 
             if (null !== $stopped) {
+                $this->recordDirect($log, $contact, $emailId, $status, $language, $variables, 'failed', null);
                 $event->fail($log, $stopped);
 
                 continue;
             }
 
-            $variables = $this->variableResolver->resolveAll($variablesConfig, $contact, $campaign, '<br>', $language);
-            $result    = $this->directSender->send($contact, $email, $eventId, $variables);
+            $result = $this->directSender->send($contact, $email, $eventId, $variables);
 
-            // A step core retries after a failure comes back here with the Stats of its earlier attempts on the log.
-            $log->appendToMetadata(['n8ndispatch' => [
-                'mode'               => 'mautic',
-                'status'             => $status,
-                'mautic_template_id' => $emailId,
-                'contact_id'         => $contact->getId(),
-                'contact_email'      => $contact->getEmail(),
-                'language'           => $language,
-                'variables'          => $variables,
-                'outcome'            => $result['outcome'],
-            ] + MauticEmailOutcome::statFields($log->getMetadata(), $result['statId'])]);
+            $this->recordDirect($log, $contact, $emailId, $status, $language, $variables, $result['outcome'], $result['statId']);
 
             match ($result['outcome']) {
                 DirectEmailSender::FAILED  => $event->fail($log, (string) $result['reason']),
@@ -356,6 +353,26 @@ class CampaignTriggerSubscriber implements EventSubscriberInterface
                 $lastReason = null;
             }
         }
+    }
+
+    /**
+     * What went out (or was not sent) through Mautic's mailer, on the log. A step core retries after a failure comes back here with the
+     * Stats of its earlier attempts on the log, which are kept.
+     *
+     * @param array<string, mixed> $variables
+     */
+    private function recordDirect(LeadEventLog $log, Lead $contact, int $emailId, string $status, string $language, array $variables, string $outcome, ?int $statId): void
+    {
+        $log->appendToMetadata(['n8ndispatch' => [
+            'mode'               => EmailSendMode::MAUTIC,
+            'status'             => $status,
+            'mautic_template_id' => $emailId,
+            'contact_id'         => $contact->getId(),
+            'contact_email'      => $contact->getEmail(),
+            'language'           => $language,
+            'variables'          => $variables,
+            'outcome'            => $outcome,
+        ] + MauticEmailOutcome::statFields($log->getMetadata(), $statId)]);
     }
 
     /**

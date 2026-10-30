@@ -154,7 +154,9 @@
         // The subject is a text of the Email where a variable can be too: what is typed in the form is sent on
         // every refresh, the saved one would be stale. The HTML of the builder, once it was closed, is kept for
         // the refreshes that the subject triggers.
-        var $subject = $form.find('#emailform_subject');
+        var subjectField = function () {
+            return $form.find('#emailform_subject');
+        };
         var builderHtml = null;
 
         function refreshVariables(html) {
@@ -168,8 +170,8 @@
                 data.html = builderHtml;
             }
 
-            if (0 < $subject.length) {
-                data.subject = $subject.val() || '';
+            if (0 < subjectField().length) {
+                data.subject = subjectField().val() || '';
             }
 
             Mautic.ajaxActionRequest('plugin:N8nDispatch:getEmailVariables', data, function (response) {
@@ -194,7 +196,8 @@
             });
         }
 
-        $subject.off('change.n8nvars').on('change.n8nvars', function () {
+        // Delegated on the form, so a subject field that core draws again is still heard.
+        $form.off('change.n8nvars').on('change.n8nvars', '#emailform_subject', function () {
             refreshVariables();
         });
 

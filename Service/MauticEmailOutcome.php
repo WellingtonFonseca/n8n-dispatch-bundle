@@ -6,6 +6,7 @@ namespace MauticPlugin\N8nDispatchBundle\Service;
 
 use Doctrine\DBAL\ArrayParameterType;
 use Doctrine\ORM\EntityManagerInterface;
+use Mautic\LeadBundle\Entity\DoNotContact;
 
 /**
  * What Mautic itself knows about an Email that went out through its own mailer (EmailSendMode 'mautic'): the dispatch
@@ -32,10 +33,6 @@ class MauticEmailOutcome
     public const UNSUBSCRIBED = 'unsubscribed';
     public const SKIPPED      = 'skipped';
 
-    /** Do Not Contact reasons of core (DoNotContact::UNSUBSCRIBED, ::BOUNCED). */
-    private const DNC_UNSUBSCRIBED = 1;
-    private const DNC_BOUNCED      = 2;
-
     public function __construct(private EntityManagerInterface $em)
     {
     }
@@ -49,7 +46,7 @@ class MauticEmailOutcome
     {
         $n8n = $metadata['n8ndispatch'] ?? null;
 
-        return is_array($n8n) && 'mautic' === ($n8n['mode'] ?? null);
+        return is_array($n8n) && EmailSendMode::MAUTIC === ($n8n['mode'] ?? null);
     }
 
     /**
@@ -96,6 +93,19 @@ class MauticEmailOutcome
             'failed'  => self::FAILED,
             'skipped' => self::SKIPPED,
             default   => self::QUEUED,
+        };
+    }
+
+    /**
+     * The badge of the plugin's own family (n8ndispatch-badge--<this>) that draws a state, in the table and on the card.
+     */
+    public static function badgeOf(string $state): string
+    {
+        return match ($state) {
+            self::QUEUED                               => 'pending',
+            self::FAILED, self::BOUNCED, self::SKIPPED => 'failed',
+            self::UNSUBSCRIBED                         => 'paused',
+            default                                    => 'success',
         };
     }
 
@@ -168,10 +178,15 @@ class MauticEmailOutcome
             ->executeQuery()
             ->fetchAllAssociative();
 
+        $byContactAndStep = [];
+        foreach ($rows as $row) {
+            $byContactAndStep[(int) $row['lead_id'].'|'.(int) $row['source_id']][] = $row;
+        }
+
         $found = [];
         foreach ($waiting as $key => $log) {
-            foreach ($rows as $row) {
-                if ((int) $row['lead_id'] === $log['lead'] && (int) $row['source_id'] === (int) $log['event'] && (string) $row['date_sent'] >= (string) $log['since']) {
+            foreach ($byContactAndStep[$log['lead'].'|'.(int) $log['event']] ?? [] as $row) {
+                if ((string) $row['date_sent'] >= (string) $log['since']) {
                     $found[$key] = (int) $row['id'];
                 }
             }
@@ -214,20 +229,34 @@ class MauticEmailOutcome
 
         $allIds = [];
         foreach ($logs as $key => $log) {
-            $logs[$key]['statIds'] = array_merge($log['statIds'], isset($late[$key]) ? [$late[$key]] : []);
-            $allIds                = array_merge($allIds, $logs[$key]['statIds']);
+            if (isset($late[$key])) {
+                $logs[$key]['statIds'][] = $late[$key];
+            }
+
+            foreach ($logs[$key]['statIds'] as $id) {
+                $allIds[] = $id;
+            }
         }
 
         $stats = $this->stats($allIds);
         $leads = array_values(array_unique(array_map(static fn (array $log): int => $log['lead'], $logs)));
 
-        $dnc    = $this->doNotContact($leads);
-        $clicks = $this->clicks($stats);
+        $dnc = $this->doNotContact($leads);
+
+        // Only the last attempt of a dispatch gives its state: clicks are asked for those Stats alone.
+        $lasts = [];
+        foreach ($logs as $key => $log) {
+            $mine = array_intersect_key($stats, array_flip($log['statIds']));
+            if ([] !== $mine) {
+                $lasts[$key] = $mine[max(array_keys($mine))];
+            }
+        }
+
+        $clicks = $this->clicks(array_column($lasts, null, 'id'));
 
         $states = [];
         foreach ($logs as $key => $log) {
-            $mine = array_intersect_key($stats, array_flip($log['statIds']));
-            $last = [] === $mine ? null : $mine[max(array_keys($mine))];
+            $last = $lasts[$key] ?? null;
 
             $states[$key] = null === $last ? self::withoutStat($log['outcome'] ?? null) : $this->stateOf($last, $dnc[$log['lead']] ?? [], isset($clicks[$last['id']]));
         }
@@ -242,7 +271,7 @@ class MauticEmailOutcome
      * @param array<string, mixed> $metadata
      * @param int                  $eventId  the step of the log, with $since (its moment), to find the Stat of an Email Mautic held back
      *
-     * @return array{state: string, attempts: list<array{statId: int, sentAt: ?\DateTimeImmutable, failed: bool, openedAt: ?\DateTimeImmutable, lastOpenedAt: ?\DateTimeImmutable, openCount: int, clicks: list<array{url: string, count: int, lastAt: ?\DateTimeImmutable}>}>, dnc: array{state: string, at: ?\DateTimeImmutable, comments: string}|null}
+     * @return array{state: string, attempts: list<array{statId: int, sentAt: ?\DateTimeImmutable, failed: bool, openedAt: ?\DateTimeImmutable, openCount: int, clicks: list<array{url: string, count: int, lastAt: ?\DateTimeImmutable}>}>, dnc: array{state: string, at: ?\DateTimeImmutable, comments: string}|null}
      */
     public function detail(int $leadId, array $metadata, int $eventId = 0, ?string $since = null): array
     {
@@ -276,7 +305,6 @@ class MauticEmailOutcome
                 'sentAt'       => self::date($stat['date_sent']),
                 'failed'       => $stat['is_failed'],
                 'openedAt'     => self::date($stat['date_read']),
-                'lastOpenedAt' => self::date($stat['last_opened']),
                 'openCount'    => $stat['open_count'],
                 'clicks'       => $clicks,
             ];
@@ -289,7 +317,7 @@ class MauticEmailOutcome
         if (null !== $last) {
             $after = $this->dncAfter($last['date_sent'], $dnc);
             if (null !== $after) {
-                $dncShown = ['state' => self::DNC_BOUNCED === $after['reason'] ? self::BOUNCED : self::UNSUBSCRIBED, 'at' => self::date($after['date_added']), 'comments' => $after['comments']];
+                $dncShown = ['state' => DoNotContact::BOUNCED === $after['reason'] ? self::BOUNCED : self::UNSUBSCRIBED, 'at' => self::date($after['date_added']), 'comments' => $after['comments']];
             }
         }
 
@@ -305,7 +333,7 @@ class MauticEmailOutcome
         $after = $this->dncAfter($stat['date_sent'], $dnc);
 
         return match (true) {
-            null !== $after && self::DNC_BOUNCED === $after['reason'] => self::BOUNCED,
+            null !== $after && DoNotContact::BOUNCED === $after['reason'] => self::BOUNCED,
             $stat['is_failed']                                        => self::FAILED,
             null !== $after                                           => self::UNSUBSCRIBED,
             $clicked                                                  => self::CLICKED,
@@ -326,11 +354,11 @@ class MauticEmailOutcome
         $found = null;
 
         foreach ($dnc as $row) {
-            if ($row['date_added'] < $sentAt || !in_array($row['reason'], [self::DNC_UNSUBSCRIBED, self::DNC_BOUNCED], true)) {
+            if ($row['date_added'] < $sentAt || !in_array($row['reason'], [DoNotContact::UNSUBSCRIBED, DoNotContact::BOUNCED], true)) {
                 continue;
             }
 
-            if (null === $found || self::DNC_BOUNCED === $row['reason'] && self::DNC_BOUNCED !== $found['reason']) {
+            if (null === $found || DoNotContact::BOUNCED === $row['reason'] && DoNotContact::BOUNCED !== $found['reason']) {
                 $found = $row;
             }
         }
@@ -341,7 +369,7 @@ class MauticEmailOutcome
     /**
      * @param list<int> $ids
      *
-     * @return array<int, array{id: int, email_id: int, lead_id: int, date_sent: string, is_read: bool, is_failed: bool, date_read: ?string, last_opened: ?string, open_count: int}>
+     * @return array<int, array{id: int, email_id: int, lead_id: int, date_sent: string, is_read: bool, is_failed: bool, date_read: ?string, open_count: int}>
      */
     private function stats(array $ids): array
     {
@@ -349,7 +377,7 @@ class MauticEmailOutcome
 
         foreach (array_chunk(array_values(array_unique($ids)), 1000) as $chunk) {
             $rows = $this->em->getConnection()->createQueryBuilder()
-                ->select('id, email_id, lead_id, date_sent, is_read, is_failed, date_read, last_opened, open_count')
+                ->select('id, email_id, lead_id, date_sent, is_read, is_failed, date_read, open_count')
                 ->from(MAUTIC_TABLE_PREFIX.'email_stats')
                 ->where('id IN (:ids)')
                 ->setParameter('ids', $chunk, ArrayParameterType::INTEGER)
@@ -365,7 +393,6 @@ class MauticEmailOutcome
                     'is_read'     => (bool) (int) $row['is_read'],
                     'is_failed'   => (bool) (int) $row['is_failed'],
                     'date_read'   => null === $row['date_read'] ? null : (string) $row['date_read'],
-                    'last_opened' => null === $row['last_opened'] ? null : (string) $row['last_opened'],
                     'open_count'  => (int) $row['open_count'],
                 ];
             }
@@ -455,9 +482,10 @@ class MauticEmailOutcome
     }
 
     /**
-     * Which of the Stats had a click (one query for all, the list only needs a yes or no).
+     * Which of the Stats had a click (one query that returns only their ids: the list and the status filter need a yes or no,
+     * not the clicks, which hitsOf() reads for one card).
      *
-     * @param array<int, array{id: int, email_id: int, lead_id: int, date_sent: string}> $stats
+     * @param array<int, array{id: int}> $stats
      *
      * @return array<int, true> stat id => true
      */
@@ -465,9 +493,18 @@ class MauticEmailOutcome
     {
         $clicked = [];
 
-        foreach ($this->hitsOf($stats) as $statId => $hits) {
-            if ([] !== $hits) {
-                $clicked[$statId] = true;
+        foreach (array_chunk(array_keys($stats), 1000) as $chunk) {
+            $ids = $this->em->getConnection()->createQueryBuilder()
+                ->select('s.id')
+                ->from(MAUTIC_TABLE_PREFIX.'email_stats', 's')
+                ->where('s.id IN (:ids)')
+                ->andWhere('EXISTS (SELECT 1 FROM '.MAUTIC_TABLE_PREFIX.'page_hits h WHERE h.lead_id = s.lead_id AND h.email_id = s.email_id AND h.redirect_id IS NOT NULL AND h.date_hit >= s.date_sent)')
+                ->setParameter('ids', $chunk, ArrayParameterType::INTEGER)
+                ->executeQuery()
+                ->fetchFirstColumn();
+
+            foreach ($ids as $id) {
+                $clicked[(int) $id] = true;
             }
         }
 

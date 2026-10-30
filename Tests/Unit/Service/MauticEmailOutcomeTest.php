@@ -72,6 +72,29 @@ class MauticEmailOutcomeTest extends TestCase
         yield 'older ones first'            => [['n8ndispatch' => ['statIds' => [20, 5]]], 30, ['statId' => 5, 'statIds' => [5, 20, 30]]];
     }
 
+    /**
+     * @dataProvider badges
+     */
+    public function testTheBadgeOfAState(string $state, string $badge): void
+    {
+        $this->assertSame($badge, MauticEmailOutcome::badgeOf($state));
+    }
+
+    /**
+     * @return iterable<string, array{string, string}>
+     */
+    public static function badges(): iterable
+    {
+        yield 'queued'       => ['queued', 'pending'];
+        yield 'sent'         => ['sent', 'success'];
+        yield 'opened'       => ['opened', 'success'];
+        yield 'clicked'      => ['clicked', 'success'];
+        yield 'failed'       => ['failed', 'failed'];
+        yield 'bounced'      => ['bounced', 'failed'];
+        yield 'skipped'      => ['skipped', 'failed'];
+        yield 'unsubscribed' => ['unsubscribed', 'paused'];
+    }
+
     public function testTheOutcomeTheStepRecorded(): void
     {
         $this->assertSame('failed', MauticEmailOutcome::outcomeOf(['n8ndispatch' => ['outcome' => 'failed']]));

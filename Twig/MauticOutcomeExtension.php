@@ -23,6 +23,7 @@ class MauticOutcomeExtension extends AbstractExtension
         return [
             new TwigFunction('n8ndispatch_is_direct', [$this, 'isDirect']),
             new TwigFunction('n8ndispatch_mautic_outcome', [$this, 'outcome']),
+            new TwigFunction('n8ndispatch_mautic_badge', [MauticEmailOutcome::class, 'badgeOf']),
         ];
     }
 
@@ -44,14 +45,11 @@ class MauticOutcomeExtension extends AbstractExtension
     public function outcome(mixed $metadata, mixed $leadId, mixed $logId): array
     {
         $metadata = is_array($metadata) ? $metadata : [];
+        $lead     = is_numeric($leadId) ? (int) $leadId : 0;
 
         // The log knows the contact, the step and the moment; the Stat of an Email Mautic held back is found by them.
-        if (is_numeric($logId) && (int) $logId > 0) {
-            $facts = $this->outcome->factsOfLog((int) $logId);
+        $facts = is_numeric($logId) && (int) $logId > 0 ? $this->outcome->factsOfLog((int) $logId) : ['lead' => 0, 'event' => 0, 'since' => null];
 
-            return $this->outcome->detail($facts['lead'] > 0 ? $facts['lead'] : (is_numeric($leadId) ? (int) $leadId : 0), $metadata, $facts['event'], $facts['since']);
-        }
-
-        return $this->outcome->detail(is_numeric($leadId) ? (int) $leadId : 0, $metadata);
+        return $this->outcome->detail($facts['lead'] > 0 ? $facts['lead'] : $lead, $metadata, $facts['event'], $facts['since']);
     }
 }

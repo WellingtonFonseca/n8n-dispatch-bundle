@@ -24,7 +24,7 @@ class MauticOutcomeExtensionTest extends TestCase
     {
         $names = array_map(static fn (\Twig\TwigFunction $f): string => $f->getName(), $this->extension->getFunctions());
 
-        $this->assertSame(['n8ndispatch_is_direct', 'n8ndispatch_mautic_outcome'], $names);
+        $this->assertSame(['n8ndispatch_is_direct', 'n8ndispatch_mautic_outcome', 'n8ndispatch_mautic_badge'], $names);
     }
 
     public function testADispatchOfMauticIsDirectAndAnythingElseIsNot(): void

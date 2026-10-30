@@ -75,7 +75,7 @@ class EmailVariableMappingExtension extends AbstractTypeExtension
 
             $htmlNames    = $this->variableScanner->extract((string) $email->getCustomHtml());
             $subjectNames = $this->variableScanner->extract((string) $email->getSubject());
-            $names        = $this->variableScanner->extractFromEmail($email->getSubject(), $email->getCustomHtml());
+            $names        = array_values(array_unique(array_merge($subjectNames, $htmlNames)));
 
             if ([] === $names) {
                 return;
@@ -95,17 +95,15 @@ class EmailVariableMappingExtension extends AbstractTypeExtension
             }
 
             // The error lands on the HTML when a variable of it is unmapped, else on the subject (the only one left).
-            if ([] === $this->mappingChecker->findUnmapped($htmlNames, $mapping)) {
-                $customHtml = $subject;
-            }
+            $field  = null !== $subject && [] === $this->mappingChecker->findUnmapped($htmlNames, $mapping) ? 'subject' : 'customHtml';
+            $target = 'subject' === $field ? $subject : $customHtml;
 
             $tab     = $this->translator->trans('mautic.n8ndispatch.email.tab.label');
             $message = $this->translator->trans('mautic.n8ndispatch.email.error.unmapped', ['%tab%' => $tab]);
 
             // Core's API error handling reads $error->getCause()->getCode(), so the cause can't be null.
-            $field     = $customHtml === $subject ? 'subject' : 'customHtml';
             $violation = new ConstraintViolation($message, null, [], $email, $field, 'subject' === $field ? $email->getSubject() : $email->getCustomHtml());
-            $customHtml->addError(new FormError($message, null, [], null, $violation));
+            $target->addError(new FormError($message, null, [], null, $violation));
 
             if (!str_starts_with((string) $this->requestStack->getCurrentRequest()?->getPathInfo(), '/api/')) {
                 $this->flashBag->add(

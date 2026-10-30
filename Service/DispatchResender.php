@@ -326,25 +326,25 @@ class DispatchResender
             return $this->result(false, 'mautic.n8ndispatch.dispatch.resend.direct_not_available');
         }
 
-        if (self::isFailed($metadata) && 'failed' === MauticEmailOutcome::outcomeOf($metadata)) {
-            $email = $this->em->find(Email::class, (int) ($properties['email'] ?? 0));
-
-            if (null === $email) {
-                return $this->failed($this->failureReasons->translated(DispatchFailureReasons::EMAIL_TEMPLATE_DELETED, ['%id%' => (int) ($properties['email'] ?? 0)]));
-            }
-
-            if (!$email->isPublished()) {
-                return $this->failed($this->failureReasons->translated(DispatchFailureReasons::EMAIL_NOT_PUBLISHED, ['%id%' => (int) $email->getId()]));
-            }
-
-            if (DoNotContact::IS_CONTACTABLE !== $this->dncModel->isContactable($log->getLead(), 'email')) {
-                return $this->failed($this->failureReasons->translated(DispatchFailureReasons::DO_NOT_CONTACT, ['%channel%' => 'email']));
-            }
-
-            return $this->sendAgain($log, $metadata, $email, $userEmail);
+        if (!self::isFailed($metadata) || 'failed' !== MauticEmailOutcome::outcomeOf($metadata)) {
+            return $this->result(false, 'mautic.n8ndispatch.dispatch.resend.direct_not_refused');
         }
 
-        return $this->result(false, 'mautic.n8ndispatch.dispatch.resend.direct_not_refused');
+        $email = $this->em->find(Email::class, (int) ($properties['email'] ?? 0));
+
+        if (null === $email) {
+            return $this->failed($this->failureReasons->translated(DispatchFailureReasons::EMAIL_TEMPLATE_DELETED, ['%id%' => (int) ($properties['email'] ?? 0)]));
+        }
+
+        if (!$email->isPublished()) {
+            return $this->failed($this->failureReasons->translated(DispatchFailureReasons::EMAIL_NOT_PUBLISHED, ['%id%' => (int) $email->getId()]));
+        }
+
+        if (DoNotContact::IS_CONTACTABLE !== $this->dncModel->isContactable($log->getLead(), 'email')) {
+            return $this->failed($this->failureReasons->translated(DispatchFailureReasons::DO_NOT_CONTACT, ['%channel%' => 'email']));
+        }
+
+        return $this->sendAgain($log, $metadata, $email, $userEmail);
     }
 
     /**

@@ -10,7 +10,7 @@
     - n8n   item.metadata.n8ndispatch
 #}
 {% set mautic = n8ndispatch_mautic_outcome(item.metadata, item.lead_id|default(null), item.log_id|default(null)) %}
-{% set badgeClass = {'queued': 'pending', 'sent': 'success', 'opened': 'success', 'clicked': 'success', 'failed': 'failed', 'bounced': 'failed', 'skipped': 'failed', 'unsubscribed': 'paused'}[mautic.state] %}
+{% set badgeClass = n8ndispatch_mautic_badge(mautic.state) %}
 <div class="n8ndispatch-timeline n8ndispatch-timeline--mautic">
     <div class="n8ndispatch-timeline-header">
         <span class="n8ndispatch-badge n8ndispatch-badge--{{ n8n.status }}">
