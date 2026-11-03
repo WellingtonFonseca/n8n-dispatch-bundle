@@ -158,7 +158,8 @@ abstract class AbstractTemplateDispatchSubscriber implements EventSubscriberInte
         // channel of its own to check against, so 'sms' is the closest real
         // proxy for both: a contact opted out of SMS is opted out of HSM too.
         if (DoNotContact::IS_CONTACTABLE !== $this->dncModel->isContactable($contact, 'sms')) {
-            $event->fail($log, $this->failureReasons->translated(DispatchFailureReasons::DO_NOT_CONTACT, ['%channel%' => 'sms']));
+            // Passed with the reason (as core does): a failed step would be retried until the campaign is unpublished.
+            $event->passWithError($log, $this->failureReasons->translated(DispatchFailureReasons::DO_NOT_CONTACT, ['%channel%' => 'sms']));
 
             return;
         }

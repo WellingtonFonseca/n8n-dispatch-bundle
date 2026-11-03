@@ -133,7 +133,8 @@ drops it) and the REST API answers 409.
 Messages follow the system language (`Translations/en_US`, `pt_BR`).
 
 Contacts on the Do Not Contact list for the channel are not sent to (SMS and
-HSM use the `sms` channel).
+HSM use the `sms` channel). The step passes for them with the reason on the
+History (as core's Email action does), so core does not retry it.
 
 A campaign step held back by an hour/day restriction shows its real
 scheduled time on the contact's Timeline (not a blank card), with buttons to
