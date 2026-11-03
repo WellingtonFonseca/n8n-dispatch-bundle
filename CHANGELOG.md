@@ -2,6 +2,9 @@
 
 Um bloco por dia, do mais novo para o mais antigo. Formato fixo: `## AAAA-MM-DD` e uma linha `- ` por mudança (a tela do plugin lê este arquivo).
 
+## 2026-11-03
+- Um contato que entrou na lista Não Contatar (DNC) no meio da campanha não derruba mais a campanha: o passo de Email, SMS ou HSM passa sem enviar e o motivo aparece no histórico do contato, em vez de o Mautic tentar de novo até desativar a campanha
+
 ## 2026-10-30
 - Os templates de SMS e de HSM também têm o campo Cálculo nas variáveis de campo do contato e de Custom Object, com a mesma explicação e as mesmas regras do Email
 - Nos formulários de SMS e de HSM, o texto que explica os placeholders numéricos ficou entre o título Texto do SMS (ou do HSM) e o campo, em fonte maior

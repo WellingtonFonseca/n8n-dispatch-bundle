@@ -374,7 +374,7 @@ class CampaignTriggerSubscriberTest extends TestCase
         $this->assertCount(1, $pendingEvent->getSuccessful());
     }
 
-    public function testProductionStatusFailsWithoutDispatchingWhenContactIsOnTheEmailDncList(): void
+    public function testProductionStatusPassesWithTheReasonWithoutDispatchingWhenContactIsOnTheEmailDncList(): void
     {
         $pendingEvent = $this->buildPendingEvent(['email' => 1, 'status' => 'production']);
 
@@ -400,15 +400,12 @@ class CampaignTriggerSubscriberTest extends TestCase
 
         $this->subscriber->onEmailSend($pendingEvent);
 
-        $this->assertCount(0, $pendingEvent->getSuccessful());
-        $failures = $pendingEvent->getFailures();
-        $this->assertCount(1, $failures);
-        /** @var LeadEventLog $failedLog */
-        $failedLog = $failures->first();
-        $this->assertSame(
-            'N8nDispatch: contact is on the Do Not Contact list for email.',
-            $failedLog->getFailedLog()->getReason()
-        );
+        // Passed with the reason, not failed: a failed step is retried until core unpublishes the campaign.
+        $this->assertCount(0, $pendingEvent->getFailures());
+        $this->assertCount(1, $pendingEvent->getSuccessful());
+        $log = $pendingEvent->getSuccessful()->first();
+        $this->assertSame(1, $log->getMetadata()['failed']);
+        $this->assertSame('N8nDispatch: contact is on the Do Not Contact list for email.', $log->getMetadata()['reason']);
     }
 
     public function testProductionStatusSavesAndAttachesATemplateCopySnapshot(): void
@@ -1229,7 +1226,7 @@ class CampaignTriggerSubscriberTest extends TestCase
         $this->assertSame('failed', $log->getMetadata()['n8ndispatch']['outcome']);
     }
 
-    public function testInDirectModeAContactOnTheDncListIsFailedBeforeTheMailerIsAsked(): void
+    public function testInDirectModeAContactOnTheDncListIsPassedWithTheReasonBeforeTheMailerIsAsked(): void
     {
         [$subscriber, $sender] = $this->directSubscriber();
         $dnc = $this->createMock(DncModel::class);
@@ -1245,8 +1242,9 @@ class CampaignTriggerSubscriberTest extends TestCase
 
         $subscriber->onEmailSend($event);
 
-        $this->assertCount(1, $event->getFailures());
-        $this->assertStringContainsString('Do Not Contact', $event->getFailures()->first()->getMetadata()['reason']);
+        $this->assertCount(0, $event->getFailures());
+        $this->assertCount(1, $event->getSuccessful());
+        $this->assertStringContainsString('Do Not Contact', $event->getSuccessful()->first()->getMetadata()['reason']);
     }
 
     public function testInDirectModeAContactOnTheDncListDoesNotStopTheOthersOfTheBatch(): void
@@ -1279,8 +1277,8 @@ class CampaignTriggerSubscriberTest extends TestCase
 
         $subscriber->onEmailSend($pending);
 
-        $this->assertCount(1, $pending->getFailures());
-        $this->assertCount(1, $pending->getSuccessful());
+        $this->assertCount(0, $pending->getFailures());
+        $this->assertCount(2, $pending->getSuccessful());
     }
 
     public function testInDirectModeAnEmailThatIsNotPublishedFailsTheWholeStep(): void
@@ -1507,8 +1505,9 @@ class CampaignTriggerSubscriberTest extends TestCase
 
         $subscriber->onEmailSend($event);
 
-        $reasons = array_map(static fn (LeadEventLog $log): string => $log->getMetadata()['reason'], array_values($event->getFailures()->toArray()));
-        $this->assertStringContainsString('Do Not Contact', $reasons[3], 'the fourth contact is left out for its own reason, not for the stop');
+        $this->assertCount(3, $event->getFailures());
+        $this->assertCount(1, $event->getSuccessful());
+        $this->assertStringContainsString('Do Not Contact', $event->getSuccessful()->first()->getMetadata()['reason'], 'the fourth contact is left out for its own reason, not for the stop');
     }
 
     public function testAStepWithoutAnEmailLooksUpNeitherTheEmailNorItsVariables(): void
