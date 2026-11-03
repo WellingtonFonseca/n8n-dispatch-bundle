@@ -258,7 +258,10 @@ class CampaignTriggerSubscriber implements EventSubscriberInterface
     }
 
     /**
-     * Fails the contact, with no call at all, when it is on the Do Not Contact list for the email channel.
+     * Leaves the contact out, with no call at all, when it is on the Do Not Contact list for the email channel.
+     *
+     * The step passes with the reason on the History (core's own Email action does the same): a DNC is an answer,
+     * and a failed step would be retried by core until it unpublishes the campaign.
      *
      * Before anything is resolved or sent, for both ways out. The n8n path never goes through Mautic's own mailer,
      * so core's native DNC enforcement (EmailModel::sendEmail() checking this same table before it queues a
@@ -268,7 +271,7 @@ class CampaignTriggerSubscriber implements EventSubscriberInterface
      * The direct path asks again inside the mailer (and gets the bounce too), this one keeps the same reason
      * on the History for both.
      *
-     * @return bool true when the contact was failed
+     * @return bool true when the contact was left out
      */
     private function failIfNotContactable(PendingEvent $event, LeadEventLog $log, Lead $contact): bool
     {
@@ -276,7 +279,7 @@ class CampaignTriggerSubscriber implements EventSubscriberInterface
             return false;
         }
 
-        $event->fail($log, $this->failureReasons->translated(DispatchFailureReasons::DO_NOT_CONTACT, ['%channel%' => 'email']));
+        $event->passWithError($log, $this->failureReasons->translated(DispatchFailureReasons::DO_NOT_CONTACT, ['%channel%' => 'email']));
 
         return true;
     }
