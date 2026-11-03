@@ -208,7 +208,7 @@ class SmsCampaignTriggerSubscriberTest extends TestCase
         $this->assertSame('N8nDispatch: webhook_url is not configured.', $pendingEvent->getFailures()->first()->getFailedLog()->getReason());
     }
 
-    public function testProductionStatusFailsWithoutDispatchingWhenContactIsOnTheSmsDncList(): void
+    public function testProductionStatusPassesWithTheReasonWithoutDispatchingWhenContactIsOnTheSmsDncList(): void
     {
         $pendingEvent = $this->buildPendingEvent(['text' => 'Hi {{foo}}', 'status' => 'production']);
 
@@ -230,14 +230,12 @@ class SmsCampaignTriggerSubscriberTest extends TestCase
 
         $this->subscriber->onSmsSend($pendingEvent);
 
-        $failures = $pendingEvent->getFailures();
-        $this->assertCount(1, $failures);
-        /** @var LeadEventLog $failedLog */
-        $failedLog = $failures->first();
-        $this->assertSame(
-            'N8nDispatch: contact is on the Do Not Contact list for sms.',
-            $failedLog->getFailedLog()->getReason()
-        );
+        // Passed with the reason, not failed: a failed step is retried until core unpublishes the campaign.
+        $this->assertCount(0, $pendingEvent->getFailures());
+        $this->assertCount(1, $pendingEvent->getSuccessful());
+        $log = $pendingEvent->getSuccessful()->first();
+        $this->assertSame(1, $log->getMetadata()['failed']);
+        $this->assertSame('N8nDispatch: contact is on the Do Not Contact list for sms.', $log->getMetadata()['reason']);
     }
 
     public function testProductionStatusFailsAContactWithNoPhoneNumberWithoutCallingTheWebhook(): void
