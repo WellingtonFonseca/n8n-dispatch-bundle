@@ -575,3 +575,10 @@ a[data-n8n-status-action]:hover * {
 .form-group p.help-block.n8ndispatch-text-help {
     font-size: 14px;
 }
+
+/* The resend modal (Dispatches screen): 30% wider than core's shared modal (600px), so the table of variables and the message breathe.
+   Only a modal holding this body is widened, every other use of the shared modal keeps its size. */
+.modal-dialog:has(.n8ndispatch-resend) {
+    width: 780px;
+    max-width: 95vw;
+}

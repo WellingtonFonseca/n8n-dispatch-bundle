@@ -40,7 +40,8 @@ use Symfony\Contracts\Translation\TranslatorInterface;
  *
  * The body is resent as it was, unless the user confirmed values on the resend
  * form (ResendVariables): those replace the variables of the body, and an SMS
- * message is filled again from the text of its template.
+ * message is filled again from the text of its template. A form with a variable
+ * of the template left empty is refused: nothing is sent.
  */
 class DispatchResender
 {
@@ -219,6 +220,10 @@ class DispatchResender
 
         $body = $this->withConfirmed($log, $body, $confirmed);
 
+        if (null !== $empty = $this->emptyVariablesAnswer($log, $body['variables'] ?? [], $confirmed)) {
+            return $empty;
+        }
+
         $dncChannel = DispatchTracking::CHANNEL_EMAIL === $channel ? 'email' : 'sms';
 
         if (DoNotContact::IS_CONTACTABLE !== $this->dncModel->isContactable($log->getLead(), $dncChannel)) {
@@ -299,6 +304,26 @@ class DispatchResender
         }
 
         return $body;
+    }
+
+    /**
+     * The refusal of a resend made on the form with a variable of the template left empty: the template needs every
+     * variable it names, so nothing is sent or recorded. Null when the values are complete or there was no form.
+     *
+     * @param array<string, mixed>       $variables the values that would go out
+     * @param array<string, string>|null $confirmed
+     *
+     * @return array{ok: bool, message: string}|null
+     */
+    private function emptyVariablesAnswer(LeadEventLog $log, array $variables, ?array $confirmed): ?array
+    {
+        if (null === $confirmed || null === $this->resendVariables) {
+            return null;
+        }
+
+        $empty = $this->resendVariables->emptyNames($log, $variables);
+
+        return [] === $empty ? null : $this->result(false, 'mautic.n8ndispatch.dispatch.resend.empty_variables', ['%names%' => implode(', ', $empty)]);
     }
 
     /**
@@ -395,6 +420,11 @@ class DispatchResender
     {
         $variables = is_array($metadata['n8ndispatch']['variables'] ?? null) ? $metadata['n8ndispatch']['variables'] : [];
         $variables = null === $confirmed ? $variables : $confirmed + $variables;
+
+        if (null !== $empty = $this->emptyVariablesAnswer($log, $variables, $confirmed)) {
+            return $empty;
+        }
+
         $result    = $this->directSender->send($log->getLead(), $email, (int) $log->getEvent()->getId(), $variables);
         $refused   = in_array($result['outcome'], [DirectEmailSender::FAILED, DirectEmailSender::SKIPPED], true);
 

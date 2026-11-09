@@ -11,7 +11,7 @@
 /**
  * The message shown at the end of the form (SMS / HSM): the template text with each {{name}} replaced by what is typed in the
  * input of that name; a name with no input, or an empty one, stays as written. It is a PREVIEW: the server fills the text that is
- * sent with TemplateVariableScanner::fill(), where an empty value goes out empty.
+ * sent with TemplateVariableScanner::fill(); a resend never has an empty value (n8ndispatchValidateResend).
  */
 Mautic.n8ndispatchFillResendMessage = function (form) {
     var code = form.find('[data-resend-template]');
@@ -26,6 +26,37 @@ Mautic.n8ndispatchFillResendMessage = function (form) {
         // An empty input keeps the {{name}}: the gap is seen in the text.
         return input.length && input.val() !== '' ? input.val() : placeholder;
     }));
+};
+
+/**
+ * The template needs every variable it names: while an input is empty (or only spaces) the footer's Reenviar is disabled and the
+ * form says why. The server refuses such a resend too (DispatchResender::emptyVariablesAnswer).
+ */
+Mautic.n8ndispatchValidateResend = function (form) {
+    // /^\s*$/ and not $.trim(): the same whitespace as the server's (ResendVariables::isBlank), no-break space included.
+    var empty = form.find('[data-resend-variable]').filter(function () { return /^\s*$/.test(mQuery(this).val()); }).length > 0;
+    var button = form.closest('.modal').find('.modal-form-buttons .btn-primary');
+
+    button.toggleClass('disabled', empty).prop('disabled', empty);
+    form.find('[data-resend-block]').toggle(empty);
+};
+
+// Called when the modal content is loaded, BEFORE core copies the buttons into the footer: the check waits for them (it looks
+// again a few times, 50 ms apart, in case core copies them later than the next tick). The alert of the form is already in
+// the page when a value is empty, and the server refuses such a resend anyway, so a button that is never found only loses the lock.
+Mautic.n8ndispatchResendForm = function (element) {
+    var attempts = 0;
+    var check = function () {
+        var form = mQuery(element);
+
+        Mautic.n8ndispatchValidateResend(form);
+
+        if (!form.closest('.modal').find('.modal-form-buttons .btn-primary').length && attempts++ < 10) {
+            setTimeout(check, 50);
+        }
+    };
+
+    setTimeout(check, 0);
 };
 
 Mautic.n8ndispatchSubmitResend = function (button) {
@@ -70,6 +101,7 @@ Mautic.n8ndispatchSubmitResend = function (button) {
             footer.prop('disabled', false);
             Mautic.stopIconSpinPostEvent();
             form.find('[data-resend-variable]').prop('disabled', false);
+            Mautic.n8ndispatchValidateResend(form);
             Mautic.processAjaxError(request, textStatus, errorThrown, true);
         }
     });
@@ -77,5 +109,8 @@ Mautic.n8ndispatchSubmitResend = function (button) {
 
 // The modal is built by ajax: its inputs are listened to from the document, so no hook after the load is needed.
 mQuery(document).on('input', '.n8ndispatch-resend [data-resend-variable]', function () {
-    Mautic.n8ndispatchFillResendMessage(mQuery(this).closest('.n8ndispatch-resend'));
+    var form = mQuery(this).closest('.n8ndispatch-resend');
+
+    Mautic.n8ndispatchFillResendMessage(form);
+    Mautic.n8ndispatchValidateResend(form);
 });
