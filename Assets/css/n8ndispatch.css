@@ -582,3 +582,12 @@ a[data-n8n-status-action]:hover * {
     width: 780px;
     max-width: 95vw;
 }
+
+/* A long first value (a 1500-character variable) would stretch the table and push the input off the modal: the cell
+   breaks the text and loses height instead of width (its width is capped so the input column keeps room), scrolling inside itself. */
+.n8ndispatch-resend-first {
+    max-width: 260px;
+    max-height: 120px;
+    overflow-y: auto;
+    overflow-wrap: anywhere;
+}
