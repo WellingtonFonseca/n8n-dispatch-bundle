@@ -33,16 +33,30 @@ Mautic.n8ndispatchFillResendMessage = function (form) {
  * form says why. The server refuses such a resend too (DispatchResender::emptyVariablesAnswer).
  */
 Mautic.n8ndispatchValidateResend = function (form) {
-    var empty = form.find('[data-resend-variable]').filter(function () { return mQuery.trim(mQuery(this).val()) === ''; }).length > 0;
+    // /^\s*$/ and not $.trim(): the same whitespace as the server's (ResendVariables::isBlank), no-break space included.
+    var empty = form.find('[data-resend-variable]').filter(function () { return /^\s*$/.test(mQuery(this).val()); }).length > 0;
     var button = form.closest('.modal').find('.modal-form-buttons .btn-primary');
 
     button.toggleClass('disabled', empty).prop('disabled', empty);
     form.find('[data-resend-block]').toggle(empty);
 };
 
-// Called when the modal content is loaded, BEFORE core copies the buttons into the footer: the check waits for them.
+// Called when the modal content is loaded, BEFORE core copies the buttons into the footer: the check waits for them (it looks
+// again a few times, 50 ms apart, in case core copies them later than the next tick). The alert of the form is already in
+// the page when a value is empty, and the server refuses such a resend anyway, so a button that is never found only loses the lock.
 Mautic.n8ndispatchResendForm = function (element) {
-    setTimeout(function () { Mautic.n8ndispatchValidateResend(mQuery(element)); }, 0);
+    var attempts = 0;
+    var check = function () {
+        var form = mQuery(element);
+
+        Mautic.n8ndispatchValidateResend(form);
+
+        if (!form.closest('.modal').find('.modal-form-buttons .btn-primary').length && attempts++ < 10) {
+            setTimeout(check, 50);
+        }
+    };
+
+    setTimeout(check, 0);
 };
 
 Mautic.n8ndispatchSubmitResend = function (button) {

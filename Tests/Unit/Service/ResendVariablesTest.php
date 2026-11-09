@@ -320,6 +320,18 @@ class ResendVariablesTest extends TestCase
         $this->assertSame(['2', '3', '4'], $empty);
     }
 
+    public function testUnicodeWhitespaceIsNotAValueButZeroIs(): void
+    {
+        $this->smsTemplate('{{1}} {{2}} {{3}} {{4}} {{5}}', '{}');
+
+        $empty = $this->service->emptyNames(
+            $this->log('n8ndispatch.sms.send', ['smsTemplate' => 5], []),
+            ['1' => "\u{00A0}", '2' => "\u{3000} \t\n", '3' => "\u{FEFF}", '4' => '0', '5' => 'a b']
+        );
+
+        $this->assertSame(['1', '2', '3'], $empty);
+    }
+
     public function testAVariableNobodySentIsEmptyAndACompleteSetHasNone(): void
     {
         $this->smsTemplate('Oi {{1}} {{2}}', '{}');
