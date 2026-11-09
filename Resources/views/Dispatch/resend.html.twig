@@ -29,7 +29,7 @@
             {% for row in rows %}
                 <tr data-resend-state="{{ row.state }}">
                     <td><code>{{ row.name }}</code></td>
-                    <td>{{ row.first != '' ? row.first : '-' }}</td>
+                    <td><div class="n8ndispatch-resend-first">{{ row.first != '' ? row.first : '-' }}</div></td>
                     <td>
                         <input type="text" class="form-control" data-resend-variable="{{ row.name }}" value="{{ row.current }}" />
                         {% if row.state == 'unmapped' %}
