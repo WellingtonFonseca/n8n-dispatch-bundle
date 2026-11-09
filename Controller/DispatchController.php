@@ -4,11 +4,14 @@ declare(strict_types=1);
 
 namespace MauticPlugin\N8nDispatchBundle\Controller;
 
+use Doctrine\ORM\EntityManagerInterface;
+use Mautic\CampaignBundle\Entity\LeadEventLog;
 use Mautic\CoreBundle\Controller\CommonController;
 use Mautic\CoreBundle\Helper\CoreParametersHelper;
 use MauticPlugin\N8nDispatchBundle\Resolver\LocaleConventions;
 use MauticPlugin\N8nDispatchBundle\Service\DispatchFilters;
 use MauticPlugin\N8nDispatchBundle\Service\DispatchListReader;
+use MauticPlugin\N8nDispatchBundle\Service\ResendVariables;
 use Symfony\Component\HttpFoundation\Request;
 use Symfony\Component\HttpFoundation\Response;
 use Symfony\Contracts\Translation\TranslatorInterface;
@@ -98,6 +101,33 @@ class DispatchController extends CommonController
         return $this->delegateView([
             'viewParameters'  => ['dispatch' => $dispatch],
             'contentTemplate' => '@N8nDispatch/Dispatch/details.html.twig',
+            'passthroughVars' => [
+                'route' => false,
+            ],
+        ]);
+    }
+
+    /**
+     * Body of the resend modal: every variable of the template with the value the first dispatch sent and the value of
+     * today, each in an input the user can correct before confirming (assets/js/dispatch-resend.js posts it to
+     * AjaxController::resendDispatchAction).
+     */
+    public function resendFormAction(DispatchListReader $reader, EntityManagerInterface $em, ResendVariables $variables, int $id): Response
+    {
+        if (!$this->security->isGranted(self::PERMISSION)) {
+            return $this->accessDenied();
+        }
+
+        $dispatch = $reader->find($id);
+        $log      = $em->find(LeadEventLog::class, $id);
+
+        if (null === $dispatch || null === $log) {
+            return $this->notFound();
+        }
+
+        return $this->delegateView([
+            'viewParameters'  => ['dispatch' => $dispatch, 'rows' => $variables->rows($log)],
+            'contentTemplate' => '@N8nDispatch/Dispatch/resend.html.twig',
             'passthroughVars' => [
                 'route' => false,
             ],

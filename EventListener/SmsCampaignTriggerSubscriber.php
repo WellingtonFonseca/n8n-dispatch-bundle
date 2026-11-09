@@ -15,6 +15,7 @@ use MauticPlugin\N8nDispatchBundle\Resolver\LocaleConventions;
 use MauticPlugin\N8nDispatchBundle\Resolver\VariableResolver;
 use MauticPlugin\N8nDispatchBundle\Service\DispatchFailureReasons;
 use MauticPlugin\N8nDispatchBundle\Service\StatusTracker;
+use MauticPlugin\N8nDispatchBundle\Service\TemplateVariableScanner;
 use Psr\Log\LoggerInterface;
 use Symfony\Contracts\HttpClient\HttpClientInterface;
 
@@ -58,8 +59,6 @@ use Symfony\Contracts\HttpClient\HttpClientInterface;
  */
 class SmsCampaignTriggerSubscriber extends AbstractTemplateDispatchSubscriber
 {
-    private const VARIABLE_PATTERN = '/\{\{\s*([a-zA-Z0-9_]+)\s*\}\}/';
-
     public function __construct(
         IntegrationHelper $integrationHelper,
         HttpClientInterface $httpClient,
@@ -157,20 +156,8 @@ class SmsCampaignTriggerSubscriber extends AbstractTemplateDispatchSubscriber
             'status'                         => $status,
             // See CampaignTriggerSubscriber::buildPayload().
             'language'                       => $step['language'],
-            'message'                        => $this->resolveMessage($step['text'], $variables),
+            'message'                        => TemplateVariableScanner::fill($step['text'], $variables),
             'variables'                      => $variables,
         ];
-    }
-
-    /**
-     * @param array<string, string> $variables
-     */
-    private function resolveMessage(string $text, array $variables): string
-    {
-        return (string) preg_replace_callback(
-            self::VARIABLE_PATTERN,
-            static fn (array $matches): string => $variables[$matches[1]] ?? $matches[0],
-            $text
-        );
     }
 }
