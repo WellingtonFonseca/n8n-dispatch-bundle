@@ -173,6 +173,28 @@ class AjaxController extends CommonAjaxController
     }
 
     /**
+     * The values of the resend form, {name: value}. Null when the request has no form (the first dispatch's values are
+     * resent). The form posts `form=1` always: a template with no variable posts no `variables`, and is still a form. Only
+     * names the template can hold and text values are kept; a `variables` that is not a list is read as no values.
+     *
+     * @return array<string, string>|null
+     */
+    private function confirmedVariables(Request $request): ?array
+    {
+        if (!$request->request->has('form')) {
+            return null;
+        }
+
+        $sent = $request->request->all()['variables'] ?? [];
+
+        return array_map('strval', array_filter(
+            is_array($sent) ? $sent : [],
+            static fn (mixed $value, mixed $name): bool => is_string($value) && 1 === preg_match('/^[a-zA-Z0-9_]+$/', (string) $name),
+            ARRAY_FILTER_USE_BOTH
+        ));
+    }
+
+    /**
      * "Reenviar" on the Dispatches screen (Assets/js/dispatch-resend.js):
      * calls n8n again for the dispatch of the given campaign log. The
      * resender checks it is a production dispatch in error; its answer goes
@@ -189,7 +211,7 @@ class AjaxController extends CommonAjaxController
             return new JsonResponse(['success' => 0], Response::HTTP_FORBIDDEN);
         }
 
-        $result = $resender->resend((int) $request->request->get('logId'), $this->getUserEmail($userHelper));
+        $result = $resender->resend((int) $request->request->get('logId'), $this->getUserEmail($userHelper), $this->confirmedVariables($request));
 
         $this->addFlashMessage($result['message'], [], $result['ok'] ? FlashBag::LEVEL_NOTICE : FlashBag::LEVEL_ERROR);
 

@@ -29,6 +29,20 @@ class TemplateVariableScanner
     private const VARIABLE_PATTERN = '/\{\{\s*([a-zA-Z0-9_]+)\s*\}\}/';
 
     /**
+     * The text with each {{name}} replaced by its value; a name with no value stays as written.
+     *
+     * @param array<string, string> $values
+     */
+    public static function fill(string $text, array $values): string
+    {
+        return (string) preg_replace_callback(
+            self::VARIABLE_PATTERN,
+            static fn (array $matches): string => $values[$matches[1]] ?? $matches[0],
+            $text
+        );
+    }
+
+    /**
      * @return list<string>
      */
     public function extract(string $html): array

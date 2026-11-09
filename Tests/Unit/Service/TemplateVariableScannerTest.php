@@ -133,4 +133,14 @@ class TemplateVariableScannerTest extends TestCase
     {
         $this->assertSame([], $this->scanner->findNonNumeric('No placeholders, just { braces } and {single}.'));
     }
+
+    public function testFillReplacesEachNameWithItsValueAndKeepsThoseWithoutOne(): void
+    {
+        $this->assertSame('Oi Zeca, turma {{ 2 }}, Zeca', TemplateVariableScanner::fill('Oi {{1}}, turma {{ 2 }}, {{1}}', ['1' => 'Zeca']));
+    }
+
+    public function testFillDoesNotReadTheValuesAsPlaceholders(): void
+    {
+        $this->assertSame('a {{2}} b', TemplateVariableScanner::fill('a {{1}} b', ['1' => '{{2}}', '2' => 'x']));
+    }
 }

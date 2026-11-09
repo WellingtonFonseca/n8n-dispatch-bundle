@@ -2,6 +2,13 @@
 
 Um bloco por dia, do mais novo para o mais antigo. Formato fixo: `## AAAA-MM-DD` e uma linha `- ` por mudança (a tela do plugin lê este arquivo).
 
+## 2026-11-09
+- Reenviar um disparo agora abre uma tela com as variáveis do template: o valor do primeiro envio e, num campo que você pode corrigir, o valor de hoje do contato. Assim uma variável que foi mapeada depois da falha entra no reenvio
+- A tela avisa qual variável está sem origem no mapeamento e qual está sem valor para o contato, antes de enviar
+- Para SMS e HSM, a tela mostra a mensagem que será enviada e ela muda enquanto você digita; uma variável vazia aparece como {{1}}, {{2}}...
+- No SMS, o texto da mensagem é montado de novo a partir do texto atual do template
+- Os botões Reenviar e Cancelar ficam no rodapé da tela, como nos outros modais
+
 ## 2026-11-03
 - Um contato que entrou na lista Não Contatar (DNC) no meio da campanha não derruba mais a campanha: o passo de Email, SMS ou HSM passa sem enviar e o motivo aparece no histórico do contato, em vez de o Mautic tentar de novo até desativar a campanha
 

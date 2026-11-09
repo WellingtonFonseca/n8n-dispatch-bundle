@@ -157,8 +157,11 @@ the step had when it was dispatched (test, production or paused; a dash on
 older dispatches that did not record it), links to the campaign, template and contact, and a
 details modal with the same card as the contact's History. Filter by
 campaign, template, dates and callback status. **Resend** (options menu, only
-on a dispatch whose callback ended in error or whose call was refused) sends
-the same saved body to n8n again, one at a time, and replaces the dispatch's
+on a dispatch whose callback ended in error or whose call was refused) opens a form with every
+variable of the template (the value of the first send and an input with the value of today, marked when
+it has no source or no value) and, for SMS and HSM, the message that will be sent. The confirmed values replace
+the variables of the saved body, an SMS message is filled again from the text of the template, and the body
+goes to n8n again, one at a time. It replaces the dispatch's
 response, tracking and callback history with the new ones, with a note of who
 resent it and when; a refused attempt is recorded too. It needs the step to
 be in production, and honours the Do Not Contact list. An accepted resend also removes the red "last error" mark core keeps on the log (the old failure stays in the History table). The campaign shows as `PREFIX - Name` (the prefix of MauticPatchesBundle) in the table, the filter and the details.
