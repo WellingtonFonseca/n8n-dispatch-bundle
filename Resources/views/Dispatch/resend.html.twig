@@ -15,7 +15,9 @@
     </p>
 
     {% if rows|length > 0 %}
-    <p class="text-muted">{{ 'mautic.n8ndispatch.dispatch.resend.form.help'|trans }}</p>
+    {# Shown while an input is empty (already in the page when a value is empty; Assets/js/dispatch-resend.js toggles it as the user types): the footer's Reenviar is disabled then. #}
+    {% set hasEmptyValue = rows|filter(row => row.current|trim == '')|length > 0 %}
+    <div class="alert alert-warning" data-resend-block{{ hasEmptyValue ? '' : ' style="display: none;"' }}>{{ 'mautic.n8ndispatch.dispatch.resend.form.required'|trans }}</div>
     <div class="table-responsive">
         <table class="table table-hover">
             <thead>
@@ -50,10 +52,6 @@
     <p><strong>{{ 'mautic.n8ndispatch.dispatch.resend.form.message'|trans }}</strong></p>
     <pre class="n8ndispatch-resend-message"><code data-resend-template="{{ message.template }}">{{ message.filled }}</code></pre>
     {% endif %}
-
-    {# Shown while an input is empty (already in the page when a value is empty; Assets/js/dispatch-resend.js toggles it as the user types): the footer's Reenviar is disabled then. #}
-    {% set hasEmptyValue = rows|filter(row => row.current|trim == '')|length > 0 %}
-    <div class="alert alert-warning" data-resend-block{{ hasEmptyValue ? '' : ' style="display: none;"' }}>{{ 'mautic.n8ndispatch.dispatch.resend.form.required'|trans }}</div>
 
     {# Core copies these buttons into the modal's footer (see Template/_modal_buttons.html.twig): the action first, Cancel (transparent) last. #}
     <div class="bottom-form-buttons">
