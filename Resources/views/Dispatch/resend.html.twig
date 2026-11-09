@@ -1,6 +1,6 @@
 {#
   Body of the resend modal opened from the Dispatches table: the variables of the template with the value the first
-  dispatch sent, and the value of today in an input the user can correct. The buttons post it
+  dispatch sent, and the value of today in an input the user can correct. The footer button posts it
   (Assets/js/dispatch-resend.js). A row with no value (empty / not mapped) is marked, so the user sees BEFORE the
   resend what would go out empty.
 #}
@@ -44,8 +44,9 @@
 
     <p class="text-muted">{{ 'mautic.n8ndispatch.dispatch.resend.confirm'|trans }}</p>
 
-    <div class="text-right">
-        <button type="button" class="btn btn-ghost" data-dismiss="modal" data-resend-cancel>{{ 'mautic.n8ndispatch.dispatch.resend.cancel_btn'|trans }}</button>
-        <button type="button" class="btn btn-primary" data-resend-confirm onclick="Mautic.n8ndispatchSubmitResend(this);">{{ 'mautic.n8ndispatch.dispatch.resend.confirm_btn'|trans }}</button>
+    {# Core copies these buttons into the modal's footer (see Template/_modal_buttons.html.twig): the action first, Cancel (transparent) last. #}
+    <div class="bottom-form-buttons">
+        <button type="button" id="n8ndispatch-resend-confirm" class="btn btn-primary" onclick="Mautic.n8ndispatchSubmitResend(this);">{{ 'mautic.n8ndispatch.dispatch.resend.confirm_btn'|trans }}<i class="ri-send-plane-line"></i></button>
+        <button type="button" id="n8ndispatch-resend-cancel" class="btn btn-tertiary btn-cancel" data-dismiss="modal">{{ 'mautic.n8ndispatch.dispatch.resend.cancel_btn'|trans }}<i class="ri-close-line"></i></button>
     </div>
 </div>
