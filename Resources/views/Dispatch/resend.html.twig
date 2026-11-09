@@ -5,6 +5,8 @@
   resend what would go out empty.
 #}
 <div class="n8ndispatch-resend" data-resend-log="{{ dispatch.id }}">
+    <p>{{ 'mautic.n8ndispatch.dispatch.resend.confirm'|trans }}</p>
+
     <p>
         <strong>{{ 'mautic.n8ndispatch.dispatch.details.campaign'|trans }}:</strong> {{ dispatch.campaignName }}<br/>
         <strong>{{ 'mautic.n8ndispatch.dispatch.details.template'|trans }}:</strong> {{ dispatch.templateName }}<br/>
@@ -41,8 +43,6 @@
         </table>
     </div>
     {% endif %}
-
-    <p class="text-muted">{{ 'mautic.n8ndispatch.dispatch.resend.confirm'|trans }}</p>
 
     {# Core copies these buttons into the modal's footer (see Template/_modal_buttons.html.twig): the action first, Cancel (transparent) last. #}
     <div class="bottom-form-buttons">
