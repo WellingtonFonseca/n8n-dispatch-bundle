@@ -254,14 +254,14 @@ class ResendVariablesTest extends TestCase
         $this->assertSame([], $this->service->rows($this->log('n8ndispatch.hsm.send', ['hsmTemplateId' => 9], [])));
     }
 
-    public function testTheMessageOfAnSmsIsItsTemplateTextFilledWithTodaysValues(): void
+    public function testTheMessageOfAnSmsIsItsTemplateTextFilledWithTodaysValuesAndAnEmptyOneStaysAsWritten(): void
     {
         $this->smsTemplate('Oi {{1}}, turma {{2}} em {{3}}', '{}');
         $this->resolver->method('resolveAll')->willReturn(['1' => 'Zeca', '2' => '']);
 
         $message = $this->service->message($this->log('n8ndispatch.sms.send', ['smsTemplate' => 5], []));
 
-        $this->assertSame(['template' => 'Oi {{1}}, turma {{2}} em {{3}}', 'filled' => 'Oi Zeca, turma  em {{3}}'], $message);
+        $this->assertSame(['template' => 'Oi {{1}}, turma {{2}} em {{3}}', 'filled' => 'Oi Zeca, turma {{2}} em {{3}}'], $message);
     }
 
     public function testTheMessageOfAnHsmIsTheTextOfItsTemplate(): void
