@@ -369,21 +369,27 @@ class AjaxControllerTest extends TestCase
 
     public function testTheValuesOfTheFormAreKeptByNameAsText(): void
     {
-        $request = new \Symfony\Component\HttpFoundation\Request([], ['logId' => '5', 'variables' => ['1' => 'Zeca', 'n8n_nome' => '', 'turma_2' => 'A <b>']]);
+        $request = new \Symfony\Component\HttpFoundation\Request([], ['logId' => '5', 'form' => '1', 'variables' => ['1' => 'Zeca', 'n8n_nome' => '', 'turma_2' => 'A <b>']]);
 
         $this->assertSame(['1' => 'Zeca', 'n8n_nome' => '', 'turma_2' => 'A <b>'], $this->confirmedBy($request));
     }
 
     public function testANameTheTemplateCannotHoldAndAValueThatIsNotTextAreDropped(): void
     {
-        $request = new \Symfony\Component\HttpFoundation\Request([], ['variables' => ['ok' => 'x', 'a b' => 'y', 'a-b' => 'z', '' => 'w', 'list' => ['x'], 'ñ' => 'v']]);
+        $request = new \Symfony\Component\HttpFoundation\Request([], ['form' => '1', 'variables' => ['ok' => 'x', 'a b' => 'y', 'a-b' => 'z', '' => 'w', 'list' => ['x'], 'ñ' => 'v']]);
 
         $this->assertSame(['ok' => 'x'], $this->confirmedBy($request));
     }
 
-    public function testAnEmptyFormResendsAsATemplateWithoutVariables(): void
+    public function testAFormWithoutVariablesIsStillAFormAndAMalformedOneReadsAsNoValues(): void
     {
-        $this->assertSame([], $this->confirmedBy(new \Symfony\Component\HttpFoundation\Request([], ['variables' => []])));
+        $this->assertSame([], $this->confirmedBy(new \Symfony\Component\HttpFoundation\Request([], ['form' => '1'])), 'a template with no variable posts none');
+        $this->assertSame([], $this->confirmedBy(new \Symfony\Component\HttpFoundation\Request([], ['form' => '1', 'variables' => 'abc'])), 'a string does not throw');
+    }
+
+    public function testVariablesWithoutTheFormMarkAreNotAForm(): void
+    {
+        $this->assertNull($this->confirmedBy(new \Symfony\Component\HttpFoundation\Request([], ['variables' => ['1' => 'x']])));
     }
 
     public function testRunStatusPollReturnsWhatTheRunnerFound(): void

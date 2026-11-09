@@ -291,11 +291,11 @@ class DispatchResender
             return $body;
         }
 
-        $merged            = $this->resendVariables->merged($log, $confirmed);
-        $body['variables'] = $merged['variables'];
+        $body['variables'] = $confirmed + (is_array($body['variables'] ?? null) ? $body['variables'] : []);
+        $message           = $this->resendVariables->smsMessage($log, $body['variables']);
 
-        if (null !== $merged['message']) {
-            $body['message'] = $merged['message'];
+        if (null !== $message) {
+            $body['message'] = $message;
         }
 
         return $body;
@@ -394,14 +394,14 @@ class DispatchResender
     private function sendAgain(LeadEventLog $log, array $metadata, Email $email, ?string $userEmail, ?array $confirmed): array
     {
         $variables = is_array($metadata['n8ndispatch']['variables'] ?? null) ? $metadata['n8ndispatch']['variables'] : [];
-        $variables = $this->withConfirmed($log, ['variables' => $variables], $confirmed)['variables'];
+        $variables = null === $confirmed ? $variables : $confirmed + $variables;
         $result    = $this->directSender->send($log->getLead(), $email, (int) $log->getEvent()->getId(), $variables);
         $refused   = in_array($result['outcome'], [DirectEmailSender::FAILED, DirectEmailSender::SKIPPED], true);
 
         $new = array_diff_key($metadata, array_flip(['errors', 'failed', 'reason', 'n8ndispatch_resend']));
 
-        $new['n8ndispatch']            = array_diff_key($metadata['n8ndispatch'], array_flip(['statId', 'statIds'])) + MauticEmailOutcome::statFields($metadata, $result['statId']);
-        $new['n8ndispatch']['outcome'] = $result['outcome'];
+        $new['n8ndispatch']              = array_diff_key($metadata['n8ndispatch'], array_flip(['statId', 'statIds'])) + MauticEmailOutcome::statFields($metadata, $result['statId']);
+        $new['n8ndispatch']['outcome']   = $result['outcome'];
         $new['n8ndispatch']['variables'] = $variables;
 
         $new['n8ndispatch_resend'] = $this->note($userEmail);
