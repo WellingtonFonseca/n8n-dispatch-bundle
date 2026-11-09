@@ -10,7 +10,7 @@
  */
 /**
  * The message shown at the end of the form (SMS / HSM): the template text with each {{name}} replaced by what is typed in the
- * input of that name; a name with no input stays as written. The same rule as TemplateVariableScanner::fill() on the server.
+ * input of that name; a name with no input, or an empty one, stays as written. The same rule as TemplateVariableScanner::fill() on the server.
  */
 Mautic.n8ndispatchFillResendMessage = function (form) {
     var code = form.find('[data-resend-template]');
@@ -22,7 +22,8 @@ Mautic.n8ndispatchFillResendMessage = function (form) {
     code.text(String(code.attr('data-resend-template')).replace(/\{\{\s*([a-zA-Z0-9_]+)\s*\}\}/g, function (placeholder, name) {
         var input = form.find('[data-resend-variable]').filter(function () { return mQuery(this).attr('data-resend-variable') === name; });
 
-        return input.length ? input.val() : placeholder;
+        // An empty input keeps the {{name}}: the gap is seen in the text.
+        return input.length && input.val() !== '' ? input.val() : placeholder;
     }));
 };
 

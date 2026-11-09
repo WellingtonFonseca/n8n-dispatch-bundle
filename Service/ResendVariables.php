@@ -89,7 +89,7 @@ class ResendVariables
 
     /**
      * The text of today's SMS / HSM template, with each {{variable}} as it is written (the form fills it as the inputs
-     * change), and filled with today's values (what the form shows before anything is typed). Null for an Email, which
+     * change), and filled with today's values that are not empty (what the form shows before anything is typed). Null for an Email, which
      * has no text of its own, and for a template with no text.
      *
      * @return array{template: string, filled: string}|null
@@ -102,7 +102,10 @@ class ResendVariables
             return null;
         }
 
-        return ['template' => $now['text'], 'filled' => TemplateVariableScanner::fill($now['text'], $now['values'])];
+        // A variable with no value stays as {{name}}: the gap is seen in the text instead of silently leaving a blank.
+        $filled = array_filter($now['values'], static fn (string $value): bool => '' !== $value);
+
+        return ['template' => $now['text'], 'filled' => TemplateVariableScanner::fill($now['text'], $filled)];
     }
 
     /**

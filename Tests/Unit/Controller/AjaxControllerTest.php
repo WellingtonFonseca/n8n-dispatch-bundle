@@ -352,6 +352,40 @@ class AjaxControllerTest extends TestCase
         $this->assertSame(Response::HTTP_FORBIDDEN, $response->getStatusCode());
     }
 
+    /**
+     * @return array<string, string>|null
+     */
+    private function confirmedBy(\Symfony\Component\HttpFoundation\Request $request): ?array
+    {
+        $method = new \ReflectionMethod(AjaxController::class, 'confirmedVariables');
+
+        return $method->invoke($this->buildController(), $request);
+    }
+
+    public function testARequestWithoutTheFormResendsTheFirstValues(): void
+    {
+        $this->assertNull($this->confirmedBy(new \Symfony\Component\HttpFoundation\Request([], ['logId' => '5'])));
+    }
+
+    public function testTheValuesOfTheFormAreKeptByNameAsText(): void
+    {
+        $request = new \Symfony\Component\HttpFoundation\Request([], ['logId' => '5', 'variables' => ['1' => 'Zeca', 'n8n_nome' => '', 'turma_2' => 'A <b>']]);
+
+        $this->assertSame(['1' => 'Zeca', 'n8n_nome' => '', 'turma_2' => 'A <b>'], $this->confirmedBy($request));
+    }
+
+    public function testANameTheTemplateCannotHoldAndAValueThatIsNotTextAreDropped(): void
+    {
+        $request = new \Symfony\Component\HttpFoundation\Request([], ['variables' => ['ok' => 'x', 'a b' => 'y', 'a-b' => 'z', '' => 'w', 'list' => ['x'], 'ñ' => 'v']]);
+
+        $this->assertSame(['ok' => 'x'], $this->confirmedBy($request));
+    }
+
+    public function testAnEmptyFormResendsAsATemplateWithoutVariables(): void
+    {
+        $this->assertSame([], $this->confirmedBy(new \Symfony\Component\HttpFoundation\Request([], ['variables' => []])));
+    }
+
     public function testRunStatusPollReturnsWhatTheRunnerFound(): void
     {
         $security = $this->createMock(CorePermissions::class);
