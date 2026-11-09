@@ -311,6 +311,31 @@ class ResendVariablesTest extends TestCase
         $this->assertSame(['7', '', 'c'], array_column($rows, 'first'));
     }
 
+    public function testTheEmptyVariablesAreTheNamesOfTheTemplateWithNoValueInWhatWouldGoOut(): void
+    {
+        $this->smsTemplate('Oi {{1}} {{2}} {{3}} {{4}}', '{}');
+
+        $empty = $this->service->emptyNames($this->log('n8ndispatch.sms.send', ['smsTemplate' => 5], []), ['1' => 'Zeca', '2' => '', '3' => '   ', '4' => ['x']]);
+
+        $this->assertSame(['2', '3', '4'], $empty);
+    }
+
+    public function testAVariableNobodySentIsEmptyAndACompleteSetHasNone(): void
+    {
+        $this->smsTemplate('Oi {{1}} {{2}}', '{}');
+        $log = $this->log('n8ndispatch.sms.send', ['smsTemplate' => 5], []);
+
+        $this->assertSame(['2'], $this->service->emptyNames($log, ['1' => 'Zeca']));
+        $this->assertSame([], $this->service->emptyNames($log, ['1' => 'Zeca', '2' => '0']), 'a zero is a value');
+    }
+
+    public function testATemplateWithNoReadableNameAsksForWhatItsMappingHolds(): void
+    {
+        $this->hsm->method('getEntity')->willReturn((new HsmTemplate())->setText('sem variável')->setVariablesJson('{"1":{"source":"static","value":"a"}}'));
+
+        $this->assertSame(['1'], $this->service->emptyNames($this->log('n8ndispatch.hsm.send', ['hsmTemplateId' => 9], []), []));
+    }
+
     /**
      * @return list<array{name: string, first: string, current: string, state: string}>
      */
