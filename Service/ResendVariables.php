@@ -81,9 +81,28 @@ class ResendVariables
     public function merged(LeadEventLog $log, array $confirmed): array
     {
         $variables = $confirmed + $this->firstOf($log);
-        $text      = $this->currentOf($log)['text'];
+        $now       = $this->currentOf($log);
+        $isSms     = DispatchTracking::CHANNEL_SMS === $now['channel'];
 
-        return ['variables' => $variables, 'message' => null === $text ? null : TemplateVariableScanner::fill($text, $variables)];
+        return ['variables' => $variables, 'message' => $isSms && null !== $now['text'] ? TemplateVariableScanner::fill($now['text'], $variables) : null];
+    }
+
+    /**
+     * The text of today's SMS / HSM template, with each {{variable}} as it is written (the form fills it as the inputs
+     * change), and filled with today's values (what the form shows before anything is typed). Null for an Email, which
+     * has no text of its own, and for a template with no text.
+     *
+     * @return array{template: string, filled: string}|null
+     */
+    public function message(LeadEventLog $log): ?array
+    {
+        $now = $this->currentOf($log);
+
+        if (DispatchTracking::CHANNEL_EMAIL === $now['channel'] || null === $now['text'] || '' === trim($now['text'])) {
+            return null;
+        }
+
+        return ['template' => $now['text'], 'filled' => TemplateVariableScanner::fill($now['text'], $now['values'])];
     }
 
     /**
@@ -110,7 +129,7 @@ class ResendVariables
     }
 
     /**
-     * @return array{names: list<string>, mapping: array<string, mixed>, values: array<string, string>, text: ?string}
+     * @return array{channel: ?string, names: list<string>, mapping: array<string, mixed>, values: array<string, string>, text: ?string}
      */
     private function currentOf(LeadEventLog $log): array
     {
@@ -128,7 +147,7 @@ class ResendVariables
         // A template whose text has no readable name (an HSM with positional text only) still lists what its mapping holds.
         $names = [] === $source['names'] ? array_map('strval', array_keys($mapping)) : $source['names'];
 
-        return ['names' => $names, 'mapping' => $mapping, 'values' => $values, 'text' => DispatchTracking::CHANNEL_SMS === $channel ? $source['text'] : null];
+        return ['channel' => $channel, 'names' => $names, 'mapping' => $mapping, 'values' => $values, 'text' => $source['text']];
     }
 
     /**
@@ -185,7 +204,7 @@ class ResendVariables
             'language'  => null === $template ? LocaleConventions::DEFAULT_LOCALE : $template->getLanguage(),
             'names'     => null === $template ? [] : $this->scanner->extract((string) $template->getText()),
             'separator' => ', ',
-            'text'      => null,
+            'text'      => null === $template ? null : (string) $template->getText(),
         ];
     }
 }

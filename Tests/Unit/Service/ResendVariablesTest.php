@@ -254,6 +254,48 @@ class ResendVariablesTest extends TestCase
         $this->assertSame([], $this->service->rows($this->log('n8ndispatch.hsm.send', ['hsmTemplateId' => 9], [])));
     }
 
+    public function testTheMessageOfAnSmsIsItsTemplateTextFilledWithTodaysValues(): void
+    {
+        $this->smsTemplate('Oi {{1}}, turma {{2}} em {{3}}', '{}');
+        $this->resolver->method('resolveAll')->willReturn(['1' => 'Zeca', '2' => '']);
+
+        $message = $this->service->message($this->log('n8ndispatch.sms.send', ['smsTemplate' => 5], []));
+
+        $this->assertSame(['template' => 'Oi {{1}}, turma {{2}} em {{3}}', 'filled' => 'Oi Zeca, turma  em {{3}}'], $message);
+    }
+
+    public function testTheMessageOfAnHsmIsTheTextOfItsTemplate(): void
+    {
+        $this->hsm->method('getEntity')->willReturn((new HsmTemplate())->setText('Olá {{1}}')->setVariablesJson('{}'));
+        $this->resolver->method('resolveAll')->willReturn(['1' => 'Zeca']);
+
+        $this->assertSame(['template' => 'Olá {{1}}', 'filled' => 'Olá Zeca'], $this->service->message($this->log('n8ndispatch.hsm.send', ['hsmTemplateId' => 9], [])));
+    }
+
+    public function testAnEmailHasNoMessageToShow(): void
+    {
+        $this->em->method('find')->willReturn((new Email())->setCustomHtml('{{n8n_nome}}'));
+        $this->emailVariables->method('getVariablesJsonForEmail')->willReturn('{}');
+        $this->resolver->method('resolveAll')->willReturn([]);
+
+        $this->assertNull($this->service->message($this->log('n8ndispatch.email.send', ['email' => 7], [])));
+    }
+
+    public function testATemplateWithoutTextHasNoMessageToShow(): void
+    {
+        $this->sms->method('getEntity')->willReturn((new SmsTemplate())->setText('  ')->setVariablesJson('{}'));
+        $this->resolver->method('resolveAll')->willReturn([]);
+
+        $this->assertNull($this->service->message($this->log('n8ndispatch.sms.send', ['smsTemplate' => 5], [])));
+    }
+
+    public function testAnHsmStepWithoutATemplateHasNoMessageToShow(): void
+    {
+        $this->resolver->method('resolveAll')->willReturn([]);
+
+        $this->assertNull($this->service->message($this->log('n8ndispatch.hsm.send', ['variablesJson' => '{}'], [])));
+    }
+
     private function smsTemplate(string $text, string $json, string $language = 'pt_BR'): void
     {
         $template = (new SmsTemplate())->setText($text)->setVariablesJson($json)->setLanguage($language);
