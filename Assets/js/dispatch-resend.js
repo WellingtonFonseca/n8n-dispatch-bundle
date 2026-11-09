@@ -8,6 +8,24 @@
  * filters; on an error the footer is unlocked again. The server's answer shows as a flash message, which core displays
  * by itself (1.core.js reads response.flashes).
  */
+/**
+ * The message shown at the end of the form (SMS / HSM): the template text with each {{name}} replaced by what is typed in the
+ * input of that name; a name with no input stays as written. The same rule as TemplateVariableScanner::fill() on the server.
+ */
+Mautic.n8ndispatchFillResendMessage = function (form) {
+    var code = form.find('[data-resend-template]');
+
+    if (!code.length) {
+        return;
+    }
+
+    code.text(String(code.attr('data-resend-template')).replace(/\{\{\s*([a-zA-Z0-9_]+)\s*\}\}/g, function (placeholder, name) {
+        var input = form.find('[data-resend-variable]').filter(function () { return mQuery(this).attr('data-resend-variable') === name; });
+
+        return input.length ? input.val() : placeholder;
+    }));
+};
+
 Mautic.n8ndispatchSubmitResend = function (button) {
     var form    = mQuery(button).closest('.n8ndispatch-resend');
     var modal   = form.closest('.modal');
@@ -53,3 +71,8 @@ Mautic.n8ndispatchSubmitResend = function (button) {
         }
     });
 };
+
+// The modal is built by ajax: its inputs are listened to from the document, so no hook after the load is needed.
+mQuery(document).on('input', '.n8ndispatch-resend [data-resend-variable]', function () {
+    Mautic.n8ndispatchFillResendMessage(mQuery(this).closest('.n8ndispatch-resend'));
+});
