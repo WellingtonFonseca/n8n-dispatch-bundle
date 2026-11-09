@@ -2,7 +2,8 @@
   Body of the resend modal opened from the Dispatches table: the variables of the template with the value the first
   dispatch sent, and the value of today in an input the user can correct. The footer button posts it
   (Assets/js/dispatch-resend.js). A row with no value (empty / not mapped) is marked, and Reenviar stays disabled while an input is empty (every variable of the template is
-  required: the user fills it in before the resend). An SMS / HSM also shows the text the contact will receive.
+  required: the user fills it in before the resend; the alert that says so is the last block of the body). An SMS / HSM also shows
+  the text the contact will receive.
 #}
 <div class="n8ndispatch-resend" data-resend-log="{{ dispatch.id }}" data-onload-callback="n8ndispatchResendForm">
     <p>{{ 'mautic.n8ndispatch.dispatch.resend.confirm'|trans }}</p>
@@ -44,14 +45,14 @@
     </div>
     {% endif %}
 
-    {# Shown by Assets/js/dispatch-resend.js while an input is empty: the footer's Reenviar is disabled then. #}
-    <p class="text-danger" data-resend-block style="display: none;">{{ 'mautic.n8ndispatch.dispatch.resend.form.required'|trans }}</p>
-
     {% if message %}
     {# The SMS / HSM text with the values of the inputs, so the user reads what the contact will receive (the numbered variables alone say little). Filled again by Assets/js/dispatch-resend.js as the inputs change; data-resend-template holds the text with the {{ }} as written. #}
     <p><strong>{{ 'mautic.n8ndispatch.dispatch.resend.form.message'|trans }}</strong></p>
     <pre class="n8ndispatch-resend-message"><code data-resend-template="{{ message.template }}">{{ message.filled }}</code></pre>
     {% endif %}
+
+    {# Shown by Assets/js/dispatch-resend.js while an input is empty: the footer's Reenviar is disabled then. #}
+    <div class="alert alert-warning" data-resend-block style="display: none;">{{ 'mautic.n8ndispatch.dispatch.resend.form.required'|trans }}</div>
 
     {# Core copies these buttons into the modal's footer (see Template/_modal_buttons.html.twig): the action first, Cancel (transparent) last. #}
     <div class="bottom-form-buttons">
