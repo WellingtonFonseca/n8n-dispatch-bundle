@@ -43,69 +43,51 @@ class ResendVariables
     }
 
     /**
-     * One row per variable of the template: the value the first dispatch sent,
-     * the value of today and the state of today's value.
+     * What the resend form shows, resolved ONCE (the resolver asks the database for Custom Object values): one row per
+     * variable of the template (the value the first dispatch sent, the value of today and the state of today's value),
+     * and the message of an SMS / HSM.
      *
-     * @return list<array{name: string, first: string, current: string, state: string}>
+     * @return array{rows: list<array{name: string, first: string, current: string, state: string}>, message: array{template: string, filled: string}|null}
      */
-    public function rows(LeadEventLog $log): array
+    public function form(LeadEventLog $log): array
     {
-        $now   = $this->currentOf($log);
+        $source  = $this->sourceOf($log);
+        $mapping = $this->mappingOf($source);
+        $values  = $this->resolver->resolveAll($mapping, $log->getLead(), $log->getEvent()->getCampaign(), $source['separator'], $source['language']);
+        // A template whose text has no readable name (an HSM with positional text only) still lists what its mapping holds.
+        $names = [] === $source['names'] ? array_map('strval', array_keys($mapping)) : $source['names'];
         $first = $this->firstOf($log);
         $rows  = [];
 
-        foreach ($now['names'] as $name) {
-            $current = $now['values'][$name] ?? '';
+        foreach ($names as $name) {
+            $current = $values[$name] ?? '';
 
             $rows[] = [
                 'name'    => $name,
                 'first'   => $first[$name] ?? '',
                 'current' => $current,
-                'state'   => self::stateOf($current, $this->mappingChecker->isEntrySet($now['mapping'][$name] ?? null)),
+                'state'   => self::stateOf($current, $this->mappingChecker->isEntrySet($mapping[$name] ?? null)),
             ];
         }
 
-        return $rows;
+        return ['rows' => $rows, 'message' => $this->messageOf($source, $values)];
     }
 
     /**
-     * What the resend sends for the variables: the first dispatch's values
-     * with the confirmed ones (the form's) on top, and for an SMS the text of
-     * today's template filled with them (null for the other channels, whose
-     * body has no text).
+     * The message of an SMS resend: the text of today's template filled with the variables that go out. Null for the
+     * other channels, whose body has no text.
      *
-     * @param array<string, string> $confirmed
-     *
-     * @return array{variables: array<string, string>, message: ?string}
+     * @param array<string, mixed> $variables
      */
-    public function merged(LeadEventLog $log, array $confirmed): array
+    public function smsMessage(LeadEventLog $log, array $variables): ?string
     {
-        $variables = $confirmed + $this->firstOf($log);
-        $now       = $this->currentOf($log);
-        $isSms     = DispatchTracking::CHANNEL_SMS === $now['channel'];
+        $source = $this->sourceOf($log);
 
-        return ['variables' => $variables, 'message' => $isSms && null !== $now['text'] ? TemplateVariableScanner::fill($now['text'], $variables) : null];
-    }
-
-    /**
-     * The text of today's SMS / HSM template, with each {{variable}} as it is written (the form fills it as the inputs
-     * change), and filled with today's values that are not empty (what the form shows before anything is typed). Null for an Email, which
-     * has no text of its own, and for a template with no text.
-     *
-     * @return array{template: string, filled: string}|null
-     */
-    public function message(LeadEventLog $log): ?array
-    {
-        $now = $this->currentOf($log);
-
-        if (DispatchTracking::CHANNEL_EMAIL === $now['channel'] || null === $now['text'] || '' === trim($now['text'])) {
+        if (DispatchTracking::CHANNEL_SMS !== $source['channel'] || null === $source['text']) {
             return null;
         }
 
-        // A variable with no value stays as {{name}}: the gap is seen in the text instead of silently leaving a blank.
-        $filled = array_filter($now['values'], static fn (string $value): bool => '' !== $value);
-
-        return ['template' => $now['text'], 'filled' => TemplateVariableScanner::fill($now['text'], $filled)];
+        return TemplateVariableScanner::fill($source['text'], array_map('strval', array_filter($variables, 'is_scalar')));
     }
 
     /**
@@ -115,9 +97,9 @@ class ResendVariables
     public static function stateOf(string $current, bool $mapped): string
     {
         return match (true) {
-            !$mapped       => self::STATE_UNMAPPED,
+            !$mapped        => self::STATE_UNMAPPED,
             '' === $current => self::STATE_EMPTY,
-            default        => self::STATE_OK,
+            default         => self::STATE_OK,
         };
     }
 
@@ -132,25 +114,51 @@ class ResendVariables
     }
 
     /**
-     * @return array{channel: ?string, names: list<string>, mapping: array<string, mixed>, values: array<string, string>, text: ?string}
+     * What the step reads today: the channel and the template's mapping, language, variable names and text.
+     *
+     * @return array{channel: ?string, json: string, language: string, names: list<string>, separator: string, text: ?string}
      */
-    private function currentOf(LeadEventLog $log): array
+    private function sourceOf(LeadEventLog $log): array
     {
         $properties = $log->getEvent()->getProperties();
         $channel    = DispatchLogReader::channelOf((string) $log->getEvent()->getType());
-        $source     = match ($channel) {
+
+        return ['channel' => $channel] + match ($channel) {
             DispatchTracking::CHANNEL_EMAIL => $this->emailSource($properties),
             DispatchTracking::CHANNEL_SMS   => $this->smsSource($properties),
             default                         => $this->hsmSource($properties),
         };
+    }
 
+    /**
+     * @param array{json: string} $source
+     *
+     * @return array<string, mixed>
+     */
+    private function mappingOf(array $source): array
+    {
         $mapping = json_decode($source['json'], true);
-        $mapping = is_array($mapping) ? $mapping : [];
-        $values  = $this->resolver->resolveAll($mapping, $log->getLead(), $log->getEvent()->getCampaign(), $source['separator'], $source['language']);
-        // A template whose text has no readable name (an HSM with positional text only) still lists what its mapping holds.
-        $names = [] === $source['names'] ? array_map('strval', array_keys($mapping)) : $source['names'];
 
-        return ['channel' => $channel, 'names' => $names, 'mapping' => $mapping, 'values' => $values, 'text' => $source['text']];
+        return is_array($mapping) ? $mapping : [];
+    }
+
+    /**
+     * The SMS / HSM text as written (the form fills it as the inputs change), and filled with today's values that are not
+     * empty (what the form shows before anything is typed). A variable with no value stays as {{name}}: the gap is seen in the
+     * text instead of silently leaving a blank. Null for an Email, which has no text of its own, and for a template with no text.
+     *
+     * @param array{channel: ?string, text: ?string} $source
+     * @param array<string, string>                  $values
+     *
+     * @return array{template: string, filled: string}|null
+     */
+    private function messageOf(array $source, array $values): ?array
+    {
+        if (DispatchTracking::CHANNEL_EMAIL === $source['channel'] || null === $source['text'] || '' === trim($source['text'])) {
+            return null;
+        }
+
+        return ['template' => $source['text'], 'filled' => TemplateVariableScanner::fill($source['text'], array_filter($values, static fn (string $value): bool => '' !== $value))];
     }
 
     /**

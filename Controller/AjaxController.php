@@ -174,20 +174,21 @@ class AjaxController extends CommonAjaxController
 
     /**
      * The values of the resend form, {name: value}. Null when the request has no form (the first dispatch's values are
-     * resent). Only names the template can hold and text values are kept.
+     * resent). The form posts `form=1` always: a template with no variable posts no `variables`, and is still a form. Only
+     * names the template can hold and text values are kept; a `variables` that is not a list is read as no values.
      *
      * @return array<string, string>|null
      */
     private function confirmedVariables(Request $request): ?array
     {
-        if (!$request->request->has('variables')) {
+        if (!$request->request->has('form')) {
             return null;
         }
 
-        $sent = $request->request->all('variables');
+        $sent = $request->request->all()['variables'] ?? [];
 
         return array_map('strval', array_filter(
-            $sent,
+            is_array($sent) ? $sent : [],
             static fn (mixed $value, mixed $name): bool => is_string($value) && 1 === preg_match('/^[a-zA-Z0-9_]+$/', (string) $name),
             ARRAY_FILTER_USE_BOTH
         ));

@@ -65,7 +65,7 @@ class ResendVariablesTest extends TestCase
         $this->smsTemplate('Oi {{1}}, turma {{2}} e {{3}}', '{"1":{"source":"field","field":"firstname"},"2":{"source":"field","field":"turma"},"3":{"source":"field","field":""}}');
         $this->resolver->method('resolveAll')->willReturn(['1' => 'Zeca', '2' => '', '3' => '']);
 
-        $rows = $this->service->rows($this->log('n8ndispatch.sms.send', ['smsTemplate' => 5], ['1' => 'Ana']));
+        $rows = $this->rows($this->log('n8ndispatch.sms.send', ['smsTemplate' => 5], ['1' => 'Ana']));
 
         $this->assertSame([
             ['name' => '1', 'first' => 'Ana', 'current' => 'Zeca', 'state' => 'ok'],
@@ -79,7 +79,7 @@ class ResendVariablesTest extends TestCase
         $this->smsTemplate('Oi {{1}}', '{"1":{"source":"static","value":"x"}}', 'en_US');
         $this->resolver->expects($this->once())->method('resolveAll')->with($this->anything(), $this->anything(), $this->anything(), ', ', 'en_US')->willReturn(['1' => 'x']);
 
-        $this->service->rows($this->log('n8ndispatch.sms.send', ['smsTemplate' => 5], []));
+        $this->rows($this->log('n8ndispatch.sms.send', ['smsTemplate' => 5], []));
     }
 
     public function testAnEmailReadsItsVariablesFromTheSubjectAndTheHtmlAndItsMappingFromTheVariablesTab(): void
@@ -90,7 +90,7 @@ class ResendVariablesTest extends TestCase
         $this->emailVariables->method('getVariablesJsonForEmail')->with(7)->willReturn('{"n8n_nome":{"source":"static","value":"a"},"n8n_curso":{"source":"static","value":"b"}}');
         $this->resolver->expects($this->once())->method('resolveAll')->with($this->anything(), $this->anything(), $this->anything(), '<br>', 'en_US')->willReturn(['n8n_nome' => 'a', 'n8n_curso' => 'b']);
 
-        $rows = $this->service->rows($this->log('n8ndispatch.email.send', ['email' => 7], ['n8n_nome' => 'a']));
+        $rows = $this->rows($this->log('n8ndispatch.email.send', ['email' => 7], ['n8n_nome' => 'a']));
 
         $this->assertSame(['n8n_nome', 'n8n_curso'], array_column($rows, 'name'));
         $this->assertSame(['ok', 'ok'], array_column($rows, 'state'));
@@ -103,7 +103,7 @@ class ResendVariablesTest extends TestCase
         $this->emailVariables->method('getVariablesJsonForEmail')->willReturn(null);
         $this->resolver->expects($this->once())->method('resolveAll')->with(['n8n_nome' => ['source' => 'static', 'value' => 'z']], $this->anything(), $this->anything(), '<br>', $this->anything())->willReturn(['n8n_nome' => 'z']);
 
-        $rows = $this->service->rows($this->log('n8ndispatch.email.send', ['email' => 7, 'variablesJson' => '{"n8n_nome":{"source":"static","value":"z"}}'], []));
+        $rows = $this->rows($this->log('n8ndispatch.email.send', ['email' => 7, 'variablesJson' => '{"n8n_nome":{"source":"static","value":"z"}}'], []));
 
         $this->assertSame('ok', $rows[0]['state']);
     }
@@ -114,7 +114,7 @@ class ResendVariablesTest extends TestCase
         $this->hsm->method('getEntity')->with(9)->willReturn($template);
         $this->resolver->method('resolveAll')->willReturn(['1' => 'Zeca']);
 
-        $rows = $this->service->rows($this->log('n8ndispatch.hsm.send', ['hsmTemplateId' => 9], ['1' => 'Zeca']));
+        $rows = $this->rows($this->log('n8ndispatch.hsm.send', ['hsmTemplateId' => 9], ['1' => 'Zeca']));
 
         $this->assertSame([['name' => '1', 'first' => 'Zeca', 'current' => 'Zeca', 'state' => 'ok']], $rows);
     }
@@ -125,20 +125,9 @@ class ResendVariablesTest extends TestCase
         $this->hsm->method('getEntity')->willReturn($template);
         $this->resolver->method('resolveAll')->willReturn(['1' => 'a']);
 
-        $rows = $this->service->rows($this->log('n8ndispatch.hsm.send', ['hsmTemplateId' => 9], []));
+        $rows = $this->rows($this->log('n8ndispatch.hsm.send', ['hsmTemplateId' => 9], []));
 
         $this->assertSame(['1'], array_column($rows, 'name'));
-    }
-
-    public function testTheConfirmedValuesWinOverTheFirstOnesAndTheOthersStay(): void
-    {
-        $this->smsTemplate('Oi {{1}} {{2}}', '{}');
-        $this->resolver->method('resolveAll')->willReturn([]);
-
-        $merged = $this->service->merged($this->log('n8ndispatch.sms.send', ['smsTemplate' => 5], ['1' => 'Ana', '9' => 'old']), ['1' => 'Zeca', '2' => 'T1']);
-
-        $this->assertSame(['1' => 'Zeca', '2' => 'T1', '9' => 'old'], $merged['variables']);
-        $this->assertSame('Oi Zeca T1', $merged['message'], 'the message is filled from the text of the template today');
     }
 
     public function testTheMessageKeepsAVariableNobodyFilled(): void
@@ -146,9 +135,7 @@ class ResendVariablesTest extends TestCase
         $this->smsTemplate('Oi {{1}} {{2}}', '{}');
         $this->resolver->method('resolveAll')->willReturn([]);
 
-        $merged = $this->service->merged($this->log('n8ndispatch.sms.send', ['smsTemplate' => 5], []), ['1' => 'Zeca']);
-
-        $this->assertSame('Oi Zeca {{2}}', $merged['message']);
+        $this->assertSame('Oi Zeca {{2}}', $this->service->smsMessage($this->log('n8ndispatch.sms.send', ['smsTemplate' => 5], []), ['1' => 'Zeca']), 'the message is filled from the text of the template today');
     }
 
     public function testOnlyAnSmsHasAMessage(): void
@@ -156,29 +143,14 @@ class ResendVariablesTest extends TestCase
         $this->hsm->method('getEntity')->willReturn((new HsmTemplate())->setText('Olá {{1}}')->setVariablesJson('{}'));
         $this->resolver->method('resolveAll')->willReturn([]);
 
-        $merged = $this->service->merged($this->log('n8ndispatch.hsm.send', ['hsmTemplateId' => 9], []), ['1' => 'Zeca']);
-
-        $this->assertNull($merged['message']);
-        $this->assertSame(['1' => 'Zeca'], $merged['variables']);
+        $this->assertNull($this->service->smsMessage($this->log('n8ndispatch.hsm.send', ['hsmTemplateId' => 9], []), ['1' => 'Zeca']));
     }
 
     public function testAnOldSmsStepWithItsOwnTextStillWorks(): void
     {
         $this->resolver->method('resolveAll')->willReturn(['1' => 'Zeca']);
 
-        $merged = $this->service->merged($this->log('n8ndispatch.sms.send', ['text' => 'Oi {{1}}', 'variablesJson' => '{}'], []), ['1' => 'Zeca']);
-
-        $this->assertSame('Oi Zeca', $merged['message']);
-    }
-
-    public function testOnlyTextValuesOfTheFirstDispatchAreKeptAsText(): void
-    {
-        $this->smsTemplate('Oi {{1}} {{2}} {{3}}', '{}');
-        $this->resolver->method('resolveAll')->willReturn([]);
-
-        $merged = $this->service->merged($this->log('n8ndispatch.sms.send', ['smsTemplate' => 5], ['1' => 7, '2' => ['x'], '3' => 'c']), []);
-
-        $this->assertSame(['1' => '7', '3' => 'c'], $merged['variables']);
+        $this->assertSame('Oi Zeca', $this->service->smsMessage($this->log('n8ndispatch.sms.send', ['text' => 'Oi {{1}}', 'variablesJson' => '{}'], []), ['1' => 'Zeca']));
     }
 
     public function testAnEmailListsOnlyTheVariablesOfTheTemplateNotEveryKeyOfItsMapping(): void
@@ -188,7 +160,7 @@ class ResendVariablesTest extends TestCase
         $this->emailVariables->method('getVariablesJsonForEmail')->willReturn('{"n8n_nome":{"source":"static","value":"a"},"n8n_antiga":{"source":"static","value":"b"}}');
         $this->resolver->method('resolveAll')->willReturn(['n8n_nome' => 'a', 'n8n_antiga' => 'b']);
 
-        $rows = $this->service->rows($this->log('n8ndispatch.email.send', ['email' => 7], []));
+        $rows = $this->rows($this->log('n8ndispatch.email.send', ['email' => 7], []));
 
         $this->assertSame(['n8n_nome'], array_column($rows, 'name'));
     }
@@ -199,7 +171,7 @@ class ResendVariablesTest extends TestCase
         $this->emailVariables->expects($this->never())->method('getVariablesJsonForEmail');
         $this->resolver->expects($this->once())->method('resolveAll')->with([], $this->anything(), $this->anything(), '<br>', 'pt_BR')->willReturn([]);
 
-        $this->assertSame([], $this->service->rows($this->log('n8ndispatch.email.send', [], [])));
+        $this->assertSame([], $this->rows($this->log('n8ndispatch.email.send', [], [])));
     }
 
     public function testAnEmailThatWasDeletedKeepsTheLanguageDefaultAndNoVariables(): void
@@ -208,7 +180,7 @@ class ResendVariablesTest extends TestCase
         $this->emailVariables->method('getVariablesJsonForEmail')->willReturn('{"n8n_nome":{"source":"static","value":"a"}}');
         $this->resolver->expects($this->once())->method('resolveAll')->with($this->anything(), $this->anything(), $this->anything(), '<br>', 'pt_BR')->willReturn(['n8n_nome' => 'a']);
 
-        $this->assertSame(['n8n_nome'], array_column($this->service->rows($this->log('n8ndispatch.email.send', ['email' => 7], [])), 'name'));
+        $this->assertSame(['n8n_nome'], array_column($this->rows($this->log('n8ndispatch.email.send', ['email' => 7], [])), 'name'));
     }
 
     public function testAnSmsTemplateWithoutTextOrMappingGivesNoRows(): void
@@ -216,7 +188,7 @@ class ResendVariablesTest extends TestCase
         $this->sms->method('getEntity')->willReturn((new SmsTemplate())->setText(null)->setVariablesJson(null));
         $this->resolver->expects($this->once())->method('resolveAll')->with([], $this->anything(), $this->anything(), ', ', $this->anything())->willReturn([]);
 
-        $this->assertSame([], $this->service->rows($this->log('n8ndispatch.sms.send', ['smsTemplate' => 5], [])));
+        $this->assertSame([], $this->rows($this->log('n8ndispatch.sms.send', ['smsTemplate' => 5], [])));
     }
 
     public function testAnOldSmsStepUsesTheDefaultLanguageAndItsOwnMapping(): void
@@ -224,7 +196,7 @@ class ResendVariablesTest extends TestCase
         $this->sms->expects($this->never())->method('getEntity');
         $this->resolver->expects($this->once())->method('resolveAll')->with(['1' => ['source' => 'static', 'value' => 'a']], $this->anything(), $this->anything(), ', ', 'pt_BR')->willReturn(['1' => 'a']);
 
-        $rows = $this->service->rows($this->log('n8ndispatch.sms.send', ['text' => 'Oi {{1}}', 'variablesJson' => '{"1":{"source":"static","value":"a"}}'], []));
+        $rows = $this->rows($this->log('n8ndispatch.sms.send', ['text' => 'Oi {{1}}', 'variablesJson' => '{"1":{"source":"static","value":"a"}}'], []));
 
         $this->assertSame('ok', $rows[0]['state']);
     }
@@ -233,7 +205,7 @@ class ResendVariablesTest extends TestCase
     {
         $this->resolver->method('resolveAll')->willReturn([]);
 
-        $this->assertSame('', $this->service->merged($this->log('n8ndispatch.sms.send', [], []), ['1' => 'x'])['message']);
+        $this->assertSame('', $this->service->smsMessage($this->log('n8ndispatch.sms.send', [], []), ['1' => 'x']));
     }
 
     public function testAnHsmStepWithoutATemplateUsesItsOwnMappingAndTheDefaultLanguage(): void
@@ -241,7 +213,7 @@ class ResendVariablesTest extends TestCase
         $this->hsm->expects($this->never())->method('getEntity');
         $this->resolver->expects($this->once())->method('resolveAll')->with(['1' => ['source' => 'static', 'value' => 'a']], $this->anything(), $this->anything(), ', ', 'pt_BR')->willReturn(['1' => 'a']);
 
-        $rows = $this->service->rows($this->log('n8ndispatch.hsm.send', ['variablesJson' => '{"1":{"source":"static","value":"a"}}'], []));
+        $rows = $this->rows($this->log('n8ndispatch.hsm.send', ['variablesJson' => '{"1":{"source":"static","value":"a"}}'], []));
 
         $this->assertSame(['1'], array_column($rows, 'name'));
     }
@@ -251,7 +223,7 @@ class ResendVariablesTest extends TestCase
         $this->hsm->method('getEntity')->willReturn((new HsmTemplate())->setText(null)->setVariablesJson(null)->setLanguage('en_US'));
         $this->resolver->expects($this->once())->method('resolveAll')->with([], $this->anything(), $this->anything(), ', ', 'en_US')->willReturn([]);
 
-        $this->assertSame([], $this->service->rows($this->log('n8ndispatch.hsm.send', ['hsmTemplateId' => 9], [])));
+        $this->assertSame([], $this->rows($this->log('n8ndispatch.hsm.send', ['hsmTemplateId' => 9], [])));
     }
 
     public function testTheMessageOfAnSmsIsItsTemplateTextFilledWithTodaysValuesAndAnEmptyOneStaysAsWritten(): void
@@ -259,7 +231,7 @@ class ResendVariablesTest extends TestCase
         $this->smsTemplate('Oi {{1}}, turma {{2}} em {{3}}', '{}');
         $this->resolver->method('resolveAll')->willReturn(['1' => 'Zeca', '2' => '']);
 
-        $message = $this->service->message($this->log('n8ndispatch.sms.send', ['smsTemplate' => 5], []));
+        $message = $this->message($this->log('n8ndispatch.sms.send', ['smsTemplate' => 5], []));
 
         $this->assertSame(['template' => 'Oi {{1}}, turma {{2}} em {{3}}', 'filled' => 'Oi Zeca, turma {{2}} em {{3}}'], $message);
     }
@@ -269,7 +241,7 @@ class ResendVariablesTest extends TestCase
         $this->hsm->method('getEntity')->willReturn((new HsmTemplate())->setText('Olá {{1}}')->setVariablesJson('{}'));
         $this->resolver->method('resolveAll')->willReturn(['1' => 'Zeca']);
 
-        $this->assertSame(['template' => 'Olá {{1}}', 'filled' => 'Olá Zeca'], $this->service->message($this->log('n8ndispatch.hsm.send', ['hsmTemplateId' => 9], [])));
+        $this->assertSame(['template' => 'Olá {{1}}', 'filled' => 'Olá Zeca'], $this->message($this->log('n8ndispatch.hsm.send', ['hsmTemplateId' => 9], [])));
     }
 
     public function testAnEmailHasNoMessageToShow(): void
@@ -278,7 +250,7 @@ class ResendVariablesTest extends TestCase
         $this->emailVariables->method('getVariablesJsonForEmail')->willReturn('{}');
         $this->resolver->method('resolveAll')->willReturn([]);
 
-        $this->assertNull($this->service->message($this->log('n8ndispatch.email.send', ['email' => 7], [])));
+        $this->assertNull($this->message($this->log('n8ndispatch.email.send', ['email' => 7], [])));
     }
 
     public function testATemplateWithoutTextHasNoMessageToShow(): void
@@ -286,14 +258,73 @@ class ResendVariablesTest extends TestCase
         $this->sms->method('getEntity')->willReturn((new SmsTemplate())->setText('  ')->setVariablesJson('{}'));
         $this->resolver->method('resolveAll')->willReturn([]);
 
-        $this->assertNull($this->service->message($this->log('n8ndispatch.sms.send', ['smsTemplate' => 5], [])));
+        $this->assertNull($this->message($this->log('n8ndispatch.sms.send', ['smsTemplate' => 5], [])));
     }
 
     public function testAnHsmStepWithoutATemplateHasNoMessageToShow(): void
     {
         $this->resolver->method('resolveAll')->willReturn([]);
 
-        $this->assertNull($this->service->message($this->log('n8ndispatch.hsm.send', ['variablesJson' => '{}'], [])));
+        $this->assertNull($this->message($this->log('n8ndispatch.hsm.send', ['variablesJson' => '{}'], [])));
+    }
+
+    public function testTheValuesAreResolvedOnceForTheWholeForm(): void
+    {
+        $this->smsTemplate('Oi {{1}}', '{"1":{"source":"static","value":"a"}}');
+        $this->resolver->expects($this->once())->method('resolveAll')->willReturn(['1' => 'a']);
+
+        $form = $this->service->form($this->log('n8ndispatch.sms.send', ['smsTemplate' => 5], []));
+
+        $this->assertCount(1, $form['rows']);
+        $this->assertSame('Oi a', $form['message']['filled']);
+    }
+
+    public function testTheSmsMessageAsksNothingOfTheResolver(): void
+    {
+        $this->smsTemplate('Oi {{1}}', '{"1":{"source":"field","field":"firstname"}}');
+        $this->resolver->expects($this->never())->method('resolveAll');
+
+        $this->service->smsMessage($this->log('n8ndispatch.sms.send', ['smsTemplate' => 5], []), ['1' => 'Zeca']);
+    }
+
+    public function testOnlyTextValuesFillTheSmsMessage(): void
+    {
+        $this->smsTemplate('Oi {{1}} {{2}} {{3}}', '{}');
+
+        $this->assertSame('Oi 7 {{2}} c', $this->service->smsMessage($this->log('n8ndispatch.sms.send', ['smsTemplate' => 5], []), ['1' => 7, '2' => ['x'], '3' => 'c']));
+    }
+
+    public function testAnSmsTemplateWithNoTextHasNoMessageToFill(): void
+    {
+        $this->sms->method('getEntity')->willReturn((new SmsTemplate())->setText(null)->setVariablesJson('{}'));
+
+        $this->assertSame('', $this->service->smsMessage($this->log('n8ndispatch.sms.send', ['smsTemplate' => 5], []), []));
+    }
+
+    public function testTheFirstValuesAreShownAsTextAndOnlyScalarOnesAreKept(): void
+    {
+        $this->smsTemplate('Oi {{1}} {{2}} {{3}}', '{}');
+        $this->resolver->method('resolveAll')->willReturn([]);
+
+        $rows = $this->rows($this->log('n8ndispatch.sms.send', ['smsTemplate' => 5], ['1' => 7, '2' => ['x'], '3' => 'c']));
+
+        $this->assertSame(['7', '', 'c'], array_column($rows, 'first'));
+    }
+
+    /**
+     * @return list<array{name: string, first: string, current: string, state: string}>
+     */
+    private function rows(LeadEventLog $log): array
+    {
+        return $this->service->form($log)['rows'];
+    }
+
+    /**
+     * @return array{template: string, filled: string}|null
+     */
+    private function message(LeadEventLog $log): ?array
+    {
+        return $this->service->form($log)['message'];
     }
 
     private function smsTemplate(string $text, string $json, string $language = 'pt_BR'): void

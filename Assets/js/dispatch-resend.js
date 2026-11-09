@@ -10,7 +10,8 @@
  */
 /**
  * The message shown at the end of the form (SMS / HSM): the template text with each {{name}} replaced by what is typed in the
- * input of that name; a name with no input, or an empty one, stays as written. The same rule as TemplateVariableScanner::fill() on the server.
+ * input of that name; a name with no input, or an empty one, stays as written. It is a PREVIEW: the server fills the text that is
+ * sent with TemplateVariableScanner::fill(), where an empty value goes out empty.
  */
 Mautic.n8ndispatchFillResendMessage = function (form) {
     var code = form.find('[data-resend-template]');
@@ -40,14 +41,15 @@ Mautic.n8ndispatchSubmitResend = function (button) {
     var variables = {};
 
     form.find('[data-resend-variable]').each(function () {
-        variables[mQuery(this).data('resend-variable')] = mQuery(this).val();
+        // attr, not data(): data() turns a name like 007 into the number 7
+        variables[mQuery(this).attr('data-resend-variable')] = mQuery(this).val();
     });
 
     form.data('resend-pending', true);
     form.find('[data-resend-variable]').prop('disabled', true);
 
     // Backdrop click and Esc both end up here.
-    modal.on('hide.bs.modal', function (event) {
+    modal.off('hide.bs.modal.n8ndispatchResend').on('hide.bs.modal.n8ndispatchResend', function (event) {
         if (form.data('resend-pending')) {
             event.preventDefault();
         }
@@ -56,7 +58,7 @@ Mautic.n8ndispatchSubmitResend = function (button) {
     mQuery.ajax({
         url: mauticAjaxUrl + '?action=plugin:N8nDispatch:resendDispatch',
         type: 'POST',
-        data: {logId: form.data('resend-log'), variables: variables},
+        data: {logId: form.data('resend-log'), form: 1, variables: variables},
         success: function () {
             form.data('resend-pending', false);
             modal.modal('hide');

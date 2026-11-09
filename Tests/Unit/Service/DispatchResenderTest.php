@@ -760,17 +760,17 @@ class DispatchResenderTest extends TestCase
         $this->assertSame('Resent on DATE', $notes[2]);
     }
 
-    private function formReturning(array $variables, ?string $message): ResendVariables
+    private function formReturning(?string $message): ResendVariables
     {
         $form = $this->createMock(ResendVariables::class);
-        $form->method('merged')->willReturn(['variables' => $variables, 'message' => $message]);
+        $form->method('smsMessage')->willReturn($message);
 
         return $form;
     }
 
     public function testTheValuesOfTheFormReplaceTheVariablesAndTheSmsMessageOfTheBodySent(): void
     {
-        $this->resendVariables = $this->formReturning(['1' => 'Zeca'], 'Oi Zeca');
+        $this->resendVariables = $this->formReturning('Oi Zeca');
         $metadata              = ['n8ndispatch' => ['status' => 'production', 'contact_id' => 185, 'message' => 'Oi {{1}}', 'variables' => ['1' => ''], 'response' => [], 'httpStatusCode' => 400], 'failed' => 1];
         [$resender, , , $http] = $this->resenderAnswering(200, '{"logSendSmsId":1}', metadata: $metadata, eventType: 'n8ndispatch.sms.send', callbacks: []);
         $http->expects($this->once())->method('request')->with('POST', $this->anything(), $this->callback(function (array $options): bool {
@@ -784,7 +784,7 @@ class DispatchResenderTest extends TestCase
 
     public function testAChannelWithoutTextKeepsTheBodyWithoutAMessage(): void
     {
-        $this->resendVariables = $this->formReturning(['n8n_nome' => 'Zeca'], null);
+        $this->resendVariables = $this->formReturning(null);
         $metadata              = ['n8ndispatch' => ['status' => 'production', 'contact_id' => 185, 'variables' => [], 'response' => [], 'httpStatusCode' => 400], 'failed' => 1];
         [$resender, , , $http] = $this->resenderAnswering(200, '{"logSendEmailId":1}', metadata: $metadata, eventType: 'n8ndispatch.email.send', callbacks: []);
         $http->expects($this->once())->method('request')->with('POST', $this->anything(), $this->callback(function (array $options): bool {
@@ -796,10 +796,38 @@ class DispatchResenderTest extends TestCase
         $resender->resend(140, null, ['n8n_nome' => 'Zeca']);
     }
 
+    public function testABodyWithoutVariablesTakesTheConfirmedOnesAndAKeptKeyStays(): void
+    {
+        $this->resendVariables = $this->formReturning(null);
+        $metadata              = ['n8ndispatch' => ['status' => 'production', 'contact_id' => 185, 'response' => [], 'httpStatusCode' => 400], 'failed' => 1];
+        [$resender, , , $http] = $this->resenderAnswering(200, '{"logSendEmailId":1}', metadata: $metadata, eventType: 'n8ndispatch.email.send', callbacks: []);
+        $http->expects($this->once())->method('request')->with('POST', $this->anything(), $this->callback(function (array $options): bool {
+            $this->assertSame(['n8n_nome' => 'Zeca'], $options['json']['variables']);
+
+            return true;
+        }))->willReturn($this->createStub(ResponseInterface::class));
+
+        $resender->resend(140, null, ['n8n_nome' => 'Zeca']);
+    }
+
+    public function testTheConfirmedValuesWinOverTheVariablesOfTheBodyAndTheOthersStay(): void
+    {
+        $this->resendVariables = $this->formReturning(null);
+        $metadata              = ['n8ndispatch' => ['status' => 'production', 'variables' => ['1' => 'Ana', '9' => 'old'], 'response' => [], 'httpStatusCode' => 400], 'failed' => 1];
+        [$resender, , , $http] = $this->resenderAnswering(200, '{"logSendHsmId":1}', metadata: $metadata, callbacks: []);
+        $http->expects($this->once())->method('request')->with('POST', $this->anything(), $this->callback(function (array $options): bool {
+            $this->assertSame(['1' => 'Zeca', '9' => 'old'], $options['json']['variables']);
+
+            return true;
+        }))->willReturn($this->createStub(ResponseInterface::class));
+
+        $resender->resend(140, null, ['1' => 'Zeca']);
+    }
+
     public function testWithoutAFormTheBodyGoesOutAsItWas(): void
     {
         $this->resendVariables = $this->createMock(ResendVariables::class);
-        $this->resendVariables->expects($this->never())->method('merged');
+        $this->resendVariables->expects($this->never())->method('smsMessage');
         $metadata              = ['n8ndispatch' => ['status' => 'production', 'message' => 'Oi {{1}}', 'variables' => ['1' => ''], 'response' => [], 'httpStatusCode' => 400], 'failed' => 1];
         [$resender, , , $http] = $this->resenderAnswering(200, '{"logSendSmsId":1}', metadata: $metadata, eventType: 'n8ndispatch.sms.send', callbacks: []);
         $http->expects($this->once())->method('request')->with('POST', $this->anything(), $this->callback(function (array $options): bool {
@@ -813,7 +841,7 @@ class DispatchResenderTest extends TestCase
 
     public function testTheValuesOfTheFormGoToTheMailerAndStayOnTheLogOfADirectResend(): void
     {
-        $this->resendVariables = $this->formReturning(['n8n_nome' => 'Maria'], null);
+        $this->resendVariables = $this->formReturning(null);
         $email                 = new Email();
         [$resender, $log, $sender] = $this->directResender($this->refusedByMautic(), ['outcome' => 'sent', 'reason' => null, 'statId' => 502], $email);
         $sender->expects($this->once())->method('send')->with($log->getLead(), $email, 66, ['n8n_nome' => 'Maria']);

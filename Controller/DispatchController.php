@@ -126,7 +126,7 @@ class DispatchController extends CommonController
         }
 
         return $this->delegateView([
-            'viewParameters'  => ['dispatch' => $dispatch, 'rows' => $variables->rows($log), 'message' => $variables->message($log)],
+            'viewParameters'  => ['dispatch' => $dispatch] + $variables->form($log),
             'contentTemplate' => '@N8nDispatch/Dispatch/resend.html.twig',
             'passthroughVars' => [
                 'route' => false,
