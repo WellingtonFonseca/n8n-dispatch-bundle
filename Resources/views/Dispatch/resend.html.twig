@@ -1,0 +1,58 @@
+{#
+  Body of the resend modal opened from the Dispatches table: the variables of the template with the value the first
+  dispatch sent, and the value of today in an input the user can correct. The footer button posts it
+  (Assets/js/dispatch-resend.js). A row with no value (empty / not mapped) is marked, so the user sees BEFORE the
+  resend what would go out empty. An SMS / HSM also shows the text the contact will receive.
+#}
+<div class="n8ndispatch-resend" data-resend-log="{{ dispatch.id }}">
+    <p>{{ 'mautic.n8ndispatch.dispatch.resend.confirm'|trans }}</p>
+
+    <p>
+        <strong>{{ 'mautic.n8ndispatch.dispatch.details.campaign'|trans }}:</strong> {{ dispatch.campaignName }}<br/>
+        <strong>{{ 'mautic.n8ndispatch.dispatch.details.template'|trans }}:</strong> {{ dispatch.templateName }}<br/>
+        <strong>{{ 'mautic.n8ndispatch.dispatch.details.contact'|trans }}:</strong> {{ dispatch.contactEmail ?: '-' }}
+    </p>
+
+    {% if rows|length > 0 %}
+    <p class="text-muted">{{ 'mautic.n8ndispatch.dispatch.resend.form.help'|trans }}</p>
+    <div class="table-responsive">
+        <table class="table table-hover">
+            <thead>
+                <tr>
+                    <th>{{ 'mautic.n8ndispatch.dispatch.resend.form.variable'|trans }}</th>
+                    <th>{{ 'mautic.n8ndispatch.dispatch.resend.form.first'|trans }}</th>
+                    <th>{{ 'mautic.n8ndispatch.dispatch.resend.form.value'|trans }}</th>
+                </tr>
+            </thead>
+            <tbody>
+            {% for row in rows %}
+                <tr data-resend-state="{{ row.state }}">
+                    <td><code>{{ row.name }}</code></td>
+                    <td>{{ row.first != '' ? row.first : '-' }}</td>
+                    <td>
+                        <input type="text" class="form-control" data-resend-variable="{{ row.name }}" value="{{ row.current }}" />
+                        {% if row.state == 'unmapped' %}
+                            <span class="text-danger">{{ 'mautic.n8ndispatch.dispatch.resend.form.unmapped'|trans }}</span>
+                        {% elseif row.state == 'empty' %}
+                            <span class="text-warning">{{ 'mautic.n8ndispatch.dispatch.resend.form.empty'|trans }}</span>
+                        {% endif %}
+                    </td>
+                </tr>
+            {% endfor %}
+            </tbody>
+        </table>
+    </div>
+    {% endif %}
+
+    {% if message %}
+    {# The SMS / HSM text with the values of the inputs, so the user reads what the contact will receive (the numbered variables alone say little). Filled again by Assets/js/dispatch-resend.js as the inputs change; data-resend-template holds the text with the {{ }} as written. #}
+    <p><strong>{{ 'mautic.n8ndispatch.dispatch.resend.form.message'|trans }}</strong></p>
+    <pre class="n8ndispatch-resend-message"><code data-resend-template="{{ message.template }}">{{ message.filled }}</code></pre>
+    {% endif %}
+
+    {# Core copies these buttons into the modal's footer (see Template/_modal_buttons.html.twig): the action first, Cancel (transparent) last. #}
+    <div class="bottom-form-buttons">
+        <button type="button" id="n8ndispatch-resend-confirm" class="btn btn-primary" onclick="Mautic.n8ndispatchSubmitResend(this);">{{ 'mautic.n8ndispatch.dispatch.resend.confirm_btn'|trans }}<i class="ri-send-plane-line"></i></button>
+        <button type="button" id="n8ndispatch-resend-cancel" class="btn btn-tertiary btn-cancel" data-dismiss="modal">{{ 'mautic.n8ndispatch.dispatch.resend.cancel_btn'|trans }}<i class="ri-close-line"></i></button>
+    </div>
+</div>

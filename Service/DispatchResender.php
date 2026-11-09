@@ -20,7 +20,8 @@ use Symfony\Contracts\Translation\TranslatorInterface;
  * "Reenviar" on the Dispatches screen: sends to n8n again the very same body
  * the dispatch went out with (the 'Body' of its card, kept on the campaign
  * log), to the same webhook with the same headers — a "recall", so what
- * comes from the contact or from Custom Objects is not resolved again.
+ * comes from the contact or from Custom Objects is not resolved again here
+ * (the resend form does that, and the user confirms the result).
  *
  * No new campaign log row is made (the log is unique per contact, step and
  * rotation): the same row is updated, whatever n8n answers. The attempt is
@@ -36,6 +37,10 @@ use Symfony\Contracts\Translation\TranslatorInterface;
  * error (HSM: Meta's, not the Mirror's) or a call n8n refused. The Do Not
  * Contact list is still honoured: a contact who opted out since is not sent
  * to, and nothing is recorded since no call was made.
+ *
+ * The body is resent as it was, unless the user confirmed values on the resend
+ * form (ResendVariables): those replace the variables of the body, and an SMS
+ * message is filled again from the text of its template.
  */
 class DispatchResender
 {
@@ -59,6 +64,7 @@ class DispatchResender
         private TranslatorInterface $translator,
         private LoggerInterface $logger,
         private ?DirectEmailSender $directSender = null,
+        private ?ResendVariables $resendVariables = null,
     ) {
     }
 
@@ -174,9 +180,12 @@ class DispatchResender
     }
 
     /**
+     * @param array<string, string>|null $confirmed the values the user confirmed on the resend form, by variable name;
+     *                                              null resends the first dispatch's values as they were
+     *
      * @return array{ok: bool, message: string} message already translated, ready for the screen
      */
-    public function resend(int $logId, ?string $userEmail): array
+    public function resend(int $logId, ?string $userEmail, ?array $confirmed = null): array
     {
         /** @var LeadEventLog|null $log */
         $log = $this->em->find(LeadEventLog::class, $logId);
@@ -191,7 +200,7 @@ class DispatchResender
 
         // Not a webhook call: the Email goes out again through Mautic's mailer, as a new Stat.
         if (MauticEmailOutcome::isDirect($metadata)) {
-            return $this->resendDirect($log, $metadata, $userEmail);
+            return $this->resendDirect($log, $metadata, $userEmail, $confirmed);
         }
 
         if ('production' !== ($log->getEvent()->getProperties()['status'] ?? 'test')) {
@@ -207,6 +216,8 @@ class DispatchResender
         if (null === $body) {
             return $this->result(false, 'mautic.n8ndispatch.dispatch.resend.no_body');
         }
+
+        $body = $this->withConfirmed($log, $body, $confirmed);
 
         $dncChannel = DispatchTracking::CHANNEL_EMAIL === $channel ? 'email' : 'sms';
 
@@ -265,6 +276,32 @@ class DispatchResender
     }
 
     /**
+     * The body with the values the user confirmed on the form: they replace the first dispatch's, an SMS gets its
+     * message filled again from today's text, the rest of the body stays. Without a form (or without the service) the
+     * body is the first dispatch's, untouched.
+     *
+     * @param array<string, mixed>       $body
+     * @param array<string, string>|null $confirmed
+     *
+     * @return array<string, mixed>
+     */
+    private function withConfirmed(LeadEventLog $log, array $body, ?array $confirmed): array
+    {
+        if (null === $confirmed || null === $this->resendVariables) {
+            return $body;
+        }
+
+        $body['variables'] = $confirmed + (is_array($body['variables'] ?? null) ? $body['variables'] : []);
+        $message           = $this->resendVariables->smsMessage($log, $body['variables']);
+
+        if (null !== $message) {
+            $body['message'] = $message;
+        }
+
+        return $body;
+    }
+
+    /**
      * Core marks a log whose event failed with a row in campaign_lead_event_failed_log; the Timeline shows its reason
      * in red ("Último erro") and the alert icon next to the name. An accepted resend means the dispatch worked, so the
      * row goes (the old failure stays in the History table).
@@ -310,11 +347,12 @@ class DispatchResender
      * unique per step, contact and rotation): the new Stat joins the old ones, the failure marks go and a note says who
      * resent it and when. A resend that fails again is recorded the same way and stays resendable.
      *
-     * @param array<string, mixed> $metadata
+     * @param array<string, mixed>       $metadata
+     * @param array<string, string>|null $confirmed
      *
      * @return array{ok: bool, message: string}
      */
-    private function resendDirect(LeadEventLog $log, array $metadata, ?string $userEmail): array
+    private function resendDirect(LeadEventLog $log, array $metadata, ?string $userEmail, ?array $confirmed): array
     {
         $properties = $log->getEvent()->getProperties();
 
@@ -344,24 +382,27 @@ class DispatchResender
             return $this->failed($this->failureReasons->translated(DispatchFailureReasons::DO_NOT_CONTACT, ['%channel%' => 'email']));
         }
 
-        return $this->sendAgain($log, $metadata, $email, $userEmail);
+        return $this->sendAgain($log, $metadata, $email, $userEmail, $confirmed);
     }
 
     /**
-     * @param array<string, mixed> $metadata
+     * @param array<string, mixed>       $metadata
+     * @param array<string, string>|null $confirmed
      *
      * @return array{ok: bool, message: string}
      */
-    private function sendAgain(LeadEventLog $log, array $metadata, Email $email, ?string $userEmail): array
+    private function sendAgain(LeadEventLog $log, array $metadata, Email $email, ?string $userEmail, ?array $confirmed): array
     {
         $variables = is_array($metadata['n8ndispatch']['variables'] ?? null) ? $metadata['n8ndispatch']['variables'] : [];
+        $variables = null === $confirmed ? $variables : $confirmed + $variables;
         $result    = $this->directSender->send($log->getLead(), $email, (int) $log->getEvent()->getId(), $variables);
         $refused   = in_array($result['outcome'], [DirectEmailSender::FAILED, DirectEmailSender::SKIPPED], true);
 
         $new = array_diff_key($metadata, array_flip(['errors', 'failed', 'reason', 'n8ndispatch_resend']));
 
-        $new['n8ndispatch']            = array_diff_key($metadata['n8ndispatch'], array_flip(['statId', 'statIds'])) + MauticEmailOutcome::statFields($metadata, $result['statId']);
-        $new['n8ndispatch']['outcome'] = $result['outcome'];
+        $new['n8ndispatch']              = array_diff_key($metadata['n8ndispatch'], array_flip(['statId', 'statIds'])) + MauticEmailOutcome::statFields($metadata, $result['statId']);
+        $new['n8ndispatch']['outcome']   = $result['outcome'];
+        $new['n8ndispatch']['variables'] = $variables;
 
         $new['n8ndispatch_resend'] = $this->note($userEmail);
 
