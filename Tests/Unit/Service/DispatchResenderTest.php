@@ -19,6 +19,7 @@ use MauticPlugin\N8nDispatchBundle\Integration\N8nDispatchIntegration;
 use MauticPlugin\N8nDispatchBundle\Service\DirectEmailSender;
 use MauticPlugin\N8nDispatchBundle\Service\DispatchFailureReasons;
 use MauticPlugin\N8nDispatchBundle\Service\DispatchResender;
+use MauticPlugin\N8nDispatchBundle\Service\ResendVariables;
 use MauticPlugin\N8nDispatchBundle\Service\StatusTracker;
 use MauticPlugin\N8nDispatchBundle\Tests\Unit\EventListener\EnUsTranslator;
 use MauticPlugin\N8nDispatchBundle\Twig\StatusExtension;
@@ -34,6 +35,9 @@ use Symfony\Contracts\HttpClient\ResponseInterface;
  */
 class DispatchResenderTest extends TestCase
 {
+    /** The values of the resend form; null is a resend without one. */
+    private ?ResendVariables $resendVariables = null;
+
     public function testAnErrorCallbackCanBeResent(): void
     {
         $this->assertTrue(DispatchResender::hasErrorCallback([['refType' => 'logSendEmailId', 'outcome' => 'error']]));
@@ -230,6 +234,8 @@ class DispatchResenderTest extends TestCase
             new DispatchFailureReasons(new EnUsTranslator()),
             new EnUsTranslator(),
             $this->createMock(LoggerInterface::class),
+            null,
+            $this->resendVariables,
         );
 
         return [$resender, $tracker, $log, $http, $em, $dnc];
@@ -403,6 +409,7 @@ class DispatchResenderTest extends TestCase
             new EnUsTranslator(),
             $this->createMock(LoggerInterface::class),
             $withSender ? $sender : null,
+            $this->resendVariables,
         );
 
         return [$resender, $log, $sender, $em, $http];
@@ -751,5 +758,68 @@ class DispatchResenderTest extends TestCase
         $this->assertSame("Resent on DATE\nBy a@b.com", $notes[0]);
         $this->assertSame('Resent on DATE', $notes[1]);
         $this->assertSame('Resent on DATE', $notes[2]);
+    }
+
+    private function formReturning(array $variables, ?string $message): ResendVariables
+    {
+        $form = $this->createMock(ResendVariables::class);
+        $form->method('merged')->willReturn(['variables' => $variables, 'message' => $message]);
+
+        return $form;
+    }
+
+    public function testTheValuesOfTheFormReplaceTheVariablesAndTheSmsMessageOfTheBodySent(): void
+    {
+        $this->resendVariables = $this->formReturning(['1' => 'Zeca'], 'Oi Zeca');
+        $metadata              = ['n8ndispatch' => ['status' => 'production', 'contact_id' => 185, 'message' => 'Oi {{1}}', 'variables' => ['1' => ''], 'response' => [], 'httpStatusCode' => 400], 'failed' => 1];
+        [$resender, , , $http] = $this->resenderAnswering(200, '{"logSendSmsId":1}', metadata: $metadata, eventType: 'n8ndispatch.sms.send', callbacks: []);
+        $http->expects($this->once())->method('request')->with('POST', $this->anything(), $this->callback(function (array $options): bool {
+            $this->assertSame(['status' => 'production', 'contact_id' => 185, 'message' => 'Oi Zeca', 'variables' => ['1' => 'Zeca']], $options['json']);
+
+            return true;
+        }))->willReturn($this->createStub(ResponseInterface::class));
+
+        $resender->resend(140, 'a@b.com', ['1' => 'Zeca']);
+    }
+
+    public function testAChannelWithoutTextKeepsTheBodyWithoutAMessage(): void
+    {
+        $this->resendVariables = $this->formReturning(['n8n_nome' => 'Zeca'], null);
+        $metadata              = ['n8ndispatch' => ['status' => 'production', 'contact_id' => 185, 'variables' => [], 'response' => [], 'httpStatusCode' => 400], 'failed' => 1];
+        [$resender, , , $http] = $this->resenderAnswering(200, '{"logSendEmailId":1}', metadata: $metadata, eventType: 'n8ndispatch.email.send', callbacks: []);
+        $http->expects($this->once())->method('request')->with('POST', $this->anything(), $this->callback(function (array $options): bool {
+            $this->assertSame(['status' => 'production', 'contact_id' => 185, 'variables' => ['n8n_nome' => 'Zeca']], $options['json']);
+
+            return true;
+        }))->willReturn($this->createStub(ResponseInterface::class));
+
+        $resender->resend(140, null, ['n8n_nome' => 'Zeca']);
+    }
+
+    public function testWithoutAFormTheBodyGoesOutAsItWas(): void
+    {
+        $this->resendVariables = $this->createMock(ResendVariables::class);
+        $this->resendVariables->expects($this->never())->method('merged');
+        $metadata              = ['n8ndispatch' => ['status' => 'production', 'message' => 'Oi {{1}}', 'variables' => ['1' => ''], 'response' => [], 'httpStatusCode' => 400], 'failed' => 1];
+        [$resender, , , $http] = $this->resenderAnswering(200, '{"logSendSmsId":1}', metadata: $metadata, eventType: 'n8ndispatch.sms.send', callbacks: []);
+        $http->expects($this->once())->method('request')->with('POST', $this->anything(), $this->callback(function (array $options): bool {
+            $this->assertSame(['status' => 'production', 'message' => 'Oi {{1}}', 'variables' => ['1' => '']], $options['json']);
+
+            return true;
+        }))->willReturn($this->createStub(ResponseInterface::class));
+
+        $resender->resend(140, null);
+    }
+
+    public function testTheValuesOfTheFormGoToTheMailerAndStayOnTheLogOfADirectResend(): void
+    {
+        $this->resendVariables = $this->formReturning(['n8n_nome' => 'Maria'], null);
+        $email                 = new Email();
+        [$resender, $log, $sender] = $this->directResender($this->refusedByMautic(), ['outcome' => 'sent', 'reason' => null, 'statId' => 502], $email);
+        $sender->expects($this->once())->method('send')->with($log->getLead(), $email, 66, ['n8n_nome' => 'Maria']);
+
+        $resender->resend(140, null, ['n8n_nome' => 'Maria']);
+
+        $this->assertSame(['n8n_nome' => 'Maria'], $log->getMetadata()['n8ndispatch']['variables']);
     }
 }

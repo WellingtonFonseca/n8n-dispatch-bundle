@@ -40,6 +40,11 @@ return [
                 'requirements' => ['id' => '\\d+'],
                 'controller'   => 'MauticPlugin\\N8nDispatchBundle\\Controller\\DispatchController::detailsAction',
             ],
+            'mautic_n8ndispatch.dispatch_resend_form' => [
+                'path'         => '/n8ndispatch/dispatches/resend/{id}',
+                'requirements' => ['id' => '\\d+'],
+                'controller'   => 'MauticPlugin\\N8nDispatchBundle\\Controller\\DispatchController::resendFormAction',
+            ],
         ],
     ],
 
