@@ -54,10 +54,9 @@ class ResendVariables
         $source  = $this->sourceOf($log);
         $mapping = $this->mappingOf($source);
         $values  = $this->resolver->resolveAll($mapping, $log->getLead(), $log->getEvent()->getCampaign(), $source['separator'], $source['language']);
-        // A template whose text has no readable name (an HSM with positional text only) still lists what its mapping holds.
-        $names = [] === $source['names'] ? array_map('strval', array_keys($mapping)) : $source['names'];
-        $first = $this->firstOf($log);
-        $rows  = [];
+        $names   = $this->namesOf($source, $mapping);
+        $first   = $this->firstOf($log);
+        $rows    = [];
 
         foreach ($names as $name) {
             $current = $values[$name] ?? '';
@@ -88,6 +87,34 @@ class ResendVariables
         }
 
         return TemplateVariableScanner::fill($source['text'], array_map('strval', array_filter($variables, 'is_scalar')));
+    }
+
+    /**
+     * The variables of the template that have no value (empty or only whitespace) in the values that would go out. A resend
+     * with one of them is refused: the template needs every variable it names.
+     *
+     * @param array<string, mixed> $variables
+     *
+     * @return list<string>
+     */
+    public function emptyNames(LeadEventLog $log, array $variables): array
+    {
+        $source = $this->sourceOf($log);
+        $names  = $this->namesOf($source, $this->mappingOf($source));
+
+        return array_values(array_filter(
+            $names,
+            static fn (string $name): bool => !is_scalar($variables[$name] ?? null) || self::isBlank((string) $variables[$name])
+        ));
+    }
+
+    /**
+     * Nothing but whitespace, the Unicode kind too (a no-break space pasted from a document): the same test as
+     * Mautic.n8ndispatchValidateResend in the browser (JS `\s`), so both layers agree on what is empty.
+     */
+    private static function isBlank(string $value): bool
+    {
+        return 1 === preg_match('/^[\p{Z}\s\x{FEFF}]*$/u', $value);
     }
 
     /**
@@ -128,6 +155,20 @@ class ResendVariables
             DispatchTracking::CHANNEL_SMS   => $this->smsSource($properties),
             default                         => $this->hsmSource($properties),
         };
+    }
+
+    /**
+     * The names the form lists. A template whose text has no readable name (an HSM with positional text only) still
+     * lists what its mapping holds.
+     *
+     * @param array{names: list<string>} $source
+     * @param array<string, mixed>       $mapping
+     *
+     * @return list<string>
+     */
+    private function namesOf(array $source, array $mapping): array
+    {
+        return [] === $source['names'] ? array_map('strval', array_keys($mapping)) : $source['names'];
     }
 
     /**
