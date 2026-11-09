@@ -159,7 +159,7 @@ details modal with the same card as the contact's History. Filter by
 campaign, template, dates and callback status. **Resend** (options menu, only
 on a dispatch whose callback ended in error or whose call was refused) opens a form with every
 variable of the template (the value of the first send and an input with the value of today, marked when
-it has no source or no value) and, for SMS and HSM, the message that will be sent. The confirmed values replace
+it has no source or no value) and, for SMS and HSM, the message that will be sent. Every variable is required: Reenviar stays disabled while one is empty, and the server refuses it too. The confirmed values replace
 the variables of the saved body, an SMS message is filled again from the text of the template, and the body
 goes to n8n again, one at a time. It replaces the dispatch's
 response, tracking and callback history with the new ones, with a note of who

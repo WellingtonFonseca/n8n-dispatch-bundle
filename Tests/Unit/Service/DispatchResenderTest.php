@@ -760,10 +760,14 @@ class DispatchResenderTest extends TestCase
         $this->assertSame('Resent on DATE', $notes[2]);
     }
 
-    private function formReturning(?string $message): ResendVariables
+    /**
+     * @param list<string> $empty the names the form left empty
+     */
+    private function formReturning(?string $message, array $empty = []): ResendVariables
     {
         $form = $this->createMock(ResendVariables::class);
         $form->method('smsMessage')->willReturn($message);
+        $form->method('emptyNames')->willReturn($empty);
 
         return $form;
     }
@@ -822,6 +826,55 @@ class DispatchResenderTest extends TestCase
         }))->willReturn($this->createStub(ResponseInterface::class));
 
         $resender->resend(140, null, ['1' => 'Zeca']);
+    }
+
+    public function testAResendWithAnEmptyVariableIsRefusedAndNothingIsSentOrRecorded(): void
+    {
+        $this->resendVariables = $this->formReturning('Oi ', ['2', '3']);
+        $metadata              = ['n8ndispatch' => ['status' => 'production', 'variables' => ['1' => 'Ana'], 'response' => [], 'httpStatusCode' => 400], 'failed' => 1];
+        [$resender, , $log, $http, $em] = $this->resenderAnswering(200, '{"logSendHsmId":1}', metadata: $metadata, callbacks: []);
+        $http->expects($this->never())->method('request');
+        $em->expects($this->never())->method('flush');
+
+        $result = $resender->resend(140, 'a@b.com', ['1' => 'Ana', '2' => '']);
+
+        $this->assertSame(['ok' => false, 'message' => 'Fill in every variable before resending. No value: 2, 3'], $result);
+        $this->assertSame(1, $log->getMetadata()['failed'], 'the log is untouched');
+    }
+
+    public function testADirectEmailResendWithAnEmptyVariableIsRefusedToo(): void
+    {
+        $this->resendVariables = $this->formReturning(null, ['n8n_nome']);
+        [$resender, , $sender] = $this->directResender($this->refusedByMautic());
+        $sender->expects($this->never())->method('send');
+
+        $result = $resender->resend(140, null, ['n8n_nome' => '']);
+
+        $this->assertFalse($result['ok']);
+        $this->assertSame('Fill in every variable before resending. No value: n8n_nome', $result['message']);
+    }
+
+    public function testTheEmptyCheckAsksForTheValuesThatWouldGoOut(): void
+    {
+        $form = $this->createMock(ResendVariables::class);
+        $form->expects($this->once())->method('emptyNames')->with($this->anything(), ['1' => 'Zeca', '9' => 'old'])->willReturn([]);
+        $form->method('smsMessage')->willReturn(null);
+        $this->resendVariables = $form;
+        $metadata              = ['n8ndispatch' => ['status' => 'production', 'variables' => ['1' => 'Ana', '9' => 'old'], 'response' => [], 'httpStatusCode' => 400], 'failed' => 1];
+        [$resender]            = $this->resenderAnswering(200, '{"logSendHsmId":1}', metadata: $metadata, callbacks: []);
+
+        $resender->resend(140, null, ['1' => 'Zeca']);
+    }
+
+    public function testWithoutAFormTheEmptyCheckIsNotMade(): void
+    {
+        $form = $this->createMock(ResendVariables::class);
+        $form->expects($this->never())->method('emptyNames');
+        $this->resendVariables = $form;
+        $metadata              = ['n8ndispatch' => ['status' => 'production', 'variables' => ['1' => ''], 'response' => [], 'httpStatusCode' => 400], 'failed' => 1];
+        [$resender]            = $this->resenderAnswering(200, '{"logSendHsmId":1}', metadata: $metadata, callbacks: []);
+
+        $this->assertTrue($resender->resend(140, null)['ok']);
     }
 
     public function testWithoutAFormTheBodyGoesOutAsItWas(): void
