@@ -56,7 +56,7 @@ class ResendVariables
         $values  = $this->resolver->resolveAll($mapping, $log->getLead(), $log->getEvent()->getCampaign(), $source['separator'], $source['language']);
         $names   = $this->namesOf($source, $mapping);
         $first   = $this->firstOf($log);
-        $rows  = [];
+        $rows    = [];
 
         foreach ($names as $name) {
             $current = $values[$name] ?? '';
@@ -90,7 +90,7 @@ class ResendVariables
     }
 
     /**
-     * The variables of the template that have no value (empty or only spaces) in the values that would go out. A resend
+     * The variables of the template that have no value (empty or only whitespace) in the values that would go out. A resend
      * with one of them is refused: the template needs every variable it names.
      *
      * @param array<string, mixed> $variables
@@ -104,8 +104,17 @@ class ResendVariables
 
         return array_values(array_filter(
             $names,
-            static fn (string $name): bool => !is_scalar($variables[$name] ?? null) || '' === trim((string) $variables[$name])
+            static fn (string $name): bool => !is_scalar($variables[$name] ?? null) || self::isBlank((string) $variables[$name])
         ));
+    }
+
+    /**
+     * Nothing but whitespace, the Unicode kind too (a no-break space pasted from a document): the same test as
+     * Mautic.n8ndispatchValidateResend in the browser (JS `\s`), so both layers agree on what is empty.
+     */
+    private static function isBlank(string $value): bool
+    {
+        return 1 === preg_match('/^[\p{Z}\s\x{FEFF}]*$/u', $value);
     }
 
     /**
