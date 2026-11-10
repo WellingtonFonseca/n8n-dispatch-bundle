@@ -8,7 +8,7 @@ use MauticPlugin\N8nDispatchBundle\Entity\HsmTemplate;
 use PHPUnit\Framework\TestCase;
 use Symfony\Component\Validator\Validation;
 
-class HsmTemplateCarouselTest extends TestCase
+class HsmTemplateCardsTest extends TestCase
 {
     private const MIN = 'mautic.n8ndispatch.hsmtemplate.error.cards_min';
     private const GAP = 'mautic.n8ndispatch.hsmtemplate.error.cards_gap';

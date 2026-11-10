@@ -571,7 +571,8 @@ a[data-n8n-status-action]:hover * {
     margin: 0 0 8px;
 }
 
-/* HSM type Image: one input of the carousel's block, named by the heading, not by "Card 1". */
+/* HSM type Image: one input of the carousel's block, named by the heading, not by "Card 1". The selectors read the markup of
+   Resources/views/HsmTemplate/form.html.twig (one .col-xs-6 per card, label.control-label): change them together. */
 .n8ndispatch-cards-label-single,
 .n8ndispatch-cards-single .n8ndispatch-cards-label-multi,
 .n8ndispatch-cards-single .col-xs-6:not(:first-child),

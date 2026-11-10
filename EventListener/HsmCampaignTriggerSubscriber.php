@@ -187,8 +187,9 @@ class HsmCampaignTriggerSubscriber extends AbstractTemplateDispatchSubscriber
             'variables'                     => $variables,
         ];
 
-        // Carousel and image only: [{card_index, header_image_link}, ...], card_index being the image's position.
-        if (in_array($step['type'], [HsmTemplate::TYPE_CAROUSEL, HsmTemplate::TYPE_IMAGE], true)) {
+        // Carousel and image only (step() leaves [] for the other types): [{card_index, header_image_link}, ...],
+        // card_index being the image's position.
+        if ([] !== $step['cards']) {
             $payload['cards'] = $step['cards'];
         }
 

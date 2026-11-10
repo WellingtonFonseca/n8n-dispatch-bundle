@@ -7,7 +7,7 @@ namespace MauticPlugin\N8nDispatchBundle\Entity;
 use Doctrine\ORM\Mapping as ORM;
 use Mautic\CoreBundle\Doctrine\Mapping\ClassMetadataBuilder;
 use Mautic\CoreBundle\Entity\FormEntity;
-use MauticPlugin\N8nDispatchBundle\Entity\Validation\CarouselCards;
+use MauticPlugin\N8nDispatchBundle\Entity\Validation\HsmCards;
 use MauticPlugin\N8nDispatchBundle\Entity\Validation\MappedVariables;
 use MauticPlugin\N8nDispatchBundle\Entity\Validation\NumericVariables;
 use MauticPlugin\N8nDispatchBundle\Resolver\LocaleConventions;
@@ -42,15 +42,13 @@ class HsmTemplate extends FormEntity
 {
     public const TABLE_NAME = 'n8n_dispatch_hsm_templates';
 
-    // WhatsApp HSM sends come in several shapes (text, image, carousel,
-    // ...) — 'text' and 'carousel' are wired up for now (Form/Type/
-    // HsmTemplateType.php offers no other choice yet), added ahead of the others so 'type'
-    // already reaches the dispatch payload ('hsm_type') as the other
-    // shapes are built out later, without another schema/payload change.
+    // WhatsApp HSM sends come in several shapes. 'text', 'image' and 'carousel' are wired up
+    // (Form/Type/HsmTemplateType.php offers no other choice yet); 'type' reaches the dispatch
+    // payload ('hsm_type') so a new shape needs no schema or payload change.
     public const TYPE_TEXT = 'text';
 
     // Carousel: the template also carries the image URL of each card (up to
-    // CARD_SLOTS, at least CarouselCards::MIN_CARDS), sent as 'cards'.
+    // CARD_SLOTS, at least HsmCards::MIN_CARDS), sent as 'cards'.
     public const TYPE_CAROUSEL = 'carousel';
 
     // Image: one image URL, kept in the first card slot and sent like a carousel with one card.
@@ -78,7 +76,7 @@ class HsmTemplate extends FormEntity
 
     /**
      * Always CARD_SLOTS image URLs, '' for an empty slot — the form's inputs one to one. Only read for the carousel
-     * type. Null on rows saved before the carousel existed (the column is NULL there, and Doctrine writes that
+     * and image types. Null on rows saved before the carousel existed (the column is NULL there, and Doctrine writes that
      * straight into the property), read through getCards().
      *
      * @var list<string>|null
@@ -176,7 +174,7 @@ class HsmTemplate extends FormEntity
         // Every placeholder needs a filled-in source on the variable rows below the text.
         $metadata->addPropertyConstraint('text', new Assert\Callback([MappedVariables::class, 'validate']));
 
-        $metadata->addConstraint(new Assert\Callback([CarouselCards::class, 'validate']));
+        $metadata->addConstraint(new Assert\Callback([HsmCards::class, 'validate']));
     }
 
     public function getId(): ?int
