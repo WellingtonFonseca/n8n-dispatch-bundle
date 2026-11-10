@@ -60,7 +60,7 @@
     var CARDS = '#n8ndispatch-hsm-cards';
 
     // The first thing wrong with the carousel's image inputs, as text (or '' when nothing is): the same rules, in the
-    // same order, as CarouselCards in PHP. texts carry the %filled%/%blank%/%card% placeholders of the messages
+    // same order, as HsmCards in PHP. texts carry the %filled%/%blank%/%card% placeholders of the messages
     // shown when a save is refused; the minimum is a plain reminder, on screen until two images are in.
     function cardsProblem(values, texts) {
         var blankAt = 0;
@@ -90,7 +90,7 @@
     }
 
     // Type Image: only the first input counts (the others are hidden and may hold what a carousel left). Same
-    // rules as CarouselCards::validateImage in PHP.
+    // rules as HsmCards::validateImage in PHP.
     function imageProblem(values, texts) {
         var url = String(values[0] || '').trim();
 
@@ -131,7 +131,8 @@
     // the right state (and with the alert bound).
     Mautic.n8nDispatchOnHsmTypeChange = function (el) {
         currentType = mQuery(el).val();
-        mQuery(CARDS).toggle('carousel' === currentType || 'image' === currentType).toggleClass('n8ndispatch-cards-single', 'image' === currentType);
+        var single  = 'image' === currentType;
+        mQuery(CARDS).toggle(single || 'carousel' === currentType).toggleClass('n8ndispatch-cards-single', single);
         mQuery(CARDS).off('input.cardsalert change.cardsalert').on('input.cardsalert change.cardsalert', 'input', updateCardsAlert);
         updateCardsAlert();
     };
