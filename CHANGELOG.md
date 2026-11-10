@@ -10,6 +10,8 @@ Um bloco por dia, do mais novo para o mais antigo. Formato fixo: `## AAAA-MM-DD`
 - Alerta de bounce: quando os bounces chegam a 10% dos Emails enviados na última hora, com pelo menos 20 Emails
 - Alerta quando uma execução do poll de status termina com erro e quando um reenvio falha de novo
 - Os limites (porcentagens, janela e mínimos) ficam na aba Alertas. A aba vem desligada
+- A aba Alertas ganhou o campo Nome desta instância. O nome vai em todo alerta, no campo instance, para o n8n dizer no Teams qual instância tem o problema
+- A aba Histórico de mudanças passou a ser a última aba da tela do plugin
 
 ## 2026-11-09
 - Reenviar um disparo agora abre uma tela com as variáveis do template: o valor do primeiro envio e, num campo que você pode corrigir, o valor de hoje do contato. Assim uma variável que foi mapeada depois da falha entra no reenvio
