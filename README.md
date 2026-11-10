@@ -168,7 +168,7 @@ be in production, and honours the Do Not Contact list. An accepted resend also r
 
 ### Alerts
 
-Settings > Plugins > N8N Dispatch > tab **Alertas** (off by default) posts an alert to the same webhook, with the header `X-N8n-Dispatch-Action: alert.<name>` and the body `{alert, occurred_at, data}`. Route it in n8n (Teams, email, WhatsApp).
+Settings > Plugins > N8N Dispatch > tab **Alertas** (off by default) posts an alert to the same webhook, with the header `X-N8n-Dispatch-Action: alert.<name>` and the body `{alert, instance, occurred_at, data}` (`instance` is the field "Nome desta instância" of the tab, empty when not filled: n8n names the instance in the message). Route it in n8n (Teams, email, WhatsApp).
 
 | Header | When |
 |---|---|
