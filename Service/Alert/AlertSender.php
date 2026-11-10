@@ -48,7 +48,9 @@ class AlertSender
      */
     private function sendOnce(string $type, array $data, ?string $onceKey, int $cooldownSeconds): bool
     {
-        if (!$this->settings->current()['enabled']) {
+        $settings = $this->settings->current();
+
+        if (!$settings['enabled']) {
             return false;
         }
 
@@ -56,7 +58,7 @@ class AlertSender
             return false;
         }
 
-        if ($this->post($type, $data)) {
+        if ($this->post($type, $data, $settings['instanceName'])) {
             return true;
         }
 
@@ -70,7 +72,7 @@ class AlertSender
     /**
      * @param array<string, mixed> $data
      */
-    private function post(string $type, array $data): bool
+    private function post(string $type, array $data, string $instanceName): bool
     {
         $webhook = WebhookSettings::forAction($this->integrationHelper, 'alert.'.$type);
 
@@ -84,7 +86,7 @@ class AlertSender
             $status = $this->httpClient->request('POST', $webhook['url'], [
                 'headers' => $webhook['headers'],
                 'timeout' => self::TIMEOUT_SECONDS,
-                'json'    => ['alert' => $type, 'occurred_at' => (new \DateTimeImmutable())->format(\DATE_ATOM), 'data' => $data],
+                'json'    => ['alert' => $type, 'instance' => $instanceName, 'occurred_at' => (new \DateTimeImmutable())->format(\DATE_ATOM), 'data' => $data],
             ])->getStatusCode();
         } catch (\Throwable $e) {
             $this->logger->error('N8nDispatch: alert alert.'.$type.' failed: '.$e->getMessage());

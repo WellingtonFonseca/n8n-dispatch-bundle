@@ -15,7 +15,7 @@ class AlertSettingsTest extends TestCase
     public function testTheChannelIsOffWithTheDefaultsUntilSomeoneTurnsItOn(): void
     {
         $this->assertSame(
-            ['enabled' => false, 'warningPercent' => 5, 'warningMinContacts' => 20, 'bouncePercent' => 10, 'bounceWindow' => 60, 'bounceMinSends' => 20],
+            ['enabled' => false, 'instanceName' => '', 'warningPercent' => 5, 'warningMinContacts' => 20, 'bouncePercent' => 10, 'bounceWindow' => 60, 'bounceMinSends' => 20],
             AlertSettings::fromArray([])
         );
     }
@@ -23,11 +23,20 @@ class AlertSettingsTest extends TestCase
     public function testTheStoredValuesAreRead(): void
     {
         $current = AlertSettings::fromArray([
-            AlertSettings::KEY_ENABLED => '1', AlertSettings::KEY_WARNING_PERCENT => '7', AlertSettings::KEY_WARNING_MIN => '50',
+            AlertSettings::KEY_ENABLED => '1', AlertSettings::KEY_INSTANCE_NAME => '  Mautic Compras  ', AlertSettings::KEY_WARNING_PERCENT => '7', AlertSettings::KEY_WARNING_MIN => '50',
             AlertSettings::KEY_BOUNCE_PERCENT => '15', AlertSettings::KEY_BOUNCE_WINDOW => '120', AlertSettings::KEY_BOUNCE_MIN_SENDS => '300',
         ]);
 
-        $this->assertSame(['enabled' => true, 'warningPercent' => 7, 'warningMinContacts' => 50, 'bouncePercent' => 15, 'bounceWindow' => 120, 'bounceMinSends' => 300], $current);
+        $this->assertSame(['enabled' => true, 'instanceName' => 'Mautic Compras', 'warningPercent' => 7, 'warningMinContacts' => 50, 'bouncePercent' => 15, 'bounceWindow' => 120, 'bounceMinSends' => 300], $current);
+    }
+
+    public function testTheInstanceNameIsCutAtTheLimitAndANonTextIsEmpty(): void
+    {
+        $long = AlertSettings::fromArray([AlertSettings::KEY_INSTANCE_NAME => str_repeat('é', 101)]);
+
+        $this->assertSame(str_repeat('é', 100), $long['instanceName']);
+        $this->assertSame('', AlertSettings::fromArray([AlertSettings::KEY_INSTANCE_NAME => ['x']])['instanceName']);
+        $this->assertSame('', AlertSettings::fromArray([AlertSettings::KEY_INSTANCE_NAME => '   '])['instanceName']);
     }
 
     public function testValuesOutsideTheLimitsAreClamped(): void

@@ -37,7 +37,7 @@ class AlertSenderTest extends TestCase
     /**
      * @param array<string, string> $keys
      */
-    private function sender(bool $enabled = true, int $status = 200, array $keys = ['webhook_url' => 'https://n8n.test/hook', 'webhook_token' => 'tok'], bool $published = true, bool $throws = false): AlertSender
+    private function sender(bool $enabled = true, int $status = 200, array $keys = ['webhook_url' => 'https://n8n.test/hook', 'webhook_token' => 'tok'], bool $published = true, bool $throws = false, string $instance = ''): AlertSender
     {
         $integrationSettings = $this->createStub(Integration::class);
         $integrationSettings->method('isPublished')->willReturn($published);
@@ -48,7 +48,7 @@ class AlertSenderTest extends TestCase
         $helper->method('getIntegrationObject')->willReturn($integration);
 
         $settings = $this->createStub(AlertSettings::class);
-        $settings->method('current')->willReturn(AlertSettings::fromArray([AlertSettings::KEY_ENABLED => $enabled ? 1 : 0]));
+        $settings->method('current')->willReturn(AlertSettings::fromArray([AlertSettings::KEY_ENABLED => $enabled ? 1 : 0, AlertSettings::KEY_INSTANCE_NAME => $instance]));
 
         $client = new MockHttpClient(function (string $method, string $url, array $options) use ($status, $throws): MockResponse {
             $this->requests[] = ['method' => $method, 'url' => $url, 'options' => $options];
@@ -78,6 +78,22 @@ class AlertSenderTest extends TestCase
         $this->assertSame(['campaign' => ['id' => 9]], $body['data']);
         $this->assertNotFalse(\DateTimeImmutable::createFromFormat(\DATE_ATOM, $body['occurred_at']));
         $this->assertSame(10.0, (float) $this->requests[0]['options']['timeout']);
+    }
+
+    public function testTheAlertCarriesTheNameOfTheInstanceBesideTheType(): void
+    {
+        $this->sender(instance: 'Mautic Compras')->send('status_poll.failed', ['run_id' => 3]);
+
+        $body = json_decode($this->requests[0]['options']['body'], true);
+        $this->assertSame('Mautic Compras', $body['instance']);
+        $this->assertSame('status_poll.failed', $body['alert']);
+    }
+
+    public function testWithoutAnInstanceNameTheFieldGoesOutEmpty(): void
+    {
+        $this->sender()->send('status_poll.failed', []);
+
+        $this->assertSame('', json_decode($this->requests[0]['options']['body'], true)['instance']);
     }
 
     public function testWithTheChannelOffNothingIsSentAndNothingIsClaimed(): void
