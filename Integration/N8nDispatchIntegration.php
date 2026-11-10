@@ -9,6 +9,8 @@ use Mautic\CoreBundle\Form\Type\YesNoButtonGroupType;
 use Mautic\PluginBundle\Integration\AbstractIntegration;
 use MauticPlugin\N8nDispatchBundle\Entity\PollRun;
 use MauticPlugin\N8nDispatchBundle\Form\Type\VisiblePasswordType;
+use MauticPlugin\N8nDispatchBundle\Service\Alert\AlertSettings;
+use MauticPlugin\N8nDispatchBundle\Service\Alert\AlertSettingsForm;
 use MauticPlugin\N8nDispatchBundle\Service\Changelog;
 use MauticPlugin\N8nDispatchBundle\Service\EmailSendMode;
 use MauticPlugin\N8nDispatchBundle\Service\StatusPollSettings;
@@ -180,6 +182,8 @@ class N8nDispatchIntegration extends AbstractIntegration
         ]);
 
         $this->addCheckNowButton($builder);
+
+        AlertSettingsForm::addTo($builder, AlertSettings::fromArray(is_array($data) ? $data : []), $this->translator->trans('mautic.n8ndispatch.settings.alerts.tab'));
     }
 
     /**
