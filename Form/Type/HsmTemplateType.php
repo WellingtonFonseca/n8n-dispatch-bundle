@@ -103,18 +103,18 @@ class HsmTemplateType extends AbstractType
             ],
         ]);
 
-        // WhatsApp HSM sends come in several shapes (text, image, carousel,
-        // ...) — only 'text' is wired up so far; see Entity/HsmTemplate.php's
-        // own TYPE_TEXT docblock for why the field exists ahead of the rest.
+        // WhatsApp HSM sends come in several shapes (text, image, carousel); see
+        // Entity/HsmTemplate.php's own TYPE_TEXT docblock.
         // Placed last on the screen, after router/hsmTemplate: on request.
         $builder->add('type', ChoiceType::class, [
             'label'      => 'mautic.n8ndispatch.campaign.event.hsm.type',
             'label_attr' => ['class' => 'control-label'],
             'choices'    => [
                 'mautic.n8ndispatch.hsmtemplate.type.text'     => HsmTemplate::TYPE_TEXT,
+                'mautic.n8ndispatch.hsmtemplate.type.image'    => HsmTemplate::TYPE_IMAGE,
                 'mautic.n8ndispatch.hsmtemplate.type.carousel' => HsmTemplate::TYPE_CAROUSEL,
             ],
-            // Shows the carousel's image inputs only for the carousel type, see campaign-hsm-dispatch.js.
+            // Shows the image inputs only for the carousel (all) and image (the first) types, see campaign-hsm-dispatch.js.
             'attr' => [
                 'class'                => 'form-control',
                 'onchange'             => 'Mautic.n8nDispatchOnHsmTypeChange(this)',
@@ -126,7 +126,7 @@ class HsmTemplateType extends AbstractType
         ]);
 
         // The carousel's image URLs: always CARD_SLOTS inputs, kept raw (a URL must reach n8n as typed). Which
-        // ones are filled, and in what order, is checked by Entity/Validation/CarouselCards.php.
+        // ones are filled, and in what order, is checked by Entity/Validation/HsmCards.php.
         $builder->add('cards', CollectionType::class, [
             'entry_type'    => TextType::class,
             'entry_options' => [
@@ -136,7 +136,7 @@ class HsmTemplateType extends AbstractType
             ],
             'allow_add'    => false,
             'allow_delete' => false,
-            // The cards' problems (Entity/Validation/CarouselCards.php) are shown by the alert above the inputs
+            // The cards' problems (Entity/Validation/HsmCards.php) are shown by the alert above the inputs
             // (campaign-hsm-dispatch.js), not as an error at the top of the form, which bubbling would give.
             'error_bubbling' => false,
             'required'     => false,
