@@ -112,9 +112,10 @@ class HsmTemplateType extends AbstractType
             'label_attr' => ['class' => 'control-label'],
             'choices'    => [
                 'mautic.n8ndispatch.hsmtemplate.type.text'     => HsmTemplate::TYPE_TEXT,
+                'mautic.n8ndispatch.hsmtemplate.type.image'    => HsmTemplate::TYPE_IMAGE,
                 'mautic.n8ndispatch.hsmtemplate.type.carousel' => HsmTemplate::TYPE_CAROUSEL,
             ],
-            // Shows the carousel's image inputs only for the carousel type, see campaign-hsm-dispatch.js.
+            // Shows the image inputs only for the carousel (all) and image (the first) types, see campaign-hsm-dispatch.js.
             'attr' => [
                 'class'                => 'form-control',
                 'onchange'             => 'Mautic.n8nDispatchOnHsmTypeChange(this)',

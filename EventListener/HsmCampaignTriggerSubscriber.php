@@ -159,7 +159,7 @@ class HsmCampaignTriggerSubscriber extends AbstractTemplateDispatchSubscriber
             $hsmType       = $template->getType();
             $variablesJson = (string) ($template->getVariablesJson() ?? '{}');
             $language      = $template->getLanguage();
-            $cards         = HsmTemplate::TYPE_CAROUSEL === $hsmType ? $template->getCardsPayload() : [];
+            $cards         = $template->usesCards() ? $template->getCardsPayload() : [];
         }
 
         return ['router' => $router, 'hsmTemplate' => $hsmTemplate, 'type' => $hsmType, 'variablesJson' => $variablesJson, 'language' => $language, 'cards' => $cards];
@@ -187,8 +187,8 @@ class HsmCampaignTriggerSubscriber extends AbstractTemplateDispatchSubscriber
             'variables'                     => $variables,
         ];
 
-        // Carousel only: [{card_index, header_image_link}, ...], card_index being the image's position.
-        if (HsmTemplate::TYPE_CAROUSEL === $step['type']) {
+        // Carousel and image only: [{card_index, header_image_link}, ...], card_index being the image's position.
+        if (in_array($step['type'], [HsmTemplate::TYPE_CAROUSEL, HsmTemplate::TYPE_IMAGE], true)) {
             $payload['cards'] = $step['cards'];
         }
 

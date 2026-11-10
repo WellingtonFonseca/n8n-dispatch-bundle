@@ -89,6 +89,20 @@
         return filled < 2 ? String(texts.min) : '';
     }
 
+    // Type Image: only the first input counts (the others are hidden and may hold what a carousel left). Same
+    // rules as CarouselCards::validateImage in PHP.
+    function imageProblem(values, texts) {
+        var url = String(values[0] || '').trim();
+
+        if ('' === url) {
+            return String(texts.image);
+        }
+
+        return /^https:\/\/\S+$/i.test(url) ? '' : String(texts.url);
+    }
+
+    var currentType = '';
+
     // The alert between the help text and the inputs, following what is typed (same look as the variables alert).
     function updateCardsAlert() {
         var values = [];
@@ -97,7 +111,9 @@
         });
 
         var config  = mQuery(CARDS);
-        var problem = cardsProblem(values, {min: config.data('min-text'), gap: config.data('gap-text'), url: config.data('url-text')});
+        var problem = 'image' === currentType
+            ? imageProblem(values, {image: config.data('image-text'), url: config.data('image-url-text')})
+            : cardsProblem(values, {min: config.data('min-text'), gap: config.data('gap-text'), url: config.data('url-text')});
         var $alert  = mQuery('#n8ndispatch-hsm-cards-alert');
 
         $alert.html('');
@@ -108,11 +124,14 @@
     }
 
     Mautic.n8nDispatchCardsProblem = cardsProblem;
+    Mautic.n8nDispatchImageProblem = imageProblem;
 
-    // Shows the carousel's image inputs only while the type is "carousel" (Resources/views/HsmTemplate/form.html.twig).
-    // Also the type select's data-onload-callback, so the page opens in the right state (and with the alert bound).
+    // Shows the image inputs only while the type is "carousel" (all of them) or "image" (the first), see
+    // Resources/views/HsmTemplate/form.html.twig. Also the type select's data-onload-callback, so the page opens in
+    // the right state (and with the alert bound).
     Mautic.n8nDispatchOnHsmTypeChange = function (el) {
-        mQuery(CARDS).toggle(mQuery(el).val() === 'carousel');
+        currentType = mQuery(el).val();
+        mQuery(CARDS).toggle('carousel' === currentType || 'image' === currentType).toggleClass('n8ndispatch-cards-single', 'image' === currentType);
         mQuery(CARDS).off('input.cardsalert change.cardsalert').on('input.cardsalert change.cardsalert', 'input', updateCardsAlert);
         updateCardsAlert();
     };

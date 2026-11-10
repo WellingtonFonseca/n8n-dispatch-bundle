@@ -53,6 +53,9 @@ class HsmTemplate extends FormEntity
     // CARD_SLOTS, at least CarouselCards::MIN_CARDS), sent as 'cards'.
     public const TYPE_CAROUSEL = 'carousel';
 
+    // Image: one image URL, kept in the first card slot and sent like a carousel with one card.
+    public const TYPE_IMAGE = 'image';
+
     public const CARD_SLOTS = 10;
 
     private ?int $id = null;
@@ -312,17 +315,24 @@ class HsmTemplate extends FormEntity
         return $this;
     }
 
+    public function usesCards(): bool
+    {
+        return in_array($this->type, [self::TYPE_CAROUSEL, self::TYPE_IMAGE], true);
+    }
+
     /**
      * What goes to n8n: the filled cards, card_index being the slot's position (the validator guarantees the
-     * filled slots are the first ones, with no hole).
+     * filled slots are the first ones, with no hole). The image type sends only the first slot: the others may
+     * hold what a carousel left there.
      *
      * @return list<array{card_index: int, header_image_link: string}>
      */
     public function getCardsPayload(): array
     {
         $cards = [];
+        $slots = self::TYPE_IMAGE === $this->type ? array_slice($this->getCards(), 0, 1) : $this->getCards();
 
-        foreach ($this->getCards() as $index => $url) {
+        foreach ($slots as $index => $url) {
             if ('' !== $url) {
                 $cards[] = ['card_index' => $index, 'header_image_link' => $url];
             }

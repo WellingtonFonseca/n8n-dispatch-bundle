@@ -11,7 +11,8 @@ function load() {
     const mQuery = (arg) => {
         if (typeof arg === 'string') {
             const chain = {
-                toggle: (visible) => shown.push({selector: arg, visible}),
+                toggle: (visible) => { shown.push({selector: arg, visible}); return chain; },
+                toggleClass: () => chain,
                 data: () => '', val: () => '', html: () => chain, append: () => chain, text: () => chain,
                 off: () => chain, on: () => chain, each: () => chain,
             };
@@ -32,6 +33,12 @@ function load() {
 test('the cards show for the carousel type', () => {
     const {Mautic, shown} = load();
     Mautic.n8nDispatchOnHsmTypeChange({value: 'carousel'});
+    assert.deepStrictEqual(shown, [{selector: '#n8ndispatch-hsm-cards', visible: true}]);
+});
+
+test('the cards show for the image type', () => {
+    const {Mautic, shown} = load();
+    Mautic.n8nDispatchOnHsmTypeChange({value: 'image'});
     assert.deepStrictEqual(shown, [{selector: '#n8ndispatch-hsm-cards', visible: true}]);
 });
 
@@ -81,7 +88,7 @@ function loadWithInputs(values, config) {
             return {text: (t) => ({alert: t})};
         }
         const chain = {
-            toggle: () => chain, off: () => chain, on: () => chain,
+            toggle: () => chain, toggleClass: () => chain, off: () => chain, on: () => chain,
             data: (key) => config[key],
             val: () => '',
             each: (fn) => { values.forEach((v) => fn.call({value: v})); return chain; },
@@ -118,4 +125,27 @@ test('a new carousel opens with the minimum reminder', () => {
     const {Mautic, alertTexts} = loadWithInputs(['', '', '', '', '', '', '', '', '', ''], CONFIG);
     Mautic.n8nDispatchOnHsmTypeChange({value: 'carousel'});
     assert.deepStrictEqual(alertTexts, ['Fill at least 2']);
+});
+
+test('a new image template opens asking for the image, whatever the other inputs hold', () => {
+    const config = Object.assign({}, CONFIG, {'image-text': 'Fill in the image', 'image-url-text': 'Image must be https'});
+    const {Mautic, alertTexts} = loadWithInputs(['', A, A, '', '', '', '', '', '', ''], config);
+    Mautic.n8nDispatchOnHsmTypeChange({value: 'image'});
+    assert.deepStrictEqual(alertTexts, ['Fill in the image']);
+});
+
+test('an image template with its image and stale carousel inputs shows no alert', () => {
+    const config = Object.assign({}, CONFIG, {'image-text': 'Fill in the image', 'image-url-text': 'Image must be https'});
+    const {Mautic, alertTexts} = loadWithInputs([A, 'garbage', '', '', '', '', '', '', '', ''], config);
+    Mautic.n8nDispatchOnHsmTypeChange({value: 'image'});
+    assert.deepStrictEqual(alertTexts, []);
+});
+
+const IMAGE_TEXTS = {image: 'Fill in the image', url: 'Image must be https'};
+
+test('the image alert asks for the image, then checks the URL, and ignores the other inputs', () => {
+    const {Mautic} = load();
+    assert.strictEqual(Mautic.n8nDispatchImageProblem(['', 'x'], IMAGE_TEXTS), 'Fill in the image');
+    assert.strictEqual(Mautic.n8nDispatchImageProblem(['http://x.test/a.png'], IMAGE_TEXTS), 'Image must be https');
+    assert.strictEqual(Mautic.n8nDispatchImageProblem([A, 'garbage'], IMAGE_TEXTS), '');
 });
