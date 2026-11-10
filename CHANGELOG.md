@@ -3,6 +3,7 @@
 Um bloco por dia, do mais novo para o mais antigo. Formato fixo: `## AAAA-MM-DD` e uma linha `- ` por mudança (a tela do plugin lê este arquivo).
 
 ## 2026-11-10
+- Novo tipo de HSM, Imagem: o template envia uma única imagem (um link https) no cabeçalho da mensagem. O formulário mostra um campo só, com o aviso enquanto o link não está certo. O n8n recebe hsm_type image e a imagem em cards, com um item
 - Nova aba Alertas nas configurações do plugin. Ligada, ela envia ao n8n, pelo mesmo webhook dos disparos, um alerta quando algo dá errado. No n8n você escolhe por onde avisar: Teams, email, WhatsApp
 - Alerta quando o Mautic despublica uma campanha por falhas, com a campanha, o passo, a quantidade de falhas e o último motivo
 - Aviso antes disso, quando um passo falha em 5% dos contatos (campanhas com menos de 20 contatos não recebem o aviso, porque caem de uma vez)

@@ -24,7 +24,9 @@
         <strong>{{ 'mautic.n8ndispatch.campaign.event.hsm.template'|trans }}:</strong> {{ entity.hsmTemplate }}<br/>
         <strong>{{ 'mautic.n8ndispatch.campaign.event.hsm.type'|trans }}:</strong> {{ ('mautic.n8ndispatch.hsmtemplate.type.' ~ entity.type)|trans }}<br/>
     </p>
-    {% if entity.type == 'carousel' %}
+    {% if entity.type == 'image' %}
+        <p><strong>{{ 'mautic.n8ndispatch.hsmtemplate.image.label'|trans }}:</strong> <a href="{{ entity.cards[0] }}" target="_blank" rel="noopener noreferrer">{{ entity.cards[0] }}</a></p>
+    {% elseif entity.type == 'carousel' %}
         <p class="n8ndispatch-template-label"><strong>{{ 'mautic.n8ndispatch.hsmtemplate.cards.label'|trans }}:</strong></p>
         <ul class="list-unstyled">
             {% for url in entity.cards|filter(u => u) %}
