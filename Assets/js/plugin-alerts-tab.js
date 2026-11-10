@@ -31,9 +31,16 @@
             }
         });
 
-        $('<li id="n8ndispatch-alerts-tab"></li>')
-            .append($('<a role="tab" data-toggle="tab"></a>').attr('href', '#' + PANE_ID).text($first.attr('data-tab-label')))
-            .appendTo($tabs);
+        var $tab = $('<li id="n8ndispatch-alerts-tab"></li>')
+            .append($('<a role="tab" data-toggle="tab"></a>').attr('href', '#' + PANE_ID).text($first.attr('data-tab-label')));
+        // the change log is always the last tab, whichever script runs first (its own script appends it at the end)
+        var $changelog = $tabs.children('#n8ndispatch-changelog-tab');
+
+        if ($changelog.length) {
+            $tab.insertBefore($changelog);
+        } else {
+            $tab.appendTo($tabs);
+        }
 
         $pane.appendTo($content);
     };

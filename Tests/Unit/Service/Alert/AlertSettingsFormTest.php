@@ -9,6 +9,7 @@ use MauticPlugin\N8nDispatchBundle\Service\Alert\AlertSettings;
 use MauticPlugin\N8nDispatchBundle\Service\Alert\AlertSettingsForm;
 use PHPUnit\Framework\TestCase;
 use Symfony\Component\Form\Extension\Core\Type\IntegerType;
+use Symfony\Component\Form\Extension\Core\Type\TextType;
 use Symfony\Component\Form\FormBuilderInterface;
 
 class AlertSettingsFormTest extends TestCase
@@ -23,10 +24,10 @@ class AlertSettingsFormTest extends TestCase
             return $builder;
         });
 
-        AlertSettingsForm::addTo($builder, AlertSettings::fromArray([AlertSettings::KEY_ENABLED => 1, AlertSettings::KEY_BOUNCE_WINDOW => 90]), 'Alertas');
+        AlertSettingsForm::addTo($builder, AlertSettings::fromArray([AlertSettings::KEY_ENABLED => 1, AlertSettings::KEY_INSTANCE_NAME => 'Mautic Vendas', AlertSettings::KEY_BOUNCE_WINDOW => 90]), 'Alertas');
 
         $this->assertSame(
-            [AlertSettings::KEY_ENABLED, AlertSettings::KEY_WARNING_PERCENT, AlertSettings::KEY_WARNING_MIN, AlertSettings::KEY_BOUNCE_PERCENT, AlertSettings::KEY_BOUNCE_WINDOW, AlertSettings::KEY_BOUNCE_MIN_SENDS],
+            [AlertSettings::KEY_ENABLED, AlertSettings::KEY_INSTANCE_NAME, AlertSettings::KEY_WARNING_PERCENT, AlertSettings::KEY_WARNING_MIN, AlertSettings::KEY_BOUNCE_PERCENT, AlertSettings::KEY_BOUNCE_WINDOW, AlertSettings::KEY_BOUNCE_MIN_SENDS],
             array_keys($added)
         );
         [$type, $switch] = $added[AlertSettings::KEY_ENABLED];
@@ -40,6 +41,17 @@ class AlertSettingsFormTest extends TestCase
         foreach ($added as $key => [$type, $options]) {
             $this->assertSame('1', $options['attr']['data-alerts-field'], $key);
         }
+
+        [$type, $instance] = $added[AlertSettings::KEY_INSTANCE_NAME];
+        $this->assertSame(TextType::class, $type);
+        $this->assertSame('Mautic Vendas', $instance['data']);
+        $this->assertFalse($instance['required']);
+        $this->assertSame(100, $instance['attr']['maxlength']);
+        $this->assertSame(100, $instance['constraints'][0]->max);
+        $this->assertSame('mautic.n8ndispatch.settings.alerts.instance_name', $instance['label']);
+        $this->assertSame('mautic.n8ndispatch.settings.alerts.instance_name.tooltip', $instance['attr']['tooltip']);
+        $this->assertSame('form-control', $instance['attr']['class']);
+        $this->assertSame(['class' => 'control-label'], $instance['label_attr']);
 
         [$type, $window] = $added[AlertSettings::KEY_BOUNCE_WINDOW];
         $this->assertSame(IntegerType::class, $type);

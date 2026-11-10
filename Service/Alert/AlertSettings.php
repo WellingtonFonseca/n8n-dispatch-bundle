@@ -14,6 +14,7 @@ use MauticPlugin\N8nDispatchBundle\Integration\N8nDispatchIntegration;
 class AlertSettings
 {
     public const KEY_ENABLED            = 'alerts_enabled';
+    public const KEY_INSTANCE_NAME      = 'alert_instance_name';
     public const KEY_WARNING_PERCENT    = 'alert_warning_percent';
     public const KEY_WARNING_MIN        = 'alert_warning_min_contacts';
     public const KEY_BOUNCE_PERCENT     = 'alert_bounce_percent';
@@ -40,12 +41,14 @@ class AlertSettings
 
     public const DEFAULT_BOUNCE_MIN_SENDS = 20;
 
+    public const MAX_INSTANCE_NAME_LENGTH = 100;
+
     public function __construct(private IntegrationHelper $integrationHelper)
     {
     }
 
     /**
-     * @return array{enabled: bool, warningPercent: int, warningMinContacts: int, bouncePercent: int, bounceWindow: int, bounceMinSends: int}
+     * @return array{enabled: bool, instanceName: string, warningPercent: int, warningMinContacts: int, bouncePercent: int, bounceWindow: int, bounceMinSends: int}
      */
     public function current(): array
     {
@@ -58,18 +61,24 @@ class AlertSettings
     /**
      * @param array<string, mixed> $featureSettings
      *
-     * @return array{enabled: bool, warningPercent: int, warningMinContacts: int, bouncePercent: int, bounceWindow: int, bounceMinSends: int}
+     * @return array{enabled: bool, instanceName: string, warningPercent: int, warningMinContacts: int, bouncePercent: int, bounceWindow: int, bounceMinSends: int}
      */
     public static function fromArray(array $featureSettings): array
     {
         return [
             'enabled'            => (bool) (int) ($featureSettings[self::KEY_ENABLED] ?? 0),
+            'instanceName'       => self::instanceName($featureSettings[self::KEY_INSTANCE_NAME] ?? null),
             'warningPercent'     => self::clamp($featureSettings[self::KEY_WARNING_PERCENT] ?? null, self::MIN_WARNING_PERCENT, self::MAX_WARNING_PERCENT, self::DEFAULT_WARNING_PERCENT),
             'warningMinContacts' => self::clamp($featureSettings[self::KEY_WARNING_MIN] ?? null, self::MIN_COUNT, self::MAX_COUNT, self::DEFAULT_WARNING_MIN),
             'bouncePercent'      => self::clamp($featureSettings[self::KEY_BOUNCE_PERCENT] ?? null, self::MIN_BOUNCE_PERCENT, self::MAX_BOUNCE_PERCENT, self::DEFAULT_BOUNCE_PERCENT),
             'bounceWindow'       => self::clamp($featureSettings[self::KEY_BOUNCE_WINDOW] ?? null, self::MIN_BOUNCE_WINDOW, self::MAX_BOUNCE_WINDOW, self::DEFAULT_BOUNCE_WINDOW),
             'bounceMinSends'     => self::clamp($featureSettings[self::KEY_BOUNCE_MIN_SENDS] ?? null, self::MIN_COUNT, self::MAX_COUNT, self::DEFAULT_BOUNCE_MIN_SENDS),
         ];
+    }
+
+    private static function instanceName(mixed $value): string
+    {
+        return is_string($value) ? mb_substr(trim($value), 0, self::MAX_INSTANCE_NAME_LENGTH) : '';
     }
 
     private static function clamp(mixed $value, int $min, int $max, int $default): int

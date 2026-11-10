@@ -6,7 +6,9 @@ namespace MauticPlugin\N8nDispatchBundle\Service\Alert;
 
 use Mautic\CoreBundle\Form\Type\YesNoButtonGroupType;
 use Symfony\Component\Form\Extension\Core\Type\IntegerType;
+use Symfony\Component\Form\Extension\Core\Type\TextType;
 use Symfony\Component\Form\FormBuilderInterface;
+use Symfony\Component\Validator\Constraints\Length;
 use Symfony\Component\Validator\Constraints\Range;
 
 /**
@@ -16,7 +18,7 @@ use Symfony\Component\Validator\Constraints\Range;
 class AlertSettingsForm
 {
     /**
-     * @param array{enabled: bool, warningPercent: int, warningMinContacts: int, bouncePercent: int, bounceWindow: int, bounceMinSends: int} $current
+     * @param array{enabled: bool, instanceName: string, warningPercent: int, warningMinContacts: int, bouncePercent: int, bounceWindow: int, bounceMinSends: int} $current
      */
     public static function addTo(FormBuilderInterface $builder, array $current, string $tabLabel): void
     {
@@ -29,6 +31,20 @@ class AlertSettingsForm
                 'data-tab-label'         => $tabLabel,
                 'data-onload-callback'   => 'n8ndispatchAlertsTab',
             ],
+        ]);
+
+        $builder->add(AlertSettings::KEY_INSTANCE_NAME, TextType::class, [
+            'label'       => 'mautic.n8ndispatch.settings.alerts.instance_name',
+            'data'        => $current['instanceName'],
+            'required'    => false,
+            'label_attr'  => ['class' => 'control-label'],
+            'attr'        => [
+                'class'             => 'form-control',
+                'tooltip'           => 'mautic.n8ndispatch.settings.alerts.instance_name.tooltip',
+                'maxlength'         => AlertSettings::MAX_INSTANCE_NAME_LENGTH,
+                'data-alerts-field' => '1',
+            ],
+            'constraints' => [new Length(max: AlertSettings::MAX_INSTANCE_NAME_LENGTH)],
         ]);
 
         self::number($builder, AlertSettings::KEY_WARNING_PERCENT, $current['warningPercent'], AlertSettings::MIN_WARNING_PERCENT, AlertSettings::MAX_WARNING_PERCENT, 'warning_percent');
