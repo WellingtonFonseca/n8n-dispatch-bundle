@@ -7,6 +7,7 @@ namespace MauticPlugin\N8nDispatchBundle\Tests\Unit\Command;
 use MauticPlugin\N8nDispatchBundle\Command\StatusPollCommand;
 use MauticPlugin\N8nDispatchBundle\Entity\PollRun;
 use MauticPlugin\N8nDispatchBundle\Entity\PollRunRepository;
+use MauticPlugin\N8nDispatchBundle\Service\Alert\AlertSender;
 use MauticPlugin\N8nDispatchBundle\Service\StatusPoller;
 use MauticPlugin\N8nDispatchBundle\Service\StatusPollSettings;
 use PHPUnit\Framework\Attributes\AllowMockObjectsWithoutExpectations;
@@ -105,6 +106,55 @@ class StatusPollCommandTest extends TestCase
 
         $this->assertSame(PollRun::STATUS_ERROR, $run->getStatus());
         $this->assertStringContainsString('boom', (string) $run->getSummary());
+    }
+
+    private function commandWithAlerts(AlertSender $alerts): CommandTester
+    {
+        $settings = $this->createMock(StatusPollSettings::class);
+        $settings->method('current')->willReturn(['enabled' => false, 'interval' => 60, 'batch' => 70, 'timeout' => 180, 'maxDuration' => 300]);
+
+        return new CommandTester(new StatusPollCommand($this->poller, $this->runs, $settings, $alerts));
+    }
+
+    public function testARunThatEndsInErrorRaisesTheStatusPollAlertOncePerSixHours(): void
+    {
+        $run = PollRun::start(new \DateTimeImmutable('2026-10-02 10:00:00'));
+        $this->runs->method('find')->willReturn($run);
+        $this->poller->method('poll')->willReturn($this->summary(0, 'webhook returned HTTP 500.'));
+        $alerts = $this->createMock(AlertSender::class);
+        $alerts->expects($this->once())->method('send')->with(
+            'status_poll.failed',
+            $this->callback(static fn (array $data): bool => str_contains($data['summary'], 'webhook returned HTTP 500.')),
+            'status_poll',
+            21600
+        );
+
+        $this->commandWithAlerts($alerts)->execute(['--run-id' => '7']);
+    }
+
+    public function testARunThatEndsOkRaisesNoAlert(): void
+    {
+        $run = PollRun::start(new \DateTimeImmutable('2026-10-02 10:00:00'));
+        $this->runs->method('find')->willReturn($run);
+        $this->poller->method('poll')->willReturn($this->summary(2));
+        $alerts = $this->createMock(AlertSender::class);
+        $alerts->expects($this->never())->method('send');
+
+        $this->commandWithAlerts($alerts)->execute(['--run-id' => '7']);
+    }
+
+    public function testAnExceptionThatClosesTheRunAsErrorRaisesTheAlertToo(): void
+    {
+        $run = PollRun::start(new \DateTimeImmutable('2026-10-02 10:00:00'));
+        $this->runs->method('find')->willReturn($run);
+        $this->poller->method('poll')->willThrowException(new \RuntimeException('boom'));
+        $alerts = $this->createMock(AlertSender::class);
+        $alerts->expects($this->once())->method('send')->with('status_poll.failed', $this->anything(), 'status_poll', 21600);
+
+        try {
+            $this->commandWithAlerts($alerts)->execute(['--run-id' => '7']);
+        } catch (\RuntimeException) {
+        }
     }
 
     public function testRejectsAnInvalidChannel(): void

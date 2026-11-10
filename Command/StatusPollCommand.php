@@ -7,6 +7,7 @@ namespace MauticPlugin\N8nDispatchBundle\Command;
 use MauticPlugin\N8nDispatchBundle\Entity\DispatchTracking;
 use MauticPlugin\N8nDispatchBundle\Entity\PollRun;
 use MauticPlugin\N8nDispatchBundle\Entity\PollRunRepository;
+use MauticPlugin\N8nDispatchBundle\Service\Alert\AlertSender;
 use MauticPlugin\N8nDispatchBundle\Service\StatusPoller;
 use MauticPlugin\N8nDispatchBundle\Service\StatusPollSettings;
 use Symfony\Component\Console\Attribute\AsCommand;
@@ -25,7 +26,9 @@ use Symfony\Component\Console\Output\OutputInterface;
 #[AsCommand(name: 'n8ndispatch:status:poll', description: 'Asks n8n for the outcome of the Email/SMS/HSM dispatches still pending.')]
 class StatusPollCommand extends Command
 {
-    public function __construct(private StatusPoller $poller, private PollRunRepository $runs, private StatusPollSettings $settings)
+    private const ALERT_COOLDOWN_SECONDS = 21600;
+
+    public function __construct(private StatusPoller $poller, private PollRunRepository $runs, private StatusPollSettings $settings, private ?AlertSender $alerts = null)
     {
         parent::__construct();
     }
@@ -113,5 +116,10 @@ class StatusPollCommand extends Command
 
         $run->finish($status, $summary, new \DateTimeImmutable());
         $this->runs->saveEntity($run);
+
+        if (PollRun::STATUS_ERROR === $status) {
+            // one alert per cooldown: a poll that keeps failing runs every interval
+            $this->alerts?->send('status_poll.failed', ['run_id' => $run->getId(), 'summary' => $summary], 'status_poll', self::ALERT_COOLDOWN_SECONDS);
+        }
     }
 }

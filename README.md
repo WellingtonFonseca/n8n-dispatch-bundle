@@ -166,6 +166,20 @@ response, tracking and callback history with the new ones, with a note of who
 resent it and when; a refused attempt is recorded too. It needs the step to
 be in production, and honours the Do Not Contact list. An accepted resend also removes the red "last error" mark core keeps on the log (the old failure stays in the History table). The campaign shows as `PREFIX - Name` (the prefix of MauticPatchesBundle) in the table, the filter and the details.
 
+### Alerts
+
+Settings > Plugins > N8N Dispatch > tab **Alertas** (off by default) posts an alert to the same webhook, with the header `X-N8n-Dispatch-Action: alert.<name>` and the body `{alert, occurred_at, data}`. Route it in n8n (Teams, email, WhatsApp).
+
+| Header | When |
+|---|---|
+| `alert.campaign.unpublished` | Mautic switched a campaign off after failed steps (a contact counts after 100 failures of the step) |
+| `alert.campaign.failure_warning` | a step failed for the warning percent of the contacts (5%, once a day per campaign, not below 100 contacts: core 7 switches a campaign off at 35% and only with 100 contacts or more) |
+| `alert.campaign.bounce_spike` | bounces reached the bounce percent of the Emails of the window (10%, 1 hour, at least 20 Emails; once every 6 hours per campaign) |
+| `alert.status_poll.failed` | a run of the status poll ended in error (once every 6 hours) |
+| `alert.dispatch.resend_failed` | a Resend failed again |
+
+An alert cannot go out when the integration is off, the webhook is missing or n8n is down (it is logged), and nothing is checked while Mautic's cron is stopped. Details: [wiki/n8n-dispatch-alerts.md](../wiki/n8n-dispatch-alerts.md).
+
 Full architecture, payload formats, and implementation history:
 [wiki/n8n-dispatch-plugin.md](../wiki/n8n-dispatch-plugin.md) — start with
 its "Current state" section.
