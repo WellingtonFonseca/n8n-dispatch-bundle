@@ -226,4 +226,15 @@ class BounceSpikeReaderDbTest extends RollbackDatabaseTestCase
 
         $this->assertSame(33.3, $this->offenders(3, 33)[0]['percent']);
     }
+
+    public function testABounceBeforeTheStepIsNotABounceOfTheStep(): void
+    {
+        $campaign = $this->campaign();
+        $step     = $this->step($campaign);
+        $lead     = $this->lead();
+        $this->sendTo($campaign, $step, $lead, '2026-03-10 11:00:00');
+        $this->dnc($lead, 2, 'email', '2026-03-10 10:30:00'); // in the window, but before the send
+
+        $this->assertSame([], $this->offenders(1, 1));
+    }
 }

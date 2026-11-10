@@ -33,6 +33,21 @@ class AlertSender
      */
     public function send(string $type, array $data, ?string $onceKey = null, int $cooldownSeconds = 0): bool
     {
+        try {
+            return $this->sendOnce($type, $data, $onceKey, $cooldownSeconds);
+        } catch (\Throwable $e) {
+            // the caller is core's failure handling, a Resend or a cron command: an alert must not break any of them
+            $this->logger->error('N8nDispatch: alert alert.'.$type.' not sent: '.$e->getMessage());
+
+            return false;
+        }
+    }
+
+    /**
+     * @param array<string, mixed> $data
+     */
+    private function sendOnce(string $type, array $data, ?string $onceKey, int $cooldownSeconds): bool
+    {
         if (!$this->settings->current()['enabled']) {
             return false;
         }

@@ -9,6 +9,7 @@ use Mautic\CampaignBundle\Entity\Event;
 use Mautic\CampaignBundle\Entity\LeadEventLog;
 use Mautic\LeadBundle\Entity\Lead;
 use MauticPlugin\N8nDispatchBundle\Service\Alert\AlertSender;
+use MauticPlugin\N8nDispatchBundle\Service\Alert\CampaignLink;
 use MauticPlugin\N8nDispatchBundle\Service\Alert\ResendFailedAlert;
 use PHPUnit\Framework\TestCase;
 use Symfony\Component\Routing\Generator\UrlGeneratorInterface;
@@ -45,6 +46,6 @@ class ResendFailedAlertTest extends TestCase
             'campaign'   => ['id' => 7, 'name' => 'Boas-vindas', 'url' => 'https://mautic.test/campaign/7'],
         ]);
 
-        (new ResendFailedAlert($sender, $router))->raise($log, 'sms', 'HTTP 422', 'ana@example.com');
+        (new ResendFailedAlert($sender, new CampaignLink($router)))->raise($log, 'sms', 'HTTP 422', 'ana@example.com');
     }
 }

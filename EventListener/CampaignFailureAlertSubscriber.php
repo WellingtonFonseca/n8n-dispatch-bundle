@@ -36,20 +36,24 @@ class CampaignFailureAlertSubscriber implements EventSubscriberInterface
 
     public function rememberState(FailedEvent $event): void
     {
-        $campaign = $event->getLog()->getEvent()->getCampaign();
+        try {
+            $campaign = $event->getLog()->getEvent()->getCampaign();
 
-        $this->wasPublished[(int) $campaign->getId()] = $campaign->isPublished();
+            $this->wasPublished[(int) $campaign->getId()] = $campaign->isPublished();
+        } catch (\Throwable $e) {
+            // this runs before core counts the failure: nothing here may stop it
+            $this->logger->error('N8nDispatch: state of a failed step not remembered: '.$e->getMessage());
+        }
     }
 
     public function raiseAlerts(FailedEvent $event): void
     {
-        $log        = $event->getLog();
-        $campaignId = (int) $log->getEvent()->getCampaign()->getId();
-        $before     = $this->wasPublished[$campaignId] ?? false;
-
-        unset($this->wasPublished[$campaignId]);
-
         try {
+            $log        = $event->getLog();
+            $campaignId = (int) $log->getEvent()->getCampaign()->getId();
+            $before     = $this->wasPublished[$campaignId] ?? false;
+
+            unset($this->wasPublished[$campaignId]);
             $this->alerts->afterFailure($log, $before);
         } catch (\Throwable $e) {
             // never break core's failure handling because of an alert

@@ -4,6 +4,7 @@ declare(strict_types=1);
 
 namespace MauticPlugin\N8nDispatchBundle\EventListener;
 
+use MauticPlugin\N8nDispatchBundle\Service\CronCommands;
 use MauticPlugin\N8nDispatchBundle\Service\StatusPollLauncher;
 use MauticPlugin\N8nDispatchBundle\Service\StatusPollScheduler;
 use Psr\Log\LoggerInterface;
@@ -22,12 +23,6 @@ use Symfony\Component\EventDispatcher\EventSubscriberInterface;
  */
 class StatusPollSubscriber implements EventSubscriberInterface
 {
-    private const CRON_COMMANDS = [
-        'mautic:campaigns:trigger',
-        'mautic:campaigns:update',
-        'mautic:segments:update',
-    ];
-
     public function __construct(
         private StatusPollScheduler $scheduler,
         private StatusPollLauncher $launcher,
@@ -46,7 +41,7 @@ class StatusPollSubscriber implements EventSubscriberInterface
     {
         $name = $event->getCommand()?->getName();
 
-        if (!in_array($name, self::CRON_COMMANDS, true)) {
+        if (!in_array($name, CronCommands::NAMES, true)) {
             return;
         }
 

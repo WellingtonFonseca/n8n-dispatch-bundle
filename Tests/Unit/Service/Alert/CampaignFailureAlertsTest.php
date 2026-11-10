@@ -12,7 +12,9 @@ use Mautic\CampaignBundle\Entity\FailedLeadEventLog;
 use Mautic\CampaignBundle\Entity\LeadEventLog;
 use MauticPlugin\N8nDispatchBundle\Service\Alert\AlertSender;
 use MauticPlugin\N8nDispatchBundle\Service\Alert\AlertSettings;
+use MauticPlugin\N8nDispatchBundle\Service\Alert\AlertThrottle;
 use MauticPlugin\N8nDispatchBundle\Service\Alert\CampaignFailureAlerts;
+use MauticPlugin\N8nDispatchBundle\Service\Alert\CampaignLink;
 use PHPUnit\Framework\MockObject\MockObject;
 use PHPUnit\Framework\TestCase;
 use Symfony\Component\Routing\Generator\UrlGeneratorInterface;
@@ -22,9 +24,13 @@ class CampaignFailureAlertsTest extends TestCase
     /** @var AlertSender&MockObject */
     private AlertSender $sender;
 
+    /** @var AlertThrottle&MockObject */
+    private AlertThrottle $throttle;
+
     protected function setUp(): void
     {
-        $this->sender = $this->createMock(AlertSender::class);
+        $this->sender   = $this->createMock(AlertSender::class);
+        $this->throttle = $this->createMock(AlertThrottle::class);
     }
 
     /**
@@ -39,7 +45,7 @@ class CampaignFailureAlertsTest extends TestCase
         $router = $this->createStub(UrlGeneratorInterface::class);
         $router->method('generate')->willReturnCallback(static fn (string $name, array $params, int $type): string => 'https://mautic.test/'.$name.'/'.$params['objectAction'].'/'.$params['objectId']);
 
-        return new CampaignFailureAlerts($this->sender, $current, $events, $router);
+        return new CampaignFailureAlerts($this->sender, $current, $events, new CampaignLink($router), $this->throttle);
     }
 
     private function log(bool $published, int $contacts, ?string $reason = 'HTTP 422'): LeadEventLog
@@ -148,6 +154,26 @@ class CampaignFailureAlertsTest extends TestCase
         $this->alerts(1)->afterFailure($this->log(true, 20), true);
     }
 
+    public function testWhileTheWarningIsCoolingDownNoQueryIsMadeForThePercent(): void
+    {
+        $this->throttle->expects($this->once())->method('isTaken')->with('warning:7')->willReturn(true);
+        $this->sender->expects($this->never())->method('send');
+        $events = $this->createMock(EventRepository::class);
+        $events->expects($this->never())->method('getFailedCount');
+        $current = $this->createStub(AlertSettings::class);
+        $current->method('current')->willReturn(AlertSettings::fromArray([AlertSettings::KEY_ENABLED => 1]));
+
+        (new CampaignFailureAlerts($this->sender, $current, $events, new CampaignLink($this->createStub(UrlGeneratorInterface::class)), $this->throttle))->afterFailure($this->log(true, 100), true);
+    }
+
+    public function testTheUnpublishedAlertDoesNotWaitForTheWarningCooldown(): void
+    {
+        $this->throttle->method('isTaken')->willReturn(true);
+        $this->sender->expects($this->once())->method('send')->with('campaign.unpublished', $this->anything());
+
+        $this->alerts(3)->afterFailure($this->log(false, 20), true);
+    }
+
     public function testWithTheChannelOffNothingIsRaisedAndNothingIsRead(): void
     {
         $this->sender->expects($this->never())->method('send');
@@ -156,6 +182,6 @@ class CampaignFailureAlertsTest extends TestCase
         $current = $this->createStub(AlertSettings::class);
         $current->method('current')->willReturn(AlertSettings::fromArray([]));
 
-        (new CampaignFailureAlerts($this->sender, $current, $events, $this->createStub(UrlGeneratorInterface::class)))->afterFailure($this->log(false, 20), true);
+        (new CampaignFailureAlerts($this->sender, $current, $events, new CampaignLink($this->createStub(UrlGeneratorInterface::class)), $this->throttle))->afterFailure($this->log(false, 20), true);
     }
 }
