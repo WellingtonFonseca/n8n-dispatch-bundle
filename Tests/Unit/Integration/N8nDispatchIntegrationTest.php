@@ -18,7 +18,12 @@ class N8nDispatchIntegrationTest extends TestCase
     private function integration(): N8nDispatchIntegration
     {
         // the constructor takes a fixed list of core services, not needed for the form
-        return (new \ReflectionClass(N8nDispatchIntegration::class))->newInstanceWithoutConstructor();
+        $integration = (new \ReflectionClass(N8nDispatchIntegration::class))->newInstanceWithoutConstructor();
+        $translator  = $this->createStub(\Symfony\Contracts\Translation\TranslatorInterface::class);
+        $translator->method('trans')->willReturnArgument(0);
+        (new \ReflectionProperty(\Mautic\PluginBundle\Integration\AbstractIntegration::class, 'translator'))->setValue($integration, $translator);
+
+        return $integration;
     }
 
     private function factory(): \Symfony\Component\Form\FormFactoryInterface
@@ -168,5 +173,23 @@ class N8nDispatchIntegrationTest extends TestCase
 
         $this->assertSame('n8ndispatchBlockFromTextarea', $attr['data-onload-callback']);
         $this->assertStringContainsString('n8ndispatch-json-block', $attr['class']);
+    }
+
+    public function testTheFeaturesTabCarriesTheAlertFieldsAndTheFirstOneMovesThemToATabOfTheirOwn(): void
+    {
+        $builder = $this->factory()->createBuilder(FormType::class);
+        $this->integration()->appendToForm($builder, ['alerts_enabled' => 1, 'alert_warning_percent' => 7], 'features');
+        $form = $builder->getForm();
+
+        $this->assertTrue($form->get('alerts_enabled')->getData() === 1);
+        $this->assertSame(7, $form->get('alert_warning_percent')->getData());
+        $attr = $form->createView()['alerts_enabled']->vars['attr'];
+        $this->assertSame('n8ndispatchAlertsTab', $attr['data-onload-callback']);
+        $this->assertSame('mautic.n8ndispatch.settings.alerts.tab', $attr['data-tab-label']);
+    }
+
+    public function testTheAlertFieldsAreNotOnTheKeysTab(): void
+    {
+        $this->assertFalse($this->keysForm([])->has('alerts_enabled'));
     }
 }

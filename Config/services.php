@@ -5,6 +5,8 @@ declare(strict_types=1);
 use Mautic\CoreBundle\DependencyInjection\MauticCoreExtension;
 use Symfony\Component\DependencyInjection\Loader\Configurator\ContainerConfigurator;
 
+use function Symfony\Component\DependencyInjection\Loader\Configurator\service;
+
 return function (ContainerConfigurator $configurator): void {
     $services = $configurator->services()
         ->defaults()
@@ -31,6 +33,10 @@ return function (ContainerConfigurator $configurator): void {
     // A plain string argument cannot be autowired.
     $services->set(MauticPlugin\N8nDispatchBundle\Service\StatusPollLauncher::class)
         ->args(['%kernel.project_dir%', null]);
+
+    // Core registers its cache helper only under this id, so autowiring by class finds nothing.
+    $services->set(MauticPlugin\N8nDispatchBundle\Service\Alert\AlertThrottle::class)
+        ->args([service('mautic.helper.cache_storage')]);
 
     // Doctrine does not pick up an EventSubscriber by autoconfiguration here (core tags its own the same way).
     $services->get(MauticPlugin\N8nDispatchBundle\EventListener\TemplateRenameSubscriber::class)

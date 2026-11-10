@@ -11,6 +11,7 @@ use Mautic\LeadBundle\Entity\DoNotContact;
 use Mautic\LeadBundle\Model\DoNotContact as DncModel;
 use Mautic\PluginBundle\Helper\IntegrationHelper;
 use MauticPlugin\N8nDispatchBundle\Entity\DispatchTracking;
+use MauticPlugin\N8nDispatchBundle\Service\Alert\ResendFailedAlert;
 use MauticPlugin\N8nDispatchBundle\Twig\StatusExtension;
 use Psr\Log\LoggerInterface;
 use Symfony\Contracts\HttpClient\HttpClientInterface;
@@ -66,6 +67,7 @@ class DispatchResender
         private LoggerInterface $logger,
         private ?DirectEmailSender $directSender = null,
         private ?ResendVariables $resendVariables = null,
+        private ?ResendFailedAlert $failedAlert = null,
     ) {
     }
 
@@ -361,6 +363,7 @@ class DispatchResender
         // refusal is an entry of its own, with n8n's message.
         $this->tracker->forget($old, (int) $log->getId());
         $this->tracker->recordDispatch((int) $log->getId(), false, [], self::responseOf($rawBody), null, self::resendInfo($userEmail, new \DateTimeImmutable('now', new \DateTimeZone('UTC'))));
+        $this->failedAlert?->raise($log, $channel, $reason, $userEmail);
 
         return $this->failed($reason);
     }
@@ -452,7 +455,13 @@ class DispatchResender
         $this->em->persist($log);
         $this->em->flush();
 
-        return $refused ? $this->failed((string) $result['reason']) : $this->result(true, 'mautic.n8ndispatch.dispatch.resend.done');
+        if ($refused) {
+            $this->failedAlert?->raise($log, 'email', (string) $result['reason'], $userEmail);
+
+            return $this->failed((string) $result['reason']);
+        }
+
+        return $this->result(true, 'mautic.n8ndispatch.dispatch.resend.done');
     }
 
     /**

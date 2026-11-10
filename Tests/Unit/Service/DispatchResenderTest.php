@@ -17,6 +17,7 @@ use Mautic\PluginBundle\Entity\Integration as IntegrationSettings;
 use Mautic\PluginBundle\Helper\IntegrationHelper;
 use MauticPlugin\N8nDispatchBundle\Integration\N8nDispatchIntegration;
 use MauticPlugin\N8nDispatchBundle\Service\DirectEmailSender;
+use MauticPlugin\N8nDispatchBundle\Service\Alert\ResendFailedAlert;
 use MauticPlugin\N8nDispatchBundle\Service\DispatchFailureReasons;
 use MauticPlugin\N8nDispatchBundle\Service\DispatchResender;
 use MauticPlugin\N8nDispatchBundle\Service\ResendVariables;
@@ -37,6 +38,8 @@ class DispatchResenderTest extends TestCase
 {
     /** The values of the resend form; null is a resend without one. */
     private ?ResendVariables $resendVariables = null;
+
+    private ?ResendFailedAlert $failedAlert = null;
 
     public function testAnErrorCallbackCanBeResent(): void
     {
@@ -236,9 +239,46 @@ class DispatchResenderTest extends TestCase
             $this->createMock(LoggerInterface::class),
             null,
             $this->resendVariables,
+            $this->failedAlert,
         );
 
         return [$resender, $tracker, $log, $http, $em, $dnc];
+    }
+
+    public function testAResendN8nRefusedRaisesTheResendFailedAlertWithTheReasonAndWhoDidIt(): void
+    {
+        $this->failedAlert = $this->createMock(ResendFailedAlert::class);
+        [$resender, , $log] = $this->resenderAnswering(422, '{"body":{"error":"bad data"},"statusCode":422}');
+        $this->failedAlert->expects($this->once())->method('raise')->with($log, 'hsm', $this->stringContains('422'), 'admin@example.com');
+
+        $this->assertFalse($resender->resend(140, 'admin@example.com')['ok']);
+    }
+
+    public function testAResendN8nAcceptedRaisesNoAlert(): void
+    {
+        $this->failedAlert = $this->createMock(ResendFailedAlert::class);
+        $this->failedAlert->expects($this->never())->method('raise');
+        [$resender] = $this->resenderAnswering(200, '{"body":{"ok":true},"statusCode":200}');
+
+        $resender->resend(140, 'admin@example.com');
+    }
+
+    public function testAResendTheMailerRefusesAgainRaisesTheResendFailedAlert(): void
+    {
+        $this->failedAlert = $this->createMock(ResendFailedAlert::class);
+        [$resender, $log] = $this->directResender($this->refusedByMautic(), ['outcome' => 'failed', 'reason' => 'N8nDispatch: 550 again', 'statId' => null]);
+        $this->failedAlert->expects($this->once())->method('raise')->with($log, 'email', 'N8nDispatch: 550 again', 'a@b.com');
+
+        $resender->resend(140, 'a@b.com');
+    }
+
+    public function testAnAcceptedDirectResendRaisesNoAlert(): void
+    {
+        $this->failedAlert = $this->createMock(ResendFailedAlert::class);
+        $this->failedAlert->expects($this->never())->method('raise');
+        [$resender] = $this->directResender($this->refusedByMautic(), ['outcome' => 'sent', 'statId' => 5]);
+
+        $resender->resend(140, 'a@b.com');
     }
 
     public function testARefusedResendKeepsWhoDidItAndTheWholeAnswer(): void
@@ -410,6 +450,7 @@ class DispatchResenderTest extends TestCase
             $this->createMock(LoggerInterface::class),
             $withSender ? $sender : null,
             $this->resendVariables,
+            $this->failedAlert,
         );
 
         return [$resender, $log, $sender, $em, $http];
