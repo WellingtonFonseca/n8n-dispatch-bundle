@@ -8,7 +8,6 @@ use Mautic\CampaignBundle\Entity\Campaign;
 use Mautic\CampaignBundle\Entity\Event;
 use Mautic\CampaignBundle\Entity\EventRepository;
 use Mautic\CampaignBundle\Entity\LeadEventLog;
-use Symfony\Component\Routing\Generator\UrlGeneratorInterface;
 
 /**
  * The two alerts of a failed campaign step: `campaign.unpublished` (core just switched the campaign off) and
@@ -26,7 +25,8 @@ class CampaignFailureAlerts
         private AlertSender $sender,
         private AlertSettings $settings,
         private EventRepository $events,
-        private UrlGeneratorInterface $router,
+        private CampaignLink $link,
+        private AlertThrottle $throttle,
     ) {
     }
 
@@ -46,38 +46,52 @@ class CampaignFailureAlerts
 
         if (!$campaign->isPublished()) {
             if ($wasPublished) {
-                $this->sender->send('campaign.unpublished', $this->payload($log, $step, $campaign));
+                $this->sender->send('campaign.unpublished', $this->payload($log, $step, $campaign, $this->numbers($step, $campaign)));
             }
 
             return;
         }
 
-        $data = $this->payload($log, $step, $campaign);
-
-        if ($data['contact_count'] >= $settings['warningMinContacts'] && $data['failed_percent'] >= $settings['warningPercent']) {
-            $data['warning_percent'] = $settings['warningPercent'];
-            $this->sender->send('campaign.failure_warning', $data, 'warning:'.$campaign->getId(), self::WARNING_COOLDOWN_SECONDS);
+        // a failing step of a big campaign passes here once per contact: no queries while the warning is already out
+        if ($this->throttle->isTaken('warning:'.$campaign->getId())) {
+            return;
         }
+
+        $numbers = $this->numbers($step, $campaign);
+
+        if ($numbers['contacts'] < $settings['warningMinContacts'] || $numbers['percent'] < $settings['warningPercent']) {
+            return;
+        }
+
+        $data                    = $this->payload($log, $step, $campaign, $numbers);
+        $data['warning_percent'] = $settings['warningPercent'];
+        $this->sender->send('campaign.failure_warning', $data, 'warning:'.$campaign->getId(), self::WARNING_COOLDOWN_SECONDS);
     }
 
     /**
-     * @return array{campaign: array<string, mixed>, step: array<string, mixed>, failed_count: int, contact_count: int, failed_percent: float, core_limit_percent: int, last_reason: string|null}
+     * @return array{failed: int, contacts: int, percent: float}
      */
-    private function payload(LeadEventLog $log, Event $step, Campaign $campaign): array
+    private function numbers(Event $step, Campaign $campaign): array
     {
         $failed   = $this->events->getFailedCount($step);
         $contacts = $campaign->getLeads()->count();
 
+        return ['failed' => $failed, 'contacts' => $contacts, 'percent' => $contacts > 0 ? round($failed / $contacts * 100, 1) : 100.0];
+    }
+
+    /**
+     * @param array{failed: int, contacts: int, percent: float} $numbers
+     *
+     * @return array{campaign: array<string, mixed>, step: array<string, mixed>, failed_count: int, contact_count: int, failed_percent: float, core_limit_percent: int, last_reason: string|null}
+     */
+    private function payload(LeadEventLog $log, Event $step, Campaign $campaign, array $numbers): array
+    {
         return [
-            'campaign'           => [
-                'id'   => $campaign->getId(),
-                'name' => $campaign->getName(),
-                'url'  => $this->router->generate('mautic_campaign_action', ['objectAction' => 'view', 'objectId' => $campaign->getId()], UrlGeneratorInterface::ABSOLUTE_URL),
-            ],
+            'campaign'           => $this->link->reference($campaign),
             'step'               => ['id' => $step->getId(), 'name' => $step->getName(), 'type' => $step->getType()],
-            'failed_count'       => $failed,
-            'contact_count'      => $contacts,
-            'failed_percent'     => $contacts > 0 ? round($failed / $contacts * 100, 1) : 100.0,
+            'failed_count'       => $numbers['failed'],
+            'contact_count'      => $numbers['contacts'],
+            'failed_percent'     => $numbers['percent'],
             'core_limit_percent' => self::CORE_LIMIT_PERCENT,
             'last_reason'        => $log->getFailedLog()?->getReason(),
         ];

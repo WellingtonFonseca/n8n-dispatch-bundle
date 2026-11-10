@@ -5,6 +5,7 @@ declare(strict_types=1);
 namespace MauticPlugin\N8nDispatchBundle\EventListener;
 
 use MauticPlugin\N8nDispatchBundle\Service\Alert\BounceSpikeAlerts;
+use MauticPlugin\N8nDispatchBundle\Service\CronCommands;
 use Psr\Log\LoggerInterface;
 use Symfony\Component\Console\ConsoleEvents;
 use Symfony\Component\Console\Event\ConsoleCommandEvent;
@@ -16,12 +17,6 @@ use Symfony\Component\EventDispatcher\EventSubscriberInterface;
  */
 class BounceSpikeCheckSubscriber implements EventSubscriberInterface
 {
-    private const CRON_COMMANDS = [
-        'mautic:campaigns:trigger',
-        'mautic:campaigns:update',
-        'mautic:segments:update',
-    ];
-
     public function __construct(private BounceSpikeAlerts $alerts, private LoggerInterface $logger)
     {
     }
@@ -33,7 +28,7 @@ class BounceSpikeCheckSubscriber implements EventSubscriberInterface
 
     public function onCommand(ConsoleCommandEvent $event): void
     {
-        if (!in_array($event->getCommand()?->getName(), self::CRON_COMMANDS, true)) {
+        if (!in_array($event->getCommand()?->getName(), CronCommands::NAMES, true)) {
             return;
         }
 

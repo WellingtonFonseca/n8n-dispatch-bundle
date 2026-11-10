@@ -9,6 +9,7 @@ use MauticPlugin\N8nDispatchBundle\Service\Alert\AlertSettings;
 use MauticPlugin\N8nDispatchBundle\Service\Alert\AlertThrottle;
 use MauticPlugin\N8nDispatchBundle\Service\Alert\BounceSpikeAlerts;
 use MauticPlugin\N8nDispatchBundle\Service\Alert\BounceSpikeReader;
+use MauticPlugin\N8nDispatchBundle\Service\Alert\CampaignLink;
 use PHPUnit\Framework\MockObject\MockObject;
 use PHPUnit\Framework\TestCase;
 use Symfony\Component\Routing\Generator\UrlGeneratorInterface;
@@ -41,7 +42,7 @@ class BounceSpikeAlertsTest extends TestCase
         $router = $this->createStub(UrlGeneratorInterface::class);
         $router->method('generate')->willReturnCallback(static fn (string $name, array $params, int $type): string => 'https://mautic.test/'.$name.'/'.$params['objectAction'].'/'.$params['objectId'].'/'.$type);
 
-        return new BounceSpikeAlerts($current, $this->throttle, $this->sender, $this->reader, $router);
+        return new BounceSpikeAlerts($current, $this->throttle, $this->sender, $this->reader, new CampaignLink($router));
     }
 
     public function testEachOffendingCampaignAlertsOncePerSixHoursWithTheLimitsOfTheSettings(): void

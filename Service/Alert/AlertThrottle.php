@@ -23,13 +23,21 @@ class AlertThrottle
      */
     public function claim(string $key, int $cooldownSeconds): bool
     {
-        if ($this->cache->has(self::PREFIX.$key)) {
+        if ($this->isTaken($key)) {
             return false;
         }
 
         $this->cache->set(self::PREFIX.$key, 1, $cooldownSeconds);
 
         return true;
+    }
+
+    /**
+     * Whether a key is taken now, without taking it: a cheap check before work that only an alert needs.
+     */
+    public function isTaken(string $key): bool
+    {
+        return $this->cache->has(self::PREFIX.$key);
     }
 
     /**

@@ -148,4 +148,23 @@ class AlertSenderTest extends TestCase
         $this->assertFalse($this->sender(true, 200, ['webhook_url' => 'https://n8n.test/hook'], false)->send('campaign.unpublished', []));
         $this->assertSame([], $this->requests);
     }
+
+    public function testAFailingCacheNeverBreaksTheCaller(): void
+    {
+        $this->throttle->method('claim')->willThrowException(new \RuntimeException('cache dir is not writable'));
+        $this->logger->expects($this->once())->method('error')->with('N8nDispatch: alert alert.campaign.failure_warning not sent: cache dir is not writable');
+
+        $this->assertFalse($this->sender()->send('campaign.failure_warning', [], 'warning:7', 60));
+        $this->assertSame([], $this->requests);
+    }
+
+    public function testFailingSettingsNeverBreakTheCaller(): void
+    {
+        $settings = $this->createStub(AlertSettings::class);
+        $settings->method('current')->willThrowException(new \RuntimeException('db gone'));
+        $helper = $this->createStub(IntegrationHelper::class);
+        $this->logger->expects($this->once())->method('error')->with('N8nDispatch: alert alert.campaign.unpublished not sent: db gone');
+
+        $this->assertFalse((new AlertSender($helper, $settings, $this->throttle, new MockHttpClient(), $this->logger))->send('campaign.unpublished', []));
+    }
 }

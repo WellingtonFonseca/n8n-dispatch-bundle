@@ -104,4 +104,27 @@ class CampaignFailureAlertSubscriberTest extends TestCase
 
         (new CampaignFailureAlertSubscriber($this->alerts, $this->logger))->raiseAlerts($this->failed());
     }
+
+    public function testAFailureOfTheEarlyCallIsLoggedAndNeverReachesCore(): void
+    {
+        $campaign = $this->createStub(Campaign::class);
+        $campaign->method('getId')->willThrowException(new \RuntimeException('detached'));
+        $step = $this->createStub(Event::class);
+        $step->method('getCampaign')->willReturn($campaign);
+        $log = $this->createStub(LeadEventLog::class);
+        $log->method('getEvent')->willReturn($step);
+        $this->logger->expects($this->once())->method('error')->with('N8nDispatch: state of a failed step not remembered: detached');
+
+        (new CampaignFailureAlertSubscriber($this->alerts, $this->logger))->rememberState(new FailedEvent($this->createStub(AbstractEventAccessor::class), $log));
+    }
+
+    public function testAnEventWithoutACampaignIsLoggedByTheLateCallToo(): void
+    {
+        $log = $this->createStub(LeadEventLog::class);
+        $log->method('getEvent')->willThrowException(new \RuntimeException('no step'));
+        $this->alerts->expects($this->never())->method('afterFailure');
+        $this->logger->expects($this->once())->method('error')->with('N8nDispatch: alert of a failed step not raised: no step');
+
+        (new CampaignFailureAlertSubscriber($this->alerts, $this->logger))->raiseAlerts(new FailedEvent($this->createStub(AbstractEventAccessor::class), $log));
+    }
 }

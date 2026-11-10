@@ -28,6 +28,15 @@ class AlertThrottleTest extends TestCase
         $this->assertFalse((new AlertThrottle($cache))->claim('warning:7', 86400));
     }
 
+    public function testIsTakenOnlyLooksAtTheKey(): void
+    {
+        $cache = $this->createMock(CacheStorageHelper::class);
+        $cache->method('has')->with('n8ndispatch_alert_warning:7')->willReturn(true);
+        $cache->expects($this->never())->method('set');
+
+        $this->assertTrue((new AlertThrottle($cache))->isTaken('warning:7'));
+    }
+
     public function testReleaseFreesTheKey(): void
     {
         $cache = $this->createMock(CacheStorageHelper::class);
