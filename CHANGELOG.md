@@ -2,6 +2,14 @@
 
 Um bloco por dia, do mais novo para o mais antigo. Formato fixo: `## AAAA-MM-DD` e uma linha `- ` por mudança (a tela do plugin lê este arquivo).
 
+## 2026-11-10
+- Nova aba Alertas nas configurações do plugin. Ligada, ela envia ao n8n, pelo mesmo webhook dos disparos, um alerta quando algo dá errado. No n8n você escolhe por onde avisar: Teams, email, WhatsApp
+- Alerta quando o Mautic despublica uma campanha por falhas, com a campanha, o passo, a quantidade de falhas e o último motivo
+- Aviso antes disso, quando um passo falha em 5% dos contatos (campanhas com menos de 20 contatos não recebem o aviso, porque caem de uma vez)
+- Alerta de bounce: quando os bounces chegam a 10% dos Emails enviados na última hora, com pelo menos 20 Emails
+- Alerta quando uma execução do poll de status termina com erro e quando um reenvio falha de novo
+- Os limites (porcentagens, janela e mínimos) ficam na aba Alertas. A aba vem desligada
+
 ## 2026-11-09
 - Reenviar um disparo agora abre uma tela com as variáveis do template: o valor do primeiro envio e, num campo que você pode corrigir, o valor de hoje do contato. Assim uma variável que foi mapeada depois da falha entra no reenvio
 - A tela avisa qual variável está sem origem no mapeamento e qual está sem valor para o contato, antes de enviar
