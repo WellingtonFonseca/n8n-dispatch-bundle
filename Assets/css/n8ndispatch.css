@@ -571,6 +571,19 @@ a[data-n8n-status-action]:hover * {
     margin: 0 0 8px;
 }
 
+/* HSM type Image: one input of the carousel's block, named by the heading, not by "Card 1". The selectors read the markup of
+   Resources/views/HsmTemplate/form.html.twig (one .col-xs-6 per card, label.control-label): change them together. */
+.n8ndispatch-cards-label-single,
+.n8ndispatch-cards-single .n8ndispatch-cards-label-multi,
+.n8ndispatch-cards-single .col-xs-6:not(:first-child),
+.n8ndispatch-cards-single .col-xs-6 label.control-label {
+    display: none;
+}
+
+.n8ndispatch-cards-single .n8ndispatch-cards-label-single {
+    display: block;
+}
+
 /* The help under the label of the SMS and HSM text: 14px like the Calculation list, so it is read. */
 .form-group p.help-block.n8ndispatch-text-help {
     font-size: 14px;

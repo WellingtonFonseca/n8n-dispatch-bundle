@@ -8,11 +8,13 @@ use MauticPlugin\N8nDispatchBundle\Entity\HsmTemplate;
 use PHPUnit\Framework\TestCase;
 use Symfony\Component\Validator\Validation;
 
-class HsmTemplateCarouselTest extends TestCase
+class HsmTemplateCardsTest extends TestCase
 {
     private const MIN = 'mautic.n8ndispatch.hsmtemplate.error.cards_min';
     private const GAP = 'mautic.n8ndispatch.hsmtemplate.error.cards_gap';
     private const URL = 'mautic.n8ndispatch.hsmtemplate.error.cards_url';
+    private const IMAGE_REQUIRED = 'mautic.n8ndispatch.hsmtemplate.error.image_required';
+    private const IMAGE_URL = 'mautic.n8ndispatch.hsmtemplate.error.image_url';
 
     /**
      * @param list<string> $cards the ten slots from the first, as the form sends them
@@ -76,6 +78,48 @@ class HsmTemplateCarouselTest extends TestCase
     {
         $this->assertSame([], $this->cardErrors(HsmTemplate::TYPE_TEXT, []));
         $this->assertSame([], $this->cardErrors(HsmTemplate::TYPE_TEXT, ['', 'garbage']));
+    }
+
+    public function testImageTypeAcceptsOneHttpsUrl(): void
+    {
+        $this->assertSame([], $this->cardErrors(HsmTemplate::TYPE_IMAGE, ['https://x.test/a.png']));
+    }
+
+    public function testImageTypeNeedsTheImage(): void
+    {
+        $this->assertSame([self::IMAGE_REQUIRED], $this->cardErrors(HsmTemplate::TYPE_IMAGE, []));
+        $this->assertSame([self::IMAGE_REQUIRED], $this->cardErrors(HsmTemplate::TYPE_IMAGE, ['', 'https://x.test/b.png']));
+    }
+
+    public function testImageTypeRefusesANonHttpsUrl(): void
+    {
+        $this->assertSame([self::IMAGE_URL], $this->cardErrors(HsmTemplate::TYPE_IMAGE, ['http://x.test/a.png']));
+        $this->assertSame([self::IMAGE_URL], $this->cardErrors(HsmTemplate::TYPE_IMAGE, ['javascript:alert(1)']));
+    }
+
+    public function testImageTypeIgnoresTheOtherSlots(): void
+    {
+        // Slots left over from a time the template was a carousel: hidden in the form, never validated or sent.
+        $this->assertSame([], $this->cardErrors(HsmTemplate::TYPE_IMAGE, ['https://x.test/a.png', 'garbage', '', 'https://x.test/d.png']));
+    }
+
+    public function testImagePayloadHoldsOnlyTheFirstSlot(): void
+    {
+        $template = new HsmTemplate();
+        $template->setType(HsmTemplate::TYPE_IMAGE);
+        $template->setCards(['https://x.test/a.png', 'https://x.test/b.png']);
+
+        $this->assertSame([['card_index' => 0, 'header_image_link' => 'https://x.test/a.png']], $template->getCardsPayload());
+    }
+
+    public function testTheTypesThatUseCardsAreCarouselAndImage(): void
+    {
+        $template = new HsmTemplate();
+        $this->assertFalse($template->usesCards());
+        $template->setType(HsmTemplate::TYPE_IMAGE);
+        $this->assertTrue($template->usesCards());
+        $template->setType(HsmTemplate::TYPE_CAROUSEL);
+        $this->assertTrue($template->usesCards());
     }
 
     public function testThePayloadHoldsTheFilledCardsWithTheirPosition(): void

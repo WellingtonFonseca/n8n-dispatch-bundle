@@ -587,6 +587,27 @@ class HsmCampaignTriggerSubscriberTest extends TestCase
         );
     }
 
+    public function testImageTemplateSendsOnlyItsFirstCard(): void
+    {
+        $template = new HsmTemplate();
+        $template->setRouter('r1');
+        $template->setHsmTemplate('h1');
+        $template->setType(HsmTemplate::TYPE_IMAGE);
+        $template->setCards(['https://x.test/a.png', 'https://x.test/stale.png']);
+
+        $this->hsmTemplateModel->method('getEntity')->with(7)->willReturn($template);
+
+        $pendingEvent = $this->buildPendingEvent(['hsmTemplateId' => '7', 'status' => 'test']);
+        $this->subscriber->onHsmSend($pendingEvent);
+
+        /** @var LeadEventLog $passedLog */
+        $passedLog = $pendingEvent->getSuccessful()->first();
+        $payload   = $passedLog->getMetadata()['n8ndispatch'];
+
+        $this->assertSame('image', $payload['hsm_type']);
+        $this->assertSame([['card_index' => 0, 'header_image_link' => 'https://x.test/a.png']], $payload['cards']);
+    }
+
     public function testTextTemplateHasNoCardsInThePayload(): void
     {
         $template = new HsmTemplate();
