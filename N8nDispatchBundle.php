@@ -145,6 +145,23 @@ class N8nDispatchBundle extends PluginBundleBase
                 $factory->getDatabase()->executeQuery('ALTER TABLE '.HsmTemplate::TABLE_NAME.' ADD COLUMN cards JSON NULL');
             }
 
+            // 0.12.0: how the template is sent. Existing rows stay on n8n.
+            if (!$table->hasColumn('provider')) {
+                $factory->getDatabase()->executeQuery(
+                    'ALTER TABLE '.HsmTemplate::TABLE_NAME
+                    ." ADD COLUMN provider VARCHAR(191) NOT NULL DEFAULT '".HsmTemplate::PROVIDER_N8N."'"
+                );
+            }
+
+            if (!$table->hasColumn('whatsapp_number_id')) {
+                $factory->getDatabase()->executeQuery('ALTER TABLE '.HsmTemplate::TABLE_NAME.' ADD COLUMN whatsapp_number_id INT NULL');
+            }
+
+            // A template sent by the DialogHSM has no router: the column takes NULL.
+            if ($table->hasColumn('router') && $table->getColumn('router')->getNotnull()) {
+                $factory->getDatabase()->executeQuery('ALTER TABLE '.HsmTemplate::TABLE_NAME.' MODIFY router VARCHAR(191) NULL');
+            }
+
             // 'hsmId' renamed to 'hsmTemplate' (the field is the
             // WhatsApp-side template descriptor string, not an id) — an
             // install that already has the old column gets it renamed in

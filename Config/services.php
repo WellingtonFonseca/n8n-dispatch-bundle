@@ -42,6 +42,10 @@ return function (ContainerConfigurator $configurator): void {
     $services->get(MauticPlugin\N8nDispatchBundle\EventListener\TemplateRenameSubscriber::class)
         ->tag('doctrine.event_subscriber');
 
+    // The HSM provider plugin is optional: an instance without it gets the null gateway. The real gateway is
+    // registered only where that plugin's classes exist (never autoloaded as a service, it names them).
+    $services->alias(MauticPlugin\N8nDispatchBundle\Service\Provider\HsmProviderGateway::class, MauticPlugin\N8nDispatchBundle\Service\Provider\NullHsmProviderGateway::class);
+
     // Mautic's standard CRUD controller (Controller/SmsTemplateController.php,
     // Controller/HsmTemplateController.php) resolves its model by the
     // 'mautic.<bundle>.model.<name>' id convention.

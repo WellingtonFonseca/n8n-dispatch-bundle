@@ -8,6 +8,7 @@ use Doctrine\ORM\Mapping as ORM;
 use Mautic\CoreBundle\Doctrine\Mapping\ClassMetadataBuilder;
 use Mautic\CoreBundle\Entity\FormEntity;
 use MauticPlugin\N8nDispatchBundle\Entity\Validation\HsmCards;
+use MauticPlugin\N8nDispatchBundle\Entity\Validation\HsmProviderFields;
 use MauticPlugin\N8nDispatchBundle\Entity\Validation\MappedVariables;
 use MauticPlugin\N8nDispatchBundle\Entity\Validation\NumericVariables;
 use MauticPlugin\N8nDispatchBundle\Entity\Validation\SequentialVariables;
@@ -57,6 +58,11 @@ class HsmTemplate extends FormEntity
 
     public const CARD_SLOTS = 10;
 
+    // How the template is sent: through the n8n webhook (the router names the Blip origin) or through the DialogHSM
+    // plugin (whatsappNumberId names one of its numbers).
+    public const PROVIDER_N8N       = 'n8n';
+    public const PROVIDER_DIALOGHSM = 'dialoghsm';
+
     private ?int $id = null;
 
     private ?string $name = null;
@@ -66,6 +72,12 @@ class HsmTemplate extends FormEntity
     private ?string $description = null;
 
     private string $type = self::TYPE_TEXT;
+
+    private string $provider = self::PROVIDER_N8N;
+
+    // Id of a number of the DialogHSM plugin. A plain integer on purpose: no ORM association to a class that is
+    // missing on an instance without that plugin.
+    private ?int $whatsappNumberId = null;
 
     private ?string $router = null;
 
@@ -135,7 +147,20 @@ class HsmTemplate extends FormEntity
             ->option('default', self::TYPE_TEXT)
             ->build();
 
-        $builder->addNamedField('router', 'string', 'router');
+        // Not addNamedField(): needs the 'default' column option, like type, so ALTER TABLE ADD COLUMN backfills the
+        // rows already saved with n8n.
+        $builder->createField('provider', 'string')
+            ->columnName('provider')
+            ->option('default', self::PROVIDER_N8N)
+            ->build();
+
+        $builder->createField('whatsappNumberId', 'integer')
+            ->columnName('whatsapp_number_id')
+            ->nullable()
+            ->build();
+
+        // Nullable: a template sent by the DialogHSM has no router.
+        $builder->addNamedField('router', 'string', 'router', true);
         $builder->addNamedField('hsmTemplate', 'string', 'hsm_template');
         $builder->addField('text', 'text');
         $builder->addNamedField('variablesJson', 'text', 'variables_json', true);
@@ -157,9 +182,8 @@ class HsmTemplate extends FormEntity
             'message' => 'mautic.core.value.required',
         ]));
 
-        $metadata->addPropertyConstraint('router', new Assert\NotBlank([
-            'message' => 'mautic.core.value.required',
-        ]));
+        // The router (n8n) or the number (DialogHSM), by provider.
+        $metadata->addConstraint(new Assert\Callback([HsmProviderFields::class, 'validate']));
 
         $metadata->addPropertyConstraint('hsmTemplate', new Assert\NotBlank([
             'message' => 'mautic.core.value.required',
@@ -234,6 +258,37 @@ class HsmTemplate extends FormEntity
     {
         $this->isChanged('type', $type);
         $this->type = $type;
+
+        return $this;
+    }
+
+    public function getProvider(): string
+    {
+        return $this->provider;
+    }
+
+    public function setProvider(string $provider): self
+    {
+        $this->isChanged('provider', $provider);
+        $this->provider = $provider;
+
+        return $this;
+    }
+
+    public function usesDialogHsm(): bool
+    {
+        return self::PROVIDER_DIALOGHSM === $this->provider;
+    }
+
+    public function getWhatsappNumberId(): ?int
+    {
+        return $this->whatsappNumberId;
+    }
+
+    public function setWhatsappNumberId(?int $whatsappNumberId): self
+    {
+        $this->isChanged('whatsappNumberId', $whatsappNumberId);
+        $this->whatsappNumberId = $whatsappNumberId;
 
         return $this;
     }
