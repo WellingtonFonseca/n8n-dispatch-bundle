@@ -53,7 +53,8 @@ $n8nConfig = [
             'mautic.n8ndispatch.menu.root' => [
                 'id'        => 'mautic_n8ndispatch_root',
                 'iconClass' => 'n8ndispatch-logo-icon',
-                'access'    => 'campaign:campaigns:full',
+                // Any of the submenus: core drops a submenu whose parent is hidden and shows it at the top of the menu
+                'access'    => ['campaign:campaigns:full', 'sms:smses:viewown', 'email:emails:viewown', 'email:emails:viewother'],
                 'priority'  => 35,
             ],
             'mautic.n8ndispatch.dispatch.menu.index' => [
@@ -65,13 +66,13 @@ $n8nConfig = [
             'mautic.n8ndispatch.smstemplate.menu.index' => [
                 'route'    => 'mautic_n8ndispatch.smstemplate_index',
                 'access'   => 'sms:smses:viewown',
-                'parent'   => 'mautic.core.channels',
+                'parent'   => 'mautic.n8ndispatch.menu.root',
                 'priority' => 5,
             ],
             'mautic.n8ndispatch.hsmtemplate.menu.index' => [
                 'route'    => 'mautic_n8ndispatch.hsmtemplate_index',
                 'access'   => 'sms:smses:viewown',
-                'parent'   => 'mautic.core.channels',
+                'parent'   => 'mautic.n8ndispatch.menu.root',
                 'priority' => 4,
             ],
         ],

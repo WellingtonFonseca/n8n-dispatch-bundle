@@ -16,8 +16,7 @@ use Symfony\Component\Validator\Constraints\NotBlank;
  * EmailDispatchActionType's docblock) plus a picker for which
  * SmsTemplate to send. The message text and its {{variable}} source
  * mapping used to live right here on the action; they now live on the
- * template (Entity/SmsTemplate.php, edited under Channels > SMS
- * Templates (n8n)) so one template can serve several campaigns and is
+ * template (Entity/SmsTemplate.php, edited under N8N Dispatch > SMS) so one template can serve several campaigns and is
  * edited in one place. Only the template's id is stored on the event, as
  * 'smsTemplate' — SmsCampaignTriggerSubscriber loads the template itself
  * at dispatch time.
