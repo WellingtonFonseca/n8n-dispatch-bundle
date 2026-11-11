@@ -594,6 +594,11 @@ a[data-n8n-status-action]:hover * {
     white-space: normal;
 }
 
+/* The last error of a card (_last_error.html.twig): space under the status badges, like the table below it. */
+.n8ndispatch-last-error {
+    margin: 12px 0 8px;
+}
+
 /* The facts of a delivery card (_facts_table.html.twig): a table, with space above (the status badges) and below it. */
 .n8ndispatch-facts {
     margin: 12px 0 8px;

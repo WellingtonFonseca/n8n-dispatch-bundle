@@ -7,7 +7,7 @@
 
   Variables
     - item   the campaign log as an array (metadata, isScheduled, ...)
-    - dispatch optional: the dispatch row of the Dispatches screen (the details modal passes it; the provider card reads it)
+    - dispatch optional: the dispatch row of the Dispatches screen (the details modal passes it); the Timeline leaves it out and it is read by log id
     - errors the last error text, or false; worked out here from the log
              when the caller does not pass it (the details modal)
 #}
@@ -19,21 +19,31 @@
         {% set errors = ((item.metadata.reason is not empty) ? item.metadata.reason : 'mautic.campaign.event.failed.timeline')|trans %}
     {% endif %}
 {% endif %}
-{% if (errors) %}
-    {% if (item.isScheduled) %}
-    <hr />
-    {% endif %}
-    {# Only the error: core's alert-danger draws its own icon. #}
-    <div class="alert alert-danger n8ndispatch-last-error">{{ errors|purify }}</div>
-{% endif %}
-
 {% set n8n = item.metadata.n8ndispatch is defined ? item.metadata.n8ndispatch : null %}
+{#
+  The first rows of the "Detalhes" table of every card, the same on the details modal and on the contact's Timeline: when, which
+  campaign, which template and which contact. The modal gives the dispatch; the Timeline only has the log id and reads it.
+#}
+{% set facts = dispatch is defined ? dispatch : (item.log_id is defined and item.log_id ? n8ndispatch_dispatch(item.log_id) : null) %}
+{% set baseRows = [] %}
+{% if facts %}
+    {% set baseRows = [
+        {label: 'mautic.n8ndispatch.dispatch.details.date'|trans, values: [facts.dispatchedAt ? n8ndispatch_date(facts.dispatchedAt) : '-']},
+        {label: 'mautic.n8ndispatch.dispatch.details.campaign'|trans, values: [facts.campaignName]},
+        {label: 'mautic.n8ndispatch.dispatch.details.template'|trans, values: [facts.templateName]},
+        {label: 'mautic.n8ndispatch.dispatch.details.contact'|trans, values: [facts.contactEmail ?: '-']},
+    ] %}
+{% endif %}
+{# A row with no dispatched card (held, cancelled): only the error, if any. #}
+{% if not n8n %}
+    {% include '@N8nDispatch/SubscribedEvents/Timeline/_last_error.html.twig' with {'errors': errors} only %}
+{% endif %}
 {# An Email sent through Mautic's own mailer: its card reads what Mautic knows (Stat, clicks, Do Not Contact), there is nothing of n8n to show. #}
 {% if n8n and n8ndispatch_is_direct(item.metadata) %}
-    {% include '@N8nDispatch/SubscribedEvents/Timeline/_dispatch_mautic.html.twig' with {'item': item, 'n8n': n8n} only %}
+    {% include '@N8nDispatch/SubscribedEvents/Timeline/_dispatch_mautic.html.twig' with {'item': item, 'n8n': n8n, 'errors': errors, 'baseRows': baseRows} only %}
 {# An HSM handed to another plugin (the DialogHSM): the plugin answered, there is no n8n callback to show. #}
 {% elseif n8n and n8ndispatch_is_provider(item.metadata) %}
-    {% include '@N8nDispatch/SubscribedEvents/Timeline/_dispatch_provider.html.twig' with (dispatch is defined ? {'item': item, 'n8n': n8n, 'dispatch': dispatch} : {'item': item, 'n8n': n8n}) only %}
+    {% include '@N8nDispatch/SubscribedEvents/Timeline/_dispatch_provider.html.twig' with {'item': item, 'n8n': n8n, 'errors': errors, 'baseRows': baseRows} only %}
 {% elseif n8n %}
     <div class="n8ndispatch-timeline">
         <div class="n8ndispatch-timeline-header">
@@ -54,10 +64,14 @@
             {% endif %}
         </div>
 
-        {# Who resent it and when: a block of its own under the status badges, above the Body. #}
+        {% include '@N8nDispatch/SubscribedEvents/Timeline/_last_error.html.twig' with {'errors': errors} only %}
+
+        {# Who resent it and when: a block of its own under the status badges, above the details. #}
         {% if item.metadata.n8ndispatch_resend is defined and item.metadata.n8ndispatch_resend %}
         <pre class="n8ndispatch-timeline-json">{{ item.metadata.n8ndispatch_resend }}</pre>
         {% endif %}
+
+        {% include '@N8nDispatch/SubscribedEvents/Timeline/_facts_table.html.twig' with {'title': 'mautic.n8ndispatch.timeline.details'|trans, 'rows': baseRows} only %}
 
         {% set jsonOptions = constant('JSON_PRETTY_PRINT') b-or constant('JSON_UNESCAPED_UNICODE') b-or constant('JSON_UNESCAPED_SLASHES') %}
         {% set metaKeys = ['response', 'httpStatusCode', 'templateCopyHash'] %}

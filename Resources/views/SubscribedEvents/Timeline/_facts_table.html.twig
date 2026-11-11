@@ -8,6 +8,7 @@
     - rows   list of {label, values, muted, danger}: label is already translated; values is a list, each one a text or
              {url, text} (the url in its own span, the text in brackets); muted / danger color the row (optional)
 #}
+{% if rows %}
 <div class="panel shd-none mb-0 n8ndispatch-facts">
     <table class="table table-hover mb-0 n8ndispatch-mautic-facts">
         <thead>
@@ -27,3 +28,4 @@
         </tbody>
     </table>
 </div>
+{% endif %}
