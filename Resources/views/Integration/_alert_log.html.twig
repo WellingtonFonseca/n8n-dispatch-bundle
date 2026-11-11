@@ -12,26 +12,31 @@
             <table class="table table-hover table-striped table-bordered">
                 <thead>
                     <tr>
+                        <th>{{ 'mautic.n8ndispatch.settings.alerts.log.status'|trans }}</th>
+                        <th>{{ 'mautic.n8ndispatch.settings.alerts.log.detail'|trans }}</th>
                         <th>{{ 'mautic.n8ndispatch.settings.alerts.log.date'|trans }}</th>
                         <th>{{ 'mautic.n8ndispatch.settings.alerts.log.alert'|trans }}</th>
                         <th>{{ 'mautic.n8ndispatch.settings.alerts.log.subject'|trans }}</th>
-                        <th>{{ 'mautic.n8ndispatch.settings.alerts.log.result'|trans }}</th>
                     </tr>
                 </thead>
                 <tbody>
                     {% for row in alertLog %}
                         <tr class="n8ndispatch-alert-log__row" data-outcome="{{ row.outcome }}">
-                            <td>{{ dateToFullConcat(row.created_at, 'UTC') }}</td>
-                            <td>alert.{{ row.alert }}</td>
-                            <td>{{ row.subject }}</td>
                             <td>
                                 {% if row.outcome == 'sent' %}
                                     <span class="label label-success">{{ 'mautic.n8ndispatch.settings.alerts.log.sent'|trans }}</span>
                                 {% else %}
                                     <span class="label label-danger">{{ 'mautic.n8ndispatch.settings.alerts.log.not_sent'|trans }}</span>
+                                {% endif %}
+                            </td>
+                            <td>
+                                {% if row.outcome != 'sent' %}
                                     {{ ('mautic.n8ndispatch.settings.alerts.log.reason.' ~ row.reason)|trans }}{% if row.detail %}: {{ row.detail }}{% endif %}
                                 {% endif %}
                             </td>
+                            <td>{{ dateToFullConcat(row.created_at, 'UTC') }}</td>
+                            <td>alert.{{ row.alert }}</td>
+                            <td>{{ row.subject }}</td>
                         </tr>
                     {% endfor %}
                 </tbody>
