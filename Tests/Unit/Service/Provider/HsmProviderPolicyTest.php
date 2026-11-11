@@ -6,6 +6,8 @@ namespace MauticPlugin\N8nDispatchBundle\Tests\Unit\Service\Provider;
 
 use MauticPlugin\N8nDispatchBundle\Entity\HsmTemplate;
 use MauticPlugin\N8nDispatchBundle\Service\Provider\HsmProviderGateway;
+use MauticPlugin\N8nDispatchBundle\Service\Provider\HsmSendRequest;
+use MauticPlugin\N8nDispatchBundle\Service\Provider\HsmSendResult;
 use MauticPlugin\N8nDispatchBundle\Service\Provider\HsmProviderPolicy;
 use MauticPlugin\N8nDispatchBundle\Service\Provider\NullHsmProviderGateway;
 use PHPUnit\Framework\TestCase;
@@ -38,6 +40,11 @@ class HsmProviderPolicyTest extends TestCase
             public function numberName(int $id): ?string
             {
                 return $this->available ? ($this->numbers[$id] ?? null) : null;
+            }
+
+            public function send(HsmSendRequest $request): HsmSendResult
+            {
+                return HsmSendResult::refused('not used by the policy');
             }
         });
     }
@@ -147,6 +154,15 @@ class HsmProviderPolicyTest extends TestCase
         $template = (new HsmTemplate())->setProvider(HsmTemplate::PROVIDER_DIALOGHSM);
 
         $this->assertSame('', $this->policy(true, [3 => 'ESPM A'])->routerLabel($template, '#%id% missing'));
+    }
+
+    public function testTheNumberLabelIsTheNameOrTheWarningWithTheId(): void
+    {
+        $policy = $this->policy(true, [3 => 'ESPM A']);
+
+        $this->assertSame('ESPM A', $policy->numberLabel(3, '#%id% missing'));
+        $this->assertSame('#9 missing', $policy->numberLabel(9, '#%id% missing'));
+        $this->assertSame('#3 missing', (new HsmProviderPolicy(new NullHsmProviderGateway()))->numberLabel(3, '#%id% missing'));
     }
 
     public function testNumberOneIsCheckedLikeAnyOther(): void

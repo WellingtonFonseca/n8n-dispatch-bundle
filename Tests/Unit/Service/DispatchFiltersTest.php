@@ -159,4 +159,26 @@ class DispatchFiltersTest extends TestCase
         yield 'left out of the step'      => [['failed' => 1, 'reason' => 'x'], 'skipped', 'failed'];
         yield 'a refusal wins over a state' => [['failed' => 1], 'opened', 'failed'];
     }
+
+    /**
+     * @return array<string, array{0: array<string, mixed>, 1: string, 2: string}>
+     */
+    public static function providerStatusProvider(): array
+    {
+        return [
+            'sent and not failed'            => [[], 'sent', DispatchFilters::STATUS_SUCCESS],
+            'the plugin refused it'          => [[], 'failed', DispatchFilters::STATUS_FAILED],
+            'the step is marked failed'      => [['failed' => 1], 'sent', DispatchFilters::STATUS_FAILED],
+        ];
+    }
+
+    /**
+     * @dataProvider providerStatusProvider
+     *
+     * @param array<string, mixed> $metadata
+     */
+    public function testTheStatusOfADispatchThroughTheProviderIsSuccessOrFailed(array $metadata, string $outcome, string $status): void
+    {
+        $this->assertSame($status, DispatchFilters::providerStatusOf($metadata, $outcome));
+    }
 }

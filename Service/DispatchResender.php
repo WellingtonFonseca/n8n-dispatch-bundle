@@ -12,6 +12,8 @@ use Mautic\LeadBundle\Model\DoNotContact as DncModel;
 use Mautic\PluginBundle\Helper\IntegrationHelper;
 use MauticPlugin\N8nDispatchBundle\Entity\DispatchTracking;
 use MauticPlugin\N8nDispatchBundle\Service\Alert\ResendFailedAlert;
+use MauticPlugin\N8nDispatchBundle\Service\Provider\HsmProviderOutcome;
+use MauticPlugin\N8nDispatchBundle\Service\Provider\ProviderResender;
 use MauticPlugin\N8nDispatchBundle\Twig\StatusExtension;
 use Psr\Log\LoggerInterface;
 use Symfony\Contracts\HttpClient\HttpClientInterface;
@@ -68,6 +70,7 @@ class DispatchResender
         private ?DirectEmailSender $directSender = null,
         private ?ResendVariables $resendVariables = null,
         private ?ResendFailedAlert $failedAlert = null,
+        private ?ProviderResender $providerResender = null,
     ) {
     }
 
@@ -210,6 +213,13 @@ class DispatchResender
             return $this->result(false, 'mautic.n8ndispatch.dispatch.resend.not_production');
         }
 
+        // An HSM handed to another plugin: only what that plugin refused is resent here.
+        if (HsmProviderOutcome::isProviderDispatch($metadata)) {
+            return null === $this->providerResender
+                ? $this->result(false, 'mautic.n8ndispatch.dispatch.resend.provider_not_available')
+                : $this->providerResender->resend($log, $confirmed, $this->note($userEmail), $userEmail);
+        }
+
         if (!self::hasErrorCallback($this->tracker->viewForMetadata($metadata)) && !self::isFailed($metadata)) {
             return $this->result(false, 'mautic.n8ndispatch.dispatch.resend.not_error');
         }
@@ -267,7 +277,7 @@ class DispatchResender
         $log->setMetadata($new);
         $log->setDateTriggered(new \DateTime());
         $log->setIsScheduled(false);
-        $this->clearFailedLog($log);
+        CoreFailedLog::clear($this->em, $log);
         $this->em->persist($log);
         $this->em->flush();
 
@@ -326,22 +336,6 @@ class DispatchResender
         $empty = $this->resendVariables->emptyNames($log, $variables);
 
         return [] === $empty ? null : $this->result(false, 'mautic.n8ndispatch.dispatch.resend.empty_variables', ['%names%' => implode(', ', $empty)]);
-    }
-
-    /**
-     * Core marks a log whose event failed with a row in campaign_lead_event_failed_log; the Timeline shows its reason
-     * in red ("Último erro") and the alert icon next to the name. An accepted resend means the dispatch worked, so the
-     * row goes (the old failure stays in the History table).
-     */
-    private function clearFailedLog(LeadEventLog $log): void
-    {
-        $failed = $log->getFailedLog();
-        if (null === $failed) {
-            return;
-        }
-
-        $log->setFailedLog(null);
-        $this->em->remove($failed);
     }
 
     /**
@@ -449,7 +443,7 @@ class DispatchResender
         $log->setIsScheduled(false);
 
         if (!$refused) {
-            $this->clearFailedLog($log);
+            CoreFailedLog::clear($this->em, $log);
         }
 
         $this->em->persist($log);

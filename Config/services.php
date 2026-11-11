@@ -22,6 +22,9 @@ return function (ContainerConfigurator $configurator): void {
     $excludes = [
         'Integration/N8nDispatchIntegration.php',
         'Service/Provider/Dialog',
+        // Values made with `new` at the moment of a send, not services: their constructors take plain values.
+        'Service/Provider/HsmSendRequest.php',
+        'Service/Provider/HsmSendResult.php',
     ];
 
     $services->load('MauticPlugin\\N8nDispatchBundle\\', '../')

@@ -75,11 +75,17 @@ class HsmProviderPolicy
 
         $number = $template->getWhatsappNumberId();
 
-        if (null === $number) {
-            return '';
-        }
+        return null === $number ? '' : $this->numberLabel($number, $missingLabel);
+    }
 
-        return $this->gateway->numberName($number) ?? str_replace('%id%', (string) $number, $missingLabel);
+    /**
+     * The name of a number of the other plugin, or the warning label with its id when it is gone (or the plugin is not there).
+     *
+     * @param string $missingLabel the label of that case, with %id% for the number
+     */
+    public function numberLabel(int $id, string $missingLabel): string
+    {
+        return $this->gateway->numberName($id) ?? str_replace('%id%', (string) $id, $missingLabel);
     }
 
     /**
