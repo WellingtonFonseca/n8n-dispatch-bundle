@@ -26,28 +26,28 @@
     <pre class="n8ndispatch-timeline-json">{{ item.metadata.n8ndispatch_resend }}</pre>
     {% endif %}
 
-    <p class="n8ndispatch-timeline-label">{{ 'mautic.n8ndispatch.timeline.mautic.title'|trans }}:</p>
-
     {% if mautic.state == 'queued' %}
         <p class="text-muted n8ndispatch-mautic-note">{{ 'mautic.n8ndispatch.timeline.mautic.queued_note'|trans }}</p>
     {% elseif mautic.attempts %}
+        {# What Mautic reports of the last send, as a table: the title over both columns, then one row per fact. #}
         {% set last = mautic.attempts|first %}
-        <ul class="n8ndispatch-mautic-facts">
-            <li>{{ 'mautic.n8ndispatch.timeline.mautic.sent_at'|trans({'%date%': n8ndispatch_date(last.sentAt)}) }}</li>
-            {% if last.openedAt %}
-                <li>{{ 'mautic.n8ndispatch.timeline.mautic.opened_at'|trans({'%date%': n8ndispatch_date(last.openedAt), '%count%': last.openCount}) }}</li>
-            {% else %}
-                <li class="text-muted">{{ 'mautic.n8ndispatch.timeline.mautic.not_opened'|trans }}</li>
-            {% endif %}
-            {% for click in last.clicks %}
-                <li>{{ 'mautic.n8ndispatch.timeline.mautic.clicked'|trans({'%count%': click.count, '%date%': n8ndispatch_date(click.lastAt)}) }}: <span class="n8ndispatch-mautic-url">{{ click.url }}</span></li>
-            {% else %}
-                <li class="text-muted">{{ 'mautic.n8ndispatch.timeline.mautic.no_clicks'|trans }}</li>
-            {% endfor %}
-            {% if mautic.dnc %}
-                <li class="text-danger">{{ ('mautic.n8ndispatch.timeline.mautic.dnc.' ~ mautic.dnc.state)|trans({'%date%': n8ndispatch_date(mautic.dnc.at)}) }}{% if mautic.dnc.comments %}: {{ mautic.dnc.comments }}{% endif %}</li>
-            {% endif %}
-        </ul>
+        {% set clicks = [] %}
+        {% for click in last.clicks %}
+            {% set clicks = clicks|merge([{url: click.url, text: 'mautic.n8ndispatch.timeline.mautic.clicked'|trans({'%count%': click.count, '%date%': n8ndispatch_date(click.lastAt)})}]) %}
+        {% endfor %}
+        {% set rows = [
+            {label: 'mautic.n8ndispatch.timeline.mautic.fact.sent'|trans, values: [n8ndispatch_date(last.sentAt)]},
+            last.openedAt
+                ? {label: 'mautic.n8ndispatch.timeline.mautic.fact.opened'|trans, values: ['mautic.n8ndispatch.timeline.mautic.opened_at'|trans({'%date%': n8ndispatch_date(last.openedAt), '%count%': last.openCount})]}
+                : {label: 'mautic.n8ndispatch.timeline.mautic.fact.opened'|trans, values: ['mautic.n8ndispatch.timeline.mautic.not_opened'|trans], muted: true},
+            clicks
+                ? {label: 'mautic.n8ndispatch.timeline.mautic.fact.clicks'|trans, values: clicks}
+                : {label: 'mautic.n8ndispatch.timeline.mautic.fact.clicks'|trans, values: ['mautic.n8ndispatch.timeline.mautic.no_clicks'|trans], muted: true},
+        ] %}
+        {% if mautic.dnc %}
+            {% set rows = rows|merge([{label: ('mautic.n8ndispatch.timeline.mautic.dnc.' ~ mautic.dnc.state)|trans, values: [n8ndispatch_date(mautic.dnc.at) ~ (mautic.dnc.comments ? ': ' ~ mautic.dnc.comments : '')], danger: true}]) %}
+        {% endif %}
+        {% include '@N8nDispatch/SubscribedEvents/Timeline/_facts_table.html.twig' with {'title': 'mautic.n8ndispatch.timeline.mautic.title'|trans, 'rows': rows} only %}
     {% endif %}
 
     {% set jsonOptions = constant('JSON_PRETTY_PRINT') b-or constant('JSON_UNESCAPED_UNICODE') b-or constant('JSON_UNESCAPED_SLASHES') %}

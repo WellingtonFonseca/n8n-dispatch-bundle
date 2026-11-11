@@ -1,0 +1,29 @@
+{#
+  The facts of a delivery card as a table, like the details of a template: a title row over both columns, then one row per fact
+  (a bold label in a 20% column, the value beside it). Shared by the cards that report what another system knows about a
+  dispatch (_dispatch_mautic.html.twig, _dispatch_provider.html.twig), so they look alike. Use it instead of a bullet list.
+
+  Variables
+    - title  already translated
+    - rows   list of {label, values, muted, danger}: label is already translated; values is a list, each one a text or
+             {url, text} (the url in its own span, the text in brackets); muted / danger color the row (optional)
+#}
+<div class="panel shd-none mb-0 n8ndispatch-facts">
+    <table class="table table-hover mb-0 n8ndispatch-mautic-facts">
+        <thead>
+            <tr><th colspan="2">{{ title }}</th></tr>
+        </thead>
+        <tbody>
+        {% for row in rows %}
+            <tr{% if row.muted|default(false) %} class="text-muted"{% elseif row.danger|default(false) %} class="text-danger"{% endif %}>
+                <td width="20%"><span class="fw-b textTitle">{{ row.label }}</span></td>
+                <td>
+                    {% for value in row.values %}
+                        <div>{% if value is iterable %}<span class="n8ndispatch-mautic-url">{{ value.url }}</span> ({{ value.text }}){% else %}{{ value }}{% endif %}</div>
+                    {% endfor %}
+                </td>
+            </tr>
+        {% endfor %}
+        </tbody>
+    </table>
+</div>
