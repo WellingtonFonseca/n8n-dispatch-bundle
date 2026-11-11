@@ -5,6 +5,8 @@ declare(strict_types=1);
 namespace MauticPlugin\N8nDispatchBundle\Service\Alert;
 
 use Mautic\PluginBundle\Helper\IntegrationHelper;
+use MauticPlugin\N8nDispatchBundle\Entity\AlertLogEntry;
+use MauticPlugin\N8nDispatchBundle\Entity\AlertLogEntryRepository;
 use MauticPlugin\N8nDispatchBundle\Service\WebhookSettings;
 use Psr\Log\LoggerInterface;
 use Symfony\Contracts\HttpClient\HttpClientInterface;
@@ -24,6 +26,7 @@ class AlertSender
         private AlertThrottle $throttle,
         private HttpClientInterface $httpClient,
         private LoggerInterface $logger,
+        private AlertLogEntryRepository $alertLog,
     ) {
     }
 
@@ -44,21 +47,31 @@ class AlertSender
     }
 
     /**
+     * A key still in its cooldown ends the call without a log row: the alert of that key was logged when it went out
+     * (or was held back), and a failing step of a big campaign gets here once per contact.
+     *
      * @param array<string, mixed> $data
      */
     private function sendOnce(string $type, array $data, ?string $onceKey, int $cooldownSeconds): bool
     {
         $settings = $this->settings->current();
 
-        if (!$settings['enabled']) {
-            return false;
-        }
-
         if (null !== $onceKey && !$this->throttle->claim($onceKey, $cooldownSeconds)) {
             return false;
         }
 
-        if ($this->post($type, $data, $settings['instanceName'])) {
+        // the key stays taken while the alerts are off: one log row per cooldown, not one per contact
+        if (!$settings['enabled']) {
+            $this->record($type, $data, AlertLogEntry::OUTCOME_NOT_SENT, AlertLogEntry::REASON_ALERTS_OFF, null);
+
+            return false;
+        }
+
+        $failure = $this->post($type, $data, $settings['instanceName']);
+
+        if (null === $failure) {
+            $this->record($type, $data, AlertLogEntry::OUTCOME_SENT, null, null);
+
             return true;
         }
 
@@ -66,20 +79,24 @@ class AlertSender
             $this->throttle->release($onceKey);
         }
 
+        $this->record($type, $data, AlertLogEntry::OUTCOME_NOT_SENT, $failure['reason'], $failure['detail']);
+
         return false;
     }
 
     /**
      * @param array<string, mixed> $data
+     *
+     * @return array{reason: string, detail: string}|null null when the webhook accepted the alert
      */
-    private function post(string $type, array $data, string $instanceName): bool
+    private function post(string $type, array $data, string $instanceName): ?array
     {
         $webhook = WebhookSettings::forAction($this->integrationHelper, 'alert.'.$type);
 
         if (is_string($webhook)) {
             $this->logger->warning('N8nDispatch: alert alert.'.$type.' not sent: '.$webhook);
 
-            return false;
+            return ['reason' => AlertLogEntry::REASON_WEBHOOK_MISSING, 'detail' => $webhook];
         }
 
         try {
@@ -91,15 +108,33 @@ class AlertSender
         } catch (\Throwable $e) {
             $this->logger->error('N8nDispatch: alert alert.'.$type.' failed: '.$e->getMessage());
 
-            return false;
+            return ['reason' => AlertLogEntry::REASON_ERROR, 'detail' => $e->getMessage()];
         }
 
         if ($status >= 300) {
             $this->logger->error('N8nDispatch: alert alert.'.$type.' refused by the webhook: HTTP '.$status);
 
-            return false;
+            return ['reason' => AlertLogEntry::REASON_REFUSED, 'detail' => 'HTTP '.$status];
         }
 
-        return true;
+        return null;
+    }
+
+    /**
+     * A failure to write the log is logged and goes no further: the log is a view, it must not break the alert or its caller.
+     *
+     * @param array<string, mixed> $data
+     */
+    private function record(string $type, array $data, string $outcome, ?string $reason, ?string $detail): void
+    {
+        // most alerts carry `campaign` {id, name, url}; the bounce spike carries the campaign's own `name`
+        $campaign = $data['campaign'] ?? $data;
+        $subject  = is_array($campaign) && is_string($campaign['name'] ?? null) ? $campaign['name'] : null;
+
+        try {
+            $this->alertLog->record(new \DateTimeImmutable(), $type, $outcome, $reason, $detail, $subject);
+        } catch (\Throwable $e) {
+            $this->logger->error('N8nDispatch: alert alert.'.$type.' not written to the alert log: '.$e->getMessage());
+        }
     }
 }

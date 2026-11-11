@@ -6,6 +6,8 @@ namespace MauticPlugin\N8nDispatchBundle\Tests\Unit\Service\Alert;
 
 use Mautic\PluginBundle\Entity\Integration;
 use Mautic\PluginBundle\Helper\IntegrationHelper;
+use MauticPlugin\N8nDispatchBundle\Entity\AlertLogEntry;
+use MauticPlugin\N8nDispatchBundle\Entity\AlertLogEntryRepository;
 use MauticPlugin\N8nDispatchBundle\Integration\N8nDispatchIntegration;
 use MauticPlugin\N8nDispatchBundle\Service\Alert\AlertSender;
 use MauticPlugin\N8nDispatchBundle\Service\Alert\AlertSettings;
@@ -28,8 +30,12 @@ class AlertSenderTest extends TestCase
     /** @var LoggerInterface&MockObject */
     private LoggerInterface $logger;
 
+    /** @var AlertLogEntryRepository&MockObject */
+    private AlertLogEntryRepository $alertLog;
+
     protected function setUp(): void
     {
+        $this->alertLog = $this->createMock(AlertLogEntryRepository::class);
         $this->throttle = $this->createMock(AlertThrottle::class);
         $this->logger   = $this->createMock(LoggerInterface::class);
     }
@@ -60,7 +66,7 @@ class AlertSenderTest extends TestCase
             return new MockResponse('', ['http_code' => $status]);
         });
 
-        return new AlertSender($helper, $settings, $this->throttle, $client, $this->logger);
+        return new AlertSender($helper, $settings, $this->throttle, $client, $this->logger, $this->alertLog);
     }
 
     public function testTheAlertGoesToTheWebhookWithItsOwnActionHeaderAndThePayload(): void
@@ -96,12 +102,78 @@ class AlertSenderTest extends TestCase
         $this->assertSame('', json_decode($this->requests[0]['options']['body'], true)['instance']);
     }
 
-    public function testWithTheChannelOffNothingIsSentAndNothingIsClaimed(): void
+    public function testWithTheChannelOffNothingIsSentButTheAlertIsLoggedAndItsKeyStaysTaken(): void
     {
-        $this->throttle->expects($this->never())->method('claim');
+        $this->throttle->expects($this->once())->method('claim')->with('k', 60)->willReturn(true);
+        $this->throttle->expects($this->never())->method('release');
+        $this->alertLog->expects($this->once())->method('record')
+            ->with($this->isInstanceOf(\DateTimeImmutable::class), 'campaign.unpublished', AlertLogEntry::OUTCOME_NOT_SENT, AlertLogEntry::REASON_ALERTS_OFF, null, null);
 
         $this->assertFalse($this->sender(false)->send('campaign.unpublished', [], 'k', 60));
         $this->assertSame([], $this->requests);
+    }
+
+    public function testWithTheChannelOffAKeyAlreadyTakenLogsNothing(): void
+    {
+        $this->throttle->method('claim')->willReturn(false);
+        $this->alertLog->expects($this->never())->method('record');
+
+        $this->assertFalse($this->sender(false)->send('campaign.failure_warning', [], 'warning:7', 60));
+    }
+
+    public function testASentAlertIsLoggedWithTheNameOfItsCampaign(): void
+    {
+        $this->alertLog->expects($this->once())->method('record')
+            ->with($this->isInstanceOf(\DateTimeImmutable::class), 'campaign.unpublished', AlertLogEntry::OUTCOME_SENT, null, null, 'Black Friday');
+
+        $this->assertTrue($this->sender()->send('campaign.unpublished', ['campaign' => ['id' => 9, 'name' => 'Black Friday']]));
+    }
+
+    public function testTheBounceSpikeNamesItsCampaignByTheNameKey(): void
+    {
+        $this->alertLog->expects($this->once())->method('record')->with($this->anything(), 'campaign.bounce_spike', AlertLogEntry::OUTCOME_SENT, null, null, 'Carrinho');
+
+        $this->sender()->send('campaign.bounce_spike', ['campaign_id' => 7, 'name' => 'Carrinho']);
+    }
+
+    public function testARefusedAlertIsLoggedWithTheStatus(): void
+    {
+        $this->alertLog->expects($this->once())->method('record')
+            ->with($this->anything(), 'status_poll.failed', AlertLogEntry::OUTCOME_NOT_SENT, AlertLogEntry::REASON_REFUSED, 'HTTP 500', null);
+
+        $this->assertFalse($this->sender(true, 500)->send('status_poll.failed', ['run_id' => 3]));
+    }
+
+    public function testAFailedCallIsLoggedWithItsMessage(): void
+    {
+        $this->alertLog->expects($this->once())->method('record')
+            ->with($this->anything(), 'status_poll.failed', AlertLogEntry::OUTCOME_NOT_SENT, AlertLogEntry::REASON_ERROR, 'connection refused', null);
+
+        $this->assertFalse($this->sender(true, 200, ['webhook_url' => 'https://n8n.test/hook'], true, true)->send('status_poll.failed', []));
+    }
+
+    public function testAMissingWebhookIsLoggedWithTheReason(): void
+    {
+        $this->alertLog->expects($this->once())->method('record')
+            ->with($this->anything(), 'status_poll.failed', AlertLogEntry::OUTCOME_NOT_SENT, AlertLogEntry::REASON_WEBHOOK_MISSING, DispatchFailureReasons::WEBHOOK_MISSING, null);
+
+        $this->assertFalse($this->sender(true, 200, ['webhook_url' => ''])->send('status_poll.failed', []));
+    }
+
+    public function testACampaignWithoutANameLeavesTheSubjectEmpty(): void
+    {
+        $this->alertLog->expects($this->once())->method('record')->with($this->anything(), 'a', AlertLogEntry::OUTCOME_SENT, null, null, null);
+
+        $this->sender()->send('a', ['campaign' => ['id' => 9, 'name' => null]]);
+    }
+
+    public function testAFailingLogNeverBreaksTheAlert(): void
+    {
+        $this->alertLog->method('record')->willThrowException(new \RuntimeException('table missing'));
+        $this->logger->expects($this->once())->method('error')->with('N8nDispatch: alert alert.campaign.unpublished not written to the alert log: table missing');
+
+        $this->assertTrue($this->sender()->send('campaign.unpublished', []));
+        $this->assertCount(1, $this->requests);
     }
 
     public function testACooldownKeyAlreadyTakenSendsNothing(): void
@@ -181,6 +253,6 @@ class AlertSenderTest extends TestCase
         $helper = $this->createStub(IntegrationHelper::class);
         $this->logger->expects($this->once())->method('error')->with('N8nDispatch: alert alert.campaign.unpublished not sent: db gone');
 
-        $this->assertFalse((new AlertSender($helper, $settings, $this->throttle, new MockHttpClient(), $this->logger))->send('campaign.unpublished', []));
+        $this->assertFalse((new AlertSender($helper, $settings, $this->throttle, new MockHttpClient(), $this->logger, $this->alertLog))->send('campaign.unpublished', []));
     }
 }

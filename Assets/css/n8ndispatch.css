@@ -557,6 +557,33 @@ a[data-n8n-status-action]:hover * {
     padding-left: 20px;
 }
 
+/* The log of the alerts in the Alertas tab of the plugin's settings screen. */
+.n8ndispatch-alert-log {
+    max-height: 40vh;
+    overflow-y: auto;
+}
+
+/* The plugin's settings modal is core's 600px: too narrow for the log. Only the modal that holds the log is widened, to the width of the resend modal. */
+.modal-dialog:has(.n8ndispatch-alert-log-block) {
+    width: 780px;
+    max-width: 95vw;
+}
+
+/* The result column holds the reason, the longest text: it gets the most room. */
+.n8ndispatch-alert-log table {
+    font-size: 12px;
+    table-layout: fixed;
+}
+
+.n8ndispatch-alert-log th:nth-child(1) { width: 17%; }
+.n8ndispatch-alert-log th:nth-child(2) { width: 31%; }
+.n8ndispatch-alert-log th:nth-child(3) { width: 17%; }
+.n8ndispatch-alert-log th:nth-child(4) { width: 35%; }
+
+.n8ndispatch-alert-log td {
+    overflow-wrap: anywhere;
+}
+
 /* The card of an Email sent through Mautic's own mailer (_dispatch_mautic.html.twig): what Mautic reports, as a short list. */
 .n8ndispatch-mautic-facts {
     margin: 0 0 8px;
