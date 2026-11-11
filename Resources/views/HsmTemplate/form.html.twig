@@ -2,6 +2,10 @@
 
 {% block mauticContent %}n8ndispatch.hsmtemplate{% endblock %}
 
+{% block indexButton %}
+    {% include '@N8nDispatch/Template/_back_button.html.twig' with {'indexRoute': 'mautic_n8ndispatch.hsmtemplate_index', 'targetKey': 'mautic.n8ndispatch.hsmtemplate.header.index'} %}
+{% endblock %}
+
 {% block headerTitle %}
     {% if entity.id %}
         {{ 'mautic.n8ndispatch.hsmtemplate.menu.edit'|trans({'%name%': entity.name}) }}
