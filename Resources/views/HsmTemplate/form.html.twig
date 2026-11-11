@@ -93,6 +93,11 @@
                                 <a href="#hsm-campaigns-container" role="tab" data-toggle="tab">{{ 'mautic.n8ndispatch.hsmtemplate.tab.campaigns.label'|trans }}</a>
                             </li>
                         {% endif %}
+                        {% if entity.id %}
+                            <li>
+                                <a href="#hsm-history-container" role="tab" data-toggle="tab">{{ 'mautic.n8ndispatch.audit.tab'|trans }}</a>
+                            </li>
+                        {% endif %}
                     </ul>
                     <!--/ tabs controls -->
 
@@ -217,6 +222,9 @@
                                     <p class="text-muted">{{ 'mautic.n8ndispatch.hsmtemplate.usages.none'|trans }}</p>
                                 {% endif %}
                             </div>
+                        {% endif %}
+                        {% if entity.id %}
+                            {% include '@N8nDispatch/Template/_audit_pane.html.twig' with {'id': 'hsm-history-container', 'rows': n8ndispatch_template_audit('hsm_template', entity.id)} only %}
                         {% endif %}
                     </div>
                 </div>
