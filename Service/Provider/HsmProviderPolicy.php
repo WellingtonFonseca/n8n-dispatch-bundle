@@ -62,6 +62,27 @@ class HsmProviderPolicy
     }
 
     /**
+     * What the router column of the template list shows: the router for a template sent through n8n, the name of the
+     * picked number for one sent through the DialogHSM (it has no router; the number takes its place).
+     *
+     * @param string $missingLabel the label of a number that no longer exists, with %id% for the number
+     */
+    public function routerLabel(HsmTemplate $template, string $missingLabel): string
+    {
+        if (!$template->usesDialogHsm()) {
+            return (string) $template->getRouter();
+        }
+
+        $number = $template->getWhatsappNumberId();
+
+        if (null === $number) {
+            return '';
+        }
+
+        return $this->gateway->numberName($number) ?? str_replace('%id%', (string) $number, $missingLabel);
+    }
+
+    /**
      * The first thing the other plugin says is wrong, as [field, message key], or null. A missing number is left to
      * the entity's own required rule.
      *
