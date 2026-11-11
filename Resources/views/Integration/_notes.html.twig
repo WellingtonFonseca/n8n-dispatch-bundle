@@ -1,0 +1,8 @@
+{#
+  The 'custom' note of the plugin's settings screen (Integration::getFormNotes('custom'), drawn under the fields of the
+  first tab): the alert log and the change log. Each block moves into its own tab by its own script.
+  Needs: days (Service/Changelog::days()), alertLog (AlertLogEntryRepository::latest()).
+#}
+
+{% include '@N8nDispatch/Integration/_alert_log.html.twig' %}
+{% include '@N8nDispatch/Integration/_changelog.html.twig' %}

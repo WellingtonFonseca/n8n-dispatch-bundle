@@ -35,12 +35,8 @@ class CampaignFailureAlerts
      */
     public function afterFailure(LeadEventLog $log, bool $wasPublished): void
     {
+        // runs with the alerts off too: the sender writes the alert to the log as "not sent", so someone can see what they miss
         $settings = $this->settings->current();
-
-        if (!$settings['enabled']) {
-            return;
-        }
-
         $step     = $log->getEvent();
         $campaign = $step->getCampaign();
 

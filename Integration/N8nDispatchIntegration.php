@@ -7,6 +7,8 @@ namespace MauticPlugin\N8nDispatchBundle\Integration;
 use Mautic\CoreBundle\Form\Type\StandAloneButtonType;
 use Mautic\CoreBundle\Form\Type\YesNoButtonGroupType;
 use Mautic\PluginBundle\Integration\AbstractIntegration;
+use MauticPlugin\N8nDispatchBundle\Entity\AlertLogEntry;
+use MauticPlugin\N8nDispatchBundle\Entity\AlertLogEntryRepository;
 use MauticPlugin\N8nDispatchBundle\Entity\PollRun;
 use MauticPlugin\N8nDispatchBundle\Form\Type\VisiblePasswordType;
 use MauticPlugin\N8nDispatchBundle\Service\Alert\AlertSettings;
@@ -33,6 +35,8 @@ use Symfony\Component\Validator\Context\ExecutionContextInterface;
 class N8nDispatchIntegration extends AbstractIntegration
 {
     public const NAME = 'N8nDispatch';
+
+    private const ALERT_LOG_ROWS = 50;
 
     public function getName(): string
     {
@@ -63,9 +67,27 @@ class N8nDispatchIntegration extends AbstractIntegration
 
         return [
             'custom'     => true,
-            'template'   => '@N8nDispatch/Integration/_changelog.html.twig',
-            'parameters' => ['days' => Changelog::days()],
+            'template'   => '@N8nDispatch/Integration/_notes.html.twig',
+            'parameters' => ['days' => Changelog::days(), 'alertLog' => $this->latestAlerts()],
         ];
+    }
+
+    /**
+     * The rows of the log in the Alertas tab. Never allowed to break the settings screen (the table may not exist yet).
+     *
+     * @return list<array{created_at: string, alert: string, outcome: string, reason: string|null, detail: string|null, subject: string|null}>
+     */
+    private function latestAlerts(): array
+    {
+        try {
+            $repository = $this->em->getRepository(AlertLogEntry::class);
+
+            return $repository instanceof AlertLogEntryRepository ? $repository->latest(self::ALERT_LOG_ROWS) : [];
+        } catch (\Throwable $e) {
+            $this->logger->error('N8nDispatch: the alert log could not be read: '.$e->getMessage());
+
+            return [];
+        }
     }
 
     /**
