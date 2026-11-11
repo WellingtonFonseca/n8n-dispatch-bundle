@@ -97,14 +97,24 @@
                             {{ form_row(form.language) }}
                             {{ form_row(form.name) }}
                             {{ form_row(form.description) }}
+                            {# The provider select is always there, so people get used to filling it; it lists only the providers that can
+                               send on this instance (n8n alone without the DialogHSM plugin). The router and the number share one slot,
+                               and campaign-hsm-dispatch.js shows the one the provider names. #}
+                            {% set usesDialogHsm = form.provider.vars.value == 'dialoghsm' %}
                             <div class="row">
-                                <div class="col-xs-4">
+                                <div class="col-xs-3">
+                                    {{ form_row(form.provider) }}
+                                </div>
+                                <div class="col-xs-3" id="n8ndispatch-hsm-router-box"{% if usesDialogHsm %} style="display: none;"{% endif %}>
                                     {{ form_row(form.router) }}
                                 </div>
-                                <div class="col-xs-4">
+                                <div class="col-xs-3" id="n8ndispatch-hsm-number-box"{% if not usesDialogHsm %} style="display: none;"{% endif %}>
+                                    {{ form_row(form.whatsappNumberId) }}
+                                </div>
+                                <div class="col-xs-3">
                                     {{ form_row(form.hsmTemplate) }}
                                 </div>
-                                <div class="col-xs-4">
+                                <div class="col-xs-3">
                                     {{ form_row(form.type) }}
                                 </div>
                             </div>

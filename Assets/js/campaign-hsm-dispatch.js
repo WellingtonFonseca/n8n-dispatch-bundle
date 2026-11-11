@@ -152,6 +152,16 @@
         updateCardsAlert();
     };
 
+    // Shows the router while the template is sent through n8n and the number select while it is sent through the DialogHSM
+    // (they share one slot of the form). Also the provider select's data-onload-callback, so the page opens in the
+    // right state.
+    Mautic.n8nDispatchOnHsmProviderChange = function (el) {
+        var dialog = 'dialoghsm' === mQuery(el).val();
+
+        mQuery('#n8ndispatch-hsm-router-box').toggle(!dialog);
+        mQuery('#n8ndispatch-hsm-number-box').toggle(dialog);
+    };
+
     // data-onload-callback convention (see CoreBundle Assets/js/1a.content.js) —
     // fires once when an HSM Template's edit page opens (Form/Type/
     // HsmTemplateType.php). Same {{name}}-scanning mechanism as
