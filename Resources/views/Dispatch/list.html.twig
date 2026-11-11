@@ -109,6 +109,10 @@
                         'class': 'col-dispatch-step-status',
                     }) }}
                     {{ include('@MauticCore/Helper/tableheader.html.twig', {
+                        'text': 'mautic.n8ndispatch.dispatch.column.type',
+                        'class': 'col-dispatch-type',
+                    }) }}
+                    {{ include('@MauticCore/Helper/tableheader.html.twig', {
                         'text': 'mautic.n8ndispatch.dispatch.column.campaign',
                         'class': 'col-dispatch-campaign',
                     }) }}
@@ -215,6 +219,8 @@
                                 -
                             {% endif %}
                         </td>
+                        {# What was sent: Email, SMS or HSM (plain text, like the type column of the HSM list). #}
+                        <td class="col-dispatch-type">{{ ('mautic.n8ndispatch.dispatch.filter.channel.' ~ item.channel)|trans }}</td>
                         <td>
                             <a href="{{ path('mautic_campaign_action', {'objectAction': 'view', 'objectId': item.campaignId}) }}" target="_blank" rel="noopener">{{ item.campaignName }}</a>
                         </td>
