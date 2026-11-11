@@ -4,6 +4,7 @@ Um bloco por dia, do mais novo para o mais antigo. Formato fixo: `## AAAA-MM-DD`
 
 ## 2026-11-11
 - A aba Alertas ganhou a lista Alertas recentes: cada alerta que o Mautic gerou, com a data, a campanha e se foi enviado ao n8n ou não, e o motivo quando não foi (opção desligada, webhook sem configurar, n8n recusou ou fora do ar). O status é um ícone (check verde ou X vermelho) que mostra a palavra ao passar o mouse; a lista rola para o lado quando o nome da campanha é longo. Com a opção Enviar alertas desligada o Mautic continua registrando o que teria enviado
+- Novo ícone do plugin: o logo do n8n sobre o disco azul do Mautic, com sombra longa, no tile de Configurações > Plugins e na lista de plugins
 
 ## 2026-11-10
 - Novo tipo de HSM, Imagem: o template envia uma única imagem (um link https) no cabeçalho da mensagem. O formulário mostra um campo só, com o aviso enquanto o link não está certo. O n8n recebe hsm_type image e a imagem em cards, com um item
