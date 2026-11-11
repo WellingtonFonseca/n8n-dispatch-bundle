@@ -560,7 +560,7 @@ a[data-n8n-status-action]:hover * {
 /* The log of the alerts in the Alertas tab of the plugin's settings screen. */
 .n8ndispatch-alert-log {
     max-height: 40vh;
-    overflow-y: auto;
+    overflow: auto;
 }
 
 /* The plugin's settings modal is core's 600px: too narrow for the log. Only the modal that holds the log is widened, to the width of the resend modal. */
@@ -569,19 +569,22 @@ a[data-n8n-status-action]:hover * {
     max-width: 95vw;
 }
 
-/* The result column holds the reason, the longest text: it gets the most room. */
+/* A campaign name in production is long: the columns keep their text on one line and the list scrolls sideways,
+   instead of squeezing the name. Only the detail (the reason) wraps, in a column that keeps a readable width. */
 .n8ndispatch-alert-log table {
     font-size: 12px;
-    table-layout: fixed;
+    margin-bottom: 0;
+    width: 100%;
 }
 
-.n8ndispatch-alert-log th:nth-child(1) { width: 17%; }
-.n8ndispatch-alert-log th:nth-child(2) { width: 31%; }
-.n8ndispatch-alert-log th:nth-child(3) { width: 17%; }
-.n8ndispatch-alert-log th:nth-child(4) { width: 35%; }
-
+.n8ndispatch-alert-log th,
 .n8ndispatch-alert-log td {
-    overflow-wrap: anywhere;
+    white-space: nowrap;
+}
+
+.n8ndispatch-alert-log td:nth-child(2) {
+    min-width: 260px;
+    white-space: normal;
 }
 
 /* The card of an Email sent through Mautic's own mailer (_dispatch_mautic.html.twig): what Mautic reports, as a short list. */
