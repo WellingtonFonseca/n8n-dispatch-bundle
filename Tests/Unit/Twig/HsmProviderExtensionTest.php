@@ -37,7 +37,7 @@ class HsmProviderExtensionTest extends TestCase
         $this->assertContains('n8ndispatch_hsm_provider_label', $names);
         $this->assertContains('n8ndispatch_is_provider', $names);
         $this->assertContains('n8ndispatch_hsm_number_label', $names);
-        $this->assertContains('n8ndispatch_provider_dispatch', $names);
+        $this->assertContains('n8ndispatch_dispatch', $names);
     }
 
     public function testTheRouterLabelOfAnN8nTemplateIsItsRouter(): void

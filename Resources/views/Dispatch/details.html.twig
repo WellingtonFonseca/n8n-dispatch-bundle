@@ -1,18 +1,8 @@
 {#
-  Body of the details modal opened from the Dispatches table: when, which
-  campaign, which template and which contact, then the same card the
+  Body of the details modal opened from the Dispatches table: the same card the
   contact's History shows (SubscribedEvents/Timeline/_dispatch_details.html.twig),
   so both stay equal.
 #}
 <div class="n8ndispatch-details">
-    {# The card of a dispatch handed to another plugin has these four facts in its own table. #}
-    {% if not n8ndispatch_is_provider(dispatch.metadata) %}
-    <p>
-        <strong>{{ 'mautic.n8ndispatch.dispatch.details.date'|trans }}:</strong> {{ dispatch.dispatchedAt ? n8ndispatch_date(dispatch.dispatchedAt) : '-' }}<br/>
-        <strong>{{ 'mautic.n8ndispatch.dispatch.details.campaign'|trans }}:</strong> {{ dispatch.campaignName }}<br/>
-        <strong>{{ 'mautic.n8ndispatch.dispatch.details.template'|trans }}:</strong> {{ dispatch.templateName }}<br/>
-        <strong>{{ 'mautic.n8ndispatch.dispatch.details.contact'|trans }}:</strong> {{ dispatch.contactEmail ?: '-' }}
-    </p>
-    {% endif %}
     {% include '@N8nDispatch/SubscribedEvents/Timeline/_dispatch_details.html.twig' with {'item': {'metadata': dispatch.metadata, 'isScheduled': false, 'log_id': dispatch.id, 'lead_id': dispatch.contactId}, 'dispatch': dispatch} %}
 </div>

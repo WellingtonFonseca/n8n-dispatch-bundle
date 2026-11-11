@@ -33,7 +33,7 @@ class HsmProviderExtension extends AbstractExtension
             new TwigFunction('n8ndispatch_hsm_router_label', [$this, 'routerLabel']),
             new TwigFunction('n8ndispatch_hsm_number_label', [$this, 'numberLabel']),
             new TwigFunction('n8ndispatch_is_provider', [$this, 'isProvider']),
-            new TwigFunction('n8ndispatch_provider_dispatch', [$this, 'dispatchOf']),
+            new TwigFunction('n8ndispatch_dispatch', [$this, 'dispatchOf']),
         ];
     }
 
@@ -61,7 +61,7 @@ class HsmProviderExtension extends AbstractExtension
     }
 
     /**
-     * The facts of the dispatch (date, campaign, template, contact) for the card of the contact's Timeline, which only has the log
+     * The facts of the dispatch (date, campaign, template, contact) for the details table of the card of the contact's Timeline, which only has the log
      * id: the same row the details modal of the Dispatches screen shows, so both cards say the same.
      *
      * @return array<string, mixed>|null
