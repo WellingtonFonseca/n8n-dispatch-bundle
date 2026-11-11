@@ -1,6 +1,6 @@
 {#
   Body of the read-only details modal of an HSM template, opened from its name on the list: the same information as the
-  edit page (language, name, description, router, template, type, carousel cards, text, availability, variables, campaigns).
+  edit page (language, name, description, provider, router, template, type, carousel cards, text, availability, variables, campaigns).
 #}
 <div class="n8ndispatch-details">
     <ul class="nav nav-tabs nav-tabs-contained">
@@ -14,28 +14,65 @@
             {{ (entity.isPublished ? 'mautic.n8ndispatch.template.details.active' : 'mautic.n8ndispatch.template.details.inactive')|trans }}
         </span>
     </p>
-    <p>
-        <strong>{{ 'mautic.core.language'|trans }}:</strong> {{ entity.language }}<br/>
-        <strong>{{ 'mautic.core.name'|trans }}:</strong> {{ entity.name }}<br/>
-        {% if entity.description %}
-            <strong>{{ 'mautic.core.description'|trans }}:</strong> {{ entity.description|purify }}<br/>
-        {% endif %}
-        <strong>{{ 'mautic.n8ndispatch.campaign.event.hsm.router'|trans }}:</strong> {{ entity.router }}<br/>
-        <strong>{{ 'mautic.n8ndispatch.campaign.event.hsm.template'|trans }}:</strong> {{ entity.hsmTemplate }}<br/>
-        <strong>{{ 'mautic.n8ndispatch.campaign.event.hsm.type'|trans }}:</strong> {{ ('mautic.n8ndispatch.hsmtemplate.type.' ~ entity.type)|trans }}<br/>
-    </p>
-    {% if entity.type == 'image' %}
-        <p><strong>{{ 'mautic.n8ndispatch.hsmtemplate.image.label'|trans }}:</strong> <a href="{{ entity.cards[0] }}" target="_blank" rel="noopener noreferrer">{{ entity.cards[0] }}</a></p>
-    {% elseif entity.type == 'carousel' %}
-        <p class="n8ndispatch-template-label"><strong>{{ 'mautic.n8ndispatch.hsmtemplate.cards.label'|trans }}:</strong></p>
-        <ul class="list-unstyled">
-            {% for url in entity.cards|filter(u => u) %}
-                <li>{{ 'mautic.n8ndispatch.hsmtemplate.cards.card'|trans({'%n%': loop.index}) }}: <a href="{{ url }}" target="_blank" rel="noopener noreferrer">{{ url }}</a></li>
-            {% endfor %}
-        </ul>
-    {% endif %}
-    <p class="n8ndispatch-template-label"><strong>{{ 'mautic.n8ndispatch.campaign.event.hsm.text'|trans }}:</strong></p>
-    <pre class="n8ndispatch-timeline-json n8ndispatch-callback-message">{{ entity.text }}</pre>
+    {# The fields as a table, like the contact page: a bold label in a 20% column, the value beside it. #}
+    <div class="panel shd-none mb-0">
+        <table class="table table-hover mb-0">
+            <tbody>
+            <tr>
+                <td width="20%"><span class="fw-b textTitle">{{ 'mautic.core.language'|trans }}</span></td>
+                <td>{{ entity.language }}</td>
+            </tr>
+            <tr>
+                <td width="20%"><span class="fw-b textTitle">{{ 'mautic.core.name'|trans }}</span></td>
+                <td>{{ entity.name }}</td>
+            </tr>
+            {% if entity.description %}
+                <tr>
+                    <td width="20%"><span class="fw-b textTitle">{{ 'mautic.core.description'|trans }}</span></td>
+                    <td>{{ entity.description|purify }}</td>
+                </tr>
+            {% endif %}
+            <tr>
+                <td width="20%"><span class="fw-b textTitle">{{ 'mautic.n8ndispatch.hsmtemplate.provider.label'|trans }}</span></td>
+                <td>{{ n8ndispatch_hsm_provider_label(entity) }}</td>
+            </tr>
+            {# The router for n8n, the name of the picked number for the DialogHSM (same text as the list). #}
+            <tr>
+                <td width="20%"><span class="fw-b textTitle">{{ 'mautic.n8ndispatch.campaign.event.hsm.router'|trans }}</span></td>
+                <td>{{ n8ndispatch_hsm_router_label(entity) }}</td>
+            </tr>
+            <tr>
+                <td width="20%"><span class="fw-b textTitle">{{ 'mautic.n8ndispatch.campaign.event.hsm.template'|trans }}</span></td>
+                <td>{{ entity.hsmTemplate }}</td>
+            </tr>
+            <tr>
+                <td width="20%"><span class="fw-b textTitle">{{ 'mautic.n8ndispatch.campaign.event.hsm.type'|trans }}</span></td>
+                <td>{{ ('mautic.n8ndispatch.hsmtemplate.type.' ~ entity.type)|trans }}</td>
+            </tr>
+            {% if entity.type == 'image' %}
+                <tr>
+                    <td width="20%"><span class="fw-b textTitle">{{ 'mautic.n8ndispatch.hsmtemplate.image.label'|trans }}</span></td>
+                    <td><a href="{{ entity.cards[0] }}" target="_blank" rel="noopener noreferrer">{{ entity.cards[0] }}</a></td>
+                </tr>
+            {% elseif entity.type == 'carousel' %}
+                <tr>
+                    <td width="20%"><span class="fw-b textTitle">{{ 'mautic.n8ndispatch.hsmtemplate.cards.label'|trans }}</span></td>
+                    <td>
+                        <ul class="list-unstyled mb-0">
+                            {% for url in entity.cards|filter(u => u) %}
+                                <li>{{ 'mautic.n8ndispatch.hsmtemplate.cards.card'|trans({'%n%': loop.index}) }}: <a href="{{ url }}" target="_blank" rel="noopener noreferrer">{{ url }}</a></li>
+                            {% endfor %}
+                        </ul>
+                    </td>
+                </tr>
+            {% endif %}
+            <tr>
+                <td width="20%"><span class="fw-b textTitle">{{ 'mautic.n8ndispatch.campaign.event.hsm.text'|trans }}</span></td>
+                <td><pre class="n8ndispatch-timeline-json n8ndispatch-callback-message mb-0">{{ entity.text }}</pre></td>
+            </tr>
+            </tbody>
+        </table>
+    </div>
     {% include '@N8nDispatch/Template/_variables.html.twig' %}
     </div>
     <div class="tab-pane fade bdr-w-0" id="hsm-details-campaigns">
