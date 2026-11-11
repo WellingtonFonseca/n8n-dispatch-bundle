@@ -3,6 +3,14 @@
 Um bloco por dia, do mais novo para o mais antigo. Formato fixo: `## AAAA-MM-DD` e uma linha `- ` por mudança (a tela do plugin lê este arquivo).
 
 ## 2026-11-11
+- O template de HSM e o de SMS ganharam o campo Enviar por. Um HSM pode sair pelo plugin DialogHSM (360Dialog): no template escolhe-se o número do DialogHSM no lugar do router. Sem o plugin instalado nada muda
+- Um HSM enviado pelo DialogHSM não passa pelo n8n: o passo da campanha termina quando o DialogHSM responde. Sucesso se ele aceitou, Falhou com o motivo se recusou (telefone inválido, template inexistente). Entregue, lido e respondido aparecem na timeline do próprio DialogHSM
+- Reenviar vale para o HSM que o DialogHSM recusou: usa os mesmos dados do primeiro envio ou os valores do formulário de Reenviar. Se aceitar, o erro some; se recusar de novo, o disparo continua Falhou e o alerta de reenvio dispara
+- Um HSM ou SMS com variável faltando um número (por exemplo {{1}} e {{3}}), com {{0}} ou com mais de 50 variáveis é recusado ao salvar
+- A tela Disparos ganhou a coluna Tipo (Email, SMS ou HSM) entre Status da etapa e Campanha
+- O cartão de cada disparo (detalhes e histórico do contato) começa pelos status, depois o erro num alerta vermelho e uma tabela Detalhes com data, campanha, template e contato, mais as linhas do canal (número do DialogHSM e wamid, ou envio, abertura e cliques do Email enviado pelo Mautic). Bounce e descadastro entram no alerta
+- Novo botão Voltar nas telas de editar SMS e HSM, e títulos novos: SMS, HSM, Novo SMS, Novo HSM, Editar SMS, Editar HSM. A lista e os detalhes do template mostram como ele é enviado
+- Nova aba Histórico, a última, nas telas de editar e nos detalhes de SMS e HSM: cada alteração com data, usuário, campo, valor antes e valor depois, no idioma de quem vê. Só mostra o que mudou depois desta versão
 - A aba Alertas ganhou a lista Alertas recentes: cada alerta que o Mautic gerou, com a data, a campanha e se foi enviado ao n8n ou não, e o motivo quando não foi (opção desligada, webhook sem configurar, n8n recusou ou fora do ar). O status é um ícone (check verde ou X vermelho) que mostra a palavra ao passar o mouse; a lista rola para o lado quando o nome da campanha é longo. Com a opção Enviar alertas desligada o Mautic continua registrando o que teria enviado
 - Novo ícone do plugin: o logo do n8n sobre o disco azul do Mautic, com sombra longa, no tile de Configurações > Plugins e na lista de plugins
 - Os itens Emails, SMS e HSM saíram do menu Canais e agora ficam dentro do menu N8N Dispatch, junto com Disparos. No menu, os de SMS e HSM passaram a se chamar só SMS e HSM. O menu N8N Dispatch aparece para quem pode abrir pelo menos um desses itens
