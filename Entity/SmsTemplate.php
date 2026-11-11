@@ -32,6 +32,8 @@ class SmsTemplate extends FormEntity
 {
     public const TABLE_NAME = 'n8n_dispatch_sms_templates';
 
+    public const PROVIDER_N8N = 'n8n';
+
     private ?int $id = null;
 
     private ?string $name = null;
@@ -39,6 +41,9 @@ class SmsTemplate extends FormEntity
     private string $language = LocaleConventions::DEFAULT_LOCALE;
 
     private ?string $description = null;
+
+    // How the template is sent. Only n8n today; the other providers to come are added here and to the form's list.
+    private string $provider = self::PROVIDER_N8N;
 
     private ?string $text = null;
 
@@ -86,6 +91,13 @@ class SmsTemplate extends FormEntity
             ->option('default', LocaleConventions::DEFAULT_LOCALE)
             ->build();
 
+        // Not addNamedField(): needs the 'default' column option, like language, so ALTER TABLE ADD COLUMN backfills
+        // the rows already saved with n8n.
+        $builder->createField('provider', 'string')
+            ->columnName('provider')
+            ->option('default', self::PROVIDER_N8N)
+            ->build();
+
         $builder->addField('text', 'text');
 
         $builder->addNamedField('variablesJson', 'text', 'variables_json', true);
@@ -95,6 +107,11 @@ class SmsTemplate extends FormEntity
     {
         $metadata->addPropertyConstraint('name', new Assert\NotBlank([
             'message' => 'mautic.core.name.required',
+        ]));
+
+        $metadata->addPropertyConstraint('provider', new Assert\Choice([
+            'choices' => [self::PROVIDER_N8N],
+            'message' => 'mautic.n8ndispatch.smstemplate.error.provider_invalid',
         ]));
 
         $metadata->addPropertyConstraint('text', new Assert\NotBlank([
@@ -151,6 +168,19 @@ class SmsTemplate extends FormEntity
     {
         $this->isChanged('description', $description);
         $this->description = $description;
+
+        return $this;
+    }
+
+    public function getProvider(): string
+    {
+        return $this->provider;
+    }
+
+    public function setProvider(string $provider): self
+    {
+        $this->isChanged('provider', $provider);
+        $this->provider = $provider;
 
         return $this;
     }
