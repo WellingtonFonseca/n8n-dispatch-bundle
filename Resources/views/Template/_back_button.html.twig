@@ -1,0 +1,21 @@
+{#
+  Shared by the edit pages of the SMS and HSM templates: the back button above the title, as core's pages have it
+  (indexButton). Core's pt_BR text of close_back names its placeholder %alvo%, not %target%: both are given.
+  Needs: indexRoute (the list's route), targetKey (the list's title, as a translation key).
+#}
+{% set target = targetKey|trans %}
+{% include '@MauticCore/Helper/button.html.twig' with {
+    buttons: [
+        {
+            label: 'mautic.core.close_back'|trans({'%target%': target, '%alvo%': target}),
+            size: 'xs',
+            variant: 'tertiary',
+            icon: 'ri-arrow-left-line',
+            href: path(indexRoute),
+            attributes: {
+                'data-toggle': 'ajax',
+                'class': 'btn-back mb-lg'
+            }
+        }
+    ]
+} %}
