@@ -10,6 +10,7 @@ use Mautic\CoreBundle\Entity\FormEntity;
 use MauticPlugin\N8nDispatchBundle\Entity\Validation\HsmCards;
 use MauticPlugin\N8nDispatchBundle\Entity\Validation\MappedVariables;
 use MauticPlugin\N8nDispatchBundle\Entity\Validation\NumericVariables;
+use MauticPlugin\N8nDispatchBundle\Entity\Validation\SequentialVariables;
 use MauticPlugin\N8nDispatchBundle\Resolver\LocaleConventions;
 use Symfony\Component\Validator\Constraints as Assert;
 use Symfony\Component\Validator\Mapping\ClassMetadata;
@@ -170,6 +171,9 @@ class HsmTemplate extends FormEntity
 
         // WhatsApp only accepts positional placeholders, {{1}}, {{2}}, ...
         $metadata->addPropertyConstraint('text', new Assert\Callback([NumericVariables::class, 'validate']));
+
+        // The Meta template numbers them 1 to n: a skipped number would send a payload the Meta refuses.
+        $metadata->addPropertyConstraint('text', new Assert\Callback([SequentialVariables::class, 'validate']));
 
         // Every placeholder needs a filled-in source on the variable rows below the text.
         $metadata->addPropertyConstraint('text', new Assert\Callback([MappedVariables::class, 'validate']));

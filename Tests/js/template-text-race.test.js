@@ -19,7 +19,7 @@ const sharedCode = fs.readFileSync(path.join(__dirname, '../../Assets/js/n8ndisp
 // Loads one of the template scripts with just enough fake browser around it to drive its callbacks. The real shared
 // script is loaded for the pure rule (hasNonNumericPlaceholder); everything that touches the page is a recorder.
 function load(file, {text, attached, unmapped = {value: false}}) {
-    const calls = {render: 0, ajax: 0, alerts: [], unmapped: []};
+    const calls = {render: 0, ajax: 0, alerts: [], unmapped: [], sequence: []};
     let   ajaxCallback;
 
     const realShared = (() => {
@@ -34,6 +34,7 @@ function load(file, {text, attached, unmapped = {value: false}}) {
         renderVariablesFromResponse: () => { calls.render++; },
         setNumericAlert:             (field, id, alertText, show) => { calls.alerts.push({id, alertText, show}); },
         hasNonNumericPlaceholder:    realShared.hasNonNumericPlaceholder,
+        setSequenceAlert:            (field, id, texts, fieldText) => { calls.sequence.push({id, problem: JSON.parse(JSON.stringify(realShared.sequenceProblem(fieldText)))}); },
         setUnmappedAlert:            (field, id, alertText, show) => { calls.unmapped.push({id, alertText, show}); },
         hasUnmappedVariables:        () => unmapped.value,
         onMappingSynced:             (field, fn) => { calls.synced = fn; },
@@ -65,6 +66,28 @@ for (const [file, init, onChange] of [
         assert.strictEqual(page.calls.alerts.length, 1);
         assert.strictEqual(page.calls.alerts[0].show, true);
         assert.strictEqual(page.calls.alerts[0].alertText, 'alert text');
+    });
+
+    test(`${file}: the sequence alert is decided from the text on load and again after the answer`, () => {
+        const page = load(file, {text: {value: 'Hi {{1}} and {{3}}'}, attached: {value: true}});
+
+        page.Mautic[init]({});
+        assert.deepStrictEqual(page.calls.sequence.map((c) => c.problem), [{kind: 'gap', missing: 2, highest: 3}]);
+
+        page.answer(RESPONSE);
+        assert.strictEqual(page.calls.sequence.length, 2);
+        assert.match(page.calls.sequence[0].id, /-sequence-alert$/);
+    });
+
+    test(`${file}: the sequence alert is decided again on every change of the text`, () => {
+        const text = {value: '{{1}}'};
+        const page = load(file, {text, attached: {value: true}});
+
+        page.Mautic[init]({});
+        text.value = '{{0}}';
+        page.Mautic[onChange]({value: text.value});
+
+        assert.deepStrictEqual(page.calls.sequence.map((c) => c.problem), [null, {kind: 'zero'}]);
     });
 
     test(`${file}: no alert for numeric placeholders or an empty text`, () => {

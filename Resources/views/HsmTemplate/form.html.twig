@@ -152,6 +152,9 @@
                                message (validators domain) as the error shown when the template is saved. #}
                             <div class="hidden" id="n8ndispatch-hsm-config"
                                  data-numeric-alert-text="{{ 'mautic.n8ndispatch.template.error.numeric_variables'|trans({}, 'validators') }}"
+                                 data-sequence-gap-text="{{ 'mautic.n8ndispatch.template.error.variables_gap'|trans({}, 'validators') }}"
+                                 data-sequence-zero-text="{{ 'mautic.n8ndispatch.template.error.variables_zero'|trans({}, 'validators') }}"
+                                 data-sequence-limit-text="{{ 'mautic.n8ndispatch.template.error.variables_limit'|trans({}, 'validators') }}"
                                  data-unmapped-alert-text="{{ 'mautic.n8ndispatch.template.alert.unmapped_variables'|trans({}, 'validators') }}"></div>
                             {# Core's form_row, with the help between the label and the textarea. #}
                             <div class="row">
