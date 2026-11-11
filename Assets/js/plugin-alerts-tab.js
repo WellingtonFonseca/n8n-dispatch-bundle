@@ -31,6 +31,9 @@
             }
         });
 
+        // the log of the alerts (Resources/views/Integration/_alert_log.html.twig) goes under the fields
+        $content.find('.n8ndispatch-alert-log-block').appendTo($pane);
+
         var $tab = $('<li id="n8ndispatch-alerts-tab"></li>')
             .append($('<a role="tab" data-toggle="tab"></a>').attr('href', '#' + PANE_ID).text($first.attr('data-tab-label')));
         // the change log is always the last tab, whichever script runs first (its own script appends it at the end)

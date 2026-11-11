@@ -15,13 +15,17 @@ use Symfony\Component\Validator\Validation;
 
 class N8nDispatchIntegrationTest extends TestCase
 {
-    private function integration(): N8nDispatchIntegration
+    private function integration(?\MauticPlugin\N8nDispatchBundle\Entity\AlertLogEntryRepository $alertLog = null, ?\Psr\Log\LoggerInterface $logger = null): N8nDispatchIntegration
     {
         // the constructor takes a fixed list of core services, not needed for the form
         $integration = (new \ReflectionClass(N8nDispatchIntegration::class))->newInstanceWithoutConstructor();
         $translator  = $this->createStub(\Symfony\Contracts\Translation\TranslatorInterface::class);
         $translator->method('trans')->willReturnArgument(0);
         (new \ReflectionProperty(\Mautic\PluginBundle\Integration\AbstractIntegration::class, 'translator'))->setValue($integration, $translator);
+        $em = $this->createStub(\Doctrine\ORM\EntityManager::class);
+        $em->method('getRepository')->willReturn($alertLog ?? $this->createStub(\MauticPlugin\N8nDispatchBundle\Entity\AlertLogEntryRepository::class));
+        (new \ReflectionProperty(\Mautic\PluginBundle\Integration\AbstractIntegration::class, 'em'))->setValue($integration, $em);
+        (new \ReflectionProperty(\Mautic\PluginBundle\Integration\AbstractIntegration::class, 'logger'))->setValue($integration, $logger ?? $this->createStub(\Psr\Log\LoggerInterface::class));
 
         return $integration;
     }
@@ -52,9 +56,28 @@ class N8nDispatchIntegrationTest extends TestCase
     {
         $note = $this->integration()->getFormNotes('custom');
 
-        $this->assertSame('@N8nDispatch/Integration/_changelog.html.twig', $note['template']);
+        $this->assertSame('@N8nDispatch/Integration/_notes.html.twig', $note['template']);
         $this->assertTrue($note['custom'], 'core only draws the note when custom is set');
         $this->assertNotEmpty($note['parameters']['days']);
+    }
+
+    public function testTheNoteCarriesTheLatestAlertsOfTheLog(): void
+    {
+        $rows = [['created_at' => '2026-11-11 10:00:00', 'alert' => 'campaign.unpublished', 'outcome' => 'sent', 'reason' => null, 'detail' => null, 'subject' => 'A']];
+        $log  = $this->createMock(\MauticPlugin\N8nDispatchBundle\Entity\AlertLogEntryRepository::class);
+        $log->expects($this->once())->method('latest')->with(50)->willReturn($rows);
+
+        $this->assertSame($rows, $this->integration($log)->getFormNotes('custom')['parameters']['alertLog']);
+    }
+
+    public function testAnUnreadableLogIsLoggedAndTheNoteStillOpensWithNull(): void
+    {
+        $log = $this->createStub(\MauticPlugin\N8nDispatchBundle\Entity\AlertLogEntryRepository::class);
+        $log->method('latest')->willThrowException(new \RuntimeException('no such table'));
+        $logger = $this->createMock(\Psr\Log\LoggerInterface::class);
+        $logger->expects($this->once())->method('error')->with('N8nDispatch: the alert log could not be read: no such table');
+
+        $this->assertNull($this->integration($log, $logger)->getFormNotes('custom')['parameters']['alertLog']);
     }
 
     public function testTheAuthTokenIsAPasswordInput(): void

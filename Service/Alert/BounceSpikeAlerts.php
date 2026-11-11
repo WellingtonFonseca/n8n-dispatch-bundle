@@ -30,7 +30,8 @@ class BounceSpikeAlerts
     {
         $settings = $this->settings->current();
 
-        if (!$settings['enabled'] || !$this->throttle->claim('bounce_check', self::CHECK_EVERY_SECONDS)) {
+        // runs with the alerts off too (one query every 5 minutes): the sender logs the alert as "not sent"
+        if (!$this->throttle->claim('bounce_check', self::CHECK_EVERY_SECONDS)) {
             return 0;
         }
 

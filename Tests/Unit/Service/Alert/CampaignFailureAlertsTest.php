@@ -175,14 +175,10 @@ class CampaignFailureAlertsTest extends TestCase
         $this->alerts(3)->afterFailure($this->log(false, 20), true);
     }
 
-    public function testWithTheChannelOffNothingIsRaisedAndNothingIsRead(): void
+    public function testWithTheChannelOffTheAlertIsStillRaisedSoTheSenderCanLogIt(): void
     {
-        $this->sender->expects($this->never())->method('send');
-        $events = $this->createMock(EventRepository::class);
-        $events->expects($this->never())->method('getFailedCount');
-        $current = $this->createStub(AlertSettings::class);
-        $current->method('current')->willReturn(AlertSettings::fromArray([]));
+        $this->sender->expects($this->once())->method('send')->with('campaign.unpublished', $this->anything());
 
-        (new CampaignFailureAlerts($this->sender, $current, $events, new CampaignLink($this->createStub(UrlGeneratorInterface::class)), $this->throttle))->afterFailure($this->log(false, 20), true);
+        $this->alerts(3, [])->afterFailure($this->log(false, 20), true);
     }
 }

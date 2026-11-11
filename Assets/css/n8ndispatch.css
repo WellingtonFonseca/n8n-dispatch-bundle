@@ -458,13 +458,16 @@ textarea.n8ndispatch-json-block {
 /* Status of the SMS / HSM template lists (Assets/js/template-status-toggle.js): a column of its own right after the menu column, with the Timeline
    badge as a 22px circle holding an icon (play on green, stop on red); on hover it opens to the right and shows the word, as the status badge of
    the campaign card, pushing the next cell (it is in the flow of the cell). Core's toggle icon is hidden, and the first menu item is red / green
-   on hover like the status it leads to. Duplicated on purpose in MauticPatchesBundle (list-status icon badge of its own lists). */
+   on hover like the status it leads to. Duplicated on purpose in MauticPatchesBundle (list-status icon badge of its own lists).
+   The Status column of the alert log (Resources/views/Integration/_alert_log.html.twig) uses the same badge as .n8ndispatch-alert-status: a check on green
+   (sent) or a cross on red (not sent). */
 #smsTemplateTable td,
 #hsmTemplateTable td {
     white-space: nowrap; /* the cells never wrap: an open badge widens its column and the table scrolls, no row changes height under the pointer */
 }
 
-.n8ndispatch-template-status {
+.n8ndispatch-template-status,
+.n8ndispatch-alert-status {
     display: inline-flex;
     vertical-align: middle;
     box-sizing: border-box;
@@ -479,12 +482,14 @@ textarea.n8ndispatch-json-block {
     transition: max-width 0.2s ease, box-shadow 0.2s ease;
 }
 
-.n8ndispatch-template-status:hover {
+.n8ndispatch-template-status:hover,
+.n8ndispatch-alert-status:hover {
     max-width: 140px;
     box-shadow: rgba(0, 0, 0, 0.2) 0 1px 4px 0;
 }
 
-.n8ndispatch-template-status > i {
+.n8ndispatch-template-status > i,
+.n8ndispatch-alert-status > i {
     flex: 0 0 22px;
     width: 22px;
     height: 22px;
@@ -493,13 +498,15 @@ textarea.n8ndispatch-json-block {
     justify-content: center;
 }
 
-.n8ndispatch-template-status__text {
+.n8ndispatch-template-status__text,
+.n8ndispatch-alert-status__text {
     padding: 0 10px 0 0;
     opacity: 0;
     transition: opacity 0.15s ease 0.05s;
 }
 
-.n8ndispatch-template-status:hover .n8ndispatch-template-status__text {
+.n8ndispatch-template-status:hover .n8ndispatch-template-status__text,
+.n8ndispatch-alert-status__text {
     opacity: 1;
 }
 
@@ -555,6 +562,36 @@ a[data-n8n-status-action]:hover * {
 .n8ndispatch-changelog__day ul {
     margin: 4px 0 0;
     padding-left: 20px;
+}
+
+/* The log of the alerts in the Alertas tab of the plugin's settings screen. */
+.n8ndispatch-alert-log {
+    max-height: 40vh;
+    overflow: auto;
+}
+
+/* The plugin's settings modal is core's 600px: too narrow for the log. Only the modal that holds the log is widened, to the width of the resend modal. */
+.modal-dialog:has(.n8ndispatch-alert-log-block) {
+    width: 780px;
+    max-width: 95vw;
+}
+
+/* A campaign name in production is long: the columns keep their text on one line and the list scrolls sideways,
+   instead of squeezing the name. Only the detail (the reason) wraps, in a column that keeps a readable width. */
+.n8ndispatch-alert-log table {
+    font-size: 12px;
+    margin-bottom: 0;
+    width: 100%;
+}
+
+.n8ndispatch-alert-log th,
+.n8ndispatch-alert-log td {
+    white-space: nowrap;
+}
+
+.n8ndispatch-alert-log td:nth-child(2) {
+    min-width: 260px;
+    white-space: normal;
 }
 
 /* The card of an Email sent through Mautic's own mailer (_dispatch_mautic.html.twig): what Mautic reports, as a short list. */
