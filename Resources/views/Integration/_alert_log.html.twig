@@ -23,11 +23,9 @@
                     {% for row in alertLog %}
                         <tr class="n8ndispatch-alert-log__row" data-outcome="{{ row.outcome }}">
                             <td>
-                                {% if row.outcome == 'sent' %}
-                                    <span class="label label-success">{{ 'mautic.n8ndispatch.settings.alerts.log.sent'|trans }}</span>
-                                {% else %}
-                                    <span class="label label-danger">{{ 'mautic.n8ndispatch.settings.alerts.log.not_sent'|trans }}</span>
-                                {% endif %}
+                                {% set sent = 'sent' == row.outcome %}
+                                {% set statusText = ('mautic.n8ndispatch.settings.alerts.log.' ~ (sent ? 'sent' : 'not_sent'))|trans %}
+                                <span class="n8ndispatch-badge n8ndispatch-alert-status n8ndispatch-badge--{{ sent ? 'production' : 'failed' }}" title="{{ statusText }}" aria-label="{{ statusText }}"><i class="{{ sent ? 'ri-check-line' : 'ri-close-line' }}" aria-hidden="true"></i><span class="n8ndispatch-alert-status__text">{{ statusText }}</span></span>
                             </td>
                             <td>
                                 {% if row.outcome != 'sent' %}
