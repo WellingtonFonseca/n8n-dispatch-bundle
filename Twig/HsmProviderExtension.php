@@ -5,6 +5,7 @@ declare(strict_types=1);
 namespace MauticPlugin\N8nDispatchBundle\Twig;
 
 use MauticPlugin\N8nDispatchBundle\Entity\HsmTemplate;
+use MauticPlugin\N8nDispatchBundle\Service\DispatchListReader;
 use MauticPlugin\N8nDispatchBundle\Service\Provider\HsmProviderOutcome;
 use MauticPlugin\N8nDispatchBundle\Service\Provider\HsmProviderPolicy;
 use Symfony\Contracts\Translation\TranslatorInterface;
@@ -21,6 +22,7 @@ class HsmProviderExtension extends AbstractExtension
     public function __construct(
         private readonly HsmProviderPolicy $policy,
         private readonly TranslatorInterface $translator,
+        private readonly DispatchListReader $dispatches,
     ) {
     }
 
@@ -31,6 +33,7 @@ class HsmProviderExtension extends AbstractExtension
             new TwigFunction('n8ndispatch_hsm_router_label', [$this, 'routerLabel']),
             new TwigFunction('n8ndispatch_hsm_number_label', [$this, 'numberLabel']),
             new TwigFunction('n8ndispatch_is_provider', [$this, 'isProvider']),
+            new TwigFunction('n8ndispatch_provider_dispatch', [$this, 'dispatchOf']),
         ];
     }
 
@@ -55,5 +58,16 @@ class HsmProviderExtension extends AbstractExtension
     public function isProvider(mixed $metadata): bool
     {
         return is_array($metadata) && HsmProviderOutcome::isProviderDispatch($metadata);
+    }
+
+    /**
+     * The facts of the dispatch (date, campaign, template, contact) for the card of the contact's Timeline, which only has the log
+     * id: the same row the details modal of the Dispatches screen shows, so both cards say the same.
+     *
+     * @return array<string, mixed>|null
+     */
+    public function dispatchOf(int $logId): ?array
+    {
+        return $this->dispatches->find($logId);
     }
 }

@@ -5,6 +5,7 @@ declare(strict_types=1);
 namespace MauticPlugin\N8nDispatchBundle\Tests\Unit\Twig;
 
 use MauticPlugin\N8nDispatchBundle\Entity\HsmTemplate;
+use MauticPlugin\N8nDispatchBundle\Service\DispatchListReader;
 use MauticPlugin\N8nDispatchBundle\Service\Provider\HsmProviderPolicy;
 use MauticPlugin\N8nDispatchBundle\Service\Provider\NullHsmProviderGateway;
 use MauticPlugin\N8nDispatchBundle\Twig\HsmProviderExtension;
@@ -13,12 +14,19 @@ use Symfony\Contracts\Translation\TranslatorInterface;
 
 class HsmProviderExtensionTest extends TestCase
 {
+    private DispatchListReader $reader;
+
+    protected function setUp(): void
+    {
+        $this->reader = $this->createMock(DispatchListReader::class);
+    }
+
     private function extension(): HsmProviderExtension
     {
         $translator = $this->createMock(TranslatorInterface::class);
         $translator->method('trans')->willReturnCallback(static fn (string $key): string => 'T:'.$key);
 
-        return new HsmProviderExtension(new HsmProviderPolicy(new NullHsmProviderGateway()), $translator);
+        return new HsmProviderExtension(new HsmProviderPolicy(new NullHsmProviderGateway()), $translator, $this->reader);
     }
 
     public function testTheFunctionsAreRegistered(): void
@@ -29,6 +37,7 @@ class HsmProviderExtensionTest extends TestCase
         $this->assertContains('n8ndispatch_hsm_provider_label', $names);
         $this->assertContains('n8ndispatch_is_provider', $names);
         $this->assertContains('n8ndispatch_hsm_number_label', $names);
+        $this->assertContains('n8ndispatch_provider_dispatch', $names);
     }
 
     public function testTheRouterLabelOfAnN8nTemplateIsItsRouter(): void
@@ -64,5 +73,20 @@ class HsmProviderExtensionTest extends TestCase
     public function testTheNumberLabelOfAMissingNumberIsTheTranslatedWarning(): void
     {
         $this->assertSame('T:mautic.n8ndispatch.hsmtemplate.number.missing', $this->extension()->numberLabel(9));
+    }
+
+    public function testTheTimelineReadsTheDispatchOfItsLogLikeTheDetailsModal(): void
+    {
+        $row = ['id' => 5, 'campaignName' => 'Cf - X'];
+        $this->reader->expects($this->once())->method('find')->with(5)->willReturn($row);
+
+        $this->assertSame($row, $this->extension()->dispatchOf(5));
+    }
+
+    public function testALogWithoutADispatchRowGivesNone(): void
+    {
+        $this->reader->method('find')->willReturn(null);
+
+        $this->assertNull($this->extension()->dispatchOf(9));
     }
 }
