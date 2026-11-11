@@ -594,10 +594,9 @@ a[data-n8n-status-action]:hover * {
     white-space: normal;
 }
 
-/* The card of an Email sent through Mautic's own mailer (_dispatch_mautic.html.twig): what Mautic reports, as a short list. */
-.n8ndispatch-mautic-facts {
-    margin: 0 0 8px;
-    padding-left: 18px;
+/* The facts of a delivery card (_facts_table.html.twig): a table, with space above (the status badges) and below it. */
+.n8ndispatch-facts {
+    margin: 12px 0 8px;
 }
 
 .n8ndispatch-mautic-url {
