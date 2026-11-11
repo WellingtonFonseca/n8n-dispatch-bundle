@@ -74,6 +74,16 @@ class ResendVariablesTest extends TestCase
         ], $rows);
     }
 
+    public function testAnHsmHandedToAnotherPluginShowsTheValuesOfItsRequestAsTheFirstSend(): void
+    {
+        $this->smsTemplate('Oi {{1}}', '{"1":{"source":"field","field":"firstname"}}');
+        $this->resolver->method('resolveAll')->willReturn(['1' => 'Zeca']);
+        $log = $this->log('n8ndispatch.sms.send', ['smsTemplate' => 5], []);
+        $log->setMetadata(['n8ndispatch' => ['mode' => 'dialoghsm', 'request' => ['variables' => ['1' => 'Ana']]]]);
+
+        $this->assertSame([['name' => '1', 'first' => 'Ana', 'current' => 'Zeca', 'state' => 'ok']], $this->rows($log));
+    }
+
     public function testTheMappingIsResolvedWithTheLanguageAndTheSeparatorOfTheChannel(): void
     {
         $this->smsTemplate('Oi {{1}}', '{"1":{"source":"static","value":"x"}}', 'en_US');

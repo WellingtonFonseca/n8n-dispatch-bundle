@@ -31,6 +31,7 @@ class DispatchFailureReasons
     public const EMAIL_NOT_PUBLISHED    = 'mautic.n8ndispatch.failure.email_not_published';
     public const SEND_STOPPED           = 'mautic.n8ndispatch.failure.send_stopped';
     public const EMAIL_EMPTY            = 'mautic.n8ndispatch.failure.email_empty';
+    public const VARIABLE_EMPTY         = 'mautic.n8ndispatch.failure.variable_empty';
 
     public function __construct(private TranslatorInterface $translator)
     {

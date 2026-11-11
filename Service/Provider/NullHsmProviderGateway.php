@@ -23,4 +23,9 @@ final class NullHsmProviderGateway implements HsmProviderGateway
     {
         return null;
     }
+
+    public function send(HsmSendRequest $request): HsmSendResult
+    {
+        return HsmSendResult::refused('The DialogHSM plugin is not available on this instance.');
+    }
 }

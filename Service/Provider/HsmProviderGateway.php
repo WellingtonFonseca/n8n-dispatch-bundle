@@ -28,4 +28,10 @@ interface HsmProviderGateway
      * The name of one number, or null when it does not exist (deleted there) or the plugin is not available.
      */
     public function numberName(int $id): ?string;
+
+    /**
+     * Hands one message to the other plugin. Never throws: a refusal, a missing number and a failure of the plugin are
+     * all a refused result with the reason, so the step can fail that contact and the screens can show why.
+     */
+    public function send(HsmSendRequest $request): HsmSendResult;
 }

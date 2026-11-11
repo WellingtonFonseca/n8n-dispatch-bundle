@@ -20,6 +20,7 @@ use MauticPlugin\N8nDispatchBundle\Service\DirectEmailSender;
 use MauticPlugin\N8nDispatchBundle\Service\Alert\ResendFailedAlert;
 use MauticPlugin\N8nDispatchBundle\Service\DispatchFailureReasons;
 use MauticPlugin\N8nDispatchBundle\Service\DispatchResender;
+use MauticPlugin\N8nDispatchBundle\Service\Provider\ProviderResender;
 use MauticPlugin\N8nDispatchBundle\Service\ResendVariables;
 use MauticPlugin\N8nDispatchBundle\Service\StatusTracker;
 use MauticPlugin\N8nDispatchBundle\Tests\Unit\EventListener\EnUsTranslator;
@@ -40,6 +41,8 @@ class DispatchResenderTest extends TestCase
     private ?ResendVariables $resendVariables = null;
 
     private ?ResendFailedAlert $failedAlert = null;
+
+    private ?ProviderResender $providerResender = null;
 
     public function testAnErrorCallbackCanBeResent(): void
     {
@@ -240,6 +243,7 @@ class DispatchResenderTest extends TestCase
             null,
             $this->resendVariables,
             $this->failedAlert,
+            $this->providerResender,
         );
 
         return [$resender, $tracker, $log, $http, $em, $dnc];
@@ -943,5 +947,36 @@ class DispatchResenderTest extends TestCase
         $resender->resend(140, null, ['n8n_nome' => 'Maria']);
 
         $this->assertSame(['n8n_nome' => 'Maria'], $log->getMetadata()['n8ndispatch']['variables']);
+    }
+
+    /**
+     * @return array<string, mixed>
+     */
+    private function providerMetadata(): array
+    {
+        return ['failed' => 1, 'n8ndispatch' => ['mode' => 'dialoghsm', 'status' => 'production', 'outcome' => 'failed', 'request' => []]];
+    }
+
+    public function testAnHsmHandedToAnotherPluginIsResentByItsOwnResenderWithTheFormValuesAndTheNote(): void
+    {
+        $this->providerResender = $this->createMock(ProviderResender::class);
+        $this->providerResender->expects($this->once())->method('resend')
+            ->with($this->isInstanceOf(LeadEventLog::class), ['1' => 'Zeca'], "Resent on DATE\nBy a@b.com", 'a@b.com')
+            ->willReturn(['ok' => true, 'message' => 'from the provider resender']);
+        [$resender, , , $http] = $this->resenderAnswering(200, '', metadata: $this->providerMetadata(), callbacks: []);
+        $http->expects($this->never())->method('request');
+
+        $this->assertSame(['ok' => true, 'message' => 'from the provider resender'], $resender->resend(140, 'a@b.com', ['1' => 'Zeca']));
+    }
+
+    public function testAnHsmHandedToAnotherPluginIsNeverResentToN8nWhenThePluginIsGone(): void
+    {
+        [$resender, , , $http] = $this->resenderAnswering(200, '', metadata: $this->providerMetadata(), callbacks: []);
+        $http->expects($this->never())->method('request');
+
+        $answer = $resender->resend(140, null);
+
+        $this->assertFalse($answer['ok']);
+        $this->assertStringContainsString('not available', $answer['message']);
     }
 }

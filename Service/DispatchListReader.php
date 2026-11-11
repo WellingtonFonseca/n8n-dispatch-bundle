@@ -4,6 +4,8 @@ declare(strict_types=1);
 
 namespace MauticPlugin\N8nDispatchBundle\Service;
 
+use MauticPlugin\N8nDispatchBundle\Service\Provider\HsmProviderOutcome;
+
 use Doctrine\DBAL\ArrayParameterType;
 use Doctrine\ORM\EntityManagerInterface;
 use MauticPlugin\N8nDispatchBundle\Entity\DispatchTracking;
@@ -175,7 +177,7 @@ class DispatchListReader
      * One dispatch of the table by its log id, for the details modal; null
      * when it is not one of them (another event type, no dispatch attempted).
      *
-     * @return array{id: int, channel: string, dispatchedAt: ?\DateTimeImmutable, campaignId: int, campaignName: string, stepStatus: ?string, templateName: string, templateRoute: array{name: string, params: array<string, int|string>}|null, contactId: int, contactEmail: string, contactName: string, failed: bool, mauticState: ?string, metadata: array<string, mixed>}|null
+     * @return array{id: int, channel: string, dispatchedAt: ?\DateTimeImmutable, campaignId: int, campaignName: string, stepStatus: ?string, templateName: string, templateRoute: array{name: string, params: array<string, int|string>}|null, contactId: int, contactEmail: string, contactName: string, failed: bool, mauticState: ?string, providerState: ?string, metadata: array<string, mixed>}|null
      */
     public function find(int $id): ?array
     {
@@ -192,7 +194,7 @@ class DispatchListReader
     /**
      * @param list<array<string, mixed>> $rows
      *
-     * @return list<array{id: int, channel: string, dispatchedAt: ?\DateTimeImmutable, campaignId: int, campaignName: string, stepStatus: ?string, templateName: string, templateRoute: array{name: string, params: array<string, int|string>}|null, contactId: int, contactEmail: string, contactName: string, failed: bool, mauticState: ?string, metadata: array<string, mixed>}>
+     * @return list<array{id: int, channel: string, dispatchedAt: ?\DateTimeImmutable, campaignId: int, campaignName: string, stepStatus: ?string, templateName: string, templateRoute: array{name: string, params: array<string, int|string>}|null, contactId: int, contactEmail: string, contactName: string, failed: bool, mauticState: ?string, providerState: ?string, metadata: array<string, mixed>}>
      */
     private function mapRows(array $rows): array
     {
@@ -228,6 +230,7 @@ class DispatchListReader
                 'contactName'   => self::contactName($row['firstname'], $row['lastname'], $row['email'], (int) $row['lead_id']),
                 'failed'        => DispatchResender::isFailed($metadata[$i]),
                 'mauticState'   => $mauticStates[$i] ?? null,
+                'providerState' => HsmProviderOutcome::outcomeOf($metadata[$i]),
                 'metadata'      => $metadata[$i],
             ];
         }
@@ -445,9 +448,7 @@ class DispatchListReader
         foreach ($rows as $i => $row) {
             $channel = DispatchLogReader::channelOf((string) $row['type']) ?? '';
 
-            $rowStatus = isset($mauticStates[$i])
-                ? DispatchFilters::mauticStatusOf($metadata[$i], $mauticStates[$i])
-                : DispatchFilters::statusOf($channel, $metadata[$i], $outcomes);
+            $rowStatus = $this->statusOfRow($channel, $metadata[$i], $mauticStates[$i] ?? null, $outcomes);
 
             if ($status === $rowStatus) {
                 $kept[] = $row;
@@ -455,6 +456,28 @@ class DispatchListReader
         }
 
         return $kept;
+    }
+
+    /**
+     * The status a row has for the filter: the state Mautic reports for an Email sent through its mailer, the answer of the other
+     * plugin for an HSM handed to it, else the callback n8n reported.
+     *
+     * @param array<string, mixed>  $metadata
+     * @param array<string, string> $outcomes "<refType>|<refValue>" => outcome
+     */
+    private function statusOfRow(string $channel, array $metadata, ?string $mauticState, array $outcomes): ?string
+    {
+        if (null !== $mauticState) {
+            return DispatchFilters::mauticStatusOf($metadata, $mauticState);
+        }
+
+        $providerOutcome = HsmProviderOutcome::outcomeOf($metadata);
+
+        if (null !== $providerOutcome) {
+            return DispatchFilters::providerStatusOf($metadata, $providerOutcome);
+        }
+
+        return DispatchFilters::statusOf($channel, $metadata, $outcomes);
     }
 
     /**

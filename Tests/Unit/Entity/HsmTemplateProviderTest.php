@@ -12,7 +12,7 @@ class HsmTemplateProviderTest extends TestCase
 {
     private const REQUIRED         = 'mautic.core.value.required';
     private const NUMBER_REQUIRED  = 'mautic.n8ndispatch.hsmtemplate.error.number_required';
-    private const CAROUSEL         = 'mautic.n8ndispatch.hsmtemplate.error.dialoghsm_carousel';
+    private const IMAGE_EXTENSION  = 'mautic.n8ndispatch.hsmtemplate.error.dialoghsm_image_extension';
     private const PROVIDER_INVALID = 'mautic.n8ndispatch.hsmtemplate.error.provider_invalid';
 
     /**
@@ -80,16 +80,72 @@ class HsmTemplateProviderTest extends TestCase
         $this->assertSame(['whatsappNumberId' => [self::NUMBER_REQUIRED]], $this->errors($this->template(HsmTemplate::PROVIDER_DIALOGHSM, null, 0)));
     }
 
-    public function testDialogHsmRefusesTheCarouselAndKeepsTheImage(): void
+    public function testDialogHsmAcceptsTheCarousel(): void
     {
-        $cards = array_merge(['https://x.test/a.png', 'https://x.test/b.png'], array_fill(0, 8, ''));
-        $image = $this->template(HsmTemplate::PROVIDER_DIALOGHSM, null, 7, HsmTemplate::TYPE_IMAGE);
-        $image->setCards(array_merge(['https://x.test/a.png'], array_fill(0, 9, '')));
         $carousel = $this->template(HsmTemplate::PROVIDER_DIALOGHSM, null, 7, HsmTemplate::TYPE_CAROUSEL);
-        $carousel->setCards($cards);
+        $carousel->setCards(array_merge(['https://x.test/a', 'https://x.test/b'], array_fill(0, 8, '')));
+
+        // The carousel cards go to the DialogHSM as they are: any https link, with or without an extension (the extension
+        // rule is the image type's alone, so the first card is extensionless on purpose).
+        $this->assertSame([], $this->errors($carousel));
+    }
+
+    /**
+     * @return array<string, array{0: string}>
+     */
+    public static function acceptedImageLinks(): array
+    {
+        return [
+            'png'            => ['https://x.test/a.png'],
+            'jpg'            => ['https://x.test/a.jpg'],
+            'jpeg uppercase' => ['https://x.test/a.JPEG'],
+            'with a query'   => ['https://x.test/a.png?v=3&t=abc'],
+        ];
+    }
+
+    /**
+     * @dataProvider acceptedImageLinks
+     */
+    public function testDialogHsmAcceptsAnImageLinkTheDialogHsmCanTurnIntoAHeader(string $link): void
+    {
+        $image = $this->template(HsmTemplate::PROVIDER_DIALOGHSM, null, 7, HsmTemplate::TYPE_IMAGE);
+        $image->setCards(array_merge([$link], array_fill(0, 9, '')));
 
         $this->assertSame([], $this->errors($image));
-        $this->assertSame(['type' => [self::CAROUSEL]], $this->errors($carousel));
+    }
+
+    /**
+     * @return array<string, array{0: string}>
+     */
+    public static function refusedImageLinks(): array
+    {
+        return [
+            'no extension' => ['https://x.test/media/123'],
+            'gif'          => ['https://x.test/a.gif'],
+            'pdf'          => ['https://x.test/a.pdf'],
+            'png in the path, not at the end' => ['https://x.test/a.png/view'],
+        ];
+    }
+
+    /**
+     * @dataProvider refusedImageLinks
+     */
+    public function testDialogHsmRefusesAnImageLinkItWouldDropFromTheMessage(string $link): void
+    {
+        // The DialogHSM makes the header only for jpg, jpeg and png: any other link is silently left out and the Meta
+        // refuses the message for the missing header.
+        $image = $this->template(HsmTemplate::PROVIDER_DIALOGHSM, null, 7, HsmTemplate::TYPE_IMAGE);
+        $image->setCards(array_merge([$link], array_fill(0, 9, '')));
+
+        $this->assertSame(['cards' => [self::IMAGE_EXTENSION]], $this->errors($image));
+    }
+
+    public function testN8nAcceptsAnImageLinkWithoutAnExtension(): void
+    {
+        $image = $this->template(HsmTemplate::PROVIDER_N8N, 'blip-a', null, HsmTemplate::TYPE_IMAGE);
+        $image->setCards(array_merge(['https://x.test/media/123'], array_fill(0, 9, '')));
+
+        $this->assertSame([], $this->errors($image));
     }
 
     public function testN8nKeepsTheCarousel(): void

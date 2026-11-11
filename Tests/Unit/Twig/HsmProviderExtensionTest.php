@@ -27,6 +27,8 @@ class HsmProviderExtensionTest extends TestCase
 
         $this->assertContains('n8ndispatch_hsm_router_label', $names);
         $this->assertContains('n8ndispatch_hsm_provider_label', $names);
+        $this->assertContains('n8ndispatch_is_provider', $names);
+        $this->assertContains('n8ndispatch_hsm_number_label', $names);
     }
 
     public function testTheRouterLabelOfAnN8nTemplateIsItsRouter(): void
@@ -50,5 +52,17 @@ class HsmProviderExtensionTest extends TestCase
             'T:mautic.n8ndispatch.hsmtemplate.provider.dialoghsm',
             $this->extension()->providerLabel((new HsmTemplate())->setProvider(HsmTemplate::PROVIDER_DIALOGHSM))
         );
+    }
+
+    public function testItTellsAProviderCardByTheMetadataOfTheLog(): void
+    {
+        $this->assertTrue($this->extension()->isProvider(['n8ndispatch' => ['mode' => 'dialoghsm']]));
+        $this->assertFalse($this->extension()->isProvider(['n8ndispatch' => ['status' => 'production']]));
+        $this->assertFalse($this->extension()->isProvider('not an array'));
+    }
+
+    public function testTheNumberLabelOfAMissingNumberIsTheTranslatedWarning(): void
+    {
+        $this->assertSame('T:mautic.n8ndispatch.hsmtemplate.number.missing', $this->extension()->numberLabel(9));
     }
 }

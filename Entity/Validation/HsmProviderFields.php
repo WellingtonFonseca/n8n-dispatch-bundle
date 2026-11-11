@@ -11,7 +11,8 @@ use Symfony\Component\Validator\Context\ExecutionContextInterface;
  * Class-level rule for the fields that depend on how the template is sent (HsmTemplate::provider).
  *
  * n8n: the router is required, the number is not read. DialogHSM: the number is required, the router is not read
- * (it may hold what the template had before), and the carousel is refused because the DialogHSM has no carousel.
+ * (it may hold what the template had before), and the image link must end in jpg, jpeg or png: the DialogHSM makes its header
+ * only for those, and a message without the header is refused by the Meta.
  * Only what the entity alone can know is here; whether the plugin is installed and the number still exists is
  * checked by the form, which has the gateway.
  *
@@ -22,7 +23,7 @@ final class HsmProviderFields
 {
     public const PROVIDER_INVALID = 'mautic.n8ndispatch.hsmtemplate.error.provider_invalid';
     public const NUMBER_REQUIRED  = 'mautic.n8ndispatch.hsmtemplate.error.number_required';
-    public const CAROUSEL         = 'mautic.n8ndispatch.hsmtemplate.error.dialoghsm_carousel';
+    public const IMAGE_EXTENSION  = 'mautic.n8ndispatch.hsmtemplate.error.dialoghsm_image_extension';
 
     public static function validate(HsmTemplate $template, ExecutionContextInterface $context): void
     {
@@ -48,8 +49,11 @@ final class HsmProviderFields
             $context->buildViolation(self::NUMBER_REQUIRED)->atPath('whatsappNumberId')->addViolation();
         }
 
-        if (HsmTemplate::TYPE_CAROUSEL === $template->getType()) {
-            $context->buildViolation(self::CAROUSEL)->atPath('type')->addViolation();
+        // Whatever HsmCards found wrong with the link is its own message: only a valid https link is judged here.
+        $image = $template->getCards()[0];
+
+        if (HsmTemplate::TYPE_IMAGE === $template->getType() && '' !== $image && 1 !== preg_match('/\.(jpe?g|png)(\?.*)?$/i', $image)) {
+            $context->buildViolation(self::IMAGE_EXTENSION)->atPath('cards')->addViolation();
         }
     }
 }
