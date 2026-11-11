@@ -40,7 +40,7 @@ class EmailMenuSubscriberTest extends TestCase
         $this->assertArrayHasKey('mautic.n8ndispatch.dispatch.menu.index', $children[self::ROOT]['children'], 'the items of the root stay');
     }
 
-    public function testNothingMovesWhenTheUserCannotSeeTheRoot(): void
+    public function testNothingMovesWhenTheRootIsMissing(): void
     {
         $tree = $this->tree();
         unset($tree['children'][self::ROOT]);

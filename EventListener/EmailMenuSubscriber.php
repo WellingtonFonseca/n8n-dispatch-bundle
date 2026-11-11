@@ -40,7 +40,7 @@ final class EmailMenuSubscriber implements EventSubscriberInterface
         $tree  = $event->getMenuItems();
         $email = $tree['children'][self::CHANNELS]['children'][self::EMAIL] ?? null;
 
-        // A user who cannot see the root keeps the item where core put it
+        // Defensive: the root asks for the same permissions as the Email item, so it is there whenever the item is. If it is not, the item stays in Channels
         if (null === $email || !isset($tree['children'][self::ROOT])) {
             return;
         }
