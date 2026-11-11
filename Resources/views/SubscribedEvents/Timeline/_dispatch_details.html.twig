@@ -23,7 +23,8 @@
     {% if (item.isScheduled) %}
     <hr />
     {% endif %}
-    <p class="text-danger mt-0 mb-10"><i class="ri-alert-line"></i> {{ 'mautic.campaign.event.last_error'|trans }}:<br/>{{ errors|purify }}</p>
+    {# Only the error: core's alert-danger draws its own icon. #}
+    <div class="alert alert-danger n8ndispatch-last-error">{{ errors|purify }}</div>
 {% endif %}
 
 {% set n8n = item.metadata.n8ndispatch is defined ? item.metadata.n8ndispatch : null %}
