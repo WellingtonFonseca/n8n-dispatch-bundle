@@ -73,20 +73,21 @@ class N8nDispatchIntegration extends AbstractIntegration
     }
 
     /**
-     * The rows of the log in the Alertas tab. Never allowed to break the settings screen (the table may not exist yet).
+     * The rows of the log in the Alertas tab. Never allowed to break the settings screen (the table may not exist yet):
+     * null then, so the tab says it could not read the log instead of "no alerts".
      *
-     * @return list<array{created_at: string, alert: string, outcome: string, reason: string|null, detail: string|null, subject: string|null}>
+     * @return list<array{created_at: string, alert: string, outcome: string, reason: string|null, detail: string|null, subject: string|null}>|null
      */
-    private function latestAlerts(): array
+    private function latestAlerts(): ?array
     {
         try {
             $repository = $this->em->getRepository(AlertLogEntry::class);
 
-            return $repository instanceof AlertLogEntryRepository ? $repository->latest(self::ALERT_LOG_ROWS) : [];
+            return $repository instanceof AlertLogEntryRepository ? $repository->latest(self::ALERT_LOG_ROWS) : null;
         } catch (\Throwable $e) {
             $this->logger->error('N8nDispatch: the alert log could not be read: '.$e->getMessage());
 
-            return [];
+            return null;
         }
     }
 

@@ -70,14 +70,14 @@ class N8nDispatchIntegrationTest extends TestCase
         $this->assertSame($rows, $this->integration($log)->getFormNotes('custom')['parameters']['alertLog']);
     }
 
-    public function testAnUnreadableLogIsLoggedAndTheNoteStillOpens(): void
+    public function testAnUnreadableLogIsLoggedAndTheNoteStillOpensWithNull(): void
     {
         $log = $this->createStub(\MauticPlugin\N8nDispatchBundle\Entity\AlertLogEntryRepository::class);
         $log->method('latest')->willThrowException(new \RuntimeException('no such table'));
         $logger = $this->createMock(\Psr\Log\LoggerInterface::class);
         $logger->expects($this->once())->method('error')->with('N8nDispatch: the alert log could not be read: no such table');
 
-        $this->assertSame([], $this->integration($log, $logger)->getFormNotes('custom')['parameters']['alertLog']);
+        $this->assertNull($this->integration($log, $logger)->getFormNotes('custom')['parameters']['alertLog']);
     }
 
     public function testTheAuthTokenIsAPasswordInput(): void

@@ -26,14 +26,14 @@ class AlertLogEntryRepository extends CommonRepository
     {
         $connection = $this->getEntityManager()->getConnection();
         $table      = $this->getTableName();
-        $utc        = new \DateTimeZone('UTC');
+        $utcNow     = $now->setTimezone(new \DateTimeZone('UTC'));
 
         $connection->executeStatement(
             "DELETE FROM {$table} WHERE created_at < :oldest",
-            ['oldest' => $now->setTimezone($utc)->modify('-'.self::KEEP_DAYS.' days')->format('Y-m-d H:i:s')]
+            ['oldest' => $utcNow->modify('-'.self::KEEP_DAYS.' days')->format('Y-m-d H:i:s')]
         );
         $connection->insert($table, [
-            'created_at' => $now->setTimezone($utc)->format('Y-m-d H:i:s'),
+            'created_at' => $utcNow->format('Y-m-d H:i:s'),
             'alert'      => $alert,
             'outcome'    => $outcome,
             'reason'     => $reason,
@@ -47,10 +47,8 @@ class AlertLogEntryRepository extends CommonRepository
      */
     public function latest(int $limit): array
     {
-        $rows = $this->getEntityManager()->getConnection()->fetchAllAssociative(
+        return $this->getEntityManager()->getConnection()->fetchAllAssociative(
             'SELECT created_at, alert, outcome, reason, detail, subject FROM '.$this->getTableName().' ORDER BY created_at DESC, id DESC LIMIT '.max(1, $limit)
         );
-
-        return array_values($rows);
     }
 }
