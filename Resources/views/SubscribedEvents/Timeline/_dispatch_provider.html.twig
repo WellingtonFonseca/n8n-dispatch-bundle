@@ -7,6 +7,7 @@
   Variables
     - item  the campaign log as an array (metadata)
     - n8n   item.metadata.n8ndispatch: mode, status, request, and once sent: outcome, wamid, result
+    - dispatch  optional, the dispatch as DispatchListReader::find() gives it (the details modal); the Timeline leaves it out and it is read by log id
 #}
 {% set jsonOptions = constant('JSON_PRETTY_PRINT') b-or constant('JSON_UNESCAPED_UNICODE') b-or constant('JSON_UNESCAPED_SLASHES') %}
 {% set outcome = n8n.outcome is defined ? n8n.outcome : null %}
@@ -28,8 +29,18 @@
     <pre class="n8ndispatch-timeline-json">{{ item.metadata.n8ndispatch_resend }}</pre>
     {% endif %}
 
-    {# The delivery as a table: the title over both columns, then the number and, once the plugin took the message, its id. #}
-    {% set rows = [{label: 'mautic.n8ndispatch.timeline.provider.number'|trans, values: [n8ndispatch_hsm_number_label(n8n.request.whatsapp_number_id|default(0))]}] %}
+    {# One table for both screens: when, campaign, template and contact of the dispatch (the details modal gives them, the Timeline reads them), then the number and, once the plugin took the message, its id. #}
+    {% set facts = dispatch is defined ? dispatch : (item.log_id is defined and item.log_id ? n8ndispatch_provider_dispatch(item.log_id) : null) %}
+    {% set rows = [] %}
+    {% if facts %}
+        {% set rows = [
+            {label: 'mautic.n8ndispatch.dispatch.details.date'|trans, values: [facts.dispatchedAt ? n8ndispatch_date(facts.dispatchedAt) : '-']},
+            {label: 'mautic.n8ndispatch.dispatch.details.campaign'|trans, values: [facts.campaignName]},
+            {label: 'mautic.n8ndispatch.dispatch.details.template'|trans, values: [facts.templateName]},
+            {label: 'mautic.n8ndispatch.dispatch.details.contact'|trans, values: [facts.contactEmail ?: '-']},
+        ] %}
+    {% endif %}
+    {% set rows = rows|merge([{label: 'mautic.n8ndispatch.timeline.provider.number'|trans, values: [n8ndispatch_hsm_number_label(n8n.request.whatsapp_number_id|default(0))]}]) %}
     {% if n8n.wamid is defined and n8n.wamid %}
         {% set rows = rows|merge([{label: 'mautic.n8ndispatch.timeline.provider.wamid'|trans, values: [n8n.wamid]}]) %}
     {% endif %}

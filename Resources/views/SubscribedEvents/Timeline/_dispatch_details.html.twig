@@ -7,6 +7,7 @@
 
   Variables
     - item   the campaign log as an array (metadata, isScheduled, ...)
+    - dispatch optional: the dispatch row of the Dispatches screen (the details modal passes it; the provider card reads it)
     - errors the last error text, or false; worked out here from the log
              when the caller does not pass it (the details modal)
 #}
@@ -31,7 +32,7 @@
     {% include '@N8nDispatch/SubscribedEvents/Timeline/_dispatch_mautic.html.twig' with {'item': item, 'n8n': n8n} only %}
 {# An HSM handed to another plugin (the DialogHSM): the plugin answered, there is no n8n callback to show. #}
 {% elseif n8n and n8ndispatch_is_provider(item.metadata) %}
-    {% include '@N8nDispatch/SubscribedEvents/Timeline/_dispatch_provider.html.twig' with {'item': item, 'n8n': n8n} only %}
+    {% include '@N8nDispatch/SubscribedEvents/Timeline/_dispatch_provider.html.twig' with (dispatch is defined ? {'item': item, 'n8n': n8n, 'dispatch': dispatch} : {'item': item, 'n8n': n8n}) only %}
 {% elseif n8n %}
     <div class="n8ndispatch-timeline">
         <div class="n8ndispatch-timeline-header">

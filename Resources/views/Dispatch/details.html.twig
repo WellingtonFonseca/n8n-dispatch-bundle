@@ -5,11 +5,14 @@
   so both stay equal.
 #}
 <div class="n8ndispatch-details">
+    {# The card of a dispatch handed to another plugin has these four facts in its own table. #}
+    {% if not n8ndispatch_is_provider(dispatch.metadata) %}
     <p>
         <strong>{{ 'mautic.n8ndispatch.dispatch.details.date'|trans }}:</strong> {{ dispatch.dispatchedAt ? n8ndispatch_date(dispatch.dispatchedAt) : '-' }}<br/>
         <strong>{{ 'mautic.n8ndispatch.dispatch.details.campaign'|trans }}:</strong> {{ dispatch.campaignName }}<br/>
         <strong>{{ 'mautic.n8ndispatch.dispatch.details.template'|trans }}:</strong> {{ dispatch.templateName }}<br/>
         <strong>{{ 'mautic.n8ndispatch.dispatch.details.contact'|trans }}:</strong> {{ dispatch.contactEmail ?: '-' }}
     </p>
-    {% include '@N8nDispatch/SubscribedEvents/Timeline/_dispatch_details.html.twig' with {'item': {'metadata': dispatch.metadata, 'isScheduled': false, 'log_id': dispatch.id, 'lead_id': dispatch.contactId}} %}
+    {% endif %}
+    {% include '@N8nDispatch/SubscribedEvents/Timeline/_dispatch_details.html.twig' with {'item': {'metadata': dispatch.metadata, 'isScheduled': false, 'log_id': dispatch.id, 'lead_id': dispatch.contactId}, 'dispatch': dispatch} %}
 </div>
