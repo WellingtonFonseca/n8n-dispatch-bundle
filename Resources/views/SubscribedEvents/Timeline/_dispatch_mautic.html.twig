@@ -23,7 +23,13 @@
         </span>
     </div>
 
-    {% include '@N8nDispatch/SubscribedEvents/Timeline/_last_error.html.twig' with {'errors': errors} only %}
+    {# The state of the contact (bounce, unsubscribe) is a problem too: it goes in the alert, under the error of the send if there is one. #}
+    {% set alertText = errors %}
+    {% if mautic.dnc %}
+        {% set dncText = (('mautic.n8ndispatch.timeline.mautic.dnc.' ~ mautic.dnc.state)|trans ~ ' ' ~ n8ndispatch_date(mautic.dnc.at) ~ (mautic.dnc.comments ? ': ' ~ mautic.dnc.comments : ''))|e %}
+        {% set alertText = errors ? errors ~ '<br />' ~ dncText : dncText %}
+    {% endif %}
+    {% include '@N8nDispatch/SubscribedEvents/Timeline/_last_error.html.twig' with {'errors': alertText} only %}
 
     {# Who resent it and when, under the badges. #}
     {% if item.metadata.n8ndispatch_resend is defined and item.metadata.n8ndispatch_resend %}
@@ -47,9 +53,6 @@
                 ? {label: 'mautic.n8ndispatch.timeline.mautic.fact.clicks'|trans, values: clicks}
                 : {label: 'mautic.n8ndispatch.timeline.mautic.fact.clicks'|trans, values: ['mautic.n8ndispatch.timeline.mautic.no_clicks'|trans], muted: true},
         ]) %}
-        {% if mautic.dnc %}
-            {% set rows = rows|merge([{label: ('mautic.n8ndispatch.timeline.mautic.dnc.' ~ mautic.dnc.state)|trans, values: [n8ndispatch_date(mautic.dnc.at) ~ (mautic.dnc.comments ? ': ' ~ mautic.dnc.comments : '')], danger: true}]) %}
-        {% endif %}
     {% endif %}
     {% include '@N8nDispatch/SubscribedEvents/Timeline/_facts_table.html.twig' with {'title': 'mautic.n8ndispatch.timeline.details'|trans, 'rows': rows} only %}
     {% if mautic.state == 'queued' %}
