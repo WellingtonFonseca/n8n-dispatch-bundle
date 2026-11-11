@@ -109,6 +109,11 @@
                             {{ form_row(form.language) }}
                             {{ form_row(form.name) }}
                             {{ form_row(form.description) }}
+                            <div class="row">
+                                <div class="col-xs-4">
+                                    {{ form_row(form.provider) }}
+                                </div>
+                            </div>
                             {# The .row wrapper matters: campaign-sms-dispatch.js
                                inserts the variable-source rows right after the
                                textarea's closest .row (see getContainer() in

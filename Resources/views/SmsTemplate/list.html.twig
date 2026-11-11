@@ -62,6 +62,12 @@
                     }) }}
                     {{ include('@MauticCore/Helper/tableheader.html.twig', {
                         'sessionVar': 'n8ndispatch.smstemplate',
+                        'orderBy': 'st.provider',
+                        'text': 'mautic.n8ndispatch.smstemplate.provider.label',
+                        'class': 'col-smstemplate-provider',
+                    }) }}
+                    {{ include('@MauticCore/Helper/tableheader.html.twig', {
+                        'sessionVar': 'n8ndispatch.smstemplate',
                         'orderBy': 'st.id',
                         'text': 'mautic.core.id',
                         'class': 'visible-md visible-lg col-smstemplate-id',
@@ -117,6 +123,7 @@
                                 <div class="text-muted mt-4"><small>{{ item.getDescription()|purify }}</small></div>
                             {% endif %}
                         </td>
+                        <td class="col-smstemplate-provider">{{ ('mautic.n8ndispatch.smstemplate.provider.' ~ item.getProvider())|trans }}</td>
                         <td class="visible-md visible-lg">{{ item.getId() }}</td>
                     </tr>
                 {% endfor %}

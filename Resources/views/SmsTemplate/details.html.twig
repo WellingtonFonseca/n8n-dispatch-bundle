@@ -1,6 +1,6 @@
 {#
   Body of the read-only details modal of an SMS template, opened from its name on the list: the same information as the
-  edit page (language, name, description, text, availability, variables, campaigns using it).
+  edit page (language, name, description, provider, text, availability, variables, campaigns using it).
 #}
 <div class="n8ndispatch-details">
     <ul class="nav nav-tabs nav-tabs-contained">
@@ -14,15 +14,35 @@
             {{ (entity.isPublished ? 'mautic.n8ndispatch.template.details.active' : 'mautic.n8ndispatch.template.details.inactive')|trans }}
         </span>
     </p>
-    <p>
-        <strong>{{ 'mautic.core.language'|trans }}:</strong> {{ entity.language }}<br/>
-        <strong>{{ 'mautic.core.name'|trans }}:</strong> {{ entity.name }}<br/>
-        {% if entity.description %}
-            <strong>{{ 'mautic.core.description'|trans }}:</strong> {{ entity.description|purify }}<br/>
-        {% endif %}
-    </p>
-    <p class="n8ndispatch-template-label"><strong>{{ 'mautic.n8ndispatch.template.details.text'|trans }}:</strong></p>
-    <pre class="n8ndispatch-timeline-json n8ndispatch-callback-message">{{ entity.text }}</pre>
+    {# The fields as a table, like the contact page: a bold label in a 20% column, the value beside it. #}
+    <div class="panel shd-none mb-0">
+        <table class="table table-hover mb-0">
+            <tbody>
+            <tr>
+                <td width="20%"><span class="fw-b textTitle">{{ 'mautic.core.language'|trans }}</span></td>
+                <td>{{ entity.language }}</td>
+            </tr>
+            <tr>
+                <td width="20%"><span class="fw-b textTitle">{{ 'mautic.core.name'|trans }}</span></td>
+                <td>{{ entity.name }}</td>
+            </tr>
+            {% if entity.description %}
+                <tr>
+                    <td width="20%"><span class="fw-b textTitle">{{ 'mautic.core.description'|trans }}</span></td>
+                    <td>{{ entity.description|purify }}</td>
+                </tr>
+            {% endif %}
+            <tr>
+                <td width="20%"><span class="fw-b textTitle">{{ 'mautic.n8ndispatch.smstemplate.provider.label'|trans }}</span></td>
+                <td>{{ ('mautic.n8ndispatch.smstemplate.provider.' ~ entity.provider)|trans }}</td>
+            </tr>
+            <tr>
+                <td width="20%"><span class="fw-b textTitle">{{ 'mautic.n8ndispatch.template.details.text'|trans }}</span></td>
+                <td><pre class="n8ndispatch-timeline-json n8ndispatch-callback-message mb-0">{{ entity.text }}</pre></td>
+            </tr>
+            </tbody>
+        </table>
+    </div>
     {% include '@N8nDispatch/Template/_variables.html.twig' %}
     </div>
     <div class="tab-pane fade bdr-w-0" id="sms-details-campaigns">
