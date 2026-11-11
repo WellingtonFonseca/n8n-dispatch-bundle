@@ -6,6 +6,7 @@
     <ul class="nav nav-tabs nav-tabs-contained">
         <li class="active"><a href="#sms-details-template" role="tab" data-toggle="tab">{{ 'mautic.n8ndispatch.smstemplate.tab.template.label'|trans }}</a></li>
         <li><a href="#sms-details-campaigns" role="tab" data-toggle="tab">{{ 'mautic.n8ndispatch.smstemplate.tab.campaigns.label'|trans }}</a></li>
+        <li><a href="#sms-details-history" role="tab" data-toggle="tab">{{ 'mautic.n8ndispatch.audit.tab'|trans }}</a></li>
     </ul>
     <div class="tab-content pa-md">
     <div class="tab-pane fade in active bdr-w-0" id="sms-details-template">
@@ -48,6 +49,7 @@
     <div class="tab-pane fade bdr-w-0" id="sms-details-campaigns">
         {% include '@N8nDispatch/Template/_campaigns.html.twig' with {'translationBase': 'mautic.n8ndispatch.smstemplate'} %}
     </div>
+    {% include '@N8nDispatch/Template/_audit_pane.html.twig' with {'id': 'sms-details-history', 'rows': n8ndispatch_template_audit('sms_template', entity.id)} only %}
     </div>
     {% include '@N8nDispatch/Template/_modal_buttons.html.twig' with {'editUrl': canEdit ? path('mautic_n8ndispatch.smstemplate_action', {'objectAction': 'edit', 'objectId': entity.id}) : null} %}
 </div>
