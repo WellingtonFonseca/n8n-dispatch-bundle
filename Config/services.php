@@ -18,8 +18,10 @@ return function (ContainerConfigurator $configurator): void {
     // untyped-by-convention list of core service ids (same pattern every Mautic Integration
     // uses, e.g. MauticClearbitBundle), so it's registered explicitly in Config/config.php's
     // services.integrations block instead of relying on autowiring to guess the right services.
+    // Service/Provider/Dialog/ names the DialogHSM plugin's classes: it is registered below only where they exist.
     $excludes = [
         'Integration/N8nDispatchIntegration.php',
+        'Service/Provider/Dialog',
     ];
 
     $services->load('MauticPlugin\\N8nDispatchBundle\\', '../')
@@ -42,9 +44,15 @@ return function (ContainerConfigurator $configurator): void {
     $services->get(MauticPlugin\N8nDispatchBundle\EventListener\TemplateRenameSubscriber::class)
         ->tag('doctrine.event_subscriber');
 
-    // The HSM provider plugin is optional: an instance without it gets the null gateway. The real gateway is
-    // registered only where that plugin's classes exist (never autoloaded as a service, it names them).
-    $services->alias(MauticPlugin\N8nDispatchBundle\Service\Provider\HsmProviderGateway::class, MauticPlugin\N8nDispatchBundle\Service\Provider\NullHsmProviderGateway::class);
+    // The DialogHSM plugin is optional. Where its classes exist the gateway is the real one; anywhere else it is the
+    // null gateway and nothing of Service/Provider/Dialog/ is read or autoloaded. The class name is a string on purpose:
+    // ::class would not autoload either, but a string cannot be mistaken for a use of the class.
+    $gateway = class_exists('MauticPlugin\\DialogHSMBundle\\Integration\\DialogHSMIntegration')
+        ? MauticPlugin\N8nDispatchBundle\Service\Provider\Dialog\DialogHsmGateway::class
+        : MauticPlugin\N8nDispatchBundle\Service\Provider\NullHsmProviderGateway::class;
+
+    $services->set($gateway);
+    $services->alias(MauticPlugin\N8nDispatchBundle\Service\Provider\HsmProviderGateway::class, $gateway);
 
     // Mautic's standard CRUD controller (Controller/SmsTemplateController.php,
     // Controller/HsmTemplateController.php) resolves its model by the
