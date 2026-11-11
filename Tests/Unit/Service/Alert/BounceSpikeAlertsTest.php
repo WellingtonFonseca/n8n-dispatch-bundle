@@ -87,10 +87,11 @@ class BounceSpikeAlertsTest extends TestCase
         $this->assertSame(0, $this->alerts()->check(new \DateTimeImmutable()));
     }
 
-    public function testWithTheChannelOffNothingIsClaimedNorRead(): void
+    public function testWithTheChannelOffTheCheckStillRunsSoTheSenderCanLogTheAlert(): void
     {
-        $this->throttle->expects($this->never())->method('claim');
-        $this->reader->expects($this->never())->method('offenders');
+        $this->throttle->expects($this->once())->method('claim')->with('bounce_check')->willReturn(true);
+        $this->reader->expects($this->once())->method('offenders')->willReturn([['campaign_id' => 7, 'name' => 'A', 'sends' => 100, 'bounces' => 12, 'percent' => 12.0]]);
+        $this->sender->expects($this->once())->method('send')->with('campaign.bounce_spike', $this->anything(), 'bounce_spike:7')->willReturn(false);
 
         $this->assertSame(0, $this->alerts([])->check(new \DateTimeImmutable()));
     }

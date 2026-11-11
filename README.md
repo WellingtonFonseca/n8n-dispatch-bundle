@@ -178,6 +178,8 @@ Settings > Plugins > N8N Dispatch > tab **Alertas** (off by default) posts an al
 | `alert.status_poll.failed` | a run of the status poll ended in error (once every 6 hours) |
 | `alert.dispatch.resend_failed` | a Resend failed again |
 
+The tab lists the latest alerts Mautic raised (kept 30 days) with `Enviado` or `Não enviado` and the reason, so alerts that never reached n8n are visible there. With the switch off the alerts are still detected and logged as not sent.
+
 An alert cannot go out when the integration is off, the webhook is missing or n8n is down (it is logged), and nothing is checked while Mautic's cron is stopped. Details: [wiki/n8n-dispatch-alerts.md](../wiki/n8n-dispatch-alerts.md).
 
 Full architecture, payload formats, and implementation history:
