@@ -8,7 +8,7 @@ use MauticPlugin\N8nDispatchBundle\Service\HsmTemplateUsageFinder;
 use Symfony\Contracts\Service\Attribute\Required;
 
 /**
- * Channels > HSM Templates (n8n). The screens are in AbstractTemplateController;
+ * N8N Dispatch > HSM. The screens are in AbstractTemplateController;
  * routes are mautic_n8ndispatch.hsmtemplate_index/_action (Config/config.php) and both views
  * live in Resources/views/HsmTemplate.
  */

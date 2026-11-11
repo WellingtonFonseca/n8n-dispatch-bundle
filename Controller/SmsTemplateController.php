@@ -8,7 +8,7 @@ use MauticPlugin\N8nDispatchBundle\Service\SmsTemplateUsageFinder;
 use Symfony\Contracts\Service\Attribute\Required;
 
 /**
- * Channels > SMS Templates (n8n). The screens are in AbstractTemplateController;
+ * N8N Dispatch > SMS. The screens are in AbstractTemplateController;
  * routes are mautic_n8ndispatch.smstemplate_index/_action (Config/config.php) and both views
  * live in Resources/views/SmsTemplate.
  */

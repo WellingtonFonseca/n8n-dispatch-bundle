@@ -13,7 +13,7 @@ use Symfony\Component\HttpFoundation\Request;
 use Symfony\Component\HttpFoundation\Response;
 
 /**
- * What the SMS and HSM template screens (Channels > SMS / HSM Templates, n8n)
+ * What the SMS and HSM template screens (N8N Dispatch > SMS and HSM)
  * share: plain Mautic standard CRUD, same shape as core's PointBundle
  * GroupController, with two additions on top of the standard flow, both
  * backed by the channel's usage finder (Service/AbstractTemplateUsageFinder.php):
