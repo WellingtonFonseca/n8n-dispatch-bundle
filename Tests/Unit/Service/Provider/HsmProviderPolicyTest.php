@@ -120,6 +120,35 @@ class HsmProviderPolicyTest extends TestCase
         );
     }
 
+    public function testTheRouterColumnShowsTheRouterForN8n(): void
+    {
+        $template = (new HsmTemplate())->setProvider(HsmTemplate::PROVIDER_N8N)->setRouter('blip-a')->setWhatsappNumberId(3);
+
+        $this->assertSame('blip-a', $this->policy(true, [3 => 'ESPM A'])->routerLabel($template, '#%id% missing'));
+    }
+
+    public function testTheRouterColumnShowsTheNumberNameForTheDialogHsm(): void
+    {
+        $template = (new HsmTemplate())->setProvider(HsmTemplate::PROVIDER_DIALOGHSM)->setRouter('old')->setWhatsappNumberId(3);
+
+        $this->assertSame('ESPM A', $this->policy(true, [3 => 'ESPM A'])->routerLabel($template, '#%id% missing'));
+    }
+
+    public function testTheRouterColumnWarnsWhenTheNumberIsGoneOrThePluginIsNot(): void
+    {
+        $template = (new HsmTemplate())->setProvider(HsmTemplate::PROVIDER_DIALOGHSM)->setWhatsappNumberId(9);
+
+        $this->assertSame('#9 missing', $this->policy(true, [3 => 'ESPM A'])->routerLabel($template, '#%id% missing'));
+        $this->assertSame('#9 missing', (new HsmProviderPolicy(new NullHsmProviderGateway()))->routerLabel($template, '#%id% missing'));
+    }
+
+    public function testTheRouterColumnIsEmptyForTheDialogHsmWithoutANumber(): void
+    {
+        $template = (new HsmTemplate())->setProvider(HsmTemplate::PROVIDER_DIALOGHSM);
+
+        $this->assertSame('', $this->policy(true, [3 => 'ESPM A'])->routerLabel($template, '#%id% missing'));
+    }
+
     public function testNumberOneIsCheckedLikeAnyOther(): void
     {
         $this->assertSame(
