@@ -152,6 +152,26 @@ class AlertSenderTest extends TestCase
         $this->assertFalse($this->sender(true, 200, ['webhook_url' => 'https://n8n.test/hook'], true, true)->send('status_poll.failed', []));
     }
 
+    public function testAWebhookAddressInAnErrorMessageNeverReachesTheLog(): void
+    {
+        $client = new MockHttpClient(static function (): MockResponse {
+            throw new \RuntimeException('Could not reach "https://n8n.test/webhook/secret-uuid?x=1" in time');
+        });
+        $integrationSettings = $this->createStub(Integration::class);
+        $integrationSettings->method('isPublished')->willReturn(true);
+        $integration = $this->createStub(N8nDispatchIntegration::class);
+        $integration->method('getIntegrationSettings')->willReturn($integrationSettings);
+        $integration->method('getKeys')->willReturn(['webhook_url' => 'https://n8n.test/hook', 'webhook_token' => 't']);
+        $helper = $this->createStub(IntegrationHelper::class);
+        $helper->method('getIntegrationObject')->willReturn($integration);
+        $settings = $this->createStub(AlertSettings::class);
+        $settings->method('current')->willReturn(AlertSettings::fromArray([AlertSettings::KEY_ENABLED => 1]));
+        $this->alertLog->expects($this->once())->method('record')
+            ->with($this->anything(), 'a', AlertLogEntry::OUTCOME_NOT_SENT, AlertLogEntry::REASON_ERROR, 'Could not reach "[url]" in time', null);
+
+        (new AlertSender($helper, $settings, $this->throttle, $client, $this->logger, $this->alertLog))->send('a', []);
+    }
+
     public function testAMissingWebhookIsLoggedWithTheReason(): void
     {
         $this->alertLog->expects($this->once())->method('record')

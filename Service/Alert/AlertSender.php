@@ -108,7 +108,8 @@ class AlertSender
         } catch (\Throwable $e) {
             $this->logger->error('N8nDispatch: alert alert.'.$type.' failed: '.$e->getMessage());
 
-            return ['reason' => AlertLogEntry::REASON_ERROR, 'detail' => $e->getMessage()];
+            // the log is shown in the settings screen: a webhook address (its path is a secret in n8n) stays out of it
+            return ['reason' => AlertLogEntry::REASON_ERROR, 'detail' => preg_replace('#https?://[^\s"\']+#', '[url]', $e->getMessage())];
         }
 
         if ($status >= 300) {
