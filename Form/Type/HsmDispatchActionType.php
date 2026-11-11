@@ -19,8 +19,7 @@ use Symfony\Component\Validator\Constraints\NotBlank;
  * WhatsApp-side template descriptor string). 'router' and 'hsmTemplate'
  * (that string) — and the per-campaign positional ($1, $2, ...) variable
  * picker that used to sit right here — used to live on this form; they
- * now live on the template (edited under Channels > HSM Templates
- * (n8n)) so one template can serve several campaigns and is edited in
+ * now live on the template (edited under N8N Dispatch > HSM) so one template can serve several campaigns and is edited in
  * one place. The variable picker was dropped outright, not moved. Only
  * the template's id is stored on the event, as 'hsmTemplateId' —
  * HsmCampaignTriggerSubscriber loads the template itself at dispatch
