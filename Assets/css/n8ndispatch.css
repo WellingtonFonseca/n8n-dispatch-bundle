@@ -645,3 +645,37 @@ a[data-n8n-status-action]:hover * {
     overflow-y: auto;
     overflow-wrap: anywhere;
 }
+
+/*
+ * The History tab of the SMS and HSM templates (Template/_audit_pane.html.twig): one row per field, the old and the new value each in
+ * a block of code of the same size, wrapping inside its column (a long text must not scroll the table sideways) and keeping the
+ * line breaks as typed. Same colors as the Body / Response blocks of the dispatch card, including the dark themes.
+ */
+.n8ndispatch-audit-value {
+    margin: 0;
+    padding: 6px 8px;
+    background-color: #f5f5f5;
+    border: 1px solid #e0e0e0;
+    border-radius: 4px;
+    font-family: 'SFMono-Regular', Consolas, 'Liberation Mono', Menlo, monospace;
+    font-size: 12px;
+    line-height: 1.5;
+    white-space: pre-wrap;
+    word-break: break-word;
+}
+
+.n8ndispatch-audit-table td {
+    vertical-align: top;
+}
+
+/* Before and after take the same room, whatever each text is: the two blocks line up from row to row. */
+.n8ndispatch-audit-table th:nth-child(n+5) {
+    width: 32%;
+}
+
+:root[theme="dark"] .n8ndispatch-audit-value,
+:root[theme="solarized-dark"] .n8ndispatch-audit-value {
+    background-color: var(--layer-01);
+    border-color: var(--border-subtle-01);
+    color: var(--text-primary);
+}
