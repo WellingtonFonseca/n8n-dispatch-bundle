@@ -9,11 +9,24 @@
 
     var NUMERIC_ALERT_ID  = 'n8ndispatch-hsm-numeric-alert';
     var UNMAPPED_ALERT_ID = 'n8ndispatch-hsm-unmapped-alert';
+    var SEQUENCE_ALERT_ID = 'n8ndispatch-hsm-sequence-alert';
 
     // The alert text comes translated (system language) from the template's hidden config element
     // (Resources/views/HsmTemplate/form.html.twig).
     function updateNumericAlert($textField, hasNonNumeric) {
         shared.setNumericAlert($textField, NUMERIC_ALERT_ID, mQuery('#n8ndispatch-hsm-config').data('numeric-alert-text'), hasNonNumeric);
+    }
+
+    // The skipped number, the {{0}} and the limit of 50: shown while the text is typed and when the field is left
+    // (the field calls this script on keyup and on change). Same texts as the errors of a blocked save.
+    function updateSequenceAlert($textField) {
+        var config = mQuery('#n8ndispatch-hsm-config');
+
+        shared.setSequenceAlert($textField, SEQUENCE_ALERT_ID, {
+            gap:   config.data('sequence-gap-text'),
+            zero:  config.data('sequence-zero-text'),
+            limit: config.data('sequence-limit-text')
+        }, $textField.val());
     }
 
     // "Every variable needs a value": shown while a placeholder of the text has no filled-in row below it (never
@@ -35,6 +48,7 @@
         // The alert follows the text itself, decided right here: it is there as soon as the page loads (a blocked
         // save brings the form back with the same text), and no answer from the server can take it away.
         updateNumericAlert($textField, shared.hasNonNumericPlaceholder(text));
+        updateSequenceAlert($textField);
         updateUnmappedAlert($textField);
 
         if (!text) {
@@ -53,6 +67,7 @@
             // Inserting the variable rows right after the text field's row would leave them above the alert, so put
             // the alert back (from the text as it is now, not from the answer).
             updateNumericAlert($textField, shared.hasNonNumericPlaceholder($textField.val()));
+            updateSequenceAlert($textField);
             updateUnmappedAlert($textField);
         });
     }
@@ -135,6 +150,16 @@
         mQuery(CARDS).toggle(single || 'carousel' === currentType).toggleClass('n8ndispatch-cards-single', single);
         mQuery(CARDS).off('input.cardsalert change.cardsalert').on('input.cardsalert change.cardsalert', 'input', updateCardsAlert);
         updateCardsAlert();
+    };
+
+    // Shows the router while the template is sent through n8n and the number select while it is sent through the DialogHSM
+    // (they share one slot of the form). Also the provider select's data-onload-callback, so the page opens in the
+    // right state.
+    Mautic.n8nDispatchOnHsmProviderChange = function (el) {
+        var dialog = 'dialoghsm' === mQuery(el).val();
+
+        mQuery('#n8ndispatch-hsm-router-box').toggle(!dialog);
+        mQuery('#n8ndispatch-hsm-number-box').toggle(dialog);
     };
 
     // data-onload-callback convention (see CoreBundle Assets/js/1a.content.js) —

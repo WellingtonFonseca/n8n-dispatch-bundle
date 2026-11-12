@@ -149,3 +149,21 @@ test('the image alert asks for the image, then checks the URL, and ignores the o
     assert.strictEqual(Mautic.n8nDispatchImageProblem(['http://x.test/a.png'], IMAGE_TEXTS), 'Image must be https');
     assert.strictEqual(Mautic.n8nDispatchImageProblem([A, 'garbage'], IMAGE_TEXTS), '');
 });
+
+test('the DialogHSM provider shows the number select and hides the router', () => {
+    const {Mautic, shown} = load();
+    Mautic.n8nDispatchOnHsmProviderChange({value: 'dialoghsm'});
+    assert.deepStrictEqual(shown, [
+        {selector: '#n8ndispatch-hsm-router-box', visible: false},
+        {selector: '#n8ndispatch-hsm-number-box', visible: true},
+    ]);
+});
+
+test('the n8n provider shows the router and hides the number select', () => {
+    const {Mautic, shown} = load();
+    Mautic.n8nDispatchOnHsmProviderChange({value: 'n8n'});
+    assert.deepStrictEqual(shown, [
+        {selector: '#n8ndispatch-hsm-router-box', visible: true},
+        {selector: '#n8ndispatch-hsm-number-box', visible: false},
+    ]);
+});

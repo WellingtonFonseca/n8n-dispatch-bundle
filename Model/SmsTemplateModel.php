@@ -8,6 +8,7 @@ use Mautic\CoreBundle\Model\FormModel;
 use MauticPlugin\N8nDispatchBundle\Entity\SmsTemplate;
 use MauticPlugin\N8nDispatchBundle\Entity\SmsTemplateRepository;
 use MauticPlugin\N8nDispatchBundle\Form\Type\SmsTemplateType;
+use MauticPlugin\N8nDispatchBundle\Service\Audit\TemplateAuditLog;
 use Symfony\Component\Form\FormInterface;
 use Symfony\Component\HttpKernel\Exception\MethodNotAllowedHttpException;
 
@@ -25,6 +26,13 @@ use Symfony\Component\HttpKernel\Exception\MethodNotAllowedHttpException;
  */
 class SmsTemplateModel extends FormModel
 {
+    use AuditsChanges;
+
+    protected function auditObject(): string
+    {
+        return TemplateAuditLog::SMS_TEMPLATE;
+    }
+
     public function getRepository(): SmsTemplateRepository
     {
         return $this->em->getRepository(SmsTemplate::class);

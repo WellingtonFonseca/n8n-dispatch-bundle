@@ -5,6 +5,7 @@ declare(strict_types=1);
 namespace MauticPlugin\N8nDispatchBundle\Service;
 
 use MauticPlugin\N8nDispatchBundle\Entity\DispatchTracking;
+use MauticPlugin\N8nDispatchBundle\Service\Provider\HsmProviderOutcome;
 
 /**
  * What the Dispatches screen's filter bar asks for, read from the query
@@ -133,6 +134,17 @@ final class DispatchFilters
             'pending' => self::STATUS_PENDING,
             default   => self::STATUS_SUCCESS,
         };
+    }
+
+    /**
+     * The status of a dispatch handed to another plugin (the DialogHSM): our part ends at its answer, so it is 'failed' when the
+     * plugin refused the message or the step is marked failed, else 'success'. What it does with the message afterwards is its own.
+     *
+     * @param array<string, mixed> $metadata
+     */
+    public static function providerStatusOf(array $metadata, string $outcome): string
+    {
+        return HsmProviderOutcome::FAILED === $outcome || DispatchResender::isFailed($metadata) ? self::STATUS_FAILED : self::STATUS_SUCCESS;
     }
 
     private static function dayStart(mixed $value, \DateTimeZone $timeZone, string $format): ?\DateTimeImmutable

@@ -1,0 +1,54 @@
+{#
+  The pane of the "Histórico" tab of an SMS or HSM template: a table with a row per field changed (date, user and action once per save). A copy of
+  the one of the email page in MauticPatchesBundle (the plugins do not depend on each other). Used by the edit page and the details
+  modal of both kinds.
+
+  Variables
+    - id    the id of the pane (the tab link points to it)
+    - rows  list of {date, user, action, changes: list of {field, old, new}} (n8ndispatch_template_audit)
+#}
+<div class="tab-pane fade bdr-w-0" id="{{ id }}">
+    {% if rows %}
+        <div class="table-responsive">
+            <table class="table table-hover n8ndispatch-audit-table">
+                <thead>
+                    <tr>
+                        <th>{{ 'mautic.n8ndispatch.audit.date'|trans }}</th>
+                        <th>{{ 'mautic.n8ndispatch.audit.user'|trans }}</th>
+                        <th>{{ 'mautic.n8ndispatch.audit.action'|trans }}</th>
+                        <th>{{ 'mautic.n8ndispatch.audit.field'|trans }}</th>
+                        <th>{{ 'mautic.n8ndispatch.audit.before'|trans }}</th>
+                        <th>{{ 'mautic.n8ndispatch.audit.after'|trans }}</th>
+                    </tr>
+                </thead>
+                <tbody>
+                {# One row per field; the date, the user and the action of a save span its rows. #}
+                {% for row in rows %}
+                    {% set span = row.changes ? row.changes|length : 1 %}
+                    {% for change in row.changes %}
+                    <tr>
+                        {% if loop.first %}
+                        <td rowspan="{{ span }}">{{ dateToFull(row.date) }}</td>
+                        <td rowspan="{{ span }}">{{ row.user }}</td>
+                        <td rowspan="{{ span }}">{{ ('mautic.n8ndispatch.audit.action.' ~ row.action)|trans }}</td>
+                        {% endif %}
+                        <td><strong>{{ change.field }}</strong></td>
+                        <td>{% if change.old != '' %}<pre class="n8ndispatch-audit-value">{{ change.old }}</pre>{% else %}<span class="text-muted">&mdash;</span>{% endif %}</td>
+                        <td>{% if change.new != '' %}<pre class="n8ndispatch-audit-value">{{ change.new }}</pre>{% else %}<span class="text-muted">&mdash;</span>{% endif %}</td>
+                    </tr>
+                    {% else %}
+                    <tr>
+                        <td>{{ dateToFull(row.date) }}</td>
+                        <td>{{ row.user }}</td>
+                        <td>{{ ('mautic.n8ndispatch.audit.action.' ~ row.action)|trans }}</td>
+                        <td colspan="3" class="text-muted">&mdash;</td>
+                    </tr>
+                    {% endfor %}
+                {% endfor %}
+                </tbody>
+            </table>
+        </div>
+    {% else %}
+    <p class="text-muted pa-md">{{ 'mautic.n8ndispatch.audit.none'|trans }}</p>
+    {% endif %}
+</div>

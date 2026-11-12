@@ -1,0 +1,49 @@
+{#
+  The dispatch part of the card of an HSM handed to another plugin (the DialogHSM), shown by _dispatch_details.html.twig in place of
+  the n8n one: the contact's Timeline and the details modal of the Dispatches screen both include it. Our part ends when the plugin
+  answers, so the card says whether it took the message ("Sucesso") or refused it ("Falhou"), shows what was handed over and what it
+  answered. What happens to the message afterwards is shown by that plugin on its own Timeline entries.
+
+  Variables
+    - item  the campaign log as an array (metadata)
+    - n8n   item.metadata.n8ndispatch: mode, status, request, and once sent: outcome, wamid, result
+    - errors    the last error text, or false
+    - baseRows  the first rows of the details table (date, campaign, template, contact)
+#}
+{% set jsonOptions = constant('JSON_PRETTY_PRINT') b-or constant('JSON_UNESCAPED_UNICODE') b-or constant('JSON_UNESCAPED_SLASHES') %}
+{% set outcome = n8n.outcome is defined ? n8n.outcome : null %}
+<div class="n8ndispatch-timeline n8ndispatch-timeline--provider">
+    <div class="n8ndispatch-timeline-header">
+        <span class="n8ndispatch-badge n8ndispatch-badge--{{ n8n.status }}">
+            {{ ('mautic.n8ndispatch.campaign.event.status.' ~ n8n.status)|trans }}
+        </span>
+        {% if outcome %}
+            {% set result = outcome == 'sent' ? 'success' : 'failed' %}
+            <span class="n8ndispatch-badge n8ndispatch-badge--{{ result }}">
+                {{ ('mautic.n8ndispatch.timeline.status.' ~ result)|trans }}
+            </span>
+        {% endif %}
+    </div>
+
+    {% include '@N8nDispatch/SubscribedEvents/Timeline/_last_error.html.twig' with {'errors': errors} only %}
+
+    {# Who resent it and when, under the badges. #}
+    {% if item.metadata.n8ndispatch_resend is defined and item.metadata.n8ndispatch_resend %}
+    <pre class="n8ndispatch-timeline-json">{{ item.metadata.n8ndispatch_resend }}</pre>
+    {% endif %}
+
+    {# The details table (rows of the dispatch from _dispatch_details), then the number and, once the plugin took the message, its id. #}
+    {% set rows = baseRows|merge([{label: 'mautic.n8ndispatch.timeline.provider.number'|trans, values: [n8ndispatch_hsm_number_label(n8n.request.whatsapp_number_id|default(0))]}]) %}
+    {% if n8n.wamid is defined and n8n.wamid %}
+        {% set rows = rows|merge([{label: 'mautic.n8ndispatch.timeline.provider.wamid'|trans, values: [n8n.wamid]}]) %}
+    {% endif %}
+    {% include '@N8nDispatch/SubscribedEvents/Timeline/_facts_table.html.twig' with {'title': 'mautic.n8ndispatch.timeline.details'|trans, 'rows': rows} only %}
+
+    <p class="n8ndispatch-timeline-label">{{ 'mautic.n8ndispatch.timeline.body'|trans }}:</p>
+    <pre class="n8ndispatch-timeline-json">{{ n8n.request|json_encode(jsonOptions) }}</pre>
+
+    {% if n8n.result is defined %}
+    <p class="n8ndispatch-timeline-label">{{ 'mautic.n8ndispatch.timeline.response'|trans }}:</p>
+    <pre class="n8ndispatch-timeline-json">{{ n8n.result|json_encode(jsonOptions) }}</pre>
+    {% endif %}
+</div>

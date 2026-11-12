@@ -4,6 +4,8 @@ declare(strict_types=1);
 
 namespace MauticPlugin\N8nDispatchBundle\EventListener;
 
+use Mautic\CampaignBundle\Entity\Campaign;
+use Mautic\CampaignBundle\Entity\LeadEventLog;
 use Mautic\CampaignBundle\Event\PendingEvent;
 use Mautic\LeadBundle\Entity\Lead;
 use Mautic\LeadBundle\Model\DoNotContact as DncModel;
@@ -15,6 +17,11 @@ use MauticPlugin\N8nDispatchBundle\N8nDispatchEvents;
 use MauticPlugin\N8nDispatchBundle\Resolver\LocaleConventions;
 use MauticPlugin\N8nDispatchBundle\Resolver\VariableResolver;
 use MauticPlugin\N8nDispatchBundle\Service\DispatchFailureReasons;
+use MauticPlugin\N8nDispatchBundle\Service\Provider\HsmProviderGateway;
+use MauticPlugin\N8nDispatchBundle\Service\Provider\HsmProviderOutcome;
+use MauticPlugin\N8nDispatchBundle\Service\Provider\HsmSendRequest;
+use MauticPlugin\N8nDispatchBundle\Service\Provider\HsmSendResult;
+use MauticPlugin\N8nDispatchBundle\Service\Provider\NullHsmProviderGateway;
 use MauticPlugin\N8nDispatchBundle\Service\StatusTracker;
 use Psr\Log\LoggerInterface;
 use Symfony\Contracts\HttpClient\HttpClientInterface;
@@ -74,6 +81,7 @@ class HsmCampaignTriggerSubscriber extends AbstractTemplateDispatchSubscriber
         private HsmTemplateModel $hsmTemplateModel,
         DispatchFailureReasons $failureReasons,
         ?StatusTracker $statusTracker = null,
+        private HsmProviderGateway $providerGateway = new NullHsmProviderGateway(),
     ) {
         parent::__construct($integrationHelper, $httpClient, $logger, $variableResolver, $dncModel, $failureReasons, $statusTracker);
     }
@@ -141,6 +149,8 @@ class HsmCampaignTriggerSubscriber extends AbstractTemplateDispatchSubscriber
         $templateId    = (int) ($config['hsmTemplateId'] ?? 0);
         $language      = LocaleConventions::DEFAULT_LOCALE;
         $cards         = [];
+        $provider      = HsmTemplate::PROVIDER_N8N;
+        $numberId      = null;
 
         if ($templateId > 0) {
             $template = $this->hsmTemplateModel->getEntity($templateId);
@@ -160,13 +170,70 @@ class HsmCampaignTriggerSubscriber extends AbstractTemplateDispatchSubscriber
             $variablesJson = (string) ($template->getVariablesJson() ?? '{}');
             $language      = $template->getLanguage();
             $cards         = $template->usesCards() ? $template->getCardsPayload() : [];
+            $provider      = $template->getProvider();
+            $numberId      = $template->getWhatsappNumberId();
         }
 
-        return ['router' => $router, 'hsmTemplate' => $hsmTemplate, 'type' => $hsmType, 'variablesJson' => $variablesJson, 'language' => $language, 'cards' => $cards];
+        return ['router' => $router, 'hsmTemplate' => $hsmTemplate, 'type' => $hsmType, 'variablesJson' => $variablesJson, 'language' => $language, 'cards' => $cards, 'provider' => $provider, 'numberId' => $numberId];
+    }
+
+    protected function sendsThroughProvider(array $step): bool
+    {
+        return HsmTemplate::PROVIDER_DIALOGHSM === $step['provider'];
+    }
+
+    /**
+     * The DialogHSM takes the message and tracks it from there (its own log, timeline entry and webhook): our part ends at its
+     * answer, as for the Email sent through Mautic's own mailer. A message it refuses fails this contact with its reason.
+     */
+    protected function dispatchThroughProvider(PendingEvent $event, LeadEventLog $log, Lead $contact, Campaign $campaign, string $status, array $step, string $phone, array $variables): void
+    {
+        $request = $this->providerRequest($contact, $phone, $step, $variables, $campaign->getId(), $event->getEvent()->getId());
+        $empty   = $request->firstEmptyVariable();
+
+        // The Meta refuses a parameter with no text: the call would only fail and leave a failed log on the other plugin.
+        $result = null === $empty
+            ? $this->providerGateway->send($request)
+            : HsmSendResult::refused($this->failureReasons->text(DispatchFailureReasons::VARIABLE_EMPTY, ['%number%' => (string) $empty]));
+
+        $log->appendToMetadata(['n8ndispatch' => HsmProviderOutcome::card($request, $status, $result)]);
+
+        if ($result->accepted) {
+            $event->pass($log);
+
+            return;
+        }
+
+        $event->fail($log, $this->failureReasons->reason((string) $result->error));
+    }
+
+    /**
+     * @param array<string, mixed>  $step
+     * @param array<string, string> $variables
+     */
+    private function providerRequest(Lead $contact, string $phone, array $step, array $variables, ?int $campaignId, ?int $campaignEventId): HsmSendRequest
+    {
+        return new HsmSendRequest(
+            contactId: (int) $contact->getId(),
+            phone: $phone,
+            language: $step['language'],
+            template: $step['hsmTemplate'],
+            type: $step['type'],
+            variables: $variables,
+            cards: $step['cards'],
+            numberId: (int) $step['numberId'],
+            campaignId: $campaignId,
+            campaignEventId: $campaignEventId,
+        );
     }
 
     protected function buildPayload(Lead $contact, string $phone, string $status, array $step, array $variables): array
     {
+        // Test and paused steps show what would go to the provider, in the shape a real send leaves on the log.
+        if ($this->sendsThroughProvider($step)) {
+            return HsmProviderOutcome::card($this->providerRequest($contact, $phone, $step, $variables, null, null), $status, null);
+        }
+
         $payload = [
             'contact_id'                    => $contact->getId(),
             'contact_email'                 => $contact->getEmail(),

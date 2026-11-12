@@ -109,6 +109,10 @@
                         'class': 'col-dispatch-step-status',
                     }) }}
                     {{ include('@MauticCore/Helper/tableheader.html.twig', {
+                        'text': 'mautic.n8ndispatch.dispatch.column.type',
+                        'class': 'col-dispatch-type',
+                    }) }}
+                    {{ include('@MauticCore/Helper/tableheader.html.twig', {
                         'text': 'mautic.n8ndispatch.dispatch.column.campaign',
                         'class': 'col-dispatch-campaign',
                     }) }}
@@ -133,7 +137,8 @@
                         #}
                         {% set callbacks = item.mauticState is null ? n8ndispatch_status(item.metadata)|filter(c => c.refType != 'logSendHsmId') : [] %}
                         {# An Email sent through Mautic can be resent when its mailer refused it; one of n8n when its callback ended in error or the call was refused. #}
-                        {% set canResend = item.mauticState is null ? (item.failed or callbacks|filter(c => c.outcome == 'error')|length > 0) : (item.failed and item.mauticState == 'failed') %}
+                        {# An HSM handed to another plugin is resent here only when that plugin refused it; a failure after its acceptance is resent in that plugin. #}
+                        {% set canResend = item.providerState is not null ? item.providerState == 'failed' : (item.mauticState is null ? (item.failed or callbacks|filter(c => c.outcome == 'error')|length > 0) : (item.failed and item.mauticState == 'failed')) %}
                         <td>
                             <div class="input-group input-group-sm">
                                 <div class="ml-xs">
@@ -183,6 +188,11 @@
                                 <span class="n8ndispatch-badge n8ndispatch-badge--{{ n8ndispatch_mautic_badge(item.mauticState) }}">
                                     {{ ('mautic.n8ndispatch.timeline.mautic.state.' ~ item.mauticState)|trans }}
                                 </span>
+                            {# An HSM handed to another plugin: our part ends at its answer, taken (Sucesso) or refused (Falhou). #}
+                            {% elseif item.providerState is not null %}
+                                <span class="n8ndispatch-badge n8ndispatch-badge--{{ item.providerState == 'sent' ? 'success' : 'failed' }}">
+                                    {{ ('mautic.n8ndispatch.timeline.status.' ~ (item.providerState == 'sent' ? 'success' : 'failed'))|trans }}
+                                </span>
                             {% else %}
                             {% for callback in callbacks %}
                                 {% set badgeClass = {'success': 'success', 'error': 'failed', 'pending': 'pending'}[callback.outcome] %}
@@ -209,6 +219,8 @@
                                 -
                             {% endif %}
                         </td>
+                        {# What was sent: Email, SMS or HSM (plain text, like the type column of the HSM list). #}
+                        <td class="col-dispatch-type">{{ ('mautic.n8ndispatch.dispatch.filter.channel.' ~ item.channel)|trans }}</td>
                         <td>
                             <a href="{{ path('mautic_campaign_action', {'objectAction': 'view', 'objectId': item.campaignId}) }}" target="_blank" rel="noopener">{{ item.campaignName }}</a>
                         </td>

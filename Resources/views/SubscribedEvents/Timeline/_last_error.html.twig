@@ -1,0 +1,4 @@
+{# The last error of a dispatch card as core's alert-danger, text only (the alert draws its own icon). Variable: errors (text or false). #}
+{% if errors %}
+    <div class="alert alert-danger n8ndispatch-last-error">{{ errors|purify }}</div>
+{% endif %}

@@ -145,6 +145,80 @@
         return false;
     }
 
+    // The same number as SequentialVariables::MAX_VARIABLES in PHP.
+    var MAX_VARIABLES = 50;
+
+    // The first thing wrong with the numbers of a template text, or null: {{0}}, a highest number above the limit, or a
+    // number skipped between 1 and the highest. The same rules, in the same order, as SequentialVariables in PHP, so
+    // the alert follows the text as it is typed. Steps aside while a placeholder is not a number (the numeric alert
+    // is the one to show then). It walks the numbers that exist, never 1..highest.
+    function sequenceProblem(text) {
+        var source = String(null == text ? '' : text);
+
+        if (hasNonNumericPlaceholder(source)) {
+            return null;
+        }
+
+        var numbers = [];
+        var pattern = /\{\{\s*(\d+)\s*\}\}/g;
+        var match;
+
+        while (null !== (match = pattern.exec(source))) {
+            var number = parseInt(match[1], 10);
+
+            if (-1 === numbers.indexOf(number)) {
+                numbers.push(number);
+            }
+        }
+
+        if (!numbers.length) {
+            return null;
+        }
+
+        numbers.sort(function (a, b) { return a - b; });
+
+        if (0 === numbers[0]) {
+            return {kind: 'zero'};
+        }
+
+        var highest = numbers[numbers.length - 1];
+
+        if (highest > MAX_VARIABLES) {
+            return {kind: 'limit', max: MAX_VARIABLES};
+        }
+
+        for (var position = 0; position < numbers.length; position++) {
+            if (numbers[position] !== position + 1) {
+                return {kind: 'gap', missing: position + 1, highest: highest};
+            }
+        }
+
+        return null;
+    }
+
+    // The alert text of a sequenceProblem(), from the translated texts of the form's config element (the %missing%,
+    // %highest% and %max% placeholders are filled here), or '' when there is no problem.
+    function sequenceAlertText(problem, texts) {
+        if (!problem) {
+            return '';
+        }
+
+        if ('zero' === problem.kind) {
+            return String(texts.zero);
+        }
+
+        if ('limit' === problem.kind) {
+            return String(texts.limit).split('%max%').join(problem.max);
+        }
+
+        return String(texts.gap).replace('%missing%', problem.missing).replace('%highest%', problem.highest);
+    }
+
+    // Same place as the numeric alert (right after the text field's row, above the variable rows).
+    function setSequenceAlert($textField, id, texts, text) {
+        setNumericAlert($textField, id, sequenceAlertText(sequenceProblem(text), texts), true);
+    }
+
     // The generic "variables must be numeric" alert of the HSM and SMS template forms, shown (or removed) between the
     // message text and the variable rows: that is where the user is when it matters, in the order the screen is filled
     // in. It goes right after the text field's row, and the variable rows are inserted after that same row
@@ -426,7 +500,10 @@
         noticeFor:                   noticeFor,
         onMappingSynced:             onMappingSynced,
         renderVariablesFromResponse: renderVariablesFromResponse,
+        sequenceAlertText:           sequenceAlertText,
+        sequenceProblem:             sequenceProblem,
         setNumericAlert:             setNumericAlert,
+        setSequenceAlert:            setSequenceAlert,
         setUnmappedAlert:            setUnmappedAlert,
         translate:                   translate,
     };

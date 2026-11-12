@@ -18,8 +18,13 @@ return function (ContainerConfigurator $configurator): void {
     // untyped-by-convention list of core service ids (same pattern every Mautic Integration
     // uses, e.g. MauticClearbitBundle), so it's registered explicitly in Config/config.php's
     // services.integrations block instead of relying on autowiring to guess the right services.
+    // Service/Provider/Dialog/ names the DialogHSM plugin's classes: it is registered below only where they exist.
     $excludes = [
         'Integration/N8nDispatchIntegration.php',
+        'Service/Provider/Dialog',
+        // Values made with `new` at the moment of a send, not services: their constructors take plain values.
+        'Service/Provider/HsmSendRequest.php',
+        'Service/Provider/HsmSendResult.php',
     ];
 
     $services->load('MauticPlugin\\N8nDispatchBundle\\', '../')
@@ -37,6 +42,20 @@ return function (ContainerConfigurator $configurator): void {
     // Core registers its cache helper only under this id, so autowiring by class finds nothing.
     $services->set(MauticPlugin\N8nDispatchBundle\Service\Alert\AlertThrottle::class)
         ->args([service('mautic.helper.cache_storage')]);
+
+    // Doctrine does not pick up an EventSubscriber by autoconfiguration here (core tags its own the same way).
+    $services->get(MauticPlugin\N8nDispatchBundle\EventListener\TemplateRenameSubscriber::class)
+        ->tag('doctrine.event_subscriber');
+
+    // The DialogHSM plugin is optional. Where its classes exist the gateway is the real one; anywhere else it is the
+    // null gateway and nothing of Service/Provider/Dialog/ is read or autoloaded. The class name is a string on purpose:
+    // ::class would not autoload either, but a string cannot be mistaken for a use of the class.
+    $gateway = class_exists('MauticPlugin\\DialogHSMBundle\\Integration\\DialogHSMIntegration')
+        ? MauticPlugin\N8nDispatchBundle\Service\Provider\Dialog\DialogHsmGateway::class
+        : MauticPlugin\N8nDispatchBundle\Service\Provider\NullHsmProviderGateway::class;
+
+    $services->set($gateway);
+    $services->alias(MauticPlugin\N8nDispatchBundle\Service\Provider\HsmProviderGateway::class, $gateway);
 
     // Mautic's standard CRUD controller (Controller/SmsTemplateController.php,
     // Controller/HsmTemplateController.php) resolves its model by the

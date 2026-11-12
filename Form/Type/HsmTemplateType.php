@@ -9,6 +9,7 @@ use Mautic\CoreBundle\Form\EventListener\FormExitSubscriber;
 use Mautic\CoreBundle\Form\Type\FormButtonsType;
 use Mautic\CoreBundle\Form\Type\YesNoButtonGroupType;
 use MauticPlugin\N8nDispatchBundle\Entity\HsmTemplate;
+use MauticPlugin\N8nDispatchBundle\Service\Provider\HsmProviderPolicy;
 use Symfony\Component\Form\AbstractType;
 use Symfony\Component\Form\Extension\Core\Type\ChoiceType;
 use Symfony\Component\Form\Extension\Core\Type\CollectionType;
@@ -17,8 +18,12 @@ use Symfony\Component\Form\Extension\Core\Type\LocaleType;
 use Symfony\Component\Form\Extension\Core\Type\TextareaType;
 use Symfony\Component\Form\Extension\Core\Type\TextType;
 use Symfony\Component\Form\FormBuilderInterface;
+use Symfony\Component\Form\FormError;
+use Symfony\Component\Form\FormEvent;
+use Symfony\Component\Form\FormEvents;
 use Symfony\Component\OptionsResolver\OptionsResolver;
 use Symfony\Component\Validator\Constraints\NotBlank;
+use Symfony\Contracts\Translation\TranslatorInterface;
 
 /**
  * Create/edit form for an HsmTemplate. 'router' and 'hsmTemplate' are the
@@ -50,6 +55,12 @@ use Symfony\Component\Validator\Constraints\NotBlank;
  */
 class HsmTemplateType extends AbstractType
 {
+    public function __construct(
+        private readonly HsmProviderPolicy $providerPolicy,
+        private readonly TranslatorInterface $translator,
+    ) {
+    }
+
     public function buildForm(FormBuilderInterface $builder, array $options): void
     {
         // 'text' and 'variablesJson' are kept 'raw', same reasoning as
@@ -85,14 +96,58 @@ class HsmTemplateType extends AbstractType
             'required'   => false,
         ]);
 
+        $template = ($options['data'] ?? null) instanceof HsmTemplate ? $options['data'] : new HsmTemplate();
+
+        // How the template is sent. Offered only when the DialogHSM plugin can send (or the template is already on
+        // it), see Service/Provider/HsmProviderPolicy.php; the router or the number is shown by this choice.
+        $builder->add('provider', ChoiceType::class, [
+            'label'      => 'mautic.n8ndispatch.hsmtemplate.provider.label',
+            'label_attr' => ['class' => 'control-label'],
+            'choices'    => $this->providerPolicy->providerChoices($template->getProvider()),
+            // A post without the field (a script, an old form) is a template sent through n8n, as before.
+            'empty_data' => HsmTemplate::PROVIDER_N8N,
+            'attr'       => [
+                'class'                => 'form-control',
+                'onchange'             => 'Mautic.n8nDispatchOnHsmProviderChange(this)',
+                'data-onload-callback' => 'n8nDispatchOnHsmProviderChange',
+            ],
+        ]);
+
+        // Required for n8n only: Entity/Validation/HsmProviderFields.php says so, by provider.
         $builder->add('router', TextType::class, [
             'label'      => 'mautic.n8ndispatch.campaign.event.hsm.router',
             'label_attr' => ['class' => 'control-label'],
             'attr'       => ['class' => 'form-control'],
-            'constraints' => [
-                new NotBlank(['message' => 'mautic.core.value.required']),
-            ],
         ]);
+
+        // The number of the DialogHSM plugin, picked by name. The id is what is saved.
+        $builder->add('whatsappNumberId', ChoiceType::class, [
+            'label'                     => 'mautic.n8ndispatch.hsmtemplate.number.label',
+            'label_attr'                => ['class' => 'control-label'],
+            'choices'                   => $this->providerPolicy->numberChoices(
+                $template->getWhatsappNumberId(),
+                $this->translator->trans('mautic.n8ndispatch.hsmtemplate.number.missing')
+            ),
+            'choice_translation_domain' => false,
+            'placeholder'               => 'mautic.n8ndispatch.hsmtemplate.number.placeholder',
+            'attr'                      => ['class' => 'form-control'],
+        ]);
+
+        // What only the other plugin knows (is it there, does the number still exist). Added here, after the
+        // submit, because the gateway is not available to the entity's own validation.
+        $builder->addEventListener(FormEvents::POST_SUBMIT, function (FormEvent $event): void {
+            $submitted = $event->getData();
+
+            if (!$submitted instanceof HsmTemplate) {
+                return;
+            }
+
+            $problem = $this->providerPolicy->problem($submitted->getProvider(), $submitted->getWhatsappNumberId());
+
+            if (null !== $problem) {
+                $event->getForm()->get($problem[0])->addError(new FormError($this->translator->trans($problem[1], [], 'validators')));
+            }
+        });
 
         $builder->add('hsmTemplate', TextType::class, [
             'label'      => 'mautic.n8ndispatch.campaign.event.hsm.template',
