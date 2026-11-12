@@ -21,6 +21,8 @@ use MauticPlugin\N8nDispatchBundle\Service\Provider\HsmProviderOutcome;
  * the log belongs to ('email', 'smsTemplate' or 'hsmTemplateId'), so it is
  * read from there and its name looked up in one query per channel for the
  * whole page.
+ *
+ * @phpstan-type DispatchRow array{id: int, channel: string, dispatchedAt: ?\DateTimeImmutable, campaignId: int, campaignName: string, stepStatus: ?string, templateName: string, templateRoute: array{name: string, params: array<string, int|string>}|null, contactId: int, contactEmail: string, contactName: string, failed: bool, mauticState: ?string, providerState: ?string, metadata: array<string, mixed>}
  */
 class DispatchListReader
 {
@@ -176,7 +178,7 @@ class DispatchListReader
      * One dispatch of the table by its log id, for the details modal; null
      * when it is not one of them (another event type, no dispatch attempted).
      *
-     * @return array{id: int, channel: string, dispatchedAt: ?\DateTimeImmutable, campaignId: int, campaignName: string, stepStatus: ?string, templateName: string, templateRoute: array{name: string, params: array<string, int|string>}|null, contactId: int, contactEmail: string, contactName: string, failed: bool, mauticState: ?string, providerState: ?string, metadata: array<string, mixed>}|null
+     * @return DispatchRow|null
      */
     public function find(int $id): ?array
     {
@@ -188,7 +190,7 @@ class DispatchListReader
      *
      * @param list<int> $ids
      *
-     * @return array<int, array{id: int, channel: string, dispatchedAt: ?\DateTimeImmutable, campaignId: int, campaignName: string, stepStatus: ?string, templateName: string, templateRoute: array{name: string, params: array<string, int|string>}|null, contactId: int, contactEmail: string, contactName: string, failed: bool, mauticState: ?string, providerState: ?string, metadata: array<string, mixed>}>
+     * @return array<int, DispatchRow>
      */
     public function findMany(array $ids): array
     {
@@ -203,18 +205,13 @@ class DispatchListReader
             ->executeQuery()
             ->fetchAllAssociative();
 
-        $byId = [];
-        foreach ($this->mapRows($rows) as $item) {
-            $byId[$item['id']] = $item;
-        }
-
-        return $byId;
+        return array_column($this->mapRows($rows), null, 'id');
     }
 
     /**
      * @param list<array<string, mixed>> $rows
      *
-     * @return list<array{id: int, channel: string, dispatchedAt: ?\DateTimeImmutable, campaignId: int, campaignName: string, stepStatus: ?string, templateName: string, templateRoute: array{name: string, params: array<string, int|string>}|null, contactId: int, contactEmail: string, contactName: string, failed: bool, mauticState: ?string, providerState: ?string, metadata: array<string, mixed>}>
+     * @return list<DispatchRow>
      */
     private function mapRows(array $rows): array
     {

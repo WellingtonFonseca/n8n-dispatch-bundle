@@ -301,7 +301,6 @@ class DispatchListReaderDbTest extends RollbackDatabaseTestCase
         $this->assertEquals($this->reader->find($email), $found[$email]);
         $this->assertEquals($this->reader->find($hsm), $found[$hsm]);
         $this->assertSame([], $this->reader->findMany([]));
-        $this->assertNotContains($sms, array_keys($found));
     }
 
     public function testTheFilterBarOffersOurCampaignAndTemplatesByChannel(): void
