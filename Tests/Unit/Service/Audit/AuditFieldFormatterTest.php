@@ -70,4 +70,19 @@ class AuditFieldFormatterTest extends TestCase
     {
         $this->assertSame('', $this->formatter()->value(TemplateAuditLog::HSM_TEMPLATE, 'provider', ''));
     }
+
+    public function testAProviderOrTypeWithoutATextIsShownAsStoredNotAsAKey(): void
+    {
+        $translator = $this->createMock(TranslatorInterface::class);
+        $translator->method('trans')->willReturnArgument(0);
+        $formatter = new AuditFieldFormatter($translator, new HsmProviderPolicy($this->createMock(HsmProviderGateway::class)));
+
+        $this->assertSame('future', $formatter->value(TemplateAuditLog::HSM_TEMPLATE, 'provider', 'future'));
+        $this->assertSame('video', $formatter->value(TemplateAuditLog::HSM_TEMPLATE, 'type', 'video'));
+    }
+
+    public function testTheProviderOfAnSmsUsesTheSmsTexts(): void
+    {
+        $this->assertSame('T:mautic.n8ndispatch.smstemplate.provider.n8n', $this->formatter()->value(TemplateAuditLog::SMS_TEMPLATE, 'provider', 'n8n'));
+    }
 }
