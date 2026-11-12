@@ -77,6 +77,14 @@ class N8nDispatchBundle extends PluginBundleBase
             }
         }
 
+        // 0.13.0: how an SMS template is sent. Existing rows stay on n8n.
+        if ($installedSchema instanceof Schema && $installedSchema->hasTable(SmsTemplate::TABLE_NAME) && !$installedSchema->getTable(SmsTemplate::TABLE_NAME)->hasColumn('provider')) {
+            $factory->getDatabase()->executeQuery(
+                'ALTER TABLE '.SmsTemplate::TABLE_NAME
+                ." ADD COLUMN provider VARCHAR(191) NOT NULL DEFAULT '".SmsTemplate::PROVIDER_N8N."'"
+            );
+        }
+
         // 0.7.0: the history is tied to the campaign log and holds the dispatch attempts too, so
         // it survives a resend. Existing rows keep working: kind defaults to 'callback', the log id
         // stays empty until `n8ndispatch:status:backfill` fills it, tracking_id may now be empty.
@@ -143,6 +151,23 @@ class N8nDispatchBundle extends PluginBundleBase
             // 0.10.0: the carousel type keeps its image URLs here.
             if (!$table->hasColumn('cards')) {
                 $factory->getDatabase()->executeQuery('ALTER TABLE '.HsmTemplate::TABLE_NAME.' ADD COLUMN cards JSON NULL');
+            }
+
+            // 0.12.0: how the template is sent. Existing rows stay on n8n.
+            if (!$table->hasColumn('provider')) {
+                $factory->getDatabase()->executeQuery(
+                    'ALTER TABLE '.HsmTemplate::TABLE_NAME
+                    ." ADD COLUMN provider VARCHAR(191) NOT NULL DEFAULT '".HsmTemplate::PROVIDER_N8N."'"
+                );
+            }
+
+            if (!$table->hasColumn('whatsapp_number_id')) {
+                $factory->getDatabase()->executeQuery('ALTER TABLE '.HsmTemplate::TABLE_NAME.' ADD COLUMN whatsapp_number_id INT NULL');
+            }
+
+            // A template sent by the DialogHSM has no router: the column takes NULL.
+            if ($table->hasColumn('router') && $table->getColumn('router')->getNotnull()) {
+                $factory->getDatabase()->executeQuery('ALTER TABLE '.HsmTemplate::TABLE_NAME.' MODIFY router VARCHAR(191) NULL');
             }
 
             // 'hsmId' renamed to 'hsmTemplate' (the field is the

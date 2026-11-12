@@ -8,6 +8,7 @@ use Mautic\CoreBundle\Model\FormModel;
 use MauticPlugin\N8nDispatchBundle\Entity\HsmTemplate;
 use MauticPlugin\N8nDispatchBundle\Entity\HsmTemplateRepository;
 use MauticPlugin\N8nDispatchBundle\Form\Type\HsmTemplateType;
+use MauticPlugin\N8nDispatchBundle\Service\Audit\TemplateAuditLog;
 use Symfony\Component\Form\FormInterface;
 use Symfony\Component\HttpKernel\Exception\MethodNotAllowedHttpException;
 
@@ -26,6 +27,13 @@ use Symfony\Component\HttpKernel\Exception\MethodNotAllowedHttpException;
  */
 class HsmTemplateModel extends FormModel
 {
+    use AuditsChanges;
+
+    protected function auditObject(): string
+    {
+        return TemplateAuditLog::HSM_TEMPLATE;
+    }
+
     public function getRepository(): HsmTemplateRepository
     {
         return $this->em->getRepository(HsmTemplate::class);

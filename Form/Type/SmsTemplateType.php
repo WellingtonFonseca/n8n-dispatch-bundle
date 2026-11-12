@@ -10,6 +10,7 @@ use Mautic\CoreBundle\Form\Type\FormButtonsType;
 use Mautic\CoreBundle\Form\Type\YesNoButtonGroupType;
 use MauticPlugin\N8nDispatchBundle\Entity\SmsTemplate;
 use Symfony\Component\Form\AbstractType;
+use Symfony\Component\Form\Extension\Core\Type\ChoiceType;
 use Symfony\Component\Form\Extension\Core\Type\HiddenType;
 use Symfony\Component\Form\Extension\Core\Type\LocaleType;
 use Symfony\Component\Form\Extension\Core\Type\TextareaType;
@@ -63,6 +64,17 @@ class SmsTemplateType extends AbstractType
             'label_attr' => ['class' => 'control-label'],
             'attr'       => ['class' => 'form-control'],
             'required'   => false,
+        ]);
+
+        // How the template is sent. Always on the screen, so people get used to filling it; n8n is the only provider
+        // today, the next ones are added to this list.
+        $builder->add('provider', ChoiceType::class, [
+            'label'      => 'mautic.n8ndispatch.smstemplate.provider.label',
+            'label_attr' => ['class' => 'control-label'],
+            'choices'    => ['mautic.n8ndispatch.smstemplate.provider.n8n' => SmsTemplate::PROVIDER_N8N],
+            // A post without the field (a script, an old form) is a template sent through n8n, as before.
+            'empty_data' => SmsTemplate::PROVIDER_N8N,
+            'attr'       => ['class' => 'form-control'],
         ]);
 
         $builder->add('text', TextareaType::class, [

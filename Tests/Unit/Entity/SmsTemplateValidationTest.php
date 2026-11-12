@@ -12,6 +12,9 @@ class SmsTemplateValidationTest extends TestCase
 {
     private const MESSAGE  = 'mautic.n8ndispatch.template.error.numeric_variables';
     private const UNMAPPED = 'mautic.n8ndispatch.template.error.unmapped_variables';
+    private const GAP      = 'mautic.n8ndispatch.template.error.variables_gap';
+    private const ZERO     = 'mautic.n8ndispatch.template.error.variables_zero';
+    private const LIMIT    = 'mautic.n8ndispatch.template.error.variables_limit';
 
     /**
      * @param array<string, mixed>|null $mapping the saved variables mapping; null maps every variable of the text
@@ -140,5 +143,32 @@ class SmsTemplateValidationTest extends TestCase
     public function testTheNumericMessageComesFirstAndTheMappingStepsAside(): void
     {
         $this->assertSame([self::MESSAGE], $this->textErrors('{{1}} {{valor}}', []));
+    }
+
+    public function testASkippedNumberIsRejected(): void
+    {
+        $this->assertSame([self::GAP], $this->textErrors('Hello {{1}}, class {{3}}.'));
+    }
+
+    public function testTheOrderInTheTextAndRepeatedNumbersDoNotMatter(): void
+    {
+        $this->assertSame([], $this->textErrors('{{2}} then {{1}} then {{2}}'));
+    }
+
+    public function testZeroIsRejected(): void
+    {
+        $this->assertSame([self::ZERO], $this->textErrors('{{0}} and {{1}}'));
+    }
+
+    public function testTheNumericMessageWinsOverTheSequenceMessages(): void
+    {
+        $this->assertSame([self::MESSAGE], $this->textErrors('{{0}} {{3}} {{valor}}', []));
+    }
+
+    public function testFiftyOneVariablesAreRefused(): void
+    {
+        $text = implode(' ', array_map(static fn (int $n): string => '{{'.$n.'}}', range(1, 51)));
+
+        $this->assertSame([self::LIMIT], $this->textErrors($text));
     }
 }

@@ -96,6 +96,29 @@ abstract class AbstractTemplateDispatchSubscriber implements EventSubscriberInte
      */
     abstract protected function buildPayload(Lead $contact, string $phone, string $status, array $step, array $variables): array;
 
+    /**
+     * Whether this step hands its messages to another plugin instead of calling n8n's webhook. No channel does, unless it
+     * says so: the HSM does for a template sent through the DialogHSM.
+     *
+     * @param array<string, mixed> $step
+     */
+    protected function sendsThroughProvider(array $step): bool
+    {
+        return false;
+    }
+
+    /**
+     * One contact's message handed to that other plugin: records what went out on the log and passes or fails the contact.
+     * Only called when sendsThroughProvider() is true, after the Do Not Contact and phone checks.
+     *
+     * @param array<string, mixed>  $step
+     * @param array<string, string> $variables
+     */
+    protected function dispatchThroughProvider(PendingEvent $event, LeadEventLog $log, Lead $contact, Campaign $campaign, string $status, array $step, string $phone, array $variables): void
+    {
+        throw new \LogicException('This channel does not send through another plugin.');
+    }
+
     protected function handle(PendingEvent $event): void
     {
         if (!$event->checkContext($this->context())) {
@@ -125,15 +148,21 @@ abstract class AbstractTemplateDispatchSubscriber implements EventSubscriberInte
             return;
         }
 
-        $webhook = WebhookSettings::forAction($this->integrationHelper, $this->action());
+        // The other plugin has its own credentials: n8n's webhook is not read, and an instance may have none.
+        $webhookUrl = '';
+        $headers    = [];
 
-        if (is_string($webhook)) {
-            $event->failAll($this->failureReasons->translated($webhook));
+        if (!$this->sendsThroughProvider($step)) {
+            $webhook = WebhookSettings::forAction($this->integrationHelper, $this->action());
 
-            return;
+            if (is_string($webhook)) {
+                $event->failAll($this->failureReasons->translated($webhook));
+
+                return;
+            }
+
+            ['url' => $webhookUrl, 'headers' => $headers] = $webhook;
         }
-
-        ['url' => $webhookUrl, 'headers' => $headers] = $webhook;
 
         /** @var Lead $contact */
         foreach ($event->getContacts() as $logId => $contact) {
@@ -176,7 +205,14 @@ abstract class AbstractTemplateDispatchSubscriber implements EventSubscriberInte
         }
 
         $variables = $this->variableResolver->resolveAll($variablesConfig, $contact, $campaign, self::MULTI_VALUE_SEPARATOR, $step['language']);
-        $payload   = $this->buildPayload($contact, $phone, $status, $step, $variables);
+
+        if ($this->sendsThroughProvider($step)) {
+            $this->dispatchThroughProvider($event, $log, $contact, $campaign, $status, $step, $phone, $variables);
+
+            return;
+        }
+
+        $payload = $this->buildPayload($contact, $phone, $status, $step, $variables);
 
         try {
             $response = $this->httpClient->request('POST', $webhookUrl, [
@@ -226,8 +262,11 @@ abstract class AbstractTemplateDispatchSubscriber implements EventSubscriberInte
 
         $log->appendToMetadata(['n8ndispatch' => $payload]);
 
-        // Nothing is sent, but the log's History says it was a test / a pause.
-        $this->statusTracker?->recordSimulated($log->getId(), $status);
+        // Nothing is sent, but the log's History says it was a test / a pause. A step sent through another plugin has no
+        // History: that plugin tracks its own messages.
+        if (!$this->sendsThroughProvider($step)) {
+            $this->statusTracker?->recordSimulated($log->getId(), $status);
+        }
 
         $event->pass($log);
     }

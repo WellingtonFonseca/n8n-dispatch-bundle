@@ -2,6 +2,10 @@
 
 {% block mauticContent %}n8ndispatch.smstemplate{% endblock %}
 
+{% block preHeader %}
+    {% include '@N8nDispatch/Template/_back_button.html.twig' with {'indexRoute': 'mautic_n8ndispatch.smstemplate_index', 'targetKey': 'mautic.n8ndispatch.smstemplate.header.index'} %}
+{% endblock %}
+
 {% block headerTitle %}
     {% if entity.id %}
         {{ 'mautic.n8ndispatch.smstemplate.menu.edit'|trans({'%name%': entity.name}) }}
@@ -101,6 +105,11 @@
                                 <a href="#sms-campaigns-container" role="tab" data-toggle="tab">{{ 'mautic.n8ndispatch.smstemplate.tab.campaigns.label'|trans }}</a>
                             </li>
                         {% endif %}
+                        {% if entity.id %}
+                            <li>
+                                <a href="#sms-history-container" role="tab" data-toggle="tab">{{ 'mautic.n8ndispatch.audit.tab'|trans }}</a>
+                            </li>
+                        {% endif %}
                     </ul>
                     <!--/ tabs controls -->
 
@@ -109,6 +118,11 @@
                             {{ form_row(form.language) }}
                             {{ form_row(form.name) }}
                             {{ form_row(form.description) }}
+                            <div class="row">
+                                <div class="col-xs-4">
+                                    {{ form_row(form.provider) }}
+                                </div>
+                            </div>
                             {# The .row wrapper matters: campaign-sms-dispatch.js
                                inserts the variable-source rows right after the
                                textarea's closest .row (see getContainer() in
@@ -117,6 +131,9 @@
                                message (validators domain) as the error shown when the template is saved. #}
                             <div class="hidden" id="n8ndispatch-sms-config"
                                  data-numeric-alert-text="{{ 'mautic.n8ndispatch.template.error.numeric_variables'|trans({}, 'validators') }}"
+                                 data-sequence-gap-text="{{ 'mautic.n8ndispatch.template.error.variables_gap'|trans({}, 'validators') }}"
+                                 data-sequence-zero-text="{{ 'mautic.n8ndispatch.template.error.variables_zero'|trans({}, 'validators') }}"
+                                 data-sequence-limit-text="{{ 'mautic.n8ndispatch.template.error.variables_limit'|trans({}, 'validators') }}"
                                  data-unmapped-alert-text="{{ 'mautic.n8ndispatch.template.alert.unmapped_variables'|trans({}, 'validators') }}"></div>
                             {# Core's form_row, with the help between the label and the textarea. #}
                             <div class="row form-group">
@@ -165,6 +182,9 @@
                                     <p class="text-muted">{{ 'mautic.n8ndispatch.smstemplate.usages.none'|trans }}</p>
                                 {% endif %}
                             </div>
+                        {% endif %}
+                        {% if entity.id %}
+                            {% include '@N8nDispatch/Template/_audit_pane.html.twig' with {'id': 'sms-history-container', 'rows': n8ndispatch_template_audit('sms_template', entity.id)} only %}
                         {% endif %}
                     </div>
                 </div>

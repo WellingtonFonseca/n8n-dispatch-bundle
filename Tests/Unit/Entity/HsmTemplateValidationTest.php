@@ -12,6 +12,9 @@ class HsmTemplateValidationTest extends TestCase
 {
     private const MESSAGE  = 'mautic.n8ndispatch.template.error.numeric_variables';
     private const UNMAPPED = 'mautic.n8ndispatch.template.error.unmapped_variables';
+    private const GAP      = 'mautic.n8ndispatch.template.error.variables_gap';
+    private const ZERO     = 'mautic.n8ndispatch.template.error.variables_zero';
+    private const LIMIT    = 'mautic.n8ndispatch.template.error.variables_limit';
 
     /**
      * @param array<string, mixed>|null $mapping the saved variables mapping; null maps every variable of the text
@@ -140,5 +143,117 @@ class HsmTemplateValidationTest extends TestCase
     public function testTheNumericMessageComesFirstAndTheMappingStepsAside(): void
     {
         $this->assertSame([self::MESSAGE], $this->textErrors('{{1}} {{valor}}', []));
+    }
+
+    public function testASkippedNumberIsRejected(): void
+    {
+        $this->assertSame([self::GAP], $this->textErrors('Hello {{1}}, class {{3}}.'));
+    }
+
+    public function testTheMessageNamesTheFirstMissingNumber(): void
+    {
+        $template = new HsmTemplate();
+        $template->setText('{{1}} {{2}} {{5}} {{6}}');
+        $template->setVariablesJson(json_encode($this->mapEvery('{{1}} {{2}} {{5}} {{6}}')));
+
+        $validator = Validation::createValidatorBuilder()->addMethodMapping('loadValidatorMetadata')->getValidator();
+        $found     = [];
+        foreach ($validator->validate($template) as $violation) {
+            if (self::GAP === $violation->getMessageTemplate()) {
+                $found[] = $violation->getParameters();
+            }
+        }
+
+        $this->assertSame([['%missing%' => '3', '%highest%' => '6']], $found);
+    }
+
+    public function testASequenceThatStartsAfterOneIsRejected(): void
+    {
+        $this->assertSame([self::GAP], $this->textErrors('Hello {{2}}'));
+    }
+
+    public function testTheOrderInTheTextAndRepeatedNumbersDoNotMatter(): void
+    {
+        $this->assertSame([], $this->textErrors('{{2}} then {{1}} then {{2}} and {{3}}'));
+    }
+
+    public function testSpacesInsideTheBracesDoNotHideAGap(): void
+    {
+        $this->assertSame([self::GAP], $this->textErrors('{{ 1 }} {{ 3 }}'));
+    }
+
+    public function testTheNumericMessageWinsOverTheGapMessage(): void
+    {
+        $this->assertSame([self::MESSAGE], $this->textErrors('{{1}} {{3}} {{valor}}', []));
+    }
+
+    public function testZeroIsRejectedAlone(): void
+    {
+        $this->assertSame([self::ZERO], $this->textErrors('Hello {{0}}'));
+    }
+
+    public function testZeroNextToOneIsRejected(): void
+    {
+        $this->assertSame([self::ZERO], $this->textErrors('{{0}} and {{1}}'));
+    }
+
+    public function testZeroWithAGapGivesOnlyTheZeroMessage(): void
+    {
+        $this->assertSame([self::ZERO], $this->textErrors('{{0}} and {{2}}'));
+    }
+
+    public function testTheNumericMessageWinsOverTheZeroMessage(): void
+    {
+        $this->assertSame([self::MESSAGE], $this->textErrors('{{0}} {{valor}}', []));
+    }
+
+    public function testFiftyVariablesAreAccepted(): void
+    {
+        $this->assertSame([], $this->textErrors($this->numbered(50)));
+    }
+
+    public function testFiftyOneVariablesAreRefused(): void
+    {
+        $this->assertSame([self::LIMIT], $this->textErrors($this->numbered(51)));
+    }
+
+    public function testTheLimitWinsOverAGapAndAHugeNumberAnswersAtOnce(): void
+    {
+        // range(1, highest) would try to build the whole list: this must not walk up to the highest number.
+        $this->assertSame([self::LIMIT], $this->textErrors('{{1}} {{99999999999}}'));
+        $this->assertSame([self::LIMIT], $this->textErrors('{{1}} {{51}}'));
+    }
+
+    public function testAGapBelowTheLimitStillGivesTheGapMessage(): void
+    {
+        $this->assertSame([self::GAP], $this->textErrors('{{1}} {{50}}'));
+    }
+
+    public function testTheMessageCarriesTheLimit(): void
+    {
+        $template = new HsmTemplate();
+        $template->setText('{{51}}');
+        $template->setVariablesJson(json_encode($this->mapEvery('{{51}}')));
+
+        $validator = Validation::createValidatorBuilder()->addMethodMapping('loadValidatorMetadata')->getValidator();
+        $found     = [];
+        foreach ($validator->validate($template) as $violation) {
+            if (self::LIMIT === $violation->getMessageTemplate()) {
+                $found[] = $violation->getParameters();
+            }
+        }
+
+        $this->assertSame([['%max%' => '50']], $found);
+    }
+
+    public function testTheSameNumberWrittenTwoWaysCountsOnce(): void
+    {
+        // {{1}} and {{01}} are two placeholders for the scanner but one number: no hole between them.
+        $this->assertSame([], $this->textErrors('{{1}} {{01}} {{2}}'));
+    }
+
+    private function numbered(int $count): string
+    {
+        return implode(' ', array_map(static fn (int $n): string => '{{'.$n.'}}', range(1, $count)));
     }
 }

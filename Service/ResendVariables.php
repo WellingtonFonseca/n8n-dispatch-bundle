@@ -135,7 +135,10 @@ class ResendVariables
      */
     private function firstOf(LeadEventLog $log): array
     {
-        $variables = $log->getMetadata()['n8ndispatch']['variables'] ?? [];
+        $card = $log->getMetadata()['n8ndispatch'] ?? [];
+
+        // A message handed to another plugin keeps its values in the request it sent.
+        $variables = $card['variables'] ?? $card['request']['variables'] ?? [];
 
         return is_array($variables) ? array_map('strval', array_filter($variables, 'is_scalar')) : [];
     }
