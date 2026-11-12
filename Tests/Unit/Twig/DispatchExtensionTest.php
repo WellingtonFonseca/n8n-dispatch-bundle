@@ -34,7 +34,7 @@ class DispatchExtensionTest extends TestCase
         $this->assertNull((new DispatchExtension($reader))->dispatchOf(9));
     }
 
-    public function testAPreloadedLogIsReadWithoutAnotherQuery(): void
+    public function testQueuedLogsAreReadInOneQueryOnlyWhenACardAsks(): void
     {
         $row    = ['id' => 5];
         $reader = $this->createMock(DispatchListReader::class);
@@ -42,34 +42,75 @@ class DispatchExtensionTest extends TestCase
         $reader->expects($this->never())->method('find');
 
         $extension = new DispatchExtension($reader);
-        $extension->preload([5, 6]);
+        $extension->queue([5, 6]);
 
         $this->assertSame($row, $extension->dispatchOf(5));
         $this->assertNull($extension->dispatchOf(6), 'a log that is not a dispatch is known as none, not read again');
     }
 
-    public function testALogOutsideThePreloadReadsItsOwn(): void
+    public function testQueuedLogsAreNotReadWhenNoCardRenders(): void
+    {
+        // the CSV export generates the timeline and draws no card
+        $reader = $this->createMock(DispatchListReader::class);
+        $reader->expects($this->never())->method('findMany');
+
+        (new DispatchExtension($reader))->queue([5, 6]);
+    }
+
+    public function testALogOutsideTheQueueReadsItsOwn(): void
     {
         $reader = $this->createMock(DispatchListReader::class);
-        $reader->method('findMany')->willReturn([]);
+        $reader->expects($this->never())->method('findMany');
         $reader->expects($this->once())->method('find')->with(9)->willReturn(['id' => 9]);
 
         $extension = new DispatchExtension($reader);
-        $extension->preload([5]);
+        $extension->queue([5]);
 
         $this->assertSame(['id' => 9], $extension->dispatchOf(9));
+        $this->assertSame(['id' => 9], $extension->dispatchOf(9), 'kept: a second render does not read it again');
     }
 
-    public function testANewPreloadReplacesTheOldOne(): void
+    public function testTheTimelinesOfSeveralContactsBuiltBeforeRenderingAreAllReadInOneQuery(): void
     {
         $reader = $this->createMock(DispatchListReader::class);
-        $reader->method('findMany')->willReturnOnConsecutiveCalls([5 => ['id' => 5]], []);
-        $reader->expects($this->once())->method('find')->with(5)->willReturn(null);
+        $reader->expects($this->once())->method('findMany')->with([5, 6])->willReturn([5 => ['id' => 5], 6 => ['id' => 6]]);
+        $reader->expects($this->never())->method('find');
 
         $extension = new DispatchExtension($reader);
-        $extension->preload([5]);
-        $extension->preload([6]);
+        $extension->queue([5]);
+        $extension->queue([6]);
 
-        $this->assertNull($extension->dispatchOf(5));
+        $this->assertSame(['id' => 5], $extension->dispatchOf(5));
+        $this->assertSame(['id' => 6], $extension->dispatchOf(6));
+    }
+
+    public function testALaterQueueKeepsWhatWasReadAndDoesNotReadItAgain(): void
+    {
+        $reader = $this->createMock(DispatchListReader::class);
+        $reader->expects($this->exactly(2))->method('findMany')
+            ->willReturnCallback(static fn (array $ids): array => array_fill_keys($ids, ['id' => $ids[0]]));
+        $reader->expects($this->never())->method('find');
+
+        $extension = new DispatchExtension($reader);
+        $extension->queue([5]);
+        $extension->dispatchOf(5);
+        $extension->queue([5, 6]);
+
+        $this->assertSame(['id' => 6], $extension->dispatchOf(6), 'only 6 is read the second time');
+        $this->assertSame(['id' => 5], $extension->dispatchOf(5));
+    }
+
+    public function testResetForgetsWhatWasRead(): void
+    {
+        $reader = $this->createMock(DispatchListReader::class);
+        $reader->method('findMany')->willReturn([5 => ['id' => 5, 'old' => true]]);
+        $reader->expects($this->once())->method('find')->with(5)->willReturn(['id' => 5]);
+
+        $extension = new DispatchExtension($reader);
+        $extension->queue([5]);
+        $extension->dispatchOf(5);
+        $extension->reset();
+
+        $this->assertSame(['id' => 5], $extension->dispatchOf(5), 'read again, not the row of the earlier request');
     }
 }
