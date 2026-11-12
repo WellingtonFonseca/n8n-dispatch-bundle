@@ -33,4 +33,43 @@ class DispatchExtensionTest extends TestCase
 
         $this->assertNull((new DispatchExtension($reader))->dispatchOf(9));
     }
+
+    public function testAPreloadedLogIsReadWithoutAnotherQuery(): void
+    {
+        $row    = ['id' => 5];
+        $reader = $this->createMock(DispatchListReader::class);
+        $reader->expects($this->once())->method('findMany')->with([5, 6])->willReturn([5 => $row]);
+        $reader->expects($this->never())->method('find');
+
+        $extension = new DispatchExtension($reader);
+        $extension->preload([5, 6]);
+
+        $this->assertSame($row, $extension->dispatchOf(5));
+        $this->assertNull($extension->dispatchOf(6), 'a log that is not a dispatch is known as none, not read again');
+    }
+
+    public function testALogOutsideThePreloadReadsItsOwn(): void
+    {
+        $reader = $this->createMock(DispatchListReader::class);
+        $reader->method('findMany')->willReturn([]);
+        $reader->expects($this->once())->method('find')->with(9)->willReturn(['id' => 9]);
+
+        $extension = new DispatchExtension($reader);
+        $extension->preload([5]);
+
+        $this->assertSame(['id' => 9], $extension->dispatchOf(9));
+    }
+
+    public function testANewPreloadReplacesTheOldOne(): void
+    {
+        $reader = $this->createMock(DispatchListReader::class);
+        $reader->method('findMany')->willReturnOnConsecutiveCalls([5 => ['id' => 5]], []);
+        $reader->expects($this->once())->method('find')->with(5)->willReturn(null);
+
+        $extension = new DispatchExtension($reader);
+        $extension->preload([5]);
+        $extension->preload([6]);
+
+        $this->assertNull($extension->dispatchOf(5));
+    }
 }

@@ -180,14 +180,35 @@ class DispatchListReader
      */
     public function find(int $id): ?array
     {
+        return $this->findMany([$id])[$id] ?? null;
+    }
+
+    /**
+     * The dispatches of several logs in one read (the contact's Timeline page), keyed by log id; a log that is not one of them is left out.
+     *
+     * @param list<int> $ids
+     *
+     * @return array<int, array{id: int, channel: string, dispatchedAt: ?\DateTimeImmutable, campaignId: int, campaignName: string, stepStatus: ?string, templateName: string, templateRoute: array{name: string, params: array<string, int|string>}|null, contactId: int, contactEmail: string, contactName: string, failed: bool, mauticState: ?string, providerState: ?string, metadata: array<string, mixed>}>
+     */
+    public function findMany(array $ids): array
+    {
+        if ([] === $ids) {
+            return [];
+        }
+
         $rows = $this->baseQuery()
             ->select(self::COLUMNS)
-            ->andWhere('l.id = :id')
-            ->setParameter('id', $id)
+            ->andWhere('l.id IN (:ids)')
+            ->setParameter('ids', $ids, ArrayParameterType::INTEGER)
             ->executeQuery()
             ->fetchAllAssociative();
 
-        return $this->mapRows($rows)[0] ?? null;
+        $byId = [];
+        foreach ($this->mapRows($rows) as $item) {
+            $byId[$item['id']] = $item;
+        }
+
+        return $byId;
     }
 
     /**
