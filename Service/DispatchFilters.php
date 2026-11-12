@@ -4,9 +4,8 @@ declare(strict_types=1);
 
 namespace MauticPlugin\N8nDispatchBundle\Service;
 
-use MauticPlugin\N8nDispatchBundle\Service\Provider\HsmProviderOutcome;
-
 use MauticPlugin\N8nDispatchBundle\Entity\DispatchTracking;
+use MauticPlugin\N8nDispatchBundle\Service\Provider\HsmProviderOutcome;
 
 /**
  * What the Dispatches screen's filter bar asks for, read from the query

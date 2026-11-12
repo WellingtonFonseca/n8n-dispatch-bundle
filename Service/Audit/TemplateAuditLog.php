@@ -6,6 +6,7 @@ namespace MauticPlugin\N8nDispatchBundle\Service\Audit;
 
 use Mautic\CoreBundle\Entity\FormEntity;
 use Mautic\CoreBundle\Model\AuditLogModel;
+use Psr\Log\LoggerInterface;
 
 /**
  * Writes what changed in an SMS or HSM template to core's audit_log, the table core already uses for emails, segments and
@@ -22,8 +23,10 @@ class TemplateAuditLog
     /** Bookkeeping core sets on every save: it is not something a person changed. */
     private const NOISE = ['dateAdded', 'dateModified', 'createdBy', 'createdByUser', 'modifiedBy', 'modifiedByUser', 'checkedOut', 'checkedOutBy', 'checkedOutByUser'];
 
-    public function __construct(private AuditLogModel $auditLog)
-    {
+    public function __construct(
+        private AuditLogModel $auditLog,
+        private LoggerInterface $logger,
+    ) {
     }
 
     public function recordSave(string $object, FormEntity $entity, bool $isNew): void
@@ -48,12 +51,17 @@ class TemplateAuditLog
      */
     private function write(string $object, int $id, string $action, array $details): void
     {
-        $this->auditLog->writeToLog([
-            'bundle'   => self::BUNDLE,
-            'object'   => $object,
-            'objectId' => $id,
-            'action'   => $action,
-            'details'  => $details,
-        ]);
+        // The template is already saved when this runs: a failed audit line is logged, it must not turn the save into an error page.
+        try {
+            $this->auditLog->writeToLog([
+                'bundle'   => self::BUNDLE,
+                'object'   => $object,
+                'objectId' => $id,
+                'action'   => $action,
+                'details'  => $details,
+            ]);
+        } catch (\Throwable $e) {
+            $this->logger->error('N8N Dispatch: the audit line of a template could not be written.', ['object' => $object, 'object_id' => $id, 'action' => $action, 'error' => $e->getMessage()]);
+        }
     }
 }

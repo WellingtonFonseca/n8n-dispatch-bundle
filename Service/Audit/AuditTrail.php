@@ -67,8 +67,8 @@ final class AuditTrail
             return '';
         }
 
-        // A boolean is "1" or "" (the formatter turns a flag into its word).
-        $text = is_scalar($value) ? (string) $value : (string) json_encode($value, JSON_UNESCAPED_UNICODE | JSON_UNESCAPED_SLASHES);
+        // A flag is "1" or "0": false must not read as an empty value (the formatter turns a flag into its word).
+        $text = is_bool($value) ? ($value ? '1' : '0') : (is_scalar($value) ? (string) $value : (string) json_encode($value, JSON_UNESCAPED_UNICODE | JSON_UNESCAPED_SLASHES));
 
         return mb_strlen($text) > self::MAX_VALUE_LENGTH ? mb_substr($text, 0, self::MAX_VALUE_LENGTH).'…' : $text;
     }

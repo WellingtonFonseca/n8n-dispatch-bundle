@@ -4,13 +4,12 @@ declare(strict_types=1);
 
 namespace MauticPlugin\N8nDispatchBundle\Service;
 
-use MauticPlugin\N8nDispatchBundle\Service\Provider\HsmProviderOutcome;
-
 use Doctrine\DBAL\ArrayParameterType;
 use Doctrine\ORM\EntityManagerInterface;
 use MauticPlugin\N8nDispatchBundle\Entity\DispatchTracking;
 use MauticPlugin\N8nDispatchBundle\Entity\HsmTemplate;
 use MauticPlugin\N8nDispatchBundle\Entity\SmsTemplate;
+use MauticPlugin\N8nDispatchBundle\Service\Provider\HsmProviderOutcome;
 
 /**
  * Feeds the N8N Dispatch > Dispatches table: one row per campaign log of the

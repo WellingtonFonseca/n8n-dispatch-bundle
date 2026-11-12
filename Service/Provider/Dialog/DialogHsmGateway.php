@@ -96,7 +96,7 @@ final class DialogHsmGateway implements HsmProviderGateway
             return HsmSendResult::refused(sprintf('The DialogHSM number "%s" has no API key.', (string) $number->getName()));
         }
 
-        if ('image' === $request->type && 1 !== preg_match(self::IMAGE_HEADER_LINK, (string) ($request->cards[0]['header_image_link'] ?? ''))) {
+        if ('image' === $request->type && 1 !== preg_match(self::IMAGE_HEADER_LINK, $this->imageLink($request))) {
             return HsmSendResult::refused('The image link must end in .jpg, .jpeg or .png: the DialogHSM does not build the header for other links.');
         }
 
@@ -146,7 +146,7 @@ final class DialogHsmGateway implements HsmProviderGateway
         }
 
         if ('image' === $request->type) {
-            $data['url_arquivo'] = $request->cards[0]['header_image_link'];
+            $data['url_arquivo'] = $this->imageLink($request);
         }
 
         if ('carousel' === $request->type) {
@@ -154,6 +154,11 @@ final class DialogHsmGateway implements HsmProviderGateway
         }
 
         return $data;
+    }
+
+    private function imageLink(HsmSendRequest $request): string
+    {
+        return (string) ($request->cards[0]['header_image_link'] ?? '');
     }
 
     private function baseUrlOf(WhatsAppNumber $number): string

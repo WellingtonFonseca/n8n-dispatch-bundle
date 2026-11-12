@@ -49,13 +49,25 @@ class AuditFieldFormatter
 
     public function value(string $object, string $field, string $stored): string
     {
+        $kind = TemplateAuditLog::HSM_TEMPLATE === $object ? 'hsmtemplate' : 'smstemplate';
+
         return match (true) {
-            '' === $stored                                           => '',
-            'isPublished' === $field                                 => $this->translator->trans('1' === $stored ? 'mautic.n8ndispatch.template.details.active' : 'mautic.n8ndispatch.template.details.inactive'),
-            'provider' === $field                                    => $this->translator->trans('mautic.n8ndispatch.hsmtemplate.provider.'.$stored),
-            'type' === $field && TemplateAuditLog::HSM_TEMPLATE === $object => $this->translator->trans('mautic.n8ndispatch.hsmtemplate.type.'.$stored),
-            'whatsappNumberId' === $field && ctype_digit($stored)   => $this->policy->numberLabel((int) $stored, $this->translator->trans('mautic.n8ndispatch.hsmtemplate.number.missing')),
-            default                                                  => $stored,
+            '' === $stored                                         => '',
+            'isPublished' === $field                               => $this->translator->trans('1' === $stored ? 'mautic.n8ndispatch.template.details.active' : 'mautic.n8ndispatch.template.details.inactive'),
+            'provider' === $field                                  => $this->translatedOr('mautic.n8ndispatch.'.$kind.'.provider.'.$stored, $stored),
+            'type' === $field && 'hsmtemplate' === $kind           => $this->translatedOr('mautic.n8ndispatch.hsmtemplate.type.'.$stored, $stored),
+            'whatsappNumberId' === $field && ctype_digit($stored)  => $this->policy->numberLabel((int) $stored, $this->translator->trans('mautic.n8ndispatch.hsmtemplate.number.missing')),
+            default                                                => $stored,
         };
+    }
+
+    /**
+     * The text of a key, or the stored value when the key does not exist (a provider or a type added later): the reader never sees a raw key.
+     */
+    private function translatedOr(string $key, string $stored): string
+    {
+        $text = $this->translator->trans($key);
+
+        return $text === $key ? $stored : $text;
     }
 }

@@ -8,6 +8,7 @@ use Mautic\CoreBundle\Model\AuditLogModel;
 use MauticPlugin\N8nDispatchBundle\Entity\HsmTemplate;
 use MauticPlugin\N8nDispatchBundle\Service\Audit\TemplateAuditLog;
 use PHPUnit\Framework\TestCase;
+use Psr\Log\LoggerInterface;
 
 class TemplateAuditLogTest extends TestCase
 {
@@ -32,7 +33,7 @@ class TemplateAuditLogTest extends TestCase
             'details'  => ['router' => ['a', 'b'], 'text' => ['x', 'y']],
         ]);
 
-        (new TemplateAuditLog($model))->recordSave(TemplateAuditLog::HSM_TEMPLATE, $template, false);
+        (new TemplateAuditLog($model, $this->createMock(LoggerInterface::class)))->recordSave(TemplateAuditLog::HSM_TEMPLATE, $template, false);
     }
 
     public function testANewTemplateIsACreate(): void
@@ -42,7 +43,7 @@ class TemplateAuditLogTest extends TestCase
         $model = $this->createMock(AuditLogModel::class);
         $model->expects($this->once())->method('writeToLog')->with($this->callback(fn (array $log): bool => 'create' === $log['action'] && 'sms_template' === $log['object']));
 
-        (new TemplateAuditLog($model))->recordSave(TemplateAuditLog::SMS_TEMPLATE, $template, true);
+        (new TemplateAuditLog($model, $this->createMock(LoggerInterface::class)))->recordSave(TemplateAuditLog::SMS_TEMPLATE, $template, true);
     }
 
     public function testBookkeepingFieldsAreNotWrittenAsChanges(): void
@@ -52,7 +53,7 @@ class TemplateAuditLogTest extends TestCase
         $model = $this->createMock(AuditLogModel::class);
         $model->expects($this->once())->method('writeToLog')->with($this->callback(fn (array $log): bool => ['text' => ['x', 'y']] === $log['details']));
 
-        (new TemplateAuditLog($model))->recordSave(TemplateAuditLog::HSM_TEMPLATE, $template, false);
+        (new TemplateAuditLog($model, $this->createMock(LoggerInterface::class)))->recordSave(TemplateAuditLog::HSM_TEMPLATE, $template, false);
     }
 
     public function testASaveWithOnlyBookkeepingWritesNothing(): void
@@ -62,9 +63,9 @@ class TemplateAuditLogTest extends TestCase
         $model = $this->createMock(AuditLogModel::class);
         $model->expects($this->never())->method('writeToLog');
 
-        (new TemplateAuditLog($model))->recordSave(TemplateAuditLog::HSM_TEMPLATE, $template, false);
+        (new TemplateAuditLog($model, $this->createMock(LoggerInterface::class)))->recordSave(TemplateAuditLog::HSM_TEMPLATE, $template, false);
         $template->setChanges([]);
-        (new TemplateAuditLog($model))->recordSave(TemplateAuditLog::HSM_TEMPLATE, $template, false);
+        (new TemplateAuditLog($model, $this->createMock(LoggerInterface::class)))->recordSave(TemplateAuditLog::HSM_TEMPLATE, $template, false);
     }
 
     public function testADeleteKeepsTheNameUnderTheIdThatWasDeleted(): void
@@ -72,6 +73,19 @@ class TemplateAuditLogTest extends TestCase
         $model = $this->createMock(AuditLogModel::class);
         $model->expects($this->once())->method('writeToLog')->with(['bundle' => 'N8nDispatchBundle', 'object' => 'sms_template', 'objectId' => 9, 'action' => 'delete', 'details' => ['name' => 'Gone']]);
 
-        (new TemplateAuditLog($model))->recordDelete(TemplateAuditLog::SMS_TEMPLATE, 9, 'Gone');
+        (new TemplateAuditLog($model, $this->createMock(LoggerInterface::class)))->recordDelete(TemplateAuditLog::SMS_TEMPLATE, 9, 'Gone');
+    }
+
+    public function testAFailedAuditWriteIsLoggedAndDoesNotBreakTheSave(): void
+    {
+        $template = $this->template();
+        $template->setChanges(['text' => ['x', 'y']]);
+        $model = $this->createMock(AuditLogModel::class);
+        $model->method('writeToLog')->willThrowException(new \RuntimeException('db gone'));
+        $logger = $this->createMock(LoggerInterface::class);
+        $logger->expects($this->once())->method('error')->with($this->stringContains('audit line'), $this->callback(fn (array $context): bool => 'db gone' === $context['error'] && 7 === $context['object_id'] && 'update' === $context['action'] && 'hsm_template' === $context['object']));
+
+        (new TemplateAuditLog($model, $logger))->recordSave(TemplateAuditLog::HSM_TEMPLATE, $template, false);
+        $this->assertTrue(true);
     }
 }

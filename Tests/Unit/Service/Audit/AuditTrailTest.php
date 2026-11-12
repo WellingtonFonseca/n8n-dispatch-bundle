@@ -114,4 +114,20 @@ class AuditTrailTest extends TestCase
 
         $this->assertStringStartsWith('Start', $rows[0]['changes'][0]['new']);
     }
+
+    public function testAFlagThatWentToFalseIsZeroNotEmpty(): void
+    {
+        $rows = $this->rows([['action' => 'update', 'details' => ['isPublished' => [true, false]]]]);
+
+        $this->assertSame('1', $rows[0]['changes'][0]['old']);
+        $this->assertSame('0', $rows[0]['changes'][0]['new']);
+    }
+
+    public function testALongValueIsCountedInCharactersNotBytes(): void
+    {
+        // 200 accented characters are 400 bytes: they are under the limit and must not be cut
+        $rows = $this->rows([['action' => 'update', 'details' => ['x' => ['', str_repeat('é', 200)]]]]);
+
+        $this->assertSame(200, mb_strlen($rows[0]['changes'][0]['new']));
+    }
 }
