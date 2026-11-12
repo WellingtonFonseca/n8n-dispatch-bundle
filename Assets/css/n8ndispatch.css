@@ -99,14 +99,22 @@
     background-color: #fb8c00;
 }
 
-/* The translucent ones of the twin (.patches-badge--info / --neutral): not used by an n8n screen yet, here so the two families stay equal. */
+/* Twin of .patches-badge--info / --neutral and of their --soft extra (translucent): not used by an n8n screen yet, here so the two families stay equal. */
 .n8ndispatch-badge--info {
+    background-color: #1e88e5;
+}
+
+.n8ndispatch-badge--neutral {
+    background-color: #787878;
+}
+
+.n8ndispatch-badge--info.n8ndispatch-badge--soft {
     background-color: rgba(30, 136, 229, 0.16);
     color: #1e88e5;
     box-shadow: inset 0 0 0 1px rgba(30, 136, 229, 0.45);
 }
 
-.n8ndispatch-badge--neutral {
+.n8ndispatch-badge--neutral.n8ndispatch-badge--soft {
     background-color: rgba(120, 120, 120, 0.16);
     color: var(--text-secondary, #6f6f6f);
     box-shadow: inset 0 0 0 1px rgba(120, 120, 120, 0.4);
