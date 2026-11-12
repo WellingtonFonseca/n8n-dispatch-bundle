@@ -287,6 +287,23 @@ class DispatchListReaderDbTest extends RollbackDatabaseTestCase
         $this->assertNull($this->reader->find(0));
     }
 
+    public function testFindManyReadsSeveralDispatchesKeyedByLogAndSkipsOtherLogs(): void
+    {
+        [$email, $sms, $hsm] = $this->threeLogs();
+        $noMark              = $this->insert('campaign_lead_event_log', [
+            'event_id' => $this->events['n8ndispatch.sms.send'], 'campaign_id' => $this->campaignId, 'lead_id' => $this->leadId, 'rotation' => 7,
+            'is_scheduled' => 0, 'system_triggered' => 0, 'metadata' => serialize(['x' => 1]),
+        ]);
+
+        $found = $this->reader->findMany([$email, $hsm, $noMark]);
+
+        $this->assertSame([$email, $hsm], array_keys($found));
+        $this->assertEquals($this->reader->find($email), $found[$email]);
+        $this->assertEquals($this->reader->find($hsm), $found[$hsm]);
+        $this->assertSame([], $this->reader->findMany([]));
+        $this->assertNotContains($sms, array_keys($found));
+    }
+
     public function testTheFilterBarOffersOurCampaignAndTemplatesByChannel(): void
     {
         $options = $this->reader->filterOptions();
