@@ -687,3 +687,8 @@ a[data-n8n-status-action]:hover * {
     border-color: var(--border-subtle-01);
     color: var(--text-primary);
 }
+
+/* core rounds the filter input when the magnifier is the only button of the list toolbar (no funnel); Segments keeps it square. Twin of MauticPatchesBundle ListToolbarSquareSearchSubscriber and of custom-objects.css: plugins stay independent. */
+.list-toolbar > .btn:only-of-type + .input-group > input {
+    border-radius: 0;
+}
