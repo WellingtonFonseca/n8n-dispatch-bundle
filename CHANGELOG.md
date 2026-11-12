@@ -2,6 +2,9 @@
 
 Um bloco por dia, do mais novo para o mais antigo. Formato fixo: `## AAAA-MM-DD` e uma linha `- ` por mudança (a tela do plugin lê este arquivo).
 
+## 2026-11-12
+- As listas de templates de HSM e de SMS têm o campo de filtro quadrado, e o menu da engrenagem abre para a esquerda, sem sair da tela
+
 ## 2026-11-11
 - O template de HSM e o de SMS ganharam o campo Enviar por. Um HSM pode sair pelo plugin DialogHSM (360Dialog): no template escolhe-se o número do DialogHSM no lugar do router. Sem o plugin instalado nada muda
 - Um HSM enviado pelo DialogHSM não passa pelo n8n: o passo da campanha termina quando o DialogHSM responde. Sucesso se ele aceitou, Falhou com o motivo se recusou (telefone inválido, template inexistente). Entregue, lido e respondido aparecem na timeline do próprio DialogHSM

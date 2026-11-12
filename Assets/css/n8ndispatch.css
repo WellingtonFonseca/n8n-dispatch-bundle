@@ -687,3 +687,14 @@ a[data-n8n-status-action]:hover * {
     border-color: var(--border-subtle-01);
     color: var(--text-primary);
 }
+
+/* core rounds the filter input when the magnifier is the only button of the list toolbar (no funnel); Segments keeps it square. Twin of MauticPatchesBundle ListToolbarSquareSearchSubscriber and of custom-objects.css: plugins stay independent. */
+.list-toolbar > .btn:only-of-type + .input-group > input {
+    border-radius: 0;
+}
+
+/* the gear menu of the list toolbar opens to the left: at the right edge of the page a long item leaves the screen. Twin of the rule in MauticPatchesBundle and custom-objects.css. */
+.list-toolbar .dropdown > .dropdown-menu {
+    left: auto;
+    right: 0;
+}
