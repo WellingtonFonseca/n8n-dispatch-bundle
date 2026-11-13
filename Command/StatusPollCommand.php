@@ -20,7 +20,7 @@ use Symfony\Component\Console\Output\OutputInterface;
  * Asks n8n how the dispatches that are still pending ended up — see
  * Service/StatusPoller.php. Run by hand, by a real cron, or — what the
  * plugin does by itself when its status poll is switched on — in the
- * background by EventListener/StatusPollSubscriber, which passes --run-id so
+ * background by EventListener/ScheduledJobsSubscriber, which passes --run-id so
  * the run is recorded for the plugin's settings screen.
  */
 #[AsCommand(name: self::NAME, description: 'Asks n8n for the outcome of the Email/SMS/HSM dispatches still pending.')]
@@ -67,11 +67,11 @@ class StatusPollCommand extends Command
             return Command::INVALID;
         }
 
-        $override = $input->getOption('webhook-url');
-        $runId    = $input->getOption('run-id');
-        $run      = null !== $runId ? $this->runs->find((int) $runId) : null;
-        $failed   = false;
-        $lines    = [];
+        $override  = $input->getOption('webhook-url');
+        $runOption = $input->getOption('run-id');
+        $runId     = null !== $runOption ? (int) $runOption : null;
+        $failed    = false;
+        $lines     = [];
 
         try {
             foreach (null === $channel ? DispatchTracking::CHANNELS : [$channel] as $name) {
@@ -100,28 +100,23 @@ class StatusPollCommand extends Command
         } catch (\Throwable $e) {
             // A scheduled run must always end up closed, or the settings
             // screen would show it running forever.
-            $this->closeRun($run, PollRun::STATUS_ERROR, $e->getMessage());
+            $this->closeRun($runId, PollRun::STATUS_ERROR, $e->getMessage());
 
             throw $e;
         }
 
-        $this->closeRun($run, $failed ? PollRun::STATUS_ERROR : PollRun::STATUS_OK, implode("\n", $lines));
+        $this->closeRun($runId, $failed ? PollRun::STATUS_ERROR : PollRun::STATUS_OK, implode("\n", $lines));
 
         return $failed ? Command::FAILURE : Command::SUCCESS;
     }
 
-    private function closeRun(?PollRun $run, string $status, string $summary): void
+    private function closeRun(?int $runId, string $status, string $summary): void
     {
-        if (null === $run) {
-            return;
-        }
+        $this->runs->close($runId, $status, $summary, new \DateTimeImmutable());
 
-        $run->finish($status, $summary, new \DateTimeImmutable());
-        $this->runs->saveEntity($run);
-
-        if (PollRun::STATUS_ERROR === $status) {
+        if (null !== $runId && PollRun::STATUS_ERROR === $status) {
             // one alert per cooldown: a poll that keeps failing runs every interval
-            $this->alerts?->send('status_poll.failed', ['run_id' => $run->getId(), 'summary' => $summary], 'status_poll', self::ALERT_COOLDOWN_SECONDS);
+            $this->alerts?->send('status_poll.failed', ['run_id' => $runId, 'summary' => $summary], 'status_poll', self::ALERT_COOLDOWN_SECONDS);
         }
     }
 }

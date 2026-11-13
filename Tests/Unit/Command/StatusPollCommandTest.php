@@ -51,48 +51,40 @@ class StatusPollCommandTest extends TestCase
         $this->assertSame(['email', 'sms', 'hsm'], $channels);
     }
 
-    public function testAManualRunDoesNotTouchTheRunHistory(): void
+    public function testAManualRunHasNoRunIdToClose(): void
     {
         $this->poller->method('poll')->willReturn($this->summary(2));
-        $this->runs->expects($this->never())->method('find');
-        $this->runs->expects($this->never())->method('saveEntity');
+        $this->runs->expects($this->once())->method('close')->with(null, PollRun::STATUS_OK, $this->anything(), $this->anything());
 
         $this->tester->execute([]);
     }
 
     public function testAClaimedRunIsFinishedAsOkWithTheSummary(): void
     {
-        $run = PollRun::start(new \DateTimeImmutable('2026-10-02 10:00:00'));
-        $this->runs->method('find')->with(42)->willReturn($run);
-        $this->runs->expects($this->once())->method('saveEntity')->with($run);
+        $this->runs->expects($this->once())->method('close')->with(
+            42,
+            PollRun::STATUS_OK,
+            $this->logicalAnd($this->stringContains('email: asked 3'), $this->stringContains('hsm: asked 3')),
+            $this->isInstanceOf(\DateTimeInterface::class)
+        );
         $this->poller->method('poll')->willReturn($this->summary(3));
 
         $this->assertSame(0, $this->tester->execute(['--run-id' => '42']));
-
-        $this->assertSame(PollRun::STATUS_OK, $run->getStatus());
-        $this->assertNotNull($run->getFinishedAt());
-        $this->assertStringContainsString('email: asked 3', (string) $run->getSummary());
-        $this->assertStringContainsString('hsm: asked 3', (string) $run->getSummary());
     }
 
     public function testAClaimedRunIsFinishedAsErrorWhenAChannelFailed(): void
     {
-        $run = PollRun::start(new \DateTimeImmutable('2026-10-02 10:00:00'));
-        $this->runs->method('find')->willReturn($run);
+        $this->runs->expects($this->once())->method('close')->with(7, PollRun::STATUS_ERROR, $this->stringContains('sms: webhook returned HTTP 500.'), $this->anything());
         $this->poller->method('poll')->willReturnCallback(
             fn (string $channel): array => 'sms' === $channel ? $this->summary(0, 'webhook returned HTTP 500.') : $this->summary(1)
         );
 
         $this->assertSame(1, $this->tester->execute(['--run-id' => '7']));
-
-        $this->assertSame(PollRun::STATUS_ERROR, $run->getStatus());
-        $this->assertStringContainsString('sms: webhook returned HTTP 500.', (string) $run->getSummary());
     }
 
     public function testAnUnexpectedExceptionStillClosesTheClaimedRun(): void
     {
-        $run = PollRun::start(new \DateTimeImmutable('2026-10-02 10:00:00'));
-        $this->runs->method('find')->willReturn($run);
+        $this->runs->expects($this->once())->method('close')->with(7, PollRun::STATUS_ERROR, 'boom', $this->anything());
         $this->poller->method('poll')->willThrowException(new \RuntimeException('boom'));
 
         try {
@@ -101,9 +93,6 @@ class StatusPollCommandTest extends TestCase
         } catch (\RuntimeException $e) {
             $this->assertSame('boom', $e->getMessage());
         }
-
-        $this->assertSame(PollRun::STATUS_ERROR, $run->getStatus());
-        $this->assertStringContainsString('boom', (string) $run->getSummary());
     }
 
     private function commandWithAlerts(AlertSender $alerts): CommandTester
@@ -116,8 +105,6 @@ class StatusPollCommandTest extends TestCase
 
     public function testARunThatEndsInErrorRaisesTheStatusPollAlertOncePerSixHours(): void
     {
-        $run = PollRun::start(new \DateTimeImmutable('2026-10-02 10:00:00'));
-        $this->runs->method('find')->willReturn($run);
         $this->poller->method('poll')->willReturn($this->summary(0, 'webhook returned HTTP 500.'));
         $alerts = $this->createMock(AlertSender::class);
         $alerts->expects($this->once())->method('send')->with(
@@ -132,8 +119,6 @@ class StatusPollCommandTest extends TestCase
 
     public function testARunThatEndsOkRaisesNoAlert(): void
     {
-        $run = PollRun::start(new \DateTimeImmutable('2026-10-02 10:00:00'));
-        $this->runs->method('find')->willReturn($run);
         $this->poller->method('poll')->willReturn($this->summary(2));
         $alerts = $this->createMock(AlertSender::class);
         $alerts->expects($this->never())->method('send');
@@ -143,8 +128,6 @@ class StatusPollCommandTest extends TestCase
 
     public function testAnExceptionThatClosesTheRunAsErrorRaisesTheAlertToo(): void
     {
-        $run = PollRun::start(new \DateTimeImmutable('2026-10-02 10:00:00'));
-        $this->runs->method('find')->willReturn($run);
         $this->poller->method('poll')->willThrowException(new \RuntimeException('boom'));
         $alerts = $this->createMock(AlertSender::class);
         $alerts->expects($this->once())->method('send')->with('status_poll.failed', $this->anything(), 'status_poll', 21600);
@@ -153,6 +136,15 @@ class StatusPollCommandTest extends TestCase
             $this->commandWithAlerts($alerts)->execute(['--run-id' => '7']);
         } catch (\RuntimeException) {
         }
+    }
+
+    public function testAManualRunThatFailsRaisesNoAlert(): void
+    {
+        $this->poller->method('poll')->willReturn($this->summary(0, 'webhook returned HTTP 500.'));
+        $alerts = $this->createMock(AlertSender::class);
+        $alerts->expects($this->never())->method('send');
+
+        $this->commandWithAlerts($alerts)->execute([]);
     }
 
     public function testRejectsAnInvalidChannel(): void

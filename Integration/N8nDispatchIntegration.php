@@ -93,7 +93,7 @@ class N8nDispatchIntegration extends AbstractIntegration
     /**
      * The Features tab: the status poll's on/off (off by default) and its
      * interval, plus a read-only line with the last scheduled run. See
-     * Service/StatusPollSettings.php and Service/StatusPollScheduler.php.
+     * Service/StatusPollSettings.php and Service/StatusPollJob.php.
      * The poll itself needs no cron entry — it rides on the Mautic cron.
      *
      * @param \Symfony\Component\Form\FormBuilderInterface $builder
