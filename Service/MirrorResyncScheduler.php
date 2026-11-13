@@ -28,6 +28,12 @@ class MirrorResyncScheduler
             return null;
         }
 
-        return $this->runs->claim($now, $settings['interval'], PollRun::KIND_MIRROR_RESYNC);
+        $runId = $this->runs->claim($now, $settings['interval'], PollRun::KIND_MIRROR_RESYNC);
+
+        if (null !== $runId) {
+            $this->runs->prune($now->modify('-'.PollRunRepository::KEEP_RUNS_DAYS.' days'));
+        }
+
+        return $runId;
     }
 }
