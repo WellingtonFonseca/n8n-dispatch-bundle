@@ -9,12 +9,14 @@ use Mautic\PluginBundle\Integration\AbstractIntegration;
 use MauticPlugin\N8nDispatchBundle\Entity\AlertLogEntry;
 use MauticPlugin\N8nDispatchBundle\Entity\AlertLogEntryRepository;
 use MauticPlugin\N8nDispatchBundle\Entity\PollRun;
+use MauticPlugin\N8nDispatchBundle\Entity\PollRunRepository;
 use MauticPlugin\N8nDispatchBundle\Form\Type\VisiblePasswordType;
 use MauticPlugin\N8nDispatchBundle\Service\Alert\AlertSettings;
 use MauticPlugin\N8nDispatchBundle\Service\Alert\AlertSettingsForm;
 use MauticPlugin\N8nDispatchBundle\Service\Changelog;
 use MauticPlugin\N8nDispatchBundle\Service\EmailSendMode;
 use MauticPlugin\N8nDispatchBundle\Service\LastRunReport;
+use MauticPlugin\N8nDispatchBundle\Service\MirrorResyncLogRows;
 use MauticPlugin\N8nDispatchBundle\Service\MirrorResyncSettings;
 use MauticPlugin\N8nDispatchBundle\Service\MirrorSendSwitch;
 use MauticPlugin\N8nDispatchBundle\Service\MirrorSettingsForm;
@@ -37,7 +39,8 @@ class N8nDispatchIntegration extends AbstractIntegration
 {
     public const NAME = 'N8nDispatch';
 
-    private const ALERT_LOG_ROWS = 50;
+    private const ALERT_LOG_ROWS  = 50;
+    private const MIRROR_LOG_ROWS = 50;
 
     public function getName(): string
     {
@@ -69,7 +72,7 @@ class N8nDispatchIntegration extends AbstractIntegration
         return [
             'custom'     => true,
             'template'   => '@N8nDispatch/Integration/_notes.html.twig',
-            'parameters' => ['days' => Changelog::days(), 'alertLog' => $this->latestAlerts()],
+            'parameters' => ['days' => Changelog::days(), 'alertLog' => $this->latestAlerts(), 'mirrorLog' => $this->latestMirrorRuns()],
         ];
     }
 
@@ -87,6 +90,38 @@ class N8nDispatchIntegration extends AbstractIntegration
             return $repository instanceof AlertLogEntryRepository ? $repository->latest(self::ALERT_LOG_ROWS) : null;
         } catch (\Throwable $e) {
             $this->logger->error('N8nDispatch: the alert log could not be read: '.$e->getMessage());
+
+            return null;
+        }
+    }
+
+    /**
+     * The runs of the Mirror resync for the Mirror tab, newest first. Same rule as the alert log: null when the read
+     * fails, so the tab says so instead of "no runs". The warning is the "cron stopped" one; the switch off gives none.
+     *
+     * @return array{rows: list<array<string, mixed>>, warning: string|null}|null
+     */
+    private function latestMirrorRuns(): ?array
+    {
+        try {
+            $repository = $this->em->getRepository(PollRun::class);
+
+            if (!$repository instanceof PollRunRepository) {
+                return null;
+            }
+
+            $runs     = $repository->latestRuns(PollRun::KIND_MIRROR_RESYNC, self::MIRROR_LOG_ROWS);
+            $settings = $this->getIntegrationSettings()->getFeatureSettings();
+            $data     = is_array($settings) ? $settings : [];
+            $stale    = [] !== $runs && MirrorSendSwitch::fromArray($data)
+                && StatusPollSettings::isStaleAt(new \DateTimeImmutable($runs[0]['started_at'], new \DateTimeZone('UTC')), MirrorResyncSettings::fromArray($data)['interval'], new \DateTimeImmutable());
+
+            return [
+                'rows'    => MirrorResyncLogRows::build($runs),
+                'warning' => $stale ? $this->translator->trans('mautic.n8ndispatch.settings.status_poll.last_run.stale') : null,
+            ];
+        } catch (\Throwable $e) {
+            $this->logger->error('N8nDispatch: the Mirror resync log could not be read: '.$e->getMessage());
 
             return null;
         }
@@ -132,8 +167,7 @@ class N8nDispatchIntegration extends AbstractIntegration
         $mirrorData = is_array($data) ? $data : [];
         $sendOn     = MirrorSendSwitch::fromArray($mirrorData);
         $resync     = MirrorResyncSettings::fromArray($mirrorData);
-        // Switch off on purpose: no "cron stopped" warning.
-        MirrorSettingsForm::addTo($builder, $sendOn, $resync, $this->describeLastRun(PollRun::KIND_MIRROR_RESYNC, $sendOn ? $resync['interval'] : null), $this->translator->trans('mautic.n8ndispatch.settings.mirror.tab'));
+        MirrorSettingsForm::addTo($builder, $sendOn, $resync, $this->translator->trans('mautic.n8ndispatch.settings.mirror.tab'));
 
         AlertSettingsForm::addTo($builder, AlertSettings::fromArray(is_array($data) ? $data : []), $this->translator->trans('mautic.n8ndispatch.settings.alerts.tab'));
     }
@@ -181,10 +215,9 @@ class N8nDispatchIntegration extends AbstractIntegration
     }
 
     /**
-     * The JSON of a read-only "Last run" block (see LastRunReport), of the status poll or of the
-     * Mirror resync. Never allowed to break the settings screen — e.g. before the plugin's tables exist.
+     * The JSON of the read-only "Last run" block of the status poll (see LastRunReport). Never allowed to break the settings screen — e.g. before the plugin's tables exist.
      */
-    private function describeLastRun(string $kind, ?int $intervalMinutes): string
+    private function describeLastRun(string $kind, int $intervalMinutes): string
     {
         try {
             $latest = $this->em->getRepository(PollRun::class)->latest($kind);
@@ -196,7 +229,7 @@ class N8nDispatchIntegration extends AbstractIntegration
             return $this->translator->trans('mautic.n8ndispatch.settings.status_poll.last_run.never');
         }
 
-        $stale = null !== $intervalMinutes && StatusPollSettings::isStale($latest, $intervalMinutes, new \DateTimeImmutable());
+        $stale = StatusPollSettings::isStale($latest, $intervalMinutes, new \DateTimeImmutable());
 
         return LastRunReport::json(
             $kind,

@@ -1,7 +1,7 @@
 /**
  * The Mirror settings as their own tab, right of Features, on Settings > Plugins > N8N Dispatch. Core gives a plugin no tab,
  * so the fields are built in the Features form (Service/MirrorSettingsForm.php) and the switch carries data-onload-callback.
- * Rows are found by their mirror_* label or name, not by a marker: the "Last run" textarea is swapped for a <pre> and loses it.
+ * Rows are found by their mirror_* label or name, not by a marker.
  */
 (function (window) {
     'use strict';
@@ -34,6 +34,9 @@
                 $pane.append($row);
             }
         });
+
+        // the log of the resync runs (Resources/views/Integration/_mirror_log.html.twig) goes under the fields
+        $content.find('.n8ndispatch-mirror-log-block').appendTo($pane);
 
         var $tab = $('<li id="n8ndispatch-mirror-tab"></li>')
             .append($('<a role="tab" data-toggle="tab"></a>').attr('href', '#' + PANE_ID).text($first.attr('data-tab-label')));

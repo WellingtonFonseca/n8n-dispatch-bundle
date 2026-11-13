@@ -5,8 +5,6 @@ declare(strict_types=1);
 namespace MauticPlugin\N8nDispatchBundle\Tests\Unit\Integration;
 
 use Mautic\CoreBundle\Form\Type\YesNoButtonGroupType;
-use MauticPlugin\N8nDispatchBundle\Entity\PollRun;
-use MauticPlugin\N8nDispatchBundle\Entity\PollRunRepository;
 use MauticPlugin\N8nDispatchBundle\Integration\N8nDispatchIntegration;
 use PHPUnit\Framework\Attributes\DataProvider;
 use PHPUnit\Framework\TestCase;
@@ -24,19 +22,13 @@ use Symfony\Component\Validator\Validation;
  */
 class FeaturesTabFieldsTest extends TestCase
 {
-    private function featuresForm(array $saved = [], ?PollRun $latest = null): \Symfony\Component\Form\FormInterface
+    private function featuresForm(array $saved = []): \Symfony\Component\Form\FormInterface
     {
         $integration = (new \ReflectionClass(N8nDispatchIntegration::class))->newInstanceWithoutConstructor();
         $translator  = $this->createStub(\Symfony\Contracts\Translation\TranslatorInterface::class);
         $translator->method('trans')->willReturnArgument(0);
         $em = $this->createStub(\Doctrine\ORM\EntityManager::class);
-        if ($latest) {
-            $runs = $this->createStub(PollRunRepository::class);
-            $runs->method('latest')->willReturn($latest);
-            $em->method('getRepository')->willReturn($runs);
-        } else {
-            $em->method('getRepository')->willThrowException(new \RuntimeException('no table'));
-        }
+        $em->method('getRepository')->willThrowException(new \RuntimeException('no table'));
         $parent = \Mautic\PluginBundle\Integration\AbstractIntegration::class;
         (new \ReflectionProperty($parent, 'translator'))->setValue($integration, $translator);
         (new \ReflectionProperty($parent, 'em'))->setValue($integration, $em);
@@ -110,25 +102,12 @@ class FeaturesTabFieldsTest extends TestCase
         $this->assertSame(0, $on->get('mirror_send_enabled')->getData());
     }
 
-    public function testTheStaleWarningOfTheMirrorShowsOnlyWithTheSwitchOn(): void
-    {
-        $old = PollRun::start(new \DateTimeImmutable('-2 days'));
-        $stale = 'mautic.n8ndispatch.settings.status_poll.last_run.stale';
-
-        $on  = $this->featuresForm(['mirror_send_enabled' => 1], $old)->get('mirror_resync_last_run')->getData();
-        $off = $this->featuresForm(['mirror_send_enabled' => 0], $old)->get('mirror_resync_last_run')->getData();
-
-        $this->assertStringContainsString($stale, (string) $on);
-        $this->assertNotSame('', (string) $off);
-        $this->assertStringNotContainsString($stale, (string) $off);
-    }
-
     public function testTheFieldsComeInTheOrderOfTheScreen(): void
     {
         $this->assertSame(
             ['status_poll_enabled', 'status_poll_interval', 'status_poll_batch', 'status_poll_delay', 'status_poll_timeout', 'status_poll_max_duration', 'status_poll_last_run', 'status_poll_check_now',
-                'mirror_send_enabled', 'mirror_resync_interval', 'mirror_resync_batch', 'mirror_resync_delay', 'mirror_resync_refresh_hours', 'mirror_resync_last_run'],
-            array_slice(array_keys($this->featuresForm()->all()), 0, 14)
+                'mirror_send_enabled', 'mirror_resync_interval', 'mirror_resync_batch', 'mirror_resync_delay', 'mirror_resync_refresh_hours'],
+            array_slice(array_keys($this->featuresForm()->all()), 0, 13)
         );
     }
 
@@ -158,7 +137,6 @@ class FeaturesTabFieldsTest extends TestCase
     {
         return [
             'status poll'   => ['status_poll_last_run', 'mautic.n8ndispatch.settings.status_poll.last_run'],
-            'mirror resync' => ['mirror_resync_last_run', 'mautic.n8ndispatch.settings.mirror_resync.last_run'],
         ];
     }
 }

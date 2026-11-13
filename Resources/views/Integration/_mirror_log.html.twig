@@ -1,0 +1,55 @@
+{#
+  The latest runs of the Mirror resync and how each ended. Assets/js/plugin-mirror-tab.js moves the block under the fields of
+  the Mirror tab. Without the script it stays under the fields of the first tab.
+  Needs: mirrorLog, {rows: list of {started_at (UTC), status, detail, due, calls, ok, failed, skipped, left}, warning}, or null when the runs could not be read.
+#}
+
+<div class="n8ndispatch-mirror-log-block">
+    <h4 class="mt-lg mb-sm">{{ 'mautic.n8ndispatch.settings.mirror_resync.log.title'|trans }}</h4>
+    <p class="text-muted">{{ 'mautic.n8ndispatch.settings.mirror_resync.log.help'|trans }}</p>
+    {% if mirrorLog is null %}
+        <p class="text-danger">{{ 'mautic.n8ndispatch.settings.mirror_resync.log.unreadable'|trans }}</p>
+    {% elseif mirrorLog.rows %}
+        {% if mirrorLog.warning %}
+            <p class="text-danger">{{ mirrorLog.warning }}</p>
+        {% endif %}
+        <div class="n8ndispatch-alert-log">
+            <table class="table table-hover table-striped table-bordered">
+                <thead>
+                    <tr>
+                        <th>{{ 'mautic.n8ndispatch.settings.mirror_resync.log.status'|trans }}</th>
+                        <th>{{ 'mautic.n8ndispatch.settings.mirror_resync.log.detail'|trans }}</th>
+                        <th>{{ 'mautic.n8ndispatch.settings.mirror_resync.log.date'|trans }}</th>
+                        <th>{{ 'mautic.n8ndispatch.settings.mirror_resync.log.due'|trans }}</th>
+                        <th>{{ 'mautic.n8ndispatch.settings.mirror_resync.log.calls'|trans }}</th>
+                        <th>{{ 'mautic.n8ndispatch.settings.mirror_resync.log.ok'|trans }}</th>
+                        <th>{{ 'mautic.n8ndispatch.settings.mirror_resync.log.failed'|trans }}</th>
+                        <th>{{ 'mautic.n8ndispatch.settings.mirror_resync.log.skipped'|trans }}</th>
+                        <th>{{ 'mautic.n8ndispatch.settings.mirror_resync.log.left'|trans }}</th>
+                    </tr>
+                </thead>
+                <tbody>
+                    {% for row in mirrorLog.rows %}
+                        {% set badge = {'ok': ['production', 'ri-check-line'], 'error': ['failed', 'ri-close-line']}[row.status]|default(['inactive', 'ri-time-line']) %}
+                        {% set statusText = ('mautic.n8ndispatch.settings.status_poll.status.' ~ row.status)|trans %}
+                        <tr>
+                            <td>
+                                <span class="n8ndispatch-badge n8ndispatch-alert-status n8ndispatch-badge--{{ badge[0] }}" title="{{ statusText }}" aria-label="{{ statusText }}"><i class="{{ badge[1] }}" aria-hidden="true"></i><span class="n8ndispatch-alert-status__text">{{ statusText }}</span></span>
+                            </td>
+                            <td>{{ row.detail }}</td>
+                            <td>{{ dateToFullConcat(row.started_at, 'UTC') }}</td>
+                            <td>{{ row.due }}</td>
+                            <td>{{ row.calls }}</td>
+                            <td>{{ row.ok }}</td>
+                            <td>{{ row.failed }}</td>
+                            <td>{{ row.skipped }}</td>
+                            <td>{{ row.left }}</td>
+                        </tr>
+                    {% endfor %}
+                </tbody>
+            </table>
+        </div>
+    {% else %}
+        <p>{{ 'mautic.n8ndispatch.settings.mirror_resync.log.empty'|trans }}</p>
+    {% endif %}
+</div>

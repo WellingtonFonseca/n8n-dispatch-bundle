@@ -25,7 +25,7 @@ class MirrorSettingsFormTest extends TestCase
         $added = $this->build('Mirror');
 
         $this->assertSame(
-            ['mirror_send_enabled', 'mirror_resync_interval', 'mirror_resync_batch', 'mirror_resync_delay', 'mirror_resync_refresh_hours', 'mirror_resync_last_run'],
+            ['mirror_send_enabled', 'mirror_resync_interval', 'mirror_resync_batch', 'mirror_resync_delay', 'mirror_resync_refresh_hours'],
             array_keys($added)
         );
     }
@@ -43,7 +43,7 @@ class MirrorSettingsFormTest extends TestCase
             return $builder;
         });
 
-        MirrorSettingsForm::addTo($builder, true, MirrorResyncSettings::fromArray([]), '{}', $tabLabel);
+        MirrorSettingsForm::addTo($builder, true, MirrorResyncSettings::fromArray([]), $tabLabel);
 
         return $added;
     }

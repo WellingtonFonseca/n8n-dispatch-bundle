@@ -90,8 +90,16 @@ class StatusPollSettings
             return false;
         }
 
+        return self::isStaleAt($latest->getStartedAt(), $intervalMinutes, $now);
+    }
+
+    /**
+     * The rule on a bare start time: the Mirror log has rows, not entities.
+     */
+    public static function isStaleAt(\DateTimeInterface $startedAt, int $intervalMinutes, \DateTimeImmutable $now): bool
+    {
         $limitMinutes = max(3 * $intervalMinutes, 60);
 
-        return $latest->getStartedAt() < $now->modify('-'.$limitMinutes.' minutes');
+        return $startedAt < $now->modify('-'.$limitMinutes.' minutes');
     }
 }
