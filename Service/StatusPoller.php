@@ -26,9 +26,6 @@ class StatusPoller
     /** Ceiling of calls in one run per channel: 100,000 ids at 100 a call. Only there so a bug can never loop forever. */
     public const MAX_CALLS = 1000;
 
-    /** When the last call to n8n started (microtime): the pause between calls counts from it, also from one channel to the next. */
-    private ?float $lastCallAt = null;
-
     public function __construct(
         private IntegrationHelper $integrationHelper,
         private HttpClientInterface $httpClient,
@@ -36,7 +33,7 @@ class StatusPoller
         private StatusResponseParser $parser,
         private LoggerInterface $logger,
         private StatusPollSettings $settings,
-        private ?\Closure $sleeper = null,
+        private CallPacer $pacer,
     ) {
     }
 
@@ -96,7 +93,7 @@ class StatusPoller
 
             $afterId = max(array_map(static fn (DispatchTracking $row): int => (int) $row->getId(), $rows));
             $items   = $this->buildItems($rows);
-            $this->pause($limits['delay'] ?? 0);
+            $this->pacer->pause($limits['delay'] ?? 0);
 
             try {
                 $response = $this->httpClient->request('POST', $webhookUrl, [
@@ -151,23 +148,6 @@ class StatusPoller
         }
 
         return $summary;
-    }
-
-    /** Waits until $delayMs have passed since the last call, so a long queue does not reach n8n as one burst. */
-    private function pause(int $delayMs): void
-    {
-        $now = microtime(true);
-
-        if ($delayMs > 0 && null !== $this->lastCallAt) {
-            $wait = (int) round($delayMs - ($now - $this->lastCallAt) * 1000);
-
-            if ($wait > 0) {
-                null !== $this->sleeper ? ($this->sleeper)($wait) : usleep($wait * 1000);
-                $now = microtime(true);
-            }
-        }
-
-        $this->lastCallAt = $now;
     }
 
     /**
