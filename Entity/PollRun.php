@@ -26,6 +26,10 @@ class PollRun
     public const STATUS_OK      = 'ok';
     public const STATUS_ERROR   = 'error';
 
+    /** Which job the run belongs to. Rows from before the Mirror resync existed are status polls. */
+    public const KIND_STATUS_POLL   = 'status_poll';
+    public const KIND_MIRROR_RESYNC = 'mirror_resync';
+
     private ?int $id = null;
 
     private \DateTimeImmutable $startedAt;
@@ -33,6 +37,8 @@ class PollRun
     private ?\DateTimeImmutable $finishedAt = null;
 
     private string $status = self::STATUS_RUNNING;
+
+    private string $kind = self::KIND_STATUS_POLL;
 
     private ?string $summary = null;
 
@@ -52,6 +58,7 @@ class PollRun
         $builder->addNamedField('finishedAt', 'datetime_immutable', 'finished_at', true);
         $builder->addNamedField('status', 'string', 'status', false);
         $builder->addNamedField('summary', 'text', 'summary', true);
+        $builder->addNamedField('kind', 'string', 'kind', false);
 
         $builder->addIndex(['started_at'], 'n8n_dispatch_poll_run_started');
     }

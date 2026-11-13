@@ -23,9 +23,11 @@ use Symfony\Component\Console\Output\OutputInterface;
  * background by EventListener/StatusPollSubscriber, which passes --run-id so
  * the run is recorded for the plugin's settings screen.
  */
-#[AsCommand(name: 'n8ndispatch:status:poll', description: 'Asks n8n for the outcome of the Email/SMS/HSM dispatches still pending.')]
+#[AsCommand(name: self::NAME, description: 'Asks n8n for the outcome of the Email/SMS/HSM dispatches still pending.')]
 class StatusPollCommand extends Command
 {
+    public const NAME = 'n8ndispatch:status:poll';
+
     private const ALERT_COOLDOWN_SECONDS = 21600;
 
     public function __construct(private StatusPoller $poller, private PollRunRepository $runs, private StatusPollSettings $settings, private ?AlertSender $alerts = null)

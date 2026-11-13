@@ -13,6 +13,7 @@ use MauticPlugin\N8nDispatchBundle\Entity\DispatchCallback;
 use MauticPlugin\N8nDispatchBundle\Entity\DispatchTracking;
 use MauticPlugin\N8nDispatchBundle\Entity\EmailVariables;
 use MauticPlugin\N8nDispatchBundle\Entity\HsmTemplate;
+use MauticPlugin\N8nDispatchBundle\Entity\MirrorSyncState;
 use MauticPlugin\N8nDispatchBundle\Entity\PollRun;
 use MauticPlugin\N8nDispatchBundle\Entity\SmsTemplate;
 use MauticPlugin\N8nDispatchBundle\Resolver\LocaleConventions;
@@ -43,7 +44,7 @@ class N8nDispatchBundle extends PluginBundleBase
             $toInstall[] = $metadata[EmailVariables::class];
         }
 
-        foreach ([DispatchTracking::class => DispatchTracking::TABLE_NAME, DispatchCallback::class => DispatchCallback::TABLE_NAME, PollRun::class => PollRun::TABLE_NAME, AlertLogEntry::class => AlertLogEntry::TABLE_NAME] as $entity => $table) {
+        foreach ([DispatchTracking::class => DispatchTracking::TABLE_NAME, DispatchCallback::class => DispatchCallback::TABLE_NAME, PollRun::class => PollRun::TABLE_NAME, AlertLogEntry::class => AlertLogEntry::TABLE_NAME, MirrorSyncState::class => MirrorSyncState::TABLE_NAME] as $entity => $table) {
             if (!empty($metadata[$entity]) && (null === $installedSchema || !$installedSchema->hasTable($table))) {
                 $toInstall[] = $metadata[$entity];
             }
@@ -82,6 +83,14 @@ class N8nDispatchBundle extends PluginBundleBase
             $factory->getDatabase()->executeQuery(
                 'ALTER TABLE '.SmsTemplate::TABLE_NAME
                 ." ADD COLUMN provider VARCHAR(191) NOT NULL DEFAULT '".SmsTemplate::PROVIDER_N8N."'"
+            );
+        }
+
+        // 0.14.0: a run is a status poll or a Mirror resync. Existing rows are status polls.
+        if ($installedSchema instanceof Schema && $installedSchema->hasTable(PollRun::TABLE_NAME) && !$installedSchema->getTable(PollRun::TABLE_NAME)->hasColumn('kind')) {
+            $factory->getDatabase()->executeQuery(
+                'ALTER TABLE '.PollRun::TABLE_NAME
+                ." ADD COLUMN kind VARCHAR(191) NOT NULL DEFAULT '".PollRun::KIND_STATUS_POLL."'"
             );
         }
 

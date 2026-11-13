@@ -8,13 +8,14 @@ use Symfony\Component\Process\PhpExecutableFinder;
 use Symfony\Component\Process\Process;
 
 /**
- * Starts `n8ndispatch:status:poll --run-id=<id>` in the background, so the
- * Mautic cron command that woke the plugin up is not held back by the calls
- * to n8n. Detached with `nohup ... &` because Symfony's Process kills its
- * child when the PHP process ends. Registered in Config/services.php, which
- * gives it the project dir (a plain string cannot be autowired).
+ * Starts a scheduled job of the plugin (`<command> --run-id=<id>`: the status
+ * poll, the Mirror resync) in the background, so the Mautic cron command that
+ * woke the plugin up is not held back by the calls to n8n. Detached with
+ * `nohup ... &` because Symfony's Process kills its child when the PHP process
+ * ends. Registered in Config/services.php, which gives it the project dir (a
+ * plain string cannot be autowired).
  */
-class StatusPollLauncher
+class BackgroundCommandLauncher
 {
     private string $phpBinary;
 
@@ -24,12 +25,12 @@ class StatusPollLauncher
         $this->phpBinary = $phpBinary ?? ((new PhpExecutableFinder())->find() ?: 'php');
     }
 
-    public function buildShellCommand(int $runId): string
+    public function buildShellCommand(string $command, int $runId): string
     {
         $arguments = [
             $this->phpBinary,
             $this->projectDir.'/bin/console',
-            'n8ndispatch:status:poll',
+            $command,
             '--run-id='.$runId,
         ];
 
@@ -39,13 +40,13 @@ class StatusPollLauncher
     /**
      * @throws \RuntimeException when the shell could not be started
      */
-    public function launch(int $runId): void
+    public function launch(string $command, int $runId): void
     {
-        $process = Process::fromShellCommandline($this->buildShellCommand($runId), $this->projectDir);
+        $process = Process::fromShellCommandline($this->buildShellCommand($command, $runId), $this->projectDir);
         $process->run();
 
         if (!$process->isSuccessful()) {
-            throw new \RuntimeException('Could not start the status poll: '.trim($process->getErrorOutput()));
+            throw new \RuntimeException('Could not start '.$command.': '.trim($process->getErrorOutput()));
         }
     }
 }

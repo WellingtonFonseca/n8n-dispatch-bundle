@@ -4,6 +4,7 @@ declare(strict_types=1);
 
 namespace MauticPlugin\N8nDispatchBundle\Service;
 
+use MauticPlugin\N8nDispatchBundle\Entity\PollRun;
 use MauticPlugin\N8nDispatchBundle\Entity\PollRunRepository;
 
 /**
@@ -15,8 +16,6 @@ use MauticPlugin\N8nDispatchBundle\Entity\PollRunRepository;
  */
 class StatusPollScheduler
 {
-    private const KEEP_RUNS_DAYS = 7;
-
     public function __construct(
         private StatusPollSettings $settings,
         private PollRunRepository $runs,
@@ -35,10 +34,10 @@ class StatusPollScheduler
             return null;
         }
 
-        $runId = $this->runs->claim($now, $settings['interval']);
+        $runId = $this->runs->claim($now, $settings['interval'], PollRun::KIND_STATUS_POLL);
 
         if (null !== $runId) {
-            $this->runs->prune($now->modify('-'.self::KEEP_RUNS_DAYS.' days'));
+            $this->runs->prune($now->modify('-'.PollRunRepository::KEEP_RUNS_DAYS.' days'));
         }
 
         return $runId;
