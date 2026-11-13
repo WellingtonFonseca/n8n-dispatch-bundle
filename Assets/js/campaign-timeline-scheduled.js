@@ -14,6 +14,9 @@ Mautic.n8ndispatchConfirmCancelSchedule = function (action, el) {
 
     Mautic.dismissConfirmation();
     Mautic.cancelScheduledCampaignEvent(eventId, contactId);
+    // Before the record call below, so the alert of an earlier reschedule
+    // goes away even when that call fails: the row now shows 'cancelled'.
+    mQuery('#timeline-campaign-event-' + eventId).removeClass('alert alert-warning n8ndispatch-timeline-alert');
 
     // Separate call, not a replacement for the one above: core's own
     // cancelScheduledCampaignEvent has no concept of who clicked cancel,
@@ -77,6 +80,7 @@ mQuery(document).ajaxSuccess(function (event, xhr, settings) {
         contactId: contactId,
     }, function (recordResponse) {
         if (recordResponse.success && recordResponse.rescheduledByMessage) {
+            mQuery('#timeline-campaign-event-' + eventId).addClass('alert alert-warning n8ndispatch-timeline-alert');
             mQuery('.n8ndispatch-timeline-rescheduled-by-' + eventId).html('<br/>' + recordResponse.rescheduledByMessage);
         }
     });

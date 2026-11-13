@@ -275,6 +275,23 @@
     gap: 6px 4px;
 }
 
+/*
+ * A rescheduled dispatch turns its whole row (text, 'Rescheduled by ...'
+ * line and action buttons) into a core .alert-warning. No display here:
+ * the row keeps the flex layout of .n8ndispatch-timeline-scheduled.
+ */
+.n8ndispatch-timeline-alert {
+    padding: 18px 10px;
+}
+
+/*
+ * The alert has its own warning icon; the clock would be a second one.
+ * The reschedule button's clock is another element.
+ */
+.n8ndispatch-timeline-alert .n8ndispatch-timeline-clock {
+    display: none;
+}
+
 .n8ndispatch-timeline-actions {
     display: inline-flex;
     align-items: center;
