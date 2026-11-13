@@ -4,8 +4,8 @@ declare(strict_types=1);
 
 namespace MauticPlugin\N8nDispatchBundle\Service\Alert;
 
-use Mautic\PluginBundle\Helper\IntegrationHelper;
-use MauticPlugin\N8nDispatchBundle\Integration\N8nDispatchIntegration;
+use MauticPlugin\N8nDispatchBundle\Service\FeatureSettings;
+use MauticPlugin\N8nDispatchBundle\Service\SettingValue;
 
 /**
  * The settings of the alert channel, kept on the plugin's screen (Settings > Plugins > N8N Dispatch > tab Alertas, drawn
@@ -43,7 +43,7 @@ class AlertSettings
 
     public const MAX_INSTANCE_NAME_LENGTH = 100;
 
-    public function __construct(private IntegrationHelper $integrationHelper)
+    public function __construct(private FeatureSettings $featureSettings)
     {
     }
 
@@ -52,10 +52,7 @@ class AlertSettings
      */
     public function current(): array
     {
-        $integration = $this->integrationHelper->getIntegrationObject(N8nDispatchIntegration::NAME);
-        $stored      = $integration ? $integration->getIntegrationSettings()->getFeatureSettings() : [];
-
-        return self::fromArray(is_array($stored) ? $stored : []);
+        return self::fromArray($this->featureSettings->all());
     }
 
     /**
@@ -66,23 +63,18 @@ class AlertSettings
     public static function fromArray(array $featureSettings): array
     {
         return [
-            'enabled'            => (bool) (int) ($featureSettings[self::KEY_ENABLED] ?? 0),
+            'enabled'            => SettingValue::flag($featureSettings[self::KEY_ENABLED] ?? 0),
             'instanceName'       => self::instanceName($featureSettings[self::KEY_INSTANCE_NAME] ?? null),
-            'warningPercent'     => self::clamp($featureSettings[self::KEY_WARNING_PERCENT] ?? null, self::MIN_WARNING_PERCENT, self::MAX_WARNING_PERCENT, self::DEFAULT_WARNING_PERCENT),
-            'warningMinContacts' => self::clamp($featureSettings[self::KEY_WARNING_MIN] ?? null, self::MIN_COUNT, self::MAX_COUNT, self::DEFAULT_WARNING_MIN),
-            'bouncePercent'      => self::clamp($featureSettings[self::KEY_BOUNCE_PERCENT] ?? null, self::MIN_BOUNCE_PERCENT, self::MAX_BOUNCE_PERCENT, self::DEFAULT_BOUNCE_PERCENT),
-            'bounceWindow'       => self::clamp($featureSettings[self::KEY_BOUNCE_WINDOW] ?? null, self::MIN_BOUNCE_WINDOW, self::MAX_BOUNCE_WINDOW, self::DEFAULT_BOUNCE_WINDOW),
-            'bounceMinSends'     => self::clamp($featureSettings[self::KEY_BOUNCE_MIN_SENDS] ?? null, self::MIN_COUNT, self::MAX_COUNT, self::DEFAULT_BOUNCE_MIN_SENDS),
+            'warningPercent'     => SettingValue::clamp($featureSettings[self::KEY_WARNING_PERCENT] ?? null, self::MIN_WARNING_PERCENT, self::MAX_WARNING_PERCENT, self::DEFAULT_WARNING_PERCENT),
+            'warningMinContacts' => SettingValue::clamp($featureSettings[self::KEY_WARNING_MIN] ?? null, self::MIN_COUNT, self::MAX_COUNT, self::DEFAULT_WARNING_MIN),
+            'bouncePercent'      => SettingValue::clamp($featureSettings[self::KEY_BOUNCE_PERCENT] ?? null, self::MIN_BOUNCE_PERCENT, self::MAX_BOUNCE_PERCENT, self::DEFAULT_BOUNCE_PERCENT),
+            'bounceWindow'       => SettingValue::clamp($featureSettings[self::KEY_BOUNCE_WINDOW] ?? null, self::MIN_BOUNCE_WINDOW, self::MAX_BOUNCE_WINDOW, self::DEFAULT_BOUNCE_WINDOW),
+            'bounceMinSends'     => SettingValue::clamp($featureSettings[self::KEY_BOUNCE_MIN_SENDS] ?? null, self::MIN_COUNT, self::MAX_COUNT, self::DEFAULT_BOUNCE_MIN_SENDS),
         ];
     }
 
     private static function instanceName(mixed $value): string
     {
         return is_string($value) ? mb_substr(trim($value), 0, self::MAX_INSTANCE_NAME_LENGTH) : '';
-    }
-
-    private static function clamp(mixed $value, int $min, int $max, int $default): int
-    {
-        return is_numeric($value) ? max($min, min($max, (int) $value)) : $default;
     }
 }

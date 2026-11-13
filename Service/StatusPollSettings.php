@@ -4,10 +4,8 @@ declare(strict_types=1);
 
 namespace MauticPlugin\N8nDispatchBundle\Service;
 
-use Mautic\PluginBundle\Helper\IntegrationHelper;
 use MauticPlugin\N8nDispatchBundle\Entity\DispatchTracking;
 use MauticPlugin\N8nDispatchBundle\Entity\PollRun;
-use MauticPlugin\N8nDispatchBundle\Integration\N8nDispatchIntegration;
 
 /**
  * The status poll's two settings, kept on the plugin's own screen
@@ -48,7 +46,7 @@ class StatusPollSettings
     public const DEFAULT_MAX_DURATION = 300;
     public const MAX_MAX_DURATION     = 1800;
 
-    public function __construct(private IntegrationHelper $integrationHelper)
+    public function __construct(private FeatureSettings $featureSettings)
     {
     }
 
@@ -57,10 +55,7 @@ class StatusPollSettings
      */
     public function current(): array
     {
-        $integration = $this->integrationHelper->getIntegrationObject(N8nDispatchIntegration::NAME);
-        $stored      = $integration ? $integration->getIntegrationSettings()->getFeatureSettings() : [];
-
-        return self::fromArray(is_array($stored) ? $stored : []);
+        return self::fromArray($this->featureSettings->all());
     }
 
     /**
@@ -70,24 +65,18 @@ class StatusPollSettings
      */
     public static function fromArray(array $featureSettings): array
     {
-        $timeout = self::clamp($featureSettings[self::KEY_TIMEOUT] ?? null, self::MIN_TIMEOUT, self::MAX_TIMEOUT, self::DEFAULT_TIMEOUT);
+        $timeout = SettingValue::clamp($featureSettings[self::KEY_TIMEOUT] ?? null, self::MIN_TIMEOUT, self::MAX_TIMEOUT, self::DEFAULT_TIMEOUT);
 
         return [
-            'enabled'     => (bool) (int) ($featureSettings[self::KEY_ENABLED] ?? 0),
-            'interval'    => self::clamp($featureSettings[self::KEY_INTERVAL] ?? null, self::MIN_INTERVAL, self::MAX_INTERVAL, self::DEFAULT_INTERVAL),
-            'batch'       => self::clamp($featureSettings[self::KEY_BATCH] ?? null, self::MIN_BATCH, self::MAX_BATCH, self::DEFAULT_BATCH),
+            'enabled'     => SettingValue::flag($featureSettings[self::KEY_ENABLED] ?? 0),
+            'interval'    => SettingValue::clamp($featureSettings[self::KEY_INTERVAL] ?? null, self::MIN_INTERVAL, self::MAX_INTERVAL, self::DEFAULT_INTERVAL),
+            'batch'       => SettingValue::clamp($featureSettings[self::KEY_BATCH] ?? null, self::MIN_BATCH, self::MAX_BATCH, self::DEFAULT_BATCH),
             'timeout'     => $timeout,
             // milliseconds to wait between two calls to n8n (0 = no pause)
-            'delay'       => self::clamp($featureSettings[self::KEY_DELAY] ?? null, self::MIN_DELAY, self::MAX_DELAY, self::DEFAULT_DELAY),
+            'delay'       => SettingValue::clamp($featureSettings[self::KEY_DELAY] ?? null, self::MIN_DELAY, self::MAX_DELAY, self::DEFAULT_DELAY),
             // a whole call can never be allowed less time than its own idle timeout
-            'maxDuration' => max($timeout, self::clamp($featureSettings[self::KEY_MAX_DURATION] ?? null, self::MIN_TIMEOUT, self::MAX_MAX_DURATION, self::DEFAULT_MAX_DURATION)),
+            'maxDuration' => max($timeout, SettingValue::clamp($featureSettings[self::KEY_MAX_DURATION] ?? null, self::MIN_TIMEOUT, self::MAX_MAX_DURATION, self::DEFAULT_MAX_DURATION)),
         ];
-    }
-
-    /** A whole number kept between $min and $max; $default when the value is not a number. */
-    public static function clamp(mixed $value, int $min, int $max, int $default): int
-    {
-        return is_numeric($value) ? max($min, min($max, (int) $value)) : $default;
     }
 
     /**
