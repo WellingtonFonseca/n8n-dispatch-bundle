@@ -4,6 +4,7 @@ declare(strict_types=1);
 
 namespace MauticPlugin\N8nDispatchBundle\Tests\Unit\Service;
 
+use MauticPlugin\N8nDispatchBundle\Entity\PollRun;
 use MauticPlugin\N8nDispatchBundle\Entity\PollRunRepository;
 use MauticPlugin\N8nDispatchBundle\Service\StatusPollScheduler;
 use MauticPlugin\N8nDispatchBundle\Service\StatusPollSettings;
@@ -41,7 +42,7 @@ class StatusPollSchedulerTest extends TestCase
     public function testClaimsARunWithTheConfiguredInterval(): void
     {
         $this->settings->method('current')->willReturn(['enabled' => true, 'interval' => 120]);
-        $this->runs->expects($this->once())->method('claim')->with($this->now, 120)->willReturn(42);
+        $this->runs->expects($this->once())->method('claim')->with($this->now, 120, PollRun::KIND_STATUS_POLL)->willReturn(42);
 
         $this->assertSame(42, $this->scheduler->tryStart($this->now));
     }

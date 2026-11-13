@@ -5,7 +5,7 @@ declare(strict_types=1);
 namespace MauticPlugin\N8nDispatchBundle\Tests\Unit\EventListener;
 
 use MauticPlugin\N8nDispatchBundle\EventListener\StatusPollSubscriber;
-use MauticPlugin\N8nDispatchBundle\Service\StatusPollLauncher;
+use MauticPlugin\N8nDispatchBundle\Service\BackgroundCommandLauncher;
 use MauticPlugin\N8nDispatchBundle\Service\StatusPollScheduler;
 use PHPUnit\Framework\MockObject\MockObject;
 use PHPUnit\Framework\TestCase;
@@ -20,8 +20,8 @@ class StatusPollSubscriberTest extends TestCase
     /** @var StatusPollScheduler&MockObject */
     private StatusPollScheduler $scheduler;
 
-    /** @var StatusPollLauncher&MockObject */
-    private StatusPollLauncher $launcher;
+    /** @var BackgroundCommandLauncher&MockObject */
+    private BackgroundCommandLauncher $launcher;
 
     /** @var LoggerInterface&MockObject */
     private LoggerInterface $logger;
@@ -31,7 +31,7 @@ class StatusPollSubscriberTest extends TestCase
     protected function setUp(): void
     {
         $this->scheduler  = $this->createMock(StatusPollScheduler::class);
-        $this->launcher   = $this->createMock(StatusPollLauncher::class);
+        $this->launcher   = $this->createMock(BackgroundCommandLauncher::class);
         $this->logger     = $this->createMock(LoggerInterface::class);
         $this->subscriber = new StatusPollSubscriber($this->scheduler, $this->launcher, $this->logger);
     }
@@ -52,7 +52,7 @@ class StatusPollSubscriberTest extends TestCase
     public function testALaunchHappensWhenAStandardCronCommandStartsAndItIsTime(string $command): void
     {
         $this->scheduler->method('tryStart')->willReturn(42);
-        $this->launcher->expects($this->once())->method('launch')->with(42);
+        $this->launcher->expects($this->once())->method('launch')->with('n8ndispatch:status:poll', 42);
 
         $this->subscriber->onCommand($this->event($command));
     }
