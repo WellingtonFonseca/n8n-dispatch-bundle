@@ -70,6 +70,69 @@ class N8nDispatchIntegrationTest extends TestCase
         $this->assertSame($rows, $this->integration($log)->getFormNotes('custom')['parameters']['alertLog']);
     }
 
+    /**
+     * @param array<string, mixed> $features
+     */
+    private function mirrorNote(\MauticPlugin\N8nDispatchBundle\Entity\AlertLogEntryRepository|\MauticPlugin\N8nDispatchBundle\Entity\PollRunRepository $runs, array $features = [], ?\Psr\Log\LoggerInterface $logger = null): mixed
+    {
+        $integration = $this->integration(null, $logger);
+        $em          = $this->createStub(\Doctrine\ORM\EntityManager::class);
+        $em->method('getRepository')->willReturn($runs);
+        $parent   = \Mautic\PluginBundle\Integration\AbstractIntegration::class;
+        $settings = new \Mautic\PluginBundle\Entity\Integration();
+        $settings->setFeatureSettings($features);
+        (new \ReflectionProperty($parent, 'em'))->setValue($integration, $em);
+        (new \ReflectionProperty($parent, 'settings'))->setValue($integration, $settings);
+
+        return $integration->getFormNotes('custom')['parameters']['mirrorLog'];
+    }
+
+    public function testTheNoteCarriesTheMirrorRunsAsRows(): void
+    {
+        $runs = $this->createMock(\MauticPlugin\N8nDispatchBundle\Entity\PollRunRepository::class);
+        $runs->expects($this->once())->method('latestRuns')->with('mirror_resync', 50)
+            ->willReturn([['started_at' => gmdate('Y-m-d H:i:s'), 'status' => 'ok', 'summary' => 'due 5, calls 5, ok 4, failed 1, skipped 0, left 0']]);
+
+        $log = $this->mirrorNote($runs);
+
+        $this->assertSame(4, $log['rows'][0]['ok']);
+        $this->assertSame(1, $log['rows'][0]['failed']);
+        $this->assertNull($log['warning']);
+    }
+
+    public function testTheMirrorLogWarnsOfAStoppedCronOnlyWithTheSendSwitchOn(): void
+    {
+        $old  = [['started_at' => gmdate('Y-m-d H:i:s', strtotime('-2 days')), 'status' => 'ok', 'summary' => null]];
+        $runs = $this->createStub(\MauticPlugin\N8nDispatchBundle\Entity\PollRunRepository::class);
+        $runs->method('latestRuns')->willReturn($old);
+
+        $this->assertSame('mautic.n8ndispatch.settings.status_poll.last_run.stale', $this->mirrorNote($runs, ['mirror_send_enabled' => 1])['warning']);
+        $this->assertNull($this->mirrorNote($runs, ['mirror_send_enabled' => 0])['warning']);
+    }
+
+    public function testAnUnreadableMirrorLogIsNullAndLogged(): void
+    {
+        $runs = $this->createStub(\MauticPlugin\N8nDispatchBundle\Entity\PollRunRepository::class);
+        $runs->method('latestRuns')->willThrowException(new \RuntimeException('no such table'));
+        $logger = $this->createMock(\Psr\Log\LoggerInterface::class);
+        $logger->expects($this->once())->method('error')->with('N8nDispatch: the Mirror resync log could not be read: no such table');
+
+        $this->assertNull($this->mirrorNote($runs, [], $logger));
+    }
+
+    public function testAnotherRepositoryTypeGivesAnUnreadableMirrorLog(): void
+    {
+        $this->assertNull($this->mirrorNote($this->createStub(\MauticPlugin\N8nDispatchBundle\Entity\AlertLogEntryRepository::class)));
+    }
+
+    public function testNoRunsWithTheSwitchOnIsAnEmptyLogNotAnUnreadableOne(): void
+    {
+        $runs = $this->createStub(\MauticPlugin\N8nDispatchBundle\Entity\PollRunRepository::class);
+        $runs->method('latestRuns')->willReturn([]);
+
+        $this->assertSame(['rows' => [], 'warning' => null], $this->mirrorNote($runs, ['mirror_send_enabled' => 1]));
+    }
+
     public function testAnUnreadableLogIsLoggedAndTheNoteStillOpensWithNull(): void
     {
         $log = $this->createStub(\MauticPlugin\N8nDispatchBundle\Entity\AlertLogEntryRepository::class);
