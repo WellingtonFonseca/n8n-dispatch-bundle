@@ -10,13 +10,15 @@ use Mautic\EmailBundle\EmailEvents;
 use Mautic\EmailBundle\Entity\Email;
 use Mautic\EmailBundle\Event\EmailEvent;
 use MauticPlugin\N8nDispatchBundle\Entity\MirrorSyncState;
+use MauticPlugin\N8nDispatchBundle\Service\MirrorSendSwitch;
 use MauticPlugin\N8nDispatchBundle\Service\MirrorSync;
 use MauticPlugin\N8nDispatchBundle\Service\MirrorSyncPayload;
 use Symfony\Component\EventDispatcher\EventSubscriberInterface;
 
 /**
  * Every Email save (UI or API) is sent to Mirror through the webhook (MirrorSync). It runs after the save, so a
- * failure never blocks it: the result is recorded and the resync job sends the Email again later.
+ * failure never blocks it: the result is recorded and the resync job sends the Email again later. The switch
+ * (MirrorSendSwitch) off turns it off.
  */
 class EmailMirrorSyncSubscriber implements EventSubscriberInterface
 {
@@ -25,6 +27,7 @@ class EmailMirrorSyncSubscriber implements EventSubscriberInterface
         private MirrorSyncPayload $payload,
         private UserHelper $userHelper,
         private EntityManagerInterface $entityManager,
+        private MirrorSendSwitch $sendSwitch,
     ) {
     }
 
@@ -40,7 +43,8 @@ class EmailMirrorSyncSubscriber implements EventSubscriberInterface
 
     public function onEmailPostSave(EmailEvent $event): void
     {
-        if (!$this->mirrorSync->isConfigured()) {
+        // Before isConfigured(): an instance with the switch off logs nothing on save.
+        if (!$this->sendSwitch->isOn() || !$this->mirrorSync->isConfigured()) {
             return;
         }
 

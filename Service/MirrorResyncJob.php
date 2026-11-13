@@ -7,10 +7,10 @@ namespace MauticPlugin\N8nDispatchBundle\Service;
 use MauticPlugin\N8nDispatchBundle\Command\MirrorResyncCommand;
 use MauticPlugin\N8nDispatchBundle\Entity\PollRun;
 
-/** The Mirror resync as a scheduled job (the Features tab holds its switch and interval). */
+/** The Mirror resync as a scheduled job (MirrorSendSwitch turns it on or off, the Features tab holds its interval). */
 class MirrorResyncJob implements ScheduledJob
 {
-    public function __construct(private MirrorResyncSettings $settings)
+    public function __construct(private MirrorResyncSettings $settings, private MirrorSendSwitch $sendSwitch)
     {
     }
 
@@ -26,8 +26,6 @@ class MirrorResyncJob implements ScheduledJob
 
     public function intervalMinutes(): ?int
     {
-        $settings = $this->settings->current();
-
-        return $settings['enabled'] ? $settings['interval'] : null;
+        return $this->sendSwitch->isOn() ? $this->settings->current()['interval'] : null;
     }
 }

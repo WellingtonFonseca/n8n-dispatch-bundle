@@ -5,6 +5,8 @@ declare(strict_types=1);
 namespace MauticPlugin\N8nDispatchBundle\Tests\Unit\Integration;
 
 use Mautic\CoreBundle\Form\Type\YesNoButtonGroupType;
+use MauticPlugin\N8nDispatchBundle\Entity\PollRun;
+use MauticPlugin\N8nDispatchBundle\Entity\PollRunRepository;
 use MauticPlugin\N8nDispatchBundle\Integration\N8nDispatchIntegration;
 use PHPUnit\Framework\Attributes\DataProvider;
 use PHPUnit\Framework\TestCase;
@@ -22,13 +24,19 @@ use Symfony\Component\Validator\Validation;
  */
 class FeaturesTabFieldsTest extends TestCase
 {
-    private function featuresForm(array $saved = []): \Symfony\Component\Form\FormInterface
+    private function featuresForm(array $saved = [], ?PollRun $latest = null): \Symfony\Component\Form\FormInterface
     {
         $integration = (new \ReflectionClass(N8nDispatchIntegration::class))->newInstanceWithoutConstructor();
         $translator  = $this->createStub(\Symfony\Contracts\Translation\TranslatorInterface::class);
         $translator->method('trans')->willReturnArgument(0);
         $em = $this->createStub(\Doctrine\ORM\EntityManager::class);
-        $em->method('getRepository')->willThrowException(new \RuntimeException('no table'));
+        if ($latest) {
+            $runs = $this->createStub(PollRunRepository::class);
+            $runs->method('latest')->willReturn($latest);
+            $em->method('getRepository')->willReturn($runs);
+        } else {
+            $em->method('getRepository')->willThrowException(new \RuntimeException('no table'));
+        }
         $parent = \Mautic\PluginBundle\Integration\AbstractIntegration::class;
         (new \ReflectionProperty($parent, 'translator'))->setValue($integration, $translator);
         (new \ReflectionProperty($parent, 'em'))->setValue($integration, $em);
@@ -85,27 +93,41 @@ class FeaturesTabFieldsTest extends TestCase
         $this->assertSame(500, $form->get('mirror_resync_delay')->getData());
     }
 
-    public function testTheSwitchesAreOffUntilTurnedOnAndCarryTheirTooltip(): void
+    public function testTheSwitchesHaveTheirDefaultAndTheirTooltip(): void
     {
         $form = $this->featuresForm();
 
-        foreach (['status_poll', 'mirror_resync'] as $prefix) {
-            $config = $form->get($prefix.'_enabled')->getConfig();
+        foreach (['status_poll' => 0, 'mirror_send' => 1] as $field => $default) {
+            $config = $form->get($field.'_enabled')->getConfig();
             $this->assertInstanceOf(YesNoButtonGroupType::class, $config->getType()->getInnerType());
-            $this->assertSame(0, $form->get($prefix.'_enabled')->getData());
-            $this->assertSame('mautic.n8ndispatch.settings.'.$prefix.'.enabled', $config->getOption('label'));
-            $this->assertSame('mautic.n8ndispatch.settings.'.$prefix.'.enabled.tooltip', $config->getOption('attr')['tooltip']);
+            $this->assertSame($default, $form->get($field.'_enabled')->getData());
+            $this->assertSame('mautic.n8ndispatch.settings.'.$field.'.enabled', $config->getOption('label'));
+            $this->assertSame('mautic.n8ndispatch.settings.'.$field.'.enabled.tooltip', $config->getOption('attr')['tooltip']);
         }
-        $on = $this->featuresForm(['status_poll_enabled' => 1, 'mirror_resync_enabled' => 1]);
+        $this->assertFalse($form->has('mirror_resync_enabled'));
+        $on = $this->featuresForm(['status_poll_enabled' => 1, 'mirror_send_enabled' => 0]);
         $this->assertSame(1, $on->get('status_poll_enabled')->getData());
-        $this->assertSame(1, $on->get('mirror_resync_enabled')->getData());
+        $this->assertSame(0, $on->get('mirror_send_enabled')->getData());
+    }
+
+    public function testTheStaleWarningOfTheMirrorShowsOnlyWithTheSwitchOn(): void
+    {
+        $old = PollRun::start(new \DateTimeImmutable('-2 days'));
+        $stale = 'mautic.n8ndispatch.settings.status_poll.last_run.stale';
+
+        $on  = $this->featuresForm(['mirror_send_enabled' => 1], $old)->get('mirror_resync_last_run')->getData();
+        $off = $this->featuresForm(['mirror_send_enabled' => 0], $old)->get('mirror_resync_last_run')->getData();
+
+        $this->assertStringContainsString($stale, (string) $on);
+        $this->assertNotSame('', (string) $off);
+        $this->assertStringNotContainsString($stale, (string) $off);
     }
 
     public function testTheFieldsComeInTheOrderOfTheScreen(): void
     {
         $this->assertSame(
             ['status_poll_enabled', 'status_poll_interval', 'status_poll_batch', 'status_poll_delay', 'status_poll_timeout', 'status_poll_max_duration', 'status_poll_last_run', 'status_poll_check_now',
-                'mirror_resync_enabled', 'mirror_resync_interval', 'mirror_resync_batch', 'mirror_resync_delay', 'mirror_resync_refresh_hours', 'mirror_resync_last_run'],
+                'mirror_send_enabled', 'mirror_resync_interval', 'mirror_resync_batch', 'mirror_resync_delay', 'mirror_resync_refresh_hours', 'mirror_resync_last_run'],
             array_slice(array_keys($this->featuresForm()->all()), 0, 14)
         );
     }
