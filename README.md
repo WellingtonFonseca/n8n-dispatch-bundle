@@ -69,7 +69,7 @@ All calls go to the configured `webhook_url`; n8n tells them apart by the
 
 | Feature | Where | `X-N8n-Dispatch-Action` |
 |---|---|---|
-| Sync an Email template to Mirror on every save (UI or API). The save never waits for a failure: the result is recorded, and the **Mirror resync** (Features tab, off by default, `n8ndispatch:mirror:resync`) sends the failed, never synced, changed and day-old Emails again, one call at a time. An Email with empty HTML is not sent. Details: `wiki/n8n-dispatch-mirror-resync.md` | automatic, and the job every 2 h | `email.save` |
+| Sync an Email template to Mirror on every save (UI or API). The save never waits for a failure: the result is recorded, and the **Mirror resync** (Features tab, switch **Send Emails to Mirror**, on by default and off for no send at all, `n8ndispatch:mirror:resync`) sends the failed, never synced, changed and day-old Emails again, one call at a time. An Email with empty HTML is not sent. Details: `wiki/n8n-dispatch-mirror-resync.md` | automatic, and the job every 2 h | `email.save` |
 | **Send via n8n (Email)** — pick a Mautic Email, map its `{{variables}}` (in the body and in the subject). By default it calls the webhook; on an instance set to **Mautic** (below) it sends through Mautic's own mailer | Campaign Action | `email.send` |
 | **Send via n8n (SMS)** — pick an SMS Template | Campaign Action | `sms.send` |
 | **Send via n8n (HSM)** — pick an HSM Template | Campaign Action | `hsm.send` |

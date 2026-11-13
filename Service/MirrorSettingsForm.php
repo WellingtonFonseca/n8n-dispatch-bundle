@@ -7,17 +7,18 @@ namespace MauticPlugin\N8nDispatchBundle\Service;
 use Symfony\Component\Form\FormBuilderInterface;
 
 /**
- * The fields of the Mirror resync on the plugin's Features tab, under the status poll, and its read-only "Last run".
+ * The Mirror fields on the plugin's Features tab, under the status poll: the send switch, the resync job fields and its
+ * read-only "Last run".
  */
-class MirrorResyncSettingsForm
+class MirrorSettingsForm
 {
     /**
-     * @param array{enabled: bool, interval: int, batch: int, delay: int, refreshHours: int} $current
+     * @param array{interval: int, batch: int, delay: int, refreshHours: int} $current
      */
-    public static function addTo(FormBuilderInterface $builder, array $current, string $lastRun): void
+    public static function addTo(FormBuilderInterface $builder, bool $sendOn, array $current, string $lastRun): void
     {
         $text = 'mautic.n8ndispatch.settings.mirror_resync.';
-        SettingsFields::switch($builder, MirrorResyncSettings::KEY_ENABLED, $current['enabled'], $text.'enabled');
+        SettingsFields::switch($builder, MirrorSendSwitch::KEY_ENABLED, $sendOn, 'mautic.n8ndispatch.settings.mirror_send.enabled');
         SettingsFields::number($builder, MirrorResyncSettings::KEY_INTERVAL, $current['interval'], MirrorResyncSettings::MIN_INTERVAL, MirrorResyncSettings::MAX_INTERVAL, $text.'interval');
         SettingsFields::number($builder, MirrorResyncSettings::KEY_BATCH, $current['batch'], MirrorResyncSettings::MIN_BATCH, MirrorResyncSettings::MAX_BATCH, $text.'batch');
         SettingsFields::number($builder, MirrorResyncSettings::KEY_DELAY, $current['delay'], MirrorResyncSettings::MIN_DELAY, MirrorResyncSettings::MAX_DELAY, $text.'delay');

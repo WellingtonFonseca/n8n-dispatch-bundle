@@ -5,12 +5,11 @@ declare(strict_types=1);
 namespace MauticPlugin\N8nDispatchBundle\Service;
 
 /**
- * The settings of the Mirror resync job, on the plugin's Features tab (MirrorResyncSettingsForm). Off until someone
- * turns it on.
+ * The settings of the Mirror resync job, on the plugin's Features tab (MirrorSettingsForm). MirrorSendSwitch turns the
+ * job on or off.
  */
 class MirrorResyncSettings
 {
-    public const KEY_ENABLED       = 'mirror_resync_enabled';
     public const KEY_INTERVAL      = 'mirror_resync_interval';
     public const KEY_BATCH         = 'mirror_resync_batch';
     public const KEY_DELAY         = 'mirror_resync_delay';
@@ -40,7 +39,7 @@ class MirrorResyncSettings
     }
 
     /**
-     * @return array{enabled: bool, interval: int, batch: int, delay: int, refreshHours: int}
+     * @return array{interval: int, batch: int, delay: int, refreshHours: int}
      */
     public function current(): array
     {
@@ -50,12 +49,11 @@ class MirrorResyncSettings
     /**
      * @param array<string, mixed> $featureSettings
      *
-     * @return array{enabled: bool, interval: int, batch: int, delay: int, refreshHours: int}
+     * @return array{interval: int, batch: int, delay: int, refreshHours: int}
      */
     public static function fromArray(array $featureSettings): array
     {
         return [
-            'enabled'      => SettingValue::flag($featureSettings[self::KEY_ENABLED] ?? 0),
             'interval'     => SettingValue::clamp($featureSettings[self::KEY_INTERVAL] ?? null, self::MIN_INTERVAL, self::MAX_INTERVAL, self::DEFAULT_INTERVAL),
             'batch'        => SettingValue::clamp($featureSettings[self::KEY_BATCH] ?? null, self::MIN_BATCH, self::MAX_BATCH, self::DEFAULT_BATCH),
             'delay'        => SettingValue::clamp($featureSettings[self::KEY_DELAY] ?? null, self::MIN_DELAY, self::MAX_DELAY, self::DEFAULT_DELAY),

@@ -16,7 +16,8 @@ use MauticPlugin\N8nDispatchBundle\Service\Changelog;
 use MauticPlugin\N8nDispatchBundle\Service\EmailSendMode;
 use MauticPlugin\N8nDispatchBundle\Service\LastRunReport;
 use MauticPlugin\N8nDispatchBundle\Service\MirrorResyncSettings;
-use MauticPlugin\N8nDispatchBundle\Service\MirrorResyncSettingsForm;
+use MauticPlugin\N8nDispatchBundle\Service\MirrorSendSwitch;
+use MauticPlugin\N8nDispatchBundle\Service\MirrorSettingsForm;
 use MauticPlugin\N8nDispatchBundle\Service\SettingsFields;
 use MauticPlugin\N8nDispatchBundle\Service\StatusPollSettings;
 use Symfony\Component\Form\Extension\Core\Type\ChoiceType;
@@ -128,8 +129,11 @@ class N8nDispatchIntegration extends AbstractIntegration
 
         $this->addCheckNowButton($builder);
 
-        $resync = MirrorResyncSettings::fromArray(is_array($data) ? $data : []);
-        MirrorResyncSettingsForm::addTo($builder, $resync, $this->describeLastRun(PollRun::KIND_MIRROR_RESYNC, $resync['interval']));
+        $mirrorData = is_array($data) ? $data : [];
+        $sendOn     = MirrorSendSwitch::fromArray($mirrorData);
+        $resync     = MirrorResyncSettings::fromArray($mirrorData);
+        // Switch off on purpose: no "cron stopped" warning.
+        MirrorSettingsForm::addTo($builder, $sendOn, $resync, $this->describeLastRun(PollRun::KIND_MIRROR_RESYNC, $sendOn ? $resync['interval'] : null));
 
         AlertSettingsForm::addTo($builder, AlertSettings::fromArray(is_array($data) ? $data : []), $this->translator->trans('mautic.n8ndispatch.settings.alerts.tab'));
     }
@@ -180,7 +184,7 @@ class N8nDispatchIntegration extends AbstractIntegration
      * The JSON of a read-only "Last run" block (see LastRunReport), of the status poll or of the
      * Mirror resync. Never allowed to break the settings screen — e.g. before the plugin's tables exist.
      */
-    private function describeLastRun(string $kind, int $intervalMinutes): string
+    private function describeLastRun(string $kind, ?int $intervalMinutes): string
     {
         try {
             $latest = $this->em->getRepository(PollRun::class)->latest($kind);
@@ -192,7 +196,7 @@ class N8nDispatchIntegration extends AbstractIntegration
             return $this->translator->trans('mautic.n8ndispatch.settings.status_poll.last_run.never');
         }
 
-        $stale = StatusPollSettings::isStale($latest, $intervalMinutes, new \DateTimeImmutable());
+        $stale = null !== $intervalMinutes && StatusPollSettings::isStale($latest, $intervalMinutes, new \DateTimeImmutable());
 
         return LastRunReport::json(
             $kind,
