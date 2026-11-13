@@ -9,6 +9,7 @@ use MauticPlugin\N8nDispatchBundle\Service\BackgroundCommandLauncher;
 use MauticPlugin\N8nDispatchBundle\Service\CallPacer;
 use MauticPlugin\N8nDispatchBundle\Service\MirrorResyncJob;
 use MauticPlugin\N8nDispatchBundle\Service\MirrorResyncSettings;
+use MauticPlugin\N8nDispatchBundle\Service\MirrorSendSwitch;
 use PHPUnit\Framework\Attributes\AllowMockObjectsWithoutExpectations;
 use PHPUnit\Framework\TestCase;
 
@@ -18,26 +19,26 @@ use PHPUnit\Framework\TestCase;
 #[AllowMockObjectsWithoutExpectations]
 class MirrorResyncSchedulingTest extends TestCase
 {
-    public function testTheDefaultsAreOffTwoHoursAHundredTwoSecondsAndADay(): void
+    public function testTheDefaultsAreTwoHoursAHundredTwoSecondsAndADay(): void
     {
-        $this->assertSame(['enabled' => false, 'interval' => 120, 'batch' => 100, 'delay' => 2000, 'refreshHours' => 24], MirrorResyncSettings::fromArray([]));
+        $this->assertSame(['interval' => 120, 'batch' => 100, 'delay' => 2000, 'refreshHours' => 24], MirrorResyncSettings::fromArray([]));
     }
 
     public function testTheSettingsAreKeptInsideTheirLimits(): void
     {
-        $low  = MirrorResyncSettings::fromArray(['mirror_resync_enabled' => '1', 'mirror_resync_interval' => 29, 'mirror_resync_batch' => 9, 'mirror_resync_delay' => -1, 'mirror_resync_refresh_hours' => 5]);
+        $low  = MirrorResyncSettings::fromArray(['mirror_resync_interval' => 29, 'mirror_resync_batch' => 9, 'mirror_resync_delay' => -1, 'mirror_resync_refresh_hours' => 5]);
         $high = MirrorResyncSettings::fromArray(['mirror_resync_interval' => 1441, 'mirror_resync_batch' => 1001, 'mirror_resync_delay' => 60001, 'mirror_resync_refresh_hours' => 169]);
         $edge = MirrorResyncSettings::fromArray(['mirror_resync_interval' => 30, 'mirror_resync_batch' => 10, 'mirror_resync_delay' => 0, 'mirror_resync_refresh_hours' => 6]);
 
-        $this->assertSame(['enabled' => true, 'interval' => 30, 'batch' => 10, 'delay' => 0, 'refreshHours' => 6], $low);
-        $this->assertSame(['enabled' => false, 'interval' => 1440, 'batch' => 1000, 'delay' => 60000, 'refreshHours' => 168], $high);
-        $this->assertSame(['enabled' => false, 'interval' => 30, 'batch' => 10, 'delay' => 0, 'refreshHours' => 6], $edge);
+        $this->assertSame(['interval' => 30, 'batch' => 10, 'delay' => 0, 'refreshHours' => 6], $low);
+        $this->assertSame(['interval' => 1440, 'batch' => 1000, 'delay' => 60000, 'refreshHours' => 168], $high);
+        $this->assertSame(['interval' => 30, 'batch' => 10, 'delay' => 0, 'refreshHours' => 6], $edge);
     }
 
     public function testTheCurrentSettingsAreReadFromTheIntegrationFeatures(): void
     {
         $settings = $this->createMock(\Mautic\PluginBundle\Entity\Integration::class);
-        $settings->method('getFeatureSettings')->willReturn(['mirror_resync_enabled' => 1, 'mirror_resync_batch' => 40]);
+        $settings->method('getFeatureSettings')->willReturn(['mirror_resync_batch' => 40]);
         $integration = $this->createMock(\MauticPlugin\N8nDispatchBundle\Integration\N8nDispatchIntegration::class);
         $integration->method('getIntegrationSettings')->willReturn($settings);
         $helper = $this->createMock(\Mautic\PluginBundle\Helper\IntegrationHelper::class);
@@ -45,15 +46,17 @@ class MirrorResyncSchedulingTest extends TestCase
         $none = $this->createMock(\Mautic\PluginBundle\Helper\IntegrationHelper::class);
         $none->method('getIntegrationObject')->willReturn(null);
 
-        $this->assertSame(['enabled' => true, 'interval' => 120, 'batch' => 40, 'delay' => 2000, 'refreshHours' => 24], (new MirrorResyncSettings(new \MauticPlugin\N8nDispatchBundle\Service\FeatureSettings($helper)))->current());
+        $this->assertSame(['interval' => 120, 'batch' => 40, 'delay' => 2000, 'refreshHours' => 24], (new MirrorResyncSettings(new \MauticPlugin\N8nDispatchBundle\Service\FeatureSettings($helper)))->current());
         $this->assertSame(MirrorResyncSettings::fromArray([]), (new MirrorResyncSettings(new \MauticPlugin\N8nDispatchBundle\Service\FeatureSettings($none)))->current());
     }
 
     public function testTheJobIsDueWithTheIntervalOnlyWhenOn(): void
     {
         $settings = $this->createMock(MirrorResyncSettings::class);
-        $settings->method('current')->willReturnOnConsecutiveCalls(['enabled' => false, 'interval' => 120], ['enabled' => true, 'interval' => 90]);
-        $job = new MirrorResyncJob($settings);
+        $settings->method('current')->willReturn(['interval' => 90]);
+        $sendSwitch = $this->createMock(MirrorSendSwitch::class);
+        $sendSwitch->method('isOn')->willReturnOnConsecutiveCalls(false, true);
+        $job = new MirrorResyncJob($settings, $sendSwitch);
 
         $this->assertNull($job->intervalMinutes());
         $this->assertSame(90, $job->intervalMinutes());

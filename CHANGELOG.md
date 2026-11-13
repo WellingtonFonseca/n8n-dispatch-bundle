@@ -6,6 +6,7 @@ Um bloco por dia, do mais novo para o mais antigo. Formato fixo: `## AAAA-MM-DD`
 - O resultado de cada sincronização do Email com o Mirror fica registrado: ok, falhou (com o erro) ou pulado. Salvar o Email continua sem esperar por isso e sem falhar por causa do n8n
 - Nova opção na aba Funcionalidades: reenviar ao Mirror os Emails fora de sincronia. A cada 2 horas o Mautic reenvia, um por vez e com uma pausa entre eles, os Emails cuja sincronização falhou, que nunca foram sincronizados ou que mudaram. Uma vez por dia todo Email é reenviado, dividido entre as rodadas. Vem desligada
 - A opção mostra a última rodada: quantos Emails estavam pendentes, quantos foram enviados, com sucesso, com falha, pulados e quantos ficaram para a próxima
+- A opção de reenviar ao Mirror virou Enviar ao Mirror os Emails e vem ligada. Desligada, o Mautic não envia nada ao Mirror: nem ao salvar o Email, nem pelo reenvio a cada 2 horas. Uma rodada que já começou termina antes de parar
 - Um Email com o HTML vazio não é mais enviado ao n8n nem recebe o rodapé de descadastro
 - Uma resposta do n8n com sucesso mas com um campo error no corpo agora conta como falha da sincronização
 
