@@ -133,7 +133,7 @@ class N8nDispatchIntegration extends AbstractIntegration
         $sendOn     = MirrorSendSwitch::fromArray($mirrorData);
         $resync     = MirrorResyncSettings::fromArray($mirrorData);
         // Switch off on purpose: no "cron stopped" warning.
-        MirrorSettingsForm::addTo($builder, $sendOn, $resync, $this->describeLastRun(PollRun::KIND_MIRROR_RESYNC, $sendOn ? $resync['interval'] : null));
+        MirrorSettingsForm::addTo($builder, $sendOn, $resync, $this->describeLastRun(PollRun::KIND_MIRROR_RESYNC, $sendOn ? $resync['interval'] : null), $this->translator->trans('mautic.n8ndispatch.settings.mirror.tab'));
 
         AlertSettingsForm::addTo($builder, AlertSettings::fromArray(is_array($data) ? $data : []), $this->translator->trans('mautic.n8ndispatch.settings.alerts.tab'));
     }

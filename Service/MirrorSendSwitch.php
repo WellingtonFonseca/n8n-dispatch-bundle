@@ -5,7 +5,7 @@ declare(strict_types=1);
 namespace MauticPlugin\N8nDispatchBundle\Service;
 
 /**
- * The switch "Enviar ao Mirror os Emails" on the Features tab. Off turns off the send on Email save and the resync
+ * The switch "Enviar ao Mirror os Emails" on the Mirror tab. Off turns off the send on Email save and the resync
  * job. On by default: a missing key means on. This class is the only reader of the switch.
  */
 class MirrorSendSwitch

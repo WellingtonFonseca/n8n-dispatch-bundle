@@ -5,7 +5,7 @@ declare(strict_types=1);
 namespace MauticPlugin\N8nDispatchBundle\Service;
 
 /**
- * The settings of the Mirror resync job, on the plugin's Features tab (MirrorSettingsForm). MirrorSendSwitch turns the
+ * The settings of the Mirror resync job, on the plugin's Mirror tab (MirrorSettingsForm). MirrorSendSwitch turns the
  * job on or off.
  */
 class MirrorResyncSettings
