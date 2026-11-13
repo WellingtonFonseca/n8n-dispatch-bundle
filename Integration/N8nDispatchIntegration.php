@@ -5,7 +5,6 @@ declare(strict_types=1);
 namespace MauticPlugin\N8nDispatchBundle\Integration;
 
 use Mautic\CoreBundle\Form\Type\StandAloneButtonType;
-use Mautic\CoreBundle\Form\Type\YesNoButtonGroupType;
 use Mautic\PluginBundle\Integration\AbstractIntegration;
 use MauticPlugin\N8nDispatchBundle\Entity\AlertLogEntry;
 use MauticPlugin\N8nDispatchBundle\Entity\AlertLogEntryRepository;
@@ -17,12 +16,10 @@ use MauticPlugin\N8nDispatchBundle\Service\Changelog;
 use MauticPlugin\N8nDispatchBundle\Service\EmailSendMode;
 use MauticPlugin\N8nDispatchBundle\Service\MirrorResyncSettings;
 use MauticPlugin\N8nDispatchBundle\Service\MirrorResyncSettingsForm;
+use MauticPlugin\N8nDispatchBundle\Service\SettingsFields;
 use MauticPlugin\N8nDispatchBundle\Service\StatusPollSettings;
 use Symfony\Component\Form\Extension\Core\Type\ChoiceType;
-use Symfony\Component\Form\Extension\Core\Type\IntegerType;
-use Symfony\Component\Form\Extension\Core\Type\TextareaType;
 use Symfony\Component\Validator\Constraints\Callback;
-use Symfony\Component\Validator\Constraints\Range;
 use Symfony\Component\Validator\Context\ExecutionContextInterface;
 
 /**
@@ -117,94 +114,16 @@ class N8nDispatchIntegration extends AbstractIntegration
 
         $current = StatusPollSettings::fromArray(is_array($data) ? $data : []);
 
-        $builder->add(StatusPollSettings::KEY_ENABLED, YesNoButtonGroupType::class, [
-            'label' => 'mautic.n8ndispatch.settings.status_poll.enabled',
-            'data'  => $current['enabled'] ? 1 : 0,
-            'attr'  => ['tooltip' => 'mautic.n8ndispatch.settings.status_poll.enabled.tooltip'],
-        ]);
-
-        $builder->add(StatusPollSettings::KEY_INTERVAL, IntegerType::class, [
-            'label'       => 'mautic.n8ndispatch.settings.status_poll.interval',
-            'data'        => $current['interval'],
-            'label_attr'  => ['class' => 'control-label'],
-            'attr'        => [
-                'class'   => 'form-control',
-                'tooltip' => 'mautic.n8ndispatch.settings.status_poll.interval.tooltip',
-                'min'     => StatusPollSettings::MIN_INTERVAL,
-                'max'     => StatusPollSettings::MAX_INTERVAL,
-            ],
-            'constraints' => [new Range(min: StatusPollSettings::MIN_INTERVAL, max: StatusPollSettings::MAX_INTERVAL)],
-        ]);
-
-        $builder->add(StatusPollSettings::KEY_BATCH, IntegerType::class, [
-            'label'       => 'mautic.n8ndispatch.settings.status_poll.batch',
-            'data'        => $current['batch'],
-            'label_attr'  => ['class' => 'control-label'],
-            'attr'        => [
-                'class'   => 'form-control',
-                'tooltip' => 'mautic.n8ndispatch.settings.status_poll.batch.tooltip',
-                'min'     => StatusPollSettings::MIN_BATCH,
-                'max'     => StatusPollSettings::MAX_BATCH,
-            ],
-            'constraints' => [new Range(min: StatusPollSettings::MIN_BATCH, max: StatusPollSettings::MAX_BATCH)],
-        ]);
-
-        $builder->add(StatusPollSettings::KEY_DELAY, IntegerType::class, [
-            'label'       => 'mautic.n8ndispatch.settings.status_poll.delay',
-            'data'        => $current['delay'],
-            'label_attr'  => ['class' => 'control-label'],
-            'attr'        => [
-                'class'   => 'form-control',
-                'tooltip' => 'mautic.n8ndispatch.settings.status_poll.delay.tooltip',
-                'min'     => StatusPollSettings::MIN_DELAY,
-                'max'     => StatusPollSettings::MAX_DELAY,
-            ],
-            'constraints' => [new Range(min: StatusPollSettings::MIN_DELAY, max: StatusPollSettings::MAX_DELAY)],
-        ]);
-
-        $builder->add(StatusPollSettings::KEY_TIMEOUT, IntegerType::class, [
-            'label'       => 'mautic.n8ndispatch.settings.status_poll.timeout',
-            'data'        => $current['timeout'],
-            'label_attr'  => ['class' => 'control-label'],
-            'attr'        => [
-                'class'   => 'form-control',
-                'tooltip' => 'mautic.n8ndispatch.settings.status_poll.timeout.tooltip',
-                'min'     => StatusPollSettings::MIN_TIMEOUT,
-                'max'     => StatusPollSettings::MAX_TIMEOUT,
-            ],
-            'constraints' => [new Range(min: StatusPollSettings::MIN_TIMEOUT, max: StatusPollSettings::MAX_TIMEOUT)],
-        ]);
-
-        $builder->add(StatusPollSettings::KEY_MAX_DURATION, IntegerType::class, [
-            'label'       => 'mautic.n8ndispatch.settings.status_poll.max_duration',
-            'data'        => $current['maxDuration'],
-            'label_attr'  => ['class' => 'control-label'],
-            'attr'        => [
-                'class'   => 'form-control',
-                'tooltip' => 'mautic.n8ndispatch.settings.status_poll.max_duration.tooltip',
-                'min'     => StatusPollSettings::MIN_TIMEOUT,
-                'max'     => StatusPollSettings::MAX_MAX_DURATION,
-            ],
-            'constraints' => [new Range(min: StatusPollSettings::MIN_TIMEOUT, max: StatusPollSettings::MAX_MAX_DURATION)],
-        ]);
+        $text = 'mautic.n8ndispatch.settings.status_poll.';
+        SettingsFields::switch($builder, StatusPollSettings::KEY_ENABLED, $current['enabled'], $text.'enabled');
+        SettingsFields::number($builder, StatusPollSettings::KEY_INTERVAL, $current['interval'], StatusPollSettings::MIN_INTERVAL, StatusPollSettings::MAX_INTERVAL, $text.'interval');
+        SettingsFields::number($builder, StatusPollSettings::KEY_BATCH, $current['batch'], StatusPollSettings::MIN_BATCH, StatusPollSettings::MAX_BATCH, $text.'batch');
+        SettingsFields::number($builder, StatusPollSettings::KEY_DELAY, $current['delay'], StatusPollSettings::MIN_DELAY, StatusPollSettings::MAX_DELAY, $text.'delay');
+        SettingsFields::number($builder, StatusPollSettings::KEY_TIMEOUT, $current['timeout'], StatusPollSettings::MIN_TIMEOUT, StatusPollSettings::MAX_TIMEOUT, $text.'timeout');
+        SettingsFields::number($builder, StatusPollSettings::KEY_MAX_DURATION, $current['maxDuration'], StatusPollSettings::MIN_TIMEOUT, StatusPollSettings::MAX_MAX_DURATION, $text.'max_duration');
 
         $lastRun = $this->describeLastRun(PollRun::KIND_STATUS_POLL, $current['interval']);
-
-        // A read-only block, not a one-line input: the last run is JSON, one object per channel (a <pre> once the page is up).
-        $builder->add('status_poll_last_run', TextareaType::class, [
-            'label'      => 'mautic.n8ndispatch.settings.status_poll.last_run',
-            'label_attr' => ['class' => 'control-label'],
-            'data'       => $lastRun,
-            'mapped'     => false,
-            'disabled'   => true,
-            'required'   => false,
-            'attr'       => [
-                'class'                => 'form-control n8ndispatch-json-block',
-                'rows'                 => max(2, substr_count($lastRun, "\n") + 1),
-                // Drawn as a textarea by the form; Assets/js/status-poll-check-now.js swaps it for a <pre> block.
-                'data-onload-callback' => 'n8ndispatchBlockFromTextarea',
-            ],
-        ]);
+        SettingsFields::lastRun($builder, 'status_poll_last_run', $text.'last_run', $lastRun);
 
         $this->addCheckNowButton($builder);
 
