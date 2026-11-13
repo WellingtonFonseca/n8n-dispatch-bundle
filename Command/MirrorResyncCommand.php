@@ -16,7 +16,7 @@ use Symfony\Component\Console\Output\OutputInterface;
 
 /**
  * Sends to Mirror again the Emails that are out of sync (Service/MirrorResync.php). Run by hand, or in the background
- * by MirrorResyncSubscriber with --run-id, so the run shows on the plugin's settings screen.
+ * by ScheduledJobsSubscriber with --run-id, so the run shows on the plugin's settings screen.
  */
 #[AsCommand(name: self::NAME, description: 'Sends the Emails that are out of sync with Mirror again (email.save), one at a time.')]
 class MirrorResyncCommand extends Command
@@ -50,8 +50,8 @@ class MirrorResyncCommand extends Command
             return Command::INVALID;
         }
 
-        $runId = $input->getOption('run-id');
-        $run   = null !== $runId ? $this->runs->find((int) $runId) : null;
+        $runOption = $input->getOption('run-id');
+        $runId     = null !== $runOption ? (int) $runOption : null;
 
         try {
             $summary = $emailId > 0
@@ -59,14 +59,14 @@ class MirrorResyncCommand extends Command
                 : $this->resync->run($batch, $delay, $settings['refreshHours'], new \DateTimeImmutable());
         } catch (\Throwable $e) {
             // A scheduled run must always end up closed, or the settings screen would show it running forever.
-            $this->closeRun($run, PollRun::STATUS_ERROR, $e->getMessage());
+            $this->runs->close($runId, PollRun::STATUS_ERROR, $e->getMessage(), new \DateTimeImmutable());
 
             throw $e;
         }
 
         $line = self::summaryLine($summary);
         $output->writeln(null === $summary['error'] ? $line : '<error>'.$line.'</error>');
-        $this->closeRun($run, null === $summary['error'] ? PollRun::STATUS_OK : PollRun::STATUS_ERROR, $line);
+        $this->runs->close($runId, null === $summary['error'] ? PollRun::STATUS_OK : PollRun::STATUS_ERROR, $line, new \DateTimeImmutable());
 
         return null === $summary['error'] ? Command::SUCCESS : Command::FAILURE;
     }
@@ -91,15 +91,5 @@ class MirrorResyncCommand extends Command
         $number = filter_var($value, FILTER_VALIDATE_INT);
 
         return false === $number || $number < $min ? null : $number;
-    }
-
-    private function closeRun(?PollRun $run, string $status, string $summary): void
-    {
-        if (null === $run) {
-            return;
-        }
-
-        $run->finish($status, $summary, new \DateTimeImmutable());
-        $this->runs->saveEntity($run);
     }
 }

@@ -140,4 +140,28 @@ class MirrorSyncStateRepositoryDbTest extends RollbackDatabaseTestCase
         $this->assertNull($this->runs->claim($now->modify('+30 minutes'), 120, PollRun::KIND_MIRROR_RESYNC), 'not time yet for the resync');
         $this->assertNotNull($this->runs->claim($now->modify('+60 minutes'), 60, PollRun::KIND_STATUS_POLL));
     }
+
+    public function testCloseEndsTheClaimedRunAndIgnoresAnEmptyOrUnknownId(): void
+    {
+        $now   = new \DateTimeImmutable('2026-11-13 10:00:00', new \DateTimeZone('UTC'));
+        $runId = $this->runs->claim($now, 60, PollRun::KIND_STATUS_POLL);
+        $this->assertNotNull($runId);
+
+        $this->runs->close(null, PollRun::STATUS_ERROR, 'no id', $now);
+        $this->runs->close($runId + 100000, PollRun::STATUS_ERROR, 'no row', $now);
+        $this->assertSame(PollRun::STATUS_RUNNING, $this->db->fetchOne('SELECT status FROM '.PollRun::TABLE_NAME.' WHERE id = ?', [$runId]));
+
+        $this->runs->close($runId, PollRun::STATUS_OK, 'asked 3', new \DateTimeImmutable('2026-11-13 07:05:00', new \DateTimeZone('America/Sao_Paulo')));
+        $row = $this->db->fetchAssociative('SELECT status, summary, finished_at FROM '.PollRun::TABLE_NAME.' WHERE id = ?', [$runId]);
+        $this->assertSame(PollRun::STATUS_OK, $row['status']);
+        $this->assertSame('asked 3', $row['summary']);
+        $this->assertSame('2026-11-13 10:05:00', $row['finished_at'], 'stored in UTC');
+    }
+
+    public function testCloseRejectsAnUnknownStatus(): void
+    {
+        $this->expectException(\InvalidArgumentException::class);
+
+        $this->runs->close(1, 'weird', 'x', new \DateTimeImmutable());
+    }
 }
