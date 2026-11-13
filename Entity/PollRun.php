@@ -102,11 +102,6 @@ class PollRun
         return $this->status;
     }
 
-    public function getKind(): string
-    {
-        return $this->kind;
-    }
-
     public function getSummary(): ?string
     {
         return $this->summary;

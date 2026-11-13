@@ -106,7 +106,7 @@ class MirrorSyncStateRepositoryDbTest extends RollbackDatabaseTestCase
         $rows = $this->states->page($this->emailId - 1, 2);
 
         $this->assertSame([$this->emailId, $other], array_map(fn (array $r): int => (int) $r['id'], $rows));
-        $this->assertSame(['Subj', '<p>x</p>', 'Pre', 'From', 'from@x.test', 'ok', 'h', '0', '2026-11-13 10:00:00', '2026-11-13 10:00:00'], array_values(array_diff_key($rows[0], ['id' => 1])));
+        $this->assertSame(['Subj', '<p>x</p>', 'Pre', 'From', 'from@x.test', 'ok', 'h', '0', '2026-11-13 10:00:00'], array_values(array_diff_key($rows[0], ['id' => 1])));
         $this->assertNull($rows[1]['status']);
         $this->assertSame([], $this->states->page($other, 10), 'nothing after the last id');
     }

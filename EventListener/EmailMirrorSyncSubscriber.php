@@ -44,15 +44,17 @@ class EmailMirrorSyncSubscriber implements EventSubscriberInterface
             return;
         }
 
-        $email = $event->getEmail();
+        $email  = $event->getEmail();
+        $fields = $this->payload->fieldsOf($email);
 
-        if ($this->payload->hasContent($this->payload->fieldsOf($email))) {
+        // The payload adds the same footer in memory, so $fields read before the persist give the same HTML and hash.
+        if ($this->payload->hasContent($fields)) {
             $this->persistUnsubscribeFooter($email);
         }
 
         $this->mirrorSync->sync(
             (int) $email->getId(),
-            $this->payload->fieldsOf($email),
+            $fields,
             $this->userHelper->getUser(true)?->getEmail(),
             MirrorSyncState::SOURCE_SAVE,
             new \DateTimeImmutable()

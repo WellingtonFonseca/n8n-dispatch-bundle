@@ -20,6 +20,7 @@ class MirrorSyncState
     public const STATUS_FAILED  = 'failed';
     public const STATUS_SKIPPED = 'skipped';
 
+    /** Who sent the last sync: read only when someone looks at the table to diagnose a sync. */
     public const SOURCE_SAVE = 'save';
     public const SOURCE_JOB  = 'job';
 
