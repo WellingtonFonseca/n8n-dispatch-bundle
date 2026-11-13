@@ -8,6 +8,7 @@ use Mautic\PluginBundle\Entity\Integration as IntegrationSettings;
 use Mautic\PluginBundle\Helper\IntegrationHelper;
 use MauticPlugin\N8nDispatchBundle\Entity\DispatchTracking;
 use MauticPlugin\N8nDispatchBundle\Integration\N8nDispatchIntegration;
+use MauticPlugin\N8nDispatchBundle\Service\CallPacer;
 use MauticPlugin\N8nDispatchBundle\Service\StatusPollSettings;
 use MauticPlugin\N8nDispatchBundle\Service\StatusPoller;
 use MauticPlugin\N8nDispatchBundle\Service\StatusResponseParser;
@@ -50,6 +51,7 @@ class StatusPollerTest extends TestCase
             new StatusResponseParser(),
             $this->createMock(LoggerInterface::class),
             $this->settings,
+            new CallPacer(),
         );
         $this->now = new \DateTimeImmutable('2026-10-02 10:00:00');
     }
@@ -282,7 +284,7 @@ class StatusPollerTest extends TestCase
         $settings = $this->createMock(StatusPollSettings::class);
         $settings->method('current')->willReturn(['enabled' => false, 'interval' => 60, 'batch' => 2, 'timeout' => 180, 'delay' => $delayMs, 'maxDuration' => 300]);
 
-        return new StatusPoller($this->integrationHelper, $this->httpClient, $this->tracker, new StatusResponseParser(), $this->createMock(LoggerInterface::class), $settings, function (int $ms) use (&$sleeps): void { $sleeps[] = $ms; });
+        return new StatusPoller($this->integrationHelper, $this->httpClient, $this->tracker, new StatusResponseParser(), $this->createMock(LoggerInterface::class), $settings, new CallPacer(function (int $ms) use (&$sleeps): void { $sleeps[] = $ms; }));
     }
 
     public function testItPausesBetweenTwoCallsButNotBeforeTheFirst(): void
@@ -425,7 +427,7 @@ class StatusPollerTest extends TestCase
     {
         $settings = $this->createMock(StatusPollSettings::class);
         $settings->method('current')->willReturn(['enabled' => false, 'interval' => 60, 'batch' => 100, 'timeout' => 45, 'maxDuration' => 90]);
-        $poller = new StatusPoller($this->integrationHelper, $this->httpClient, $this->tracker, new StatusResponseParser(), $this->createMock(LoggerInterface::class), $settings);
+        $poller = new StatusPoller($this->integrationHelper, $this->httpClient, $this->tracker, new StatusResponseParser(), $this->createMock(LoggerInterface::class), $settings, new CallPacer());
 
         $this->mockIntegration(true, ['webhook_url' => 'https://n8n.example.test/hook']);
         $this->tracker->method('pending')->willReturn([$this->row('email', 'logSendEmailId', '1', 'g', 1)]);
@@ -521,7 +523,7 @@ class StatusPollerTest extends TestCase
         $this->httpClient->method('request')->willThrowException(new \RuntimeException('boom'));
         $logger = $this->createMock(LoggerInterface::class);
         $logger->expects($this->once())->method('error')->with('N8nDispatch: sms.status call failed: boom');
-        $poller = new StatusPoller($this->integrationHelper, $this->httpClient, $this->tracker, new StatusResponseParser(), $logger, $this->settings);
+        $poller = new StatusPoller($this->integrationHelper, $this->httpClient, $this->tracker, new StatusResponseParser(), $logger, $this->settings, new CallPacer());
 
         $summary = $poller->poll(DispatchTracking::CHANNEL_SMS, 100, 7, DispatchTracking::OUTCOME_PENDING, null, $this->now);
 
@@ -577,7 +579,7 @@ class StatusPollerTest extends TestCase
         $settings = $this->createMock(StatusPollSettings::class);
         $settings->method('current')->willReturn(['timeout' => 180, 'maxDuration' => 300]);
         $sleeps = [];
-        $poller = new StatusPoller($this->integrationHelper, $this->httpClient, $this->tracker, new StatusResponseParser(), $this->createMock(LoggerInterface::class), $settings, function (int $ms) use (&$sleeps): void { $sleeps[] = $ms; });
+        $poller = new StatusPoller($this->integrationHelper, $this->httpClient, $this->tracker, new StatusResponseParser(), $this->createMock(LoggerInterface::class), $settings, new CallPacer(function (int $ms) use (&$sleeps): void { $sleeps[] = $ms; }));
 
         $poller->poll(DispatchTracking::CHANNEL_EMAIL, 2, 7, DispatchTracking::OUTCOME_PENDING, null, $this->now);
 
