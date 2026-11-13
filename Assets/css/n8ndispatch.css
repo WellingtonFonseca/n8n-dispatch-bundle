@@ -114,6 +114,18 @@
     box-shadow: inset 0 0 0 1px rgba(30, 136, 229, 0.45);
 }
 
+.n8ndispatch-badge--success.n8ndispatch-badge--soft {
+    background-color: rgba(67, 160, 71, 0.16);
+    color: #2e7d32;
+    box-shadow: inset 0 0 0 1px rgba(67, 160, 71, 0.45);
+}
+
+.n8ndispatch-badge--danger.n8ndispatch-badge--soft {
+    background-color: rgba(229, 57, 53, 0.16);
+    color: #e53935;
+    box-shadow: inset 0 0 0 1px rgba(229, 57, 53, 0.45);
+}
+
 .n8ndispatch-badge--neutral.n8ndispatch-badge--soft {
     background-color: rgba(120, 120, 120, 0.16);
     color: var(--text-secondary, #6f6f6f);
@@ -261,35 +273,47 @@
 }
 
 /*
- * The pending/scheduled line on our Timeline card (isScheduled block in
- * SubscribedEvents/Timeline/_email_send.html.twig) — the text and its
- * reschedule/cancel/save actions sit on one flexible row instead of
- * core's own .form-buttons (position: absolute), which needs a
- * position: relative ancestor we don't have here and otherwise pins the
- * buttons to some distant corner of the page.
- */
-.n8ndispatch-timeline-scheduled {
-    display: flex;
-    align-items: center;
-    flex-wrap: wrap;
-    gap: 6px 4px;
-}
-
-/*
- * A rescheduled dispatch turns its whole row (text, 'Rescheduled by ...'
- * line and action buttons) into a core .alert-warning. No display here:
- * the row keeps the flex layout of .n8ndispatch-timeline-scheduled.
+ * The row of a scheduled dispatch on our Timeline card (isScheduled block in
+ * SubscribedEvents/Timeline/_email_send.html.twig) is always one core alert
+ * (info: first schedule, warning: rescheduled, danger: cancelled): one
+ * layout for the three. A grid of two columns: the alert's own icon
+ * (:before, pinned to the top like in a plain core alert) on the left; the
+ * text and, below it, the action badges on the right. Core's own
+ * .form-buttons (position: absolute) is not used: it needs a positioned
+ * ancestor we don't have here.
  */
 .n8ndispatch-timeline-alert {
+    display: grid;
+    grid-template-columns: auto 1fr;
+    align-items: start;
+    gap: 6px 4px;
     padding: 18px 10px;
 }
 
+.n8ndispatch-timeline-alert:before {
+    align-self: start;
+}
+
+.n8ndispatch-timeline-alert > .n8ndispatch-timeline-actions {
+    grid-column: 2;
+    margin-top: 8px;
+}
+
 /*
- * The alert has its own warning icon; the clock would be a second one.
- * The reschedule button's clock is another element.
+ * The row actions are .n8ndispatch-badge on a <button>: drop the native
+ * button look, keep the flat pill. .disabled is what core's campaign.js
+ * sets on the reschedule button while its date input is open.
  */
-.n8ndispatch-timeline-alert .n8ndispatch-timeline-clock {
-    display: none;
+.n8ndispatch-timeline-action {
+    border: 0;
+    cursor: pointer;
+}
+
+.n8ndispatch-timeline-action:disabled,
+.n8ndispatch-timeline-action.disabled {
+    opacity: 0.5;
+    cursor: not-allowed;
+    pointer-events: none;
 }
 
 .n8ndispatch-timeline-actions {
@@ -298,15 +322,9 @@
     gap: 2px;
 }
 
-/*
- * Core's Bootstrap .text-warning (#FDB933, a saturated gold) is what
- * marks the 'this event was cancelled' message — fails contrast on our
- * card's white background (Mautic's own theme apparently tolerates it
- * elsewhere, but it read as illegible here). Scoped to our own card
- * only, not a global .text-warning override.
- */
-.n8ndispatch-timeline-scheduled .text-warning {
-    color: #8a6100;
+/* Core adds .text-warning (gold) to the 'cancelled' text; on the alert it keeps the alert's own color, gold on red is illegible. */
+.n8ndispatch-timeline-alert .text-warning {
+    color: inherit;
 }
 
 /*
@@ -314,8 +332,7 @@
  * only change CSS variables (`:root[theme="..."]`), so the light colors
  * hard-coded above never followed them: the Body/Response blocks kept
  * their #f5f5f5 background while the text took the theme's light color
- * (white on white), and the dark amber of the 'cancelled' line was
- * unreadable on a dark card. Only the dark themes are overridden, with the
+ * (white on white). Only the dark themes are overridden, with the
  * theme's own variables; the light themes keep the look above. The
  * :root[theme=...] prefix makes these rules win over the ones above no
  * matter the stylesheet order.
@@ -325,11 +342,6 @@
     background-color: var(--layer-01);
     border-color: var(--border-subtle-01);
     color: var(--text-primary);
-}
-
-:root[theme="dark"] .n8ndispatch-timeline-scheduled .text-warning,
-:root[theme="solarized-dark"] .n8ndispatch-timeline-scheduled .text-warning {
-    color: var(--support-warning);
 }
 
 /*
