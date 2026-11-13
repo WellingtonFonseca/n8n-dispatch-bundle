@@ -4,9 +4,6 @@ declare(strict_types=1);
 
 namespace MauticPlugin\N8nDispatchBundle\Service;
 
-use Mautic\PluginBundle\Helper\IntegrationHelper;
-use MauticPlugin\N8nDispatchBundle\Integration\N8nDispatchIntegration;
-
 /**
  * The settings of the Mirror resync job, on the plugin's Features tab (MirrorResyncSettingsForm). Off until someone
  * turns it on.
@@ -38,7 +35,7 @@ class MirrorResyncSettings
     public const MIN_REFRESH_HOURS     = 6;
     public const MAX_REFRESH_HOURS     = 168;
 
-    public function __construct(private IntegrationHelper $integrationHelper)
+    public function __construct(private FeatureSettings $featureSettings)
     {
     }
 
@@ -47,10 +44,7 @@ class MirrorResyncSettings
      */
     public function current(): array
     {
-        $integration = $this->integrationHelper->getIntegrationObject(N8nDispatchIntegration::NAME);
-        $stored      = $integration ? $integration->getIntegrationSettings()->getFeatureSettings() : [];
-
-        return self::fromArray(is_array($stored) ? $stored : []);
+        return self::fromArray($this->featureSettings->all());
     }
 
     /**
@@ -61,11 +55,11 @@ class MirrorResyncSettings
     public static function fromArray(array $featureSettings): array
     {
         return [
-            'enabled'      => (bool) (int) ($featureSettings[self::KEY_ENABLED] ?? 0),
-            'interval'     => StatusPollSettings::clamp($featureSettings[self::KEY_INTERVAL] ?? null, self::MIN_INTERVAL, self::MAX_INTERVAL, self::DEFAULT_INTERVAL),
-            'batch'        => StatusPollSettings::clamp($featureSettings[self::KEY_BATCH] ?? null, self::MIN_BATCH, self::MAX_BATCH, self::DEFAULT_BATCH),
-            'delay'        => StatusPollSettings::clamp($featureSettings[self::KEY_DELAY] ?? null, self::MIN_DELAY, self::MAX_DELAY, self::DEFAULT_DELAY),
-            'refreshHours' => StatusPollSettings::clamp($featureSettings[self::KEY_REFRESH_HOURS] ?? null, self::MIN_REFRESH_HOURS, self::MAX_REFRESH_HOURS, self::DEFAULT_REFRESH_HOURS),
+            'enabled'      => SettingValue::flag($featureSettings[self::KEY_ENABLED] ?? 0),
+            'interval'     => SettingValue::clamp($featureSettings[self::KEY_INTERVAL] ?? null, self::MIN_INTERVAL, self::MAX_INTERVAL, self::DEFAULT_INTERVAL),
+            'batch'        => SettingValue::clamp($featureSettings[self::KEY_BATCH] ?? null, self::MIN_BATCH, self::MAX_BATCH, self::DEFAULT_BATCH),
+            'delay'        => SettingValue::clamp($featureSettings[self::KEY_DELAY] ?? null, self::MIN_DELAY, self::MAX_DELAY, self::DEFAULT_DELAY),
+            'refreshHours' => SettingValue::clamp($featureSettings[self::KEY_REFRESH_HOURS] ?? null, self::MIN_REFRESH_HOURS, self::MAX_REFRESH_HOURS, self::DEFAULT_REFRESH_HOURS),
         ];
     }
 }
