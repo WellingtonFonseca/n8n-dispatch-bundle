@@ -8,11 +8,15 @@
 <div class="n8ndispatch-resend" data-resend-log="{{ dispatch.id }}" data-onload-callback="n8ndispatchResendForm">
     <p>{{ 'mautic.n8ndispatch.dispatch.resend.confirm'|trans }}</p>
 
-    <p>
-        <strong>{{ 'mautic.n8ndispatch.dispatch.details.campaign'|trans }}:</strong> {{ dispatch.campaignName }}<br/>
-        <strong>{{ 'mautic.n8ndispatch.dispatch.details.template'|trans }}:</strong> {{ dispatch.templateName }}<br/>
-        <strong>{{ 'mautic.n8ndispatch.dispatch.details.contact'|trans }}:</strong> {{ dispatch.contactEmail ?: '-' }}
-    </p>
+    {# The same "Detalhes" table as the details modal (_facts_table.html.twig). #}
+    {% include '@N8nDispatch/SubscribedEvents/Timeline/_facts_table.html.twig' with {
+        'title': 'mautic.n8ndispatch.timeline.details'|trans,
+        'rows': [
+            {label: 'mautic.n8ndispatch.dispatch.details.campaign'|trans, values: [dispatch.campaignName]},
+            {label: 'mautic.n8ndispatch.dispatch.details.template'|trans, values: [dispatch.templateName]},
+            {label: 'mautic.n8ndispatch.dispatch.details.contact'|trans, values: [dispatch.contactEmail ?: '-']},
+        ]
+    } only %}
 
     {% if rows|length > 0 %}
     {# Shown while an input is empty (already in the page when a value is empty; Assets/js/dispatch-resend.js toggles it as the user types): the footer's Reenviar is disabled then. #}

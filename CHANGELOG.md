@@ -3,6 +3,7 @@
 Um bloco por dia, do mais novo para o mais antigo. Formato fixo: `## AAAA-MM-DD` e uma linha `- ` por mudança (a tela do plugin lê este arquivo).
 
 ## 2026-11-13
+- A janela do Reenviar mostra campanha, template e contato na tabela Detalhes, igual à janela de detalhes do disparo
 - O resultado de cada sincronização do Email com o Mirror fica registrado: ok, falhou (com o erro) ou pulado. Salvar o Email continua sem esperar por isso e sem falhar por causa do n8n
 - Nova opção na aba Funcionalidades: reenviar ao Mirror os Emails fora de sincronia. A cada 2 horas o Mautic reenvia, um por vez e com uma pausa entre eles, os Emails cuja sincronização falhou, que nunca foram sincronizados ou que mudaram. Uma vez por dia todo Email é reenviado, dividido entre as rodadas. Vem desligada
 - A aba Mirror lista as últimas rodadas do reenvio em uma tabela, como o log da aba Alertas: status, detalhe (o erro), data, pendentes, chamadas, ok, falhas, ignorados e quantos ficaram para a próxima
