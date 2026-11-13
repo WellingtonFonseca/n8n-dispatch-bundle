@@ -7,6 +7,7 @@ namespace MauticPlugin\N8nDispatchBundle\Tests\Unit\EventListener;
 use MauticPlugin\N8nDispatchBundle\EventListener\ScheduledJobsSubscriber;
 use MauticPlugin\N8nDispatchBundle\Service\JobScheduler;
 use PHPUnit\Framework\MockObject\MockObject;
+use PHPUnit\Framework\Attributes\DataProvider;
 use PHPUnit\Framework\TestCase;
 use Psr\Log\LoggerInterface;
 use Symfony\Component\Console\Command\Command;
@@ -41,9 +42,7 @@ class ScheduledJobsSubscriberTest extends TestCase
         $this->assertArrayHasKey('console.command', ScheduledJobsSubscriber::getSubscribedEvents());
     }
 
-    /**
-     * @dataProvider cronCommands
-     */
+    #[DataProvider('cronCommands')]
     public function testTheJobsAreCheckedWhenAStandardCronCommandStarts(string $command): void
     {
         $this->scheduler->expects($this->once())->method('startDue');
@@ -61,9 +60,7 @@ class ScheduledJobsSubscriberTest extends TestCase
         yield 'segments:update'   => ['mautic:segments:update'];
     }
 
-    /**
-     * @dataProvider otherCommands
-     */
+    #[DataProvider('otherCommands')]
     public function testOtherCommandsDoNotWakeTheJobs(?string $command): void
     {
         $this->scheduler->expects($this->never())->method('startDue');

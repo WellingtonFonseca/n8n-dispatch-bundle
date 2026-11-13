@@ -10,6 +10,7 @@ use MauticPlugin\N8nDispatchBundle\Integration\N8nDispatchIntegration;
 use MauticPlugin\N8nDispatchBundle\Service\FeatureSettings;
 use MauticPlugin\N8nDispatchBundle\Service\MirrorResyncSettings;
 use MauticPlugin\N8nDispatchBundle\Service\MirrorSendSwitch;
+use PHPUnit\Framework\Attributes\DataProvider;
 use PHPUnit\Framework\TestCase;
 
 class MirrorSendSwitchTest extends TestCase
@@ -20,9 +21,7 @@ class MirrorSendSwitchTest extends TestCase
         $this->assertTrue(MirrorSendSwitch::fromArray([MirrorSendSwitch::KEY_ENABLED => null]));
     }
 
-    /**
-     * @dataProvider stored
-     */
+    #[DataProvider('stored')]
     public function testItReadsTheStoredValue(mixed $stored, bool $expected): void
     {
         $this->assertSame($expected, MirrorSendSwitch::fromArray([MirrorSendSwitch::KEY_ENABLED => $stored]));
