@@ -8,6 +8,7 @@ use MauticPlugin\N8nDispatchBundle\Entity\PollRun;
 use MauticPlugin\N8nDispatchBundle\Entity\PollRunRepository;
 use MauticPlugin\N8nDispatchBundle\Service\MirrorResync;
 use MauticPlugin\N8nDispatchBundle\Service\MirrorResyncSettings;
+use MauticPlugin\N8nDispatchBundle\Service\MirrorResyncSummary;
 use Symfony\Component\Console\Attribute\AsCommand;
 use Symfony\Component\Console\Command\Command;
 use Symfony\Component\Console\Input\InputInterface;
@@ -64,21 +65,11 @@ class MirrorResyncCommand extends Command
             throw $e;
         }
 
-        $line = self::summaryLine($summary);
+        $line = MirrorResyncSummary::line($summary);
         $output->writeln(null === $summary['error'] ? $line : '<error>'.$line.'</error>');
         $this->runs->close($runId, null === $summary['error'] ? PollRun::STATUS_OK : PollRun::STATUS_ERROR, $line, new \DateTimeImmutable());
 
         return null === $summary['error'] ? Command::SUCCESS : Command::FAILURE;
-    }
-
-    /**
-     * @param array{due: int, calls: int, ok: int, failed: int, skipped: int, left: int, error: ?string} $summary
-     */
-    public static function summaryLine(array $summary): string
-    {
-        $line = sprintf('due %d, calls %d, ok %d, failed %d, skipped %d, left %d', $summary['due'], $summary['calls'], $summary['ok'], $summary['failed'], $summary['skipped'], $summary['left']);
-
-        return null === $summary['error'] ? $line : $line.'; error: '.$summary['error'];
     }
 
     /** The option as a whole number of at least $min, $default when it is not given, null when it is invalid. */

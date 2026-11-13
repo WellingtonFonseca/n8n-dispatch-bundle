@@ -10,6 +10,7 @@ use MauticPlugin\N8nDispatchBundle\Entity\PollRunRepository;
 use MauticPlugin\N8nDispatchBundle\Service\Alert\AlertSender;
 use MauticPlugin\N8nDispatchBundle\Service\StatusPoller;
 use MauticPlugin\N8nDispatchBundle\Service\StatusPollSettings;
+use MauticPlugin\N8nDispatchBundle\Service\StatusPollSummary;
 use Symfony\Component\Console\Attribute\AsCommand;
 use Symfony\Component\Console\Command\Command;
 use Symfony\Component\Console\Input\InputInterface;
@@ -79,22 +80,13 @@ class StatusPollCommand extends Command
 
                 if (null !== $summary['error']) {
                     $failed  = true;
-                    $lines[] = sprintf('%s: %s', $name, $summary['error']);
-                    $output->writeln(sprintf('<error>%s: %s</error>', $name, $summary['error']));
+                    $lines[] = StatusPollSummary::errorLine($name, $summary['error']);
+                    $output->writeln('<error>'.$lines[array_key_last($lines)].'</error>');
 
                     continue;
                 }
 
-                $lines[] = sprintf(
-                    '%s: asked %d, changed %d, unchanged %d, unknown %d, invalid %d, %d calls',
-                    $name,
-                    $summary['requested'],
-                    $summary['changed'],
-                    $summary['unchanged'],
-                    $summary['unknown'],
-                    $summary['invalid'],
-                    $summary['calls'],
-                );
+                $lines[] = StatusPollSummary::line($name, $summary);
                 $output->writeln($lines[array_key_last($lines)]);
             }
         } catch (\Throwable $e) {
