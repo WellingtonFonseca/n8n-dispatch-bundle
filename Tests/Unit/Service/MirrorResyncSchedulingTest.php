@@ -10,11 +10,13 @@ use MauticPlugin\N8nDispatchBundle\Service\BackgroundCommandLauncher;
 use MauticPlugin\N8nDispatchBundle\Service\CallPacer;
 use MauticPlugin\N8nDispatchBundle\Service\MirrorResyncScheduler;
 use MauticPlugin\N8nDispatchBundle\Service\MirrorResyncSettings;
+use PHPUnit\Framework\Attributes\AllowMockObjectsWithoutExpectations;
 use PHPUnit\Framework\TestCase;
 
 /**
  * The settings, the schedule and the pacing of the Mirror resync.
  */
+#[AllowMockObjectsWithoutExpectations]
 class MirrorResyncSchedulingTest extends TestCase
 {
     public function testTheDefaultsAreOffTwoHoursAHundredTwoSecondsAndADay(): void

@@ -11,8 +11,10 @@ use MauticPlugin\N8nDispatchBundle\Service\MirrorResync;
 use MauticPlugin\N8nDispatchBundle\Service\MirrorSync;
 use MauticPlugin\N8nDispatchBundle\Service\MirrorSyncPayload;
 use PHPUnit\Framework\MockObject\MockObject;
+use PHPUnit\Framework\Attributes\AllowMockObjectsWithoutExpectations;
 use PHPUnit\Framework\TestCase;
 
+#[AllowMockObjectsWithoutExpectations]
 class MirrorResyncTest extends TestCase
 {
     /** @var MirrorSyncStateRepository&MockObject */

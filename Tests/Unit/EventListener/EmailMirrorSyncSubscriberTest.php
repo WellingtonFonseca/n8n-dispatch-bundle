@@ -443,7 +443,7 @@ class EmailMirrorSyncSubscriberTest extends TestCase
         $this->httpClient->expects($this->never())->method('request');
         $this->entityManager->expects($this->never())->method('flush');
         $this->states->expects($this->once())->method('record')
-            ->with(6, MirrorSyncState::STATUS_SKIPPED, $this->isType('string'), null, null, MirrorSyncState::SOURCE_SAVE, $this->isInstanceOf(\DateTimeImmutable::class));
+            ->with(6, MirrorSyncState::STATUS_SKIPPED, $this->isString(), null, null, MirrorSyncState::SOURCE_SAVE, $this->isInstanceOf(\DateTimeImmutable::class));
 
         $this->dispatch($email);
 
@@ -453,7 +453,7 @@ class EmailMirrorSyncSubscriberTest extends TestCase
     public function testASuccessIsRecordedAsOkWithTheHttpStatus(): void
     {
         $this->states->expects($this->once())->method('record')
-            ->with(6, MirrorSyncState::STATUS_OK, $this->isType('string'), 200, null, MirrorSyncState::SOURCE_SAVE, $this->isInstanceOf(\DateTimeImmutable::class));
+            ->with(6, MirrorSyncState::STATUS_OK, $this->isString(), 200, null, MirrorSyncState::SOURCE_SAVE, $this->isInstanceOf(\DateTimeImmutable::class));
 
         $this->sent($this->buildEmail());
     }
@@ -465,7 +465,7 @@ class EmailMirrorSyncSubscriberTest extends TestCase
         $response->method('getStatusCode')->willReturn(500);
         $this->httpClient->method('request')->willReturn($response);
         $this->states->expects($this->once())->method('record')
-            ->with(6, MirrorSyncState::STATUS_FAILED, $this->isType('string'), 500, 'HTTP 500', MirrorSyncState::SOURCE_SAVE, $this->anything());
+            ->with(6, MirrorSyncState::STATUS_FAILED, $this->isString(), 500, 'HTTP 500', MirrorSyncState::SOURCE_SAVE, $this->anything());
 
         $this->dispatch($this->buildEmail());
     }
@@ -475,7 +475,7 @@ class EmailMirrorSyncSubscriberTest extends TestCase
         $this->mockIntegration(true, ['webhook_url' => 'https://n8n.example.test/hook']);
         $this->httpClient->method('request')->willThrowException(new \RuntimeException('Connection refused'));
         $this->states->expects($this->once())->method('record')
-            ->with(6, MirrorSyncState::STATUS_FAILED, $this->isType('string'), null, 'Connection refused', MirrorSyncState::SOURCE_SAVE, $this->anything());
+            ->with(6, MirrorSyncState::STATUS_FAILED, $this->isString(), null, 'Connection refused', MirrorSyncState::SOURCE_SAVE, $this->anything());
 
         $this->dispatch($this->buildEmail());
     }
@@ -489,7 +489,7 @@ class EmailMirrorSyncSubscriberTest extends TestCase
         $this->httpClient->method('request')->willReturn($response);
         $this->logger->expects($this->once())->method('error')->with('N8nDispatch: webhook answered an error for email 6: Mirror is down');
         $this->states->expects($this->once())->method('record')
-            ->with(6, MirrorSyncState::STATUS_FAILED, $this->isType('string'), 200, 'Mirror is down', MirrorSyncState::SOURCE_SAVE, $this->anything());
+            ->with(6, MirrorSyncState::STATUS_FAILED, $this->isString(), 200, 'Mirror is down', MirrorSyncState::SOURCE_SAVE, $this->anything());
 
         $this->dispatch($this->buildEmail());
     }

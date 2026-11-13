@@ -13,6 +13,8 @@ use MauticPlugin\N8nDispatchBundle\Service\MirrorResync;
 use MauticPlugin\N8nDispatchBundle\Service\MirrorResyncScheduler;
 use MauticPlugin\N8nDispatchBundle\Service\MirrorResyncSettings;
 use PHPUnit\Framework\MockObject\MockObject;
+use PHPUnit\Framework\Attributes\AllowMockObjectsWithoutExpectations;
+use PHPUnit\Framework\Attributes\DataProvider;
 use PHPUnit\Framework\TestCase;
 use Psr\Log\LoggerInterface;
 use Symfony\Component\Console\Command\Command;
@@ -24,6 +26,7 @@ use Symfony\Component\Console\Tester\CommandTester;
 /**
  * The resync command and the subscriber that starts it from Mautic's cron.
  */
+#[AllowMockObjectsWithoutExpectations]
 class MirrorResyncCommandTest extends TestCase
 {
     /** @var MirrorResync&MockObject */
@@ -80,10 +83,9 @@ class MirrorResyncCommandTest extends TestCase
     }
 
     /**
-     * @dataProvider invalidOptions
-     *
      * @param array<string, string> $options
      */
+    #[DataProvider('invalidOptions')]
     public function testAnInvalidOptionStopsBeforeAnything(array $options): void
     {
         $this->resync->expects($this->never())->method('run');

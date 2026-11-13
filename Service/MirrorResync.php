@@ -174,7 +174,11 @@ class MirrorResync
                 return ['error' => 'the integration was turned off during the run', 'left' => count($emailIds) - $index] + $counts;
             }
 
-            ++$counts[$status];
+            match ($status) {
+                MirrorSyncState::STATUS_OK     => ++$counts['ok'],
+                MirrorSyncState::STATUS_FAILED => ++$counts['failed'],
+                default                        => ++$counts['skipped'],
+            };
         }
 
         return $counts;

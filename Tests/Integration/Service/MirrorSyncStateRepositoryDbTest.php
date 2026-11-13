@@ -29,7 +29,7 @@ class MirrorSyncStateRepositoryDbTest extends RollbackDatabaseTestCase
     {
         parent::setUp();
 
-        $em = $this->createMock(EntityManagerInterface::class);
+        $em = $this->createStub(EntityManagerInterface::class);
         $em->method('getConnection')->willReturn($this->db);
         $this->states = new class($em) extends MirrorSyncStateRepository {
             public function __construct(private EntityManagerInterface $manager)
