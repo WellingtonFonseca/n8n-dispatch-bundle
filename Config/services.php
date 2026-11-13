@@ -39,6 +39,14 @@ return function (ContainerConfigurator $configurator): void {
     $services->set(MauticPlugin\N8nDispatchBundle\Service\BackgroundCommandLauncher::class)
         ->args(['%kernel.project_dir%', null]);
 
+    // The order is the priority: when two jobs are due on one tick, the first takes the turn.
+    $services->set(MauticPlugin\N8nDispatchBundle\Service\JobScheduler::class)
+        ->args([
+            [service(MauticPlugin\N8nDispatchBundle\Service\StatusPollJob::class), service(MauticPlugin\N8nDispatchBundle\Service\MirrorResyncJob::class)],
+            service(MauticPlugin\N8nDispatchBundle\Entity\PollRunRepository::class),
+            service(MauticPlugin\N8nDispatchBundle\Service\BackgroundCommandLauncher::class),
+        ]);
+
     // One pacer per class: it remembers when the last call started, and the status poll and the Mirror resync must not
     // count each other's calls.
     $services->set(MauticPlugin\N8nDispatchBundle\Service\CallPacer::class)->share(false);

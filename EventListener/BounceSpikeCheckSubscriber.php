@@ -12,7 +12,7 @@ use Symfony\Component\Console\Event\ConsoleCommandEvent;
 use Symfony\Component\EventDispatcher\EventSubscriberInterface;
 
 /**
- * Wakes the bounce check on the cron commands every Mautic install runs (the same ride as StatusPollSubscriber: the
+ * Wakes the bounce check on the cron commands every Mautic install runs (the same ride as ScheduledJobsSubscriber: the
  * plugin needs no cron entry). Nothing that goes wrong here may reach the command that woke it.
  */
 class BounceSpikeCheckSubscriber implements EventSubscriberInterface

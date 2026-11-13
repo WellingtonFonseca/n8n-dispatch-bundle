@@ -8,10 +8,10 @@ use Doctrine\ORM\Mapping as ORM;
 use Mautic\CoreBundle\Doctrine\Mapping\ClassMetadataBuilder;
 
 /**
- * One scheduled run of the status poll (see Service/StatusPollScheduler.php).
+ * One scheduled run of a job (see Service/JobScheduler.php).
  * The row is created when a run is claimed — which is also the lock that
  * keeps two Mautic cron commands starting in the same minute from both
- * launching one — and closed by the poll command when it ends. The
+ * launching one — and closed by the job's command (PollRunRepository::close()) when it ends. The
  * plugin's settings screen reads the latest one to show "last run".
  *
  * Only runs started by the scheduler leave a row; a command run by hand
@@ -69,17 +69,6 @@ class PollRun
         $run->startedAt = \DateTimeImmutable::createFromInterface($now);
 
         return $run;
-    }
-
-    public function finish(string $status, ?string $summary, \DateTimeInterface $now): void
-    {
-        if (!in_array($status, [self::STATUS_OK, self::STATUS_ERROR], true)) {
-            throw new \InvalidArgumentException('Unknown status "'.$status.'".');
-        }
-
-        $this->status     = $status;
-        $this->summary    = $summary;
-        $this->finishedAt = \DateTimeImmutable::createFromInterface($now);
     }
 
     public function getId(): ?int

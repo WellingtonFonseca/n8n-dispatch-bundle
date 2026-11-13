@@ -5,10 +5,9 @@ declare(strict_types=1);
 namespace MauticPlugin\N8nDispatchBundle\Tests\Unit\Service;
 
 use MauticPlugin\N8nDispatchBundle\Entity\PollRun;
-use MauticPlugin\N8nDispatchBundle\Entity\PollRunRepository;
 use MauticPlugin\N8nDispatchBundle\Service\BackgroundCommandLauncher;
 use MauticPlugin\N8nDispatchBundle\Service\CallPacer;
-use MauticPlugin\N8nDispatchBundle\Service\MirrorResyncScheduler;
+use MauticPlugin\N8nDispatchBundle\Service\MirrorResyncJob;
 use MauticPlugin\N8nDispatchBundle\Service\MirrorResyncSettings;
 use PHPUnit\Framework\Attributes\AllowMockObjectsWithoutExpectations;
 use PHPUnit\Framework\TestCase;
@@ -50,27 +49,16 @@ class MirrorResyncSchedulingTest extends TestCase
         $this->assertSame(MirrorResyncSettings::fromArray([]), (new MirrorResyncSettings(new \MauticPlugin\N8nDispatchBundle\Service\FeatureSettings($none)))->current());
     }
 
-    public function testTheSchedulerDoesNothingWhenOff(): void
+    public function testTheJobIsDueWithTheIntervalOnlyWhenOn(): void
     {
         $settings = $this->createMock(MirrorResyncSettings::class);
-        $settings->method('current')->willReturn(['enabled' => false, 'interval' => 120]);
-        $runs = $this->createMock(PollRunRepository::class);
-        $runs->expects($this->never())->method('claim');
+        $settings->method('current')->willReturnOnConsecutiveCalls(['enabled' => false, 'interval' => 120], ['enabled' => true, 'interval' => 90]);
+        $job = new MirrorResyncJob($settings);
 
-        $this->assertNull((new MirrorResyncScheduler($settings, $runs))->tryStart(new \DateTimeImmutable()));
-    }
-
-    public function testTheSchedulerClaimsAResyncRunWithTheInterval(): void
-    {
-        $now      = new \DateTimeImmutable('2026-11-13 10:00:00');
-        $settings = $this->createMock(MirrorResyncSettings::class);
-        $settings->method('current')->willReturn(['enabled' => true, 'interval' => 90]);
-        $runs = $this->createMock(PollRunRepository::class);
-        $runs->expects($this->once())->method('claim')->with($now, 90, PollRun::KIND_MIRROR_RESYNC)->willReturn(8);
-
-        $runs->expects($this->once())->method('prune')->with($this->equalTo(new \DateTimeImmutable('2026-11-06 10:00:00')));
-
-        $this->assertSame(8, (new MirrorResyncScheduler($settings, $runs))->tryStart($now));
+        $this->assertNull($job->intervalMinutes());
+        $this->assertSame(90, $job->intervalMinutes());
+        $this->assertSame(PollRun::KIND_MIRROR_RESYNC, $job->kind());
+        $this->assertSame('n8ndispatch:mirror:resync', $job->command());
     }
 
     public function testTheLauncherStartsTheResyncCommand(): void
