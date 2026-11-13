@@ -73,12 +73,16 @@ class DispatchFailureReasons
      */
     public function fromResponseBody(string $rawBody, int $statusCode): string
     {
+        return self::errorInBody($rawBody) ?? $this->text(self::HTTP_STATUS, ['%status%' => $statusCode]);
+    }
+
+    /**
+     * The top-level 'error' string of a JSON answer from n8n, or null when the body has none.
+     */
+    public static function errorInBody(string $rawBody): ?string
+    {
         $body = json_decode($rawBody, true);
 
-        if (is_array($body) && !empty($body['error']) && is_string($body['error'])) {
-            return $body['error'];
-        }
-
-        return $this->text(self::HTTP_STATUS, ['%status%' => $statusCode]);
+        return is_array($body) && !empty($body['error']) && is_string($body['error']) ? $body['error'] : null;
     }
 }

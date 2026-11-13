@@ -84,7 +84,8 @@ class StatusPollSettings
         ];
     }
 
-    private static function clamp(mixed $value, int $min, int $max, int $default): int
+    /** A whole number kept between $min and $max; $default when the value is not a number. */
+    public static function clamp(mixed $value, int $min, int $max, int $default): int
     {
         return is_numeric($value) ? max($min, min($max, (int) $value)) : $default;
     }

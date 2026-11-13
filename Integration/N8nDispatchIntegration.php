@@ -15,6 +15,8 @@ use MauticPlugin\N8nDispatchBundle\Service\Alert\AlertSettings;
 use MauticPlugin\N8nDispatchBundle\Service\Alert\AlertSettingsForm;
 use MauticPlugin\N8nDispatchBundle\Service\Changelog;
 use MauticPlugin\N8nDispatchBundle\Service\EmailSendMode;
+use MauticPlugin\N8nDispatchBundle\Service\MirrorResyncSettings;
+use MauticPlugin\N8nDispatchBundle\Service\MirrorResyncSettingsForm;
 use MauticPlugin\N8nDispatchBundle\Service\StatusPollSettings;
 use Symfony\Component\Form\Extension\Core\Type\ChoiceType;
 use Symfony\Component\Form\Extension\Core\Type\IntegerType;
@@ -186,7 +188,7 @@ class N8nDispatchIntegration extends AbstractIntegration
             'constraints' => [new Range(min: StatusPollSettings::MIN_TIMEOUT, max: StatusPollSettings::MAX_MAX_DURATION)],
         ]);
 
-        $lastRun = $this->describeLastRun($current['interval']);
+        $lastRun = $this->describeLastRun(PollRun::KIND_STATUS_POLL, $current['interval']);
 
         // A read-only block, not a one-line input: the last run is JSON, one object per channel (a <pre> once the page is up).
         $builder->add('status_poll_last_run', TextareaType::class, [
@@ -205,6 +207,9 @@ class N8nDispatchIntegration extends AbstractIntegration
         ]);
 
         $this->addCheckNowButton($builder);
+
+        $resync = MirrorResyncSettings::fromArray(is_array($data) ? $data : []);
+        MirrorResyncSettingsForm::addTo($builder, $resync, $this->describeLastRun(PollRun::KIND_MIRROR_RESYNC, $resync['interval']));
 
         AlertSettingsForm::addTo($builder, AlertSettings::fromArray(is_array($data) ? $data : []), $this->translator->trans('mautic.n8ndispatch.settings.alerts.tab'));
     }
@@ -252,13 +257,13 @@ class N8nDispatchIntegration extends AbstractIntegration
     }
 
     /**
-     * The JSON of the read-only "Last run" block (see StatusPollSettings::lastRunJson()).
-     * Never allowed to break the settings screen — e.g. before the plugin's tables exist.
+     * The JSON of a read-only "Last run" block (see StatusPollSettings::lastRunJson()), of the status poll or of the
+     * Mirror resync. Never allowed to break the settings screen — e.g. before the plugin's tables exist.
      */
-    private function describeLastRun(int $intervalMinutes): string
+    private function describeLastRun(string $kind, int $intervalMinutes): string
     {
         try {
-            $latest = $this->em->getRepository(PollRun::class)->latest();
+            $latest = $this->em->getRepository(PollRun::class)->latest($kind);
         } catch (\Throwable) {
             return '';
         }

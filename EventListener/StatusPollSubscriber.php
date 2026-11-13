@@ -4,8 +4,9 @@ declare(strict_types=1);
 
 namespace MauticPlugin\N8nDispatchBundle\EventListener;
 
+use MauticPlugin\N8nDispatchBundle\Command\StatusPollCommand;
+use MauticPlugin\N8nDispatchBundle\Service\BackgroundCommandLauncher;
 use MauticPlugin\N8nDispatchBundle\Service\CronCommands;
-use MauticPlugin\N8nDispatchBundle\Service\StatusPollLauncher;
 use MauticPlugin\N8nDispatchBundle\Service\StatusPollScheduler;
 use Psr\Log\LoggerInterface;
 use Symfony\Component\Console\ConsoleEvents;
@@ -25,7 +26,7 @@ class StatusPollSubscriber implements EventSubscriberInterface
 {
     public function __construct(
         private StatusPollScheduler $scheduler,
-        private StatusPollLauncher $launcher,
+        private BackgroundCommandLauncher $launcher,
         private LoggerInterface $logger,
     ) {
     }
@@ -49,7 +50,7 @@ class StatusPollSubscriber implements EventSubscriberInterface
             $runId = $this->scheduler->tryStart(new \DateTimeImmutable());
 
             if (null !== $runId) {
-                $this->launcher->launch($runId);
+                $this->launcher->launch(StatusPollCommand::NAME, $runId);
             }
         } catch (\Throwable $e) {
             $this->logger->error('N8nDispatch: could not start the status poll: '.$e->getMessage());
