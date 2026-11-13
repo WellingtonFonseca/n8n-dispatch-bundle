@@ -14,6 +14,7 @@ use MauticPlugin\N8nDispatchBundle\Service\Alert\AlertSettings;
 use MauticPlugin\N8nDispatchBundle\Service\Alert\AlertSettingsForm;
 use MauticPlugin\N8nDispatchBundle\Service\Changelog;
 use MauticPlugin\N8nDispatchBundle\Service\EmailSendMode;
+use MauticPlugin\N8nDispatchBundle\Service\LastRunReport;
 use MauticPlugin\N8nDispatchBundle\Service\MirrorResyncSettings;
 use MauticPlugin\N8nDispatchBundle\Service\MirrorResyncSettingsForm;
 use MauticPlugin\N8nDispatchBundle\Service\SettingsFields;
@@ -176,7 +177,7 @@ class N8nDispatchIntegration extends AbstractIntegration
     }
 
     /**
-     * The JSON of a read-only "Last run" block (see StatusPollSettings::lastRunJson()), of the status poll or of the
+     * The JSON of a read-only "Last run" block (see LastRunReport), of the status poll or of the
      * Mirror resync. Never allowed to break the settings screen — e.g. before the plugin's tables exist.
      */
     private function describeLastRun(string $kind, int $intervalMinutes): string
@@ -193,7 +194,8 @@ class N8nDispatchIntegration extends AbstractIntegration
 
         $stale = StatusPollSettings::isStale($latest, $intervalMinutes, new \DateTimeImmutable());
 
-        return StatusPollSettings::lastRunJson(
+        return LastRunReport::json(
+            $kind,
             $latest->getStartedAt(),
             $this->translator->trans('mautic.n8ndispatch.settings.status_poll.status.'.$latest->getStatus()),
             $latest->getSummary(),
