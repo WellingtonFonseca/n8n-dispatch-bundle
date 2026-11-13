@@ -1,4 +1,14 @@
 /**
+ * Swaps the alert variant of the row (info -> warning -> danger). The alert
+ * and layout classes are already on the row from the server render.
+ */
+Mautic.n8ndispatchSetRowAlert = function (eventId, variant) {
+    mQuery('#timeline-campaign-event-' + eventId)
+        .removeClass('alert-info alert-warning alert-danger')
+        .addClass(variant);
+};
+
+/**
  * Confirmation-modal callback for the "cancel this scheduled dispatch"
  * button on the n8n dispatch Timeline card (SubscribedEvents/Timeline/
  * _email_send.html.twig). The button itself only calls
@@ -14,10 +24,6 @@ Mautic.n8ndispatchConfirmCancelSchedule = function (action, el) {
 
     Mautic.dismissConfirmation();
     Mautic.cancelScheduledCampaignEvent(eventId, contactId);
-    // Before the record call below, so the alert of an earlier reschedule
-    // goes away even when that call fails: the row now shows 'cancelled'.
-    mQuery('#timeline-campaign-event-' + eventId).removeClass('alert alert-warning n8ndispatch-timeline-alert');
-
     // Separate call, not a replacement for the one above: core's own
     // cancelScheduledCampaignEvent has no concept of who clicked cancel,
     // only that the event is now cancelled. This records the acting user
@@ -39,7 +45,7 @@ Mautic.n8ndispatchConfirmCancelSchedule = function (action, el) {
 };
 
 /**
- * Reschedule tracking, via a global ajaxSuccess listener rather than a
+ * Reschedule and cancel handling, via a global ajaxSuccess listener rather than a
  * wrapped onclick — core lets a reschedule be saved two different ways
  * (pressing Enter in the inline date field, or clicking our own Save
  * button, CampaignBundle/Assets/js/campaign.js's
@@ -52,10 +58,16 @@ Mautic.n8ndispatchConfirmCancelSchedule = function (action, el) {
  *
  * mQuery.ajax() (what Mautic.ajaxActionRequest calls) is what settings/xhr
  * below come from — this fires for every ajax call on the page, filtered
- * down to just this one action by URL.
+ * down to the reschedule and cancel actions by URL.
  */
 mQuery(document).ajaxSuccess(function (event, xhr, settings) {
-    if (!settings.url || settings.url.indexOf('action=campaign:updateScheduledCampaignEvent') === -1) {
+    if (!settings.url) {
+        return;
+    }
+
+    var isReschedule = settings.url.indexOf('action=campaign:updateScheduledCampaignEvent') !== -1;
+    var isCancel     = settings.url.indexOf('action=campaign:cancelScheduledCampaignEvent') !== -1;
+    if (!isReschedule && !isCancel) {
         return;
     }
 
@@ -72,15 +84,24 @@ mQuery(document).ajaxSuccess(function (event, xhr, settings) {
         return;
     }
 
+    // Only after core answered success: a failed cancel leaves the row as
+    // it was. A reloaded cancelled row has no actions, so hide them too.
+    if (isCancel) {
+        Mautic.n8ndispatchSetRowAlert(eventId, 'alert-danger');
+        mQuery('#timeline-campaign-event-' + eventId + ' .n8ndispatch-timeline-actions').hide();
+        return;
+    }
+
+    Mautic.n8ndispatchSetRowAlert(eventId, 'alert-warning');
+
     // Same best-effort reasoning as the cancellation call above: never
     // blocks or undoes the reschedule that already succeeded if this
-    // fails.
+    // fails. Only the 'Rescheduled by' text waits for it.
     Mautic.ajaxActionRequest('plugin:N8nDispatch:recordScheduleReschedule', {
         eventId: eventId,
         contactId: contactId,
     }, function (recordResponse) {
         if (recordResponse.success && recordResponse.rescheduledByMessage) {
-            mQuery('#timeline-campaign-event-' + eventId).addClass('alert alert-warning n8ndispatch-timeline-alert');
             mQuery('.n8ndispatch-timeline-rescheduled-by-' + eventId).html('<br/>' + recordResponse.rescheduledByMessage);
         }
     });
