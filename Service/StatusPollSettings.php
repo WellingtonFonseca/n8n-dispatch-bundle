@@ -4,10 +4,7 @@ declare(strict_types=1);
 
 namespace MauticPlugin\N8nDispatchBundle\Service;
 
-use Mautic\PluginBundle\Helper\IntegrationHelper;
-use MauticPlugin\N8nDispatchBundle\Entity\DispatchTracking;
 use MauticPlugin\N8nDispatchBundle\Entity\PollRun;
-use MauticPlugin\N8nDispatchBundle\Integration\N8nDispatchIntegration;
 
 /**
  * The status poll's two settings, kept on the plugin's own screen
@@ -48,7 +45,7 @@ class StatusPollSettings
     public const DEFAULT_MAX_DURATION = 300;
     public const MAX_MAX_DURATION     = 1800;
 
-    public function __construct(private IntegrationHelper $integrationHelper)
+    public function __construct(private FeatureSettings $featureSettings)
     {
     }
 
@@ -57,10 +54,7 @@ class StatusPollSettings
      */
     public function current(): array
     {
-        $integration = $this->integrationHelper->getIntegrationObject(N8nDispatchIntegration::NAME);
-        $stored      = $integration ? $integration->getIntegrationSettings()->getFeatureSettings() : [];
-
-        return self::fromArray(is_array($stored) ? $stored : []);
+        return self::fromArray($this->featureSettings->all());
     }
 
     /**
@@ -70,24 +64,18 @@ class StatusPollSettings
      */
     public static function fromArray(array $featureSettings): array
     {
-        $timeout = self::clamp($featureSettings[self::KEY_TIMEOUT] ?? null, self::MIN_TIMEOUT, self::MAX_TIMEOUT, self::DEFAULT_TIMEOUT);
+        $timeout = SettingValue::clamp($featureSettings[self::KEY_TIMEOUT] ?? null, self::MIN_TIMEOUT, self::MAX_TIMEOUT, self::DEFAULT_TIMEOUT);
 
         return [
-            'enabled'     => (bool) (int) ($featureSettings[self::KEY_ENABLED] ?? 0),
-            'interval'    => self::clamp($featureSettings[self::KEY_INTERVAL] ?? null, self::MIN_INTERVAL, self::MAX_INTERVAL, self::DEFAULT_INTERVAL),
-            'batch'       => self::clamp($featureSettings[self::KEY_BATCH] ?? null, self::MIN_BATCH, self::MAX_BATCH, self::DEFAULT_BATCH),
+            'enabled'     => SettingValue::flag($featureSettings[self::KEY_ENABLED] ?? 0),
+            'interval'    => SettingValue::clamp($featureSettings[self::KEY_INTERVAL] ?? null, self::MIN_INTERVAL, self::MAX_INTERVAL, self::DEFAULT_INTERVAL),
+            'batch'       => SettingValue::clamp($featureSettings[self::KEY_BATCH] ?? null, self::MIN_BATCH, self::MAX_BATCH, self::DEFAULT_BATCH),
             'timeout'     => $timeout,
             // milliseconds to wait between two calls to n8n (0 = no pause)
-            'delay'       => self::clamp($featureSettings[self::KEY_DELAY] ?? null, self::MIN_DELAY, self::MAX_DELAY, self::DEFAULT_DELAY),
+            'delay'       => SettingValue::clamp($featureSettings[self::KEY_DELAY] ?? null, self::MIN_DELAY, self::MAX_DELAY, self::DEFAULT_DELAY),
             // a whole call can never be allowed less time than its own idle timeout
-            'maxDuration' => max($timeout, self::clamp($featureSettings[self::KEY_MAX_DURATION] ?? null, self::MIN_TIMEOUT, self::MAX_MAX_DURATION, self::DEFAULT_MAX_DURATION)),
+            'maxDuration' => max($timeout, SettingValue::clamp($featureSettings[self::KEY_MAX_DURATION] ?? null, self::MIN_TIMEOUT, self::MAX_MAX_DURATION, self::DEFAULT_MAX_DURATION)),
         ];
-    }
-
-    /** A whole number kept between $min and $max; $default when the value is not a number. */
-    public static function clamp(mixed $value, int $min, int $max, int $default): int
-    {
-        return is_numeric($value) ? max($min, min($max, (int) $value)) : $default;
     }
 
     /**
@@ -102,53 +90,16 @@ class StatusPollSettings
             return false;
         }
 
-        $limitMinutes = max(3 * $intervalMinutes, 60);
-
-        return $latest->getStartedAt() < $now->modify('-'.$limitMinutes.' minutes');
+        return self::isStaleAt($latest->getStartedAt(), $intervalMinutes, $now);
     }
 
     /**
-     * The settings screen's read-only "Last run" block, as JSON: when it
-     * started, how it ended, a warning when the cron seems stopped, and one
-     * object per channel with the counts of that run. The run's stored summary
-     * is one text line per channel (what the command printed), read back here:
-     * "email: asked 1, changed 1, ..." gives the counts, "sms: <text>" an
-     * error, and any other line a message.
+     * The rule on a bare start time: the Mirror log has rows, not entities.
      */
-    public static function lastRunJson(\DateTimeInterface $startedAt, string $statusLabel, ?string $summary, ?string $warning): string
+    public static function isStaleAt(\DateTimeInterface $startedAt, int $intervalMinutes, \DateTimeImmutable $now): bool
     {
-        $block = [
-            'date'   => \DateTimeImmutable::createFromInterface($startedAt)->setTimezone(new \DateTimeZone('UTC'))->format('Y-m-d H:i').' UTC',
-            'status' => $statusLabel,
-        ];
+        $limitMinutes = max(3 * $intervalMinutes, 60);
 
-        if (null !== $warning && '' !== $warning) {
-            $block['warning'] = $warning;
-        }
-
-        foreach (preg_split('/\R/', (string) $summary) ?: [] as $line) {
-            $line = trim($line);
-
-            if ('' === $line) {
-                continue;
-            }
-
-            if (1 === preg_match('/^(\w+): asked (\d+), changed (\d+), unchanged (\d+), unknown (\d+), invalid (\d+), (\d+) calls?$/', $line, $m)) {
-                $block[$m[1]] = [
-                    'asked'     => (int) $m[2],
-                    'changed'   => (int) $m[3],
-                    'unchanged' => (int) $m[4],
-                    'unknown'   => (int) $m[5],
-                    'invalid'   => (int) $m[6],
-                    'calls'     => (int) $m[7],
-                ];
-            } elseif (1 === preg_match('/^(\w+): (.+)$/', $line, $m) && in_array($m[1], DispatchTracking::CHANNELS, true)) {
-                $block[$m[1]] = ['error' => $m[2]];
-            } else {
-                $block['message'] = isset($block['message']) ? $block['message']."\n".$line : $line;
-            }
-        }
-
-        return (string) json_encode($block, JSON_PRETTY_PRINT | JSON_UNESCAPED_UNICODE | JSON_UNESCAPED_SLASHES);
+        return $startedAt < $now->modify('-'.$limitMinutes.' minutes');
     }
 }

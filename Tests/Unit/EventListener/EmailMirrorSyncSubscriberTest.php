@@ -17,6 +17,7 @@ use MauticPlugin\N8nDispatchBundle\Entity\MirrorSyncState;
 use MauticPlugin\N8nDispatchBundle\Entity\MirrorSyncStateRepository;
 use MauticPlugin\N8nDispatchBundle\EventListener\EmailMirrorSyncSubscriber;
 use MauticPlugin\N8nDispatchBundle\Integration\N8nDispatchIntegration;
+use MauticPlugin\N8nDispatchBundle\Service\MirrorSendSwitch;
 use MauticPlugin\N8nDispatchBundle\Service\MirrorSync;
 use MauticPlugin\N8nDispatchBundle\Service\MirrorSyncPayload;
 use PHPUnit\Framework\Attributes\AllowMockObjectsWithoutExpectations;
@@ -63,7 +64,15 @@ class EmailMirrorSyncSubscriberTest extends TestCase
 
         $this->states     = $this->createMock(MirrorSyncStateRepository::class);
         $this->mirrorSync = new MirrorSync($this->integrationHelper, $this->httpClient, $this->logger, new MirrorSyncPayload(), $this->states);
-        $this->subscriber = new EmailMirrorSyncSubscriber($this->mirrorSync, new MirrorSyncPayload(), $this->userHelper, $this->entityManager);
+        $this->subscriber = new EmailMirrorSyncSubscriber($this->mirrorSync, new MirrorSyncPayload(), $this->userHelper, $this->entityManager, $this->switchOn(true));
+    }
+
+    private function switchOn(bool $on): MirrorSendSwitch
+    {
+        $switch = $this->createStub(MirrorSendSwitch::class);
+        $switch->method('isOn')->willReturn($on);
+
+        return $switch;
     }
 
     private function mockIntegration(bool $isPublished, array $keys): void
@@ -96,6 +105,28 @@ class EmailMirrorSyncSubscriberTest extends TestCase
     {
         $event = new EmailEvent($email, false);
         $this->subscriber->onEmailPostSave($event);
+    }
+
+    /**
+     * @return array<string, array{string}>
+     */
+    public static function webhooks(): array
+    {
+        return ['no URL' => [''], 'a URL' => ['https://n8n.example.test/hook']];
+    }
+
+    #[\PHPUnit\Framework\Attributes\DataProvider('webhooks')]
+    public function testWithTheSwitchOffNothingIsSentRecordedFlushedOrLogged(string $url): void
+    {
+        $this->mockIntegration(true, ['webhook_url' => $url]);
+        $this->httpClient->expects($this->never())->method('request');
+        $this->states->expects($this->never())->method('record');
+        $this->entityManager->expects($this->never())->method('flush');
+        $this->logger->expects($this->never())->method('warning');
+        $off = new EmailMirrorSyncSubscriber($this->mirrorSync, new MirrorSyncPayload(), $this->userHelper, $this->entityManager, $this->switchOn(false));
+
+        $email = $this->buildEmail();
+        $off->onEmailPostSave(new EmailEvent($email, false));
     }
 
     public function testNoIntegrationConfiguredSkipsSyncSilently(): void
@@ -315,7 +346,7 @@ class EmailMirrorSyncSubscriberTest extends TestCase
         // flush() expectations don't collide on one shared mock.
         $secondEntityManager = $this->createMock(EntityManagerInterface::class);
         $secondEntityManager->expects($this->never())->method('flush');
-        $secondSubscriber = new EmailMirrorSyncSubscriber($this->mirrorSync, new MirrorSyncPayload(), $this->userHelper, $secondEntityManager);
+        $secondSubscriber = new EmailMirrorSyncSubscriber($this->mirrorSync, new MirrorSyncPayload(), $this->userHelper, $secondEntityManager, $this->switchOn(true));
         $secondSubscriber->onEmailPostSave(new EmailEvent($email, false));
 
         $this->assertSame($htmlAfterFirstSave, $email->getCustomHtml());

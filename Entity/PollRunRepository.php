@@ -75,6 +75,43 @@ class PollRunRepository extends CommonRepository
             ->getOneOrNullResult();
     }
 
+    /**
+     * The newest runs of one kind, plain rows (the "Mirror" tab lists them).
+     *
+     * @return list<array{started_at: string, status: string, summary: string|null}>
+     */
+    public function latestRuns(string $kind, int $limit): array
+    {
+        return $this->getEntityManager()->getConnection()->fetchAllAssociative(
+            'SELECT started_at, status, summary FROM '.$this->getTableName().' WHERE kind = :kind ORDER BY started_at DESC, id DESC LIMIT '.max(1, $limit),
+            ['kind' => $kind]
+        );
+    }
+
+    /**
+     * Ends a scheduled run. A null or unknown id does nothing: a command run by hand has no run to close.
+     */
+    public function close(?int $runId, string $status, string $summary, \DateTimeInterface $now): void
+    {
+        if (!in_array($status, [PollRun::STATUS_OK, PollRun::STATUS_ERROR], true)) {
+            throw new \InvalidArgumentException('Unknown status "'.$status.'".');
+        }
+
+        if (null === $runId) {
+            return;
+        }
+
+        $this->getEntityManager()->getConnection()->executeStatement(
+            'UPDATE '.$this->getTableName().' SET status = :status, summary = :summary, finished_at = :finished WHERE id = :id',
+            [
+                'status'   => $status,
+                'summary'  => $summary,
+                'finished' => \DateTimeImmutable::createFromInterface($now)->setTimezone(new \DateTimeZone('UTC'))->format('Y-m-d H:i:s'),
+                'id'       => $runId,
+            ]
+        );
+    }
+
     public function prune(\DateTimeImmutable $before): void
     {
         $this->createQueryBuilder('pr')
