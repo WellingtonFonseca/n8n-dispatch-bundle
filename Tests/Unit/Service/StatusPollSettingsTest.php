@@ -5,11 +5,30 @@ declare(strict_types=1);
 namespace MauticPlugin\N8nDispatchBundle\Tests\Unit\Service;
 
 use MauticPlugin\N8nDispatchBundle\Entity\PollRun;
+use MauticPlugin\N8nDispatchBundle\Service\FeatureSettings;
 use MauticPlugin\N8nDispatchBundle\Service\StatusPollSettings;
 use PHPUnit\Framework\TestCase;
 
 class StatusPollSettingsTest extends TestCase
 {
+    public function testTheCurrentSettingsAreReadFromTheIntegrationFeatures(): void
+    {
+        $settings = $this->createStub(\Mautic\PluginBundle\Entity\Integration::class);
+        $settings->method('getFeatureSettings')->willReturn(['status_poll_enabled' => 1, 'status_poll_batch' => 40, 'status_poll_timeout' => 5000]);
+        $integration = $this->createStub(\MauticPlugin\N8nDispatchBundle\Integration\N8nDispatchIntegration::class);
+        $integration->method('getIntegrationSettings')->willReturn($settings);
+        $helper = $this->createMock(\Mautic\PluginBundle\Helper\IntegrationHelper::class);
+        $helper->method('getIntegrationObject')->with('N8nDispatch')->willReturn($integration);
+        $none = $this->createStub(\Mautic\PluginBundle\Helper\IntegrationHelper::class);
+        $none->method('getIntegrationObject')->willReturn(null);
+
+        $this->assertSame(
+            ['enabled' => true, 'interval' => 60, 'batch' => 40, 'timeout' => 900, 'delay' => 1000, 'maxDuration' => 900],
+            (new StatusPollSettings(new FeatureSettings($helper)))->current()
+        );
+        $this->assertSame(StatusPollSettings::fromArray([]), (new StatusPollSettings(new FeatureSettings($none)))->current());
+    }
+
     public function testIsOffByDefault(): void
     {
         $this->assertSame(

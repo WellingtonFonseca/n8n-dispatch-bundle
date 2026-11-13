@@ -44,8 +44,8 @@ class MirrorResyncSchedulingTest extends TestCase
         $none = $this->createMock(\Mautic\PluginBundle\Helper\IntegrationHelper::class);
         $none->method('getIntegrationObject')->willReturn(null);
 
-        $this->assertSame(['enabled' => true, 'interval' => 120, 'batch' => 40, 'delay' => 2000, 'refreshHours' => 24], (new MirrorResyncSettings($helper))->current());
-        $this->assertSame(MirrorResyncSettings::fromArray([]), (new MirrorResyncSettings($none))->current());
+        $this->assertSame(['enabled' => true, 'interval' => 120, 'batch' => 40, 'delay' => 2000, 'refreshHours' => 24], (new MirrorResyncSettings(new \MauticPlugin\N8nDispatchBundle\Service\FeatureSettings($helper)))->current());
+        $this->assertSame(MirrorResyncSettings::fromArray([]), (new MirrorResyncSettings(new \MauticPlugin\N8nDispatchBundle\Service\FeatureSettings($none)))->current());
     }
 
     public function testTheSchedulerDoesNothingWhenOff(): void

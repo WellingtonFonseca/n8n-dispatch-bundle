@@ -7,6 +7,7 @@ namespace MauticPlugin\N8nDispatchBundle\Tests\Unit\Service\Alert;
 use Mautic\PluginBundle\Entity\Integration;
 use Mautic\PluginBundle\Helper\IntegrationHelper;
 use MauticPlugin\N8nDispatchBundle\Integration\N8nDispatchIntegration;
+use MauticPlugin\N8nDispatchBundle\Service\FeatureSettings;
 use MauticPlugin\N8nDispatchBundle\Service\Alert\AlertSettings;
 use PHPUnit\Framework\TestCase;
 
@@ -62,7 +63,7 @@ class AlertSettingsTest extends TestCase
         $helper = $this->createMock(IntegrationHelper::class);
         $helper->expects($this->once())->method('getIntegrationObject')->with(N8nDispatchIntegration::NAME)->willReturn($integration);
 
-        $current = (new AlertSettings($helper))->current();
+        $current = (new AlertSettings(new FeatureSettings($helper)))->current();
 
         $this->assertTrue($current['enabled']);
         $this->assertSame(3, $current['warningPercent']);
@@ -73,6 +74,6 @@ class AlertSettingsTest extends TestCase
         $helper = $this->createStub(IntegrationHelper::class);
         $helper->method('getIntegrationObject')->willReturn(false);
 
-        $this->assertFalse((new AlertSettings($helper))->current()['enabled']);
+        $this->assertFalse((new AlertSettings(new FeatureSettings($helper)))->current()['enabled']);
     }
 }
