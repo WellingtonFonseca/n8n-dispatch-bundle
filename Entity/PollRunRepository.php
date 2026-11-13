@@ -29,7 +29,7 @@ class PollRunRepository extends CommonRepository
      * margin a "15 minutes" interval would often miss a tick and wait for
      * the next one.
      */
-    public function claim(\DateTimeImmutable $now, int $intervalMinutes): ?int
+    public function claim(\DateTimeImmutable $now, int $intervalMinutes, string $kind): ?int
     {
         $connection = $this->getEntityManager()->getConnection();
         $table      = $this->getTableName();
@@ -37,18 +37,22 @@ class PollRunRepository extends CommonRepository
         $threshold  = $now->modify('-'.max(0, $intervalMinutes * 60 - 60).' seconds');
         $stale      = $now->modify('-'.self::RUNNING_STALE_MINUTES.' minutes');
 
+        // The interval counts only the runs of the same kind. A run of any kind still "running" blocks every kind, so
+        // one instance never runs the status poll and the Mirror resync at the same time.
         // A run is also never started while the previous one is still going
         // (a run empties the whole queue, so on a big one it can outlast the
         // interval). One that has been "running" for longer than
         // RUNNING_STALE_MINUTES is taken as dead — crashed, or killed before
         // it could close itself — so it cannot block the schedule forever.
         $inserted = $connection->executeStatement(
-            "INSERT INTO {$table} (started_at, status) SELECT :now, :status FROM DUAL "
-            ."WHERE NOT EXISTS (SELECT 1 FROM {$table} WHERE started_at > :threshold) "
+            "INSERT INTO {$table} (started_at, status, kind) SELECT :now, :status, :kind FROM DUAL "
+            ."WHERE NOT EXISTS (SELECT 1 FROM {$table} WHERE kind = :same_kind AND started_at > :threshold) "
             ."AND NOT EXISTS (SELECT 1 FROM {$table} WHERE status = :status AND started_at > :stale)",
             [
                 'now'       => $now->setTimezone($utc)->format('Y-m-d H:i:s'),
                 'status'    => PollRun::STATUS_RUNNING,
+                'kind'      => $kind,
+                'same_kind' => $kind,
                 'threshold' => $threshold->setTimezone($utc)->format('Y-m-d H:i:s'),
                 'stale'     => $stale->setTimezone($utc)->format('Y-m-d H:i:s'),
             ]
@@ -57,9 +61,11 @@ class PollRunRepository extends CommonRepository
         return $inserted > 0 ? (int) $connection->lastInsertId() : null;
     }
 
-    public function latest(): ?PollRun
+    public function latest(string $kind): ?PollRun
     {
         return $this->createQueryBuilder('pr')
+            ->where('pr.kind = :kind')
+            ->setParameter('kind', $kind)
             ->orderBy('pr.startedAt', 'DESC')
             ->setMaxResults(1)
             ->getQuery()

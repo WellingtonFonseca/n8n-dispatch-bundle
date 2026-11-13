@@ -36,7 +36,7 @@ return function (ContainerConfigurator $configurator): void {
         ->tag(Doctrine\Bundle\DoctrineBundle\DependencyInjection\Compiler\ServiceRepositoryCompilerPass::REPOSITORY_SERVICE_TAG);
 
     // A plain string argument cannot be autowired.
-    $services->set(MauticPlugin\N8nDispatchBundle\Service\StatusPollLauncher::class)
+    $services->set(MauticPlugin\N8nDispatchBundle\Service\BackgroundCommandLauncher::class)
         ->args(['%kernel.project_dir%', null]);
 
     // Core registers its cache helper only under this id, so autowiring by class finds nothing.

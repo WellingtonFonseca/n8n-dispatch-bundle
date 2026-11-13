@@ -13,8 +13,12 @@ use Mautic\EmailBundle\EventListener\EmailSubscriber as CoreEmailSubscriber;
 use Mautic\PluginBundle\Entity\Integration as IntegrationSettings;
 use Mautic\PluginBundle\Helper\IntegrationHelper;
 use Mautic\UserBundle\Entity\User;
+use MauticPlugin\N8nDispatchBundle\Entity\MirrorSyncState;
+use MauticPlugin\N8nDispatchBundle\Entity\MirrorSyncStateRepository;
 use MauticPlugin\N8nDispatchBundle\EventListener\EmailMirrorSyncSubscriber;
 use MauticPlugin\N8nDispatchBundle\Integration\N8nDispatchIntegration;
+use MauticPlugin\N8nDispatchBundle\Service\MirrorSync;
+use MauticPlugin\N8nDispatchBundle\Service\MirrorSyncPayload;
 use PHPUnit\Framework\Attributes\AllowMockObjectsWithoutExpectations;
 use PHPUnit\Framework\TestCase;
 use Psr\Log\LoggerInterface;
@@ -38,6 +42,10 @@ class EmailMirrorSyncSubscriberTest extends TestCase
 
     private EmailMirrorSyncSubscriber $subscriber;
 
+    private MirrorSyncStateRepository $states;
+
+    private MirrorSync $mirrorSync;
+
     protected function setUp(): void
     {
         $this->integrationHelper = $this->createMock(IntegrationHelper::class);
@@ -53,13 +61,9 @@ class EmailMirrorSyncSubscriberTest extends TestCase
         $this->unitOfWork = $this->createMock(UnitOfWork::class);
         $this->entityManager->method('getUnitOfWork')->willReturn($this->unitOfWork);
 
-        $this->subscriber = new EmailMirrorSyncSubscriber(
-            $this->integrationHelper,
-            $this->httpClient,
-            $this->logger,
-            $this->userHelper,
-            $this->entityManager,
-        );
+        $this->states     = $this->createMock(MirrorSyncStateRepository::class);
+        $this->mirrorSync = new MirrorSync($this->integrationHelper, $this->httpClient, $this->logger, new MirrorSyncPayload(), $this->states);
+        $this->subscriber = new EmailMirrorSyncSubscriber($this->mirrorSync, new MirrorSyncPayload(), $this->userHelper, $this->entityManager);
     }
 
     private function mockIntegration(bool $isPublished, array $keys): void
@@ -114,7 +118,7 @@ class EmailMirrorSyncSubscriberTest extends TestCase
     {
         $this->mockIntegration(true, ['webhook_url' => '']);
         $this->httpClient->expects($this->never())->method('request');
-        $this->logger->expects($this->once())->method('warning');
+        $this->logger->expects($this->once())->method('warning')->with('N8nDispatch: Mirror sync skipped, webhook_url is not configured.');
 
         $this->dispatch($this->buildEmail());
     }
@@ -311,13 +315,7 @@ class EmailMirrorSyncSubscriberTest extends TestCase
         // flush() expectations don't collide on one shared mock.
         $secondEntityManager = $this->createMock(EntityManagerInterface::class);
         $secondEntityManager->expects($this->never())->method('flush');
-        $secondSubscriber = new EmailMirrorSyncSubscriber(
-            $this->integrationHelper,
-            $this->httpClient,
-            $this->logger,
-            $this->userHelper,
-            $secondEntityManager,
-        );
+        $secondSubscriber = new EmailMirrorSyncSubscriber($this->mirrorSync, new MirrorSyncPayload(), $this->userHelper, $secondEntityManager);
         $secondSubscriber->onEmailPostSave(new EmailEvent($email, false));
 
         $this->assertSame($htmlAfterFirstSave, $email->getCustomHtml());
@@ -381,6 +379,7 @@ class EmailMirrorSyncSubscriberTest extends TestCase
 
         $this->assertSame('https://n8n.example.test/hook', $sent['url']);
         $this->assertSame(['Content-Type' => 'application/json', 'X-N8n-Dispatch-Action' => 'email.save', 'X-N8n-Dispatch-Token' => 'tok'], $sent['options']['headers']);
+        $this->assertSame([30, 60], [$sent['options']['timeout'], $sent['options']['max_duration']], 'a save never waits for n8n longer than this');
     }
 
     public function testATokenOfOnlySpacesSendsNoTokenHeader(): void
@@ -435,14 +434,118 @@ class EmailMirrorSyncSubscriberTest extends TestCase
         $this->assertSame("<p>x</p>\n".self::FOOTER, $email->getCustomHtml());
     }
 
-    public function testAnEmailWithoutHtmlGetsJustTheFooter(): void
+    public function testAnEmailWithoutHtmlIsNotSentGetsNoFooterAndIsRecordedAsSkipped(): void
     {
+        $this->mockIntegration(true, ['webhook_url' => 'https://n8n.example.test/hook']);
         $email = $this->buildEmail();
-        $email->setCustomHtml(null);
+        $email->setCustomHtml("  \n");
 
-        $this->sent($email);
+        $this->httpClient->expects($this->never())->method('request');
+        $this->entityManager->expects($this->never())->method('flush');
+        $this->states->expects($this->once())->method('record')
+            ->with(6, MirrorSyncState::STATUS_SKIPPED, $this->isType('string'), null, null, MirrorSyncState::SOURCE_SAVE, $this->isInstanceOf(\DateTimeImmutable::class));
 
-        $this->assertSame("\n".self::FOOTER, $email->getCustomHtml());
+        $this->dispatch($email);
+
+        $this->assertSame("  \n", $email->getCustomHtml());
+    }
+
+    public function testASuccessIsRecordedAsOkWithTheHttpStatus(): void
+    {
+        $this->states->expects($this->once())->method('record')
+            ->with(6, MirrorSyncState::STATUS_OK, $this->isType('string'), 200, null, MirrorSyncState::SOURCE_SAVE, $this->isInstanceOf(\DateTimeImmutable::class));
+
+        $this->sent($this->buildEmail());
+    }
+
+    public function testAnHttpErrorIsRecordedAsFailedWithTheStatus(): void
+    {
+        $this->mockIntegration(true, ['webhook_url' => 'https://n8n.example.test/hook']);
+        $response = $this->createMock(ResponseInterface::class);
+        $response->method('getStatusCode')->willReturn(500);
+        $this->httpClient->method('request')->willReturn($response);
+        $this->states->expects($this->once())->method('record')
+            ->with(6, MirrorSyncState::STATUS_FAILED, $this->isType('string'), 500, 'HTTP 500', MirrorSyncState::SOURCE_SAVE, $this->anything());
+
+        $this->dispatch($this->buildEmail());
+    }
+
+    public function testATransportFailureIsRecordedAsFailedWithoutStatus(): void
+    {
+        $this->mockIntegration(true, ['webhook_url' => 'https://n8n.example.test/hook']);
+        $this->httpClient->method('request')->willThrowException(new \RuntimeException('Connection refused'));
+        $this->states->expects($this->once())->method('record')
+            ->with(6, MirrorSyncState::STATUS_FAILED, $this->isType('string'), null, 'Connection refused', MirrorSyncState::SOURCE_SAVE, $this->anything());
+
+        $this->dispatch($this->buildEmail());
+    }
+
+    public function testA2xxWithAnErrorInTheBodyIsAFailureAndIsLogged(): void
+    {
+        $this->mockIntegration(true, ['webhook_url' => 'https://n8n.example.test/hook']);
+        $response = $this->createMock(ResponseInterface::class);
+        $response->method('getStatusCode')->willReturn(200);
+        $response->method('getContent')->with(false)->willReturn('{"error":"Mirror is down"}');
+        $this->httpClient->method('request')->willReturn($response);
+        $this->logger->expects($this->once())->method('error')->with('N8nDispatch: webhook answered an error for email 6: Mirror is down');
+        $this->states->expects($this->once())->method('record')
+            ->with(6, MirrorSyncState::STATUS_FAILED, $this->isType('string'), 200, 'Mirror is down', MirrorSyncState::SOURCE_SAVE, $this->anything());
+
+        $this->dispatch($this->buildEmail());
+    }
+
+    public function testA2xxWithAJsonBodyWithoutErrorIsASuccess(): void
+    {
+        $this->mockIntegration(true, ['webhook_url' => 'https://n8n.example.test/hook']);
+        $response = $this->createMock(ResponseInterface::class);
+        $response->method('getStatusCode')->willReturn(201);
+        $response->method('getContent')->willReturn('{"ok":true,"error":""}');
+        $this->httpClient->method('request')->willReturn($response);
+        $this->logger->expects($this->never())->method('error');
+        $this->states->expects($this->once())->method('record')
+            ->with(6, MirrorSyncState::STATUS_OK, $this->anything(), 201, null, $this->anything(), $this->anything());
+
+        $this->dispatch($this->buildEmail());
+    }
+
+    public function testARecordFailureIsLoggedAndNeverReachesTheSave(): void
+    {
+        $this->states->method('record')->willThrowException(new \RuntimeException('Table n8n_dispatch_mirror_sync does not exist'));
+        $this->logger->expects($this->once())->method('error')->with('N8nDispatch: could not record the Mirror sync of email 6: Table n8n_dispatch_mirror_sync does not exist');
+
+        $this->sent($this->buildEmail());
+    }
+
+    public function testASyncWithTheIntegrationOffSendsNothingAndReturnsNull(): void
+    {
+        $this->mockIntegration(false, ['webhook_url' => 'https://n8n.example.test/hook']);
+        $this->httpClient->expects($this->never())->method('request');
+        $this->states->expects($this->never())->method('record');
+
+        $this->assertNull($this->mirrorSync->sync(6, (new MirrorSyncPayload())->fieldsOf($this->buildEmail()), null, MirrorSyncState::SOURCE_JOB, new \DateTimeImmutable()));
+    }
+
+    public function testAnUnconfiguredIntegrationRecordsNothing(): void
+    {
+        $this->mockIntegration(false, ['webhook_url' => 'https://n8n.example.test/hook']);
+        $this->states->expects($this->never())->method('record');
+        $this->entityManager->expects($this->never())->method('flush');
+
+        $this->dispatch($this->buildEmail());
+    }
+
+    public function testTheSameContentGivesTheSameHashAndAnyFieldMirrorReceivesChangesIt(): void
+    {
+        $payload = new MirrorSyncPayload();
+        $fields  = $payload->fieldsOf($this->buildEmail());
+        $hash    = $payload->contentHash($fields);
+
+        $this->assertSame($hash, $payload->contentHash($fields));
+        $this->assertSame($hash, $payload->contentHash(['customHtml' => $payload->withFooter((string) $fields['customHtml'])] + $fields), 'the footer is part of the HTML sent, so adding it again changes nothing');
+
+        foreach (['subject', 'customHtml', 'preheaderText', 'fromName', 'fromAddress'] as $key) {
+            $this->assertNotSame($hash, $payload->contentHash([$key => 'changed'] + $fields), $key);
+        }
     }
 
     public function testThePreheaderGoesRightAfterTheOpeningBodyTagWhateverItsCase(): void
