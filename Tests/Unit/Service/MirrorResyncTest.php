@@ -245,6 +245,16 @@ class MirrorResyncTest extends TestCase
         $this->assertSame([0, 2], [$summary['ok'], $summary['left']], 'the Email not sent and the one after it are left');
     }
 
+    public function testAWebhookRemovedAfterTheFirstEmailLeavesTheRest(): void
+    {
+        $this->givenRows([$this->row(1, null), $this->row(2, null), $this->row(3, null)]);
+        $this->mirrorSync->method('sync')->willReturnOnConsecutiveCalls(MirrorSyncState::STATUS_OK, null);
+
+        $summary = $this->resync->run(10, 0, 24, $this->now);
+
+        $this->assertSame([1, 2], [$summary['ok'], $summary['left']], 'Email 2 (not sent) and Email 3 are left');
+    }
+
     public function testRunOneSendsThatEmailWhateverItsState(): void
     {
         $this->states->method('emailRow')->with(9)->willReturn($this->email(9));

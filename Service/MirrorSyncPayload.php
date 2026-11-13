@@ -19,6 +19,9 @@ class MirrorSyncPayload
     public const FOOTER_START = '<!-- n8ndispatch:unsubscribe-footer:start -->';
     public const FOOTER_END   = '<!-- n8ndispatch:unsubscribe-footer:end -->';
 
+    /** The Email fields Mirror receives: the keys of fieldsOf() and the column aliases of MirrorSyncStateRepository. */
+    public const FIELDS = ['subject', 'customHtml', 'preheaderText', 'fromName', 'fromAddress'];
+
     /**
      * @return array{subject: ?string, customHtml: ?string, preheaderText: ?string, fromName: ?string, fromAddress: ?string}
      */
@@ -31,6 +34,24 @@ class MirrorSyncPayload
             'fromName'      => $email->getFromName(),
             'fromAddress'   => $email->getFromAddress(),
         ];
+    }
+
+    /**
+     * The fields of a database row (MirrorSyncStateRepository), with the same keys and types as fieldsOf().
+     *
+     * @param array<string, mixed> $row
+     *
+     * @return array<string, ?string>
+     */
+    public function fieldsOfRow(array $row): array
+    {
+        $fields = [];
+
+        foreach (self::FIELDS as $key) {
+            $fields[$key] = isset($row[$key]) ? (string) $row[$key] : null;
+        }
+
+        return $fields;
     }
 
     /**

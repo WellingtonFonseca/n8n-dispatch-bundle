@@ -13,6 +13,9 @@ class PollRunRepository extends CommonRepository
 {
     public const RUNNING_STALE_MINUTES = 120;
 
+    /** Runs of every kind older than this are dropped when a new run starts. */
+    public const KEEP_RUNS_DAYS = 7;
+
     public function getTableAlias(): string
     {
         return 'pr';

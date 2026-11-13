@@ -62,7 +62,7 @@ class MirrorSyncStateRepository extends CommonRepository
         $table = $this->getTableName();
 
         return $this->getEntityManager()->getConnection()->fetchAllAssociative(
-            'SELECT '.self::EMAIL_COLUMNS.', ms.status, ms.content_hash AS contentHash, ms.attempts, ms.attempted_at AS attemptedAt, ms.synced_at AS syncedAt '
+            'SELECT '.self::EMAIL_COLUMNS.', ms.status, ms.content_hash AS contentHash, ms.attempts, ms.attempted_at AS attemptedAt '
             .'FROM '.MAUTIC_TABLE_PREFIX."emails e LEFT JOIN {$table} ms ON ms.email_id = e.id "
             .'WHERE e.id > :after ORDER BY e.id LIMIT '.max(1, $limit),
             ['after' => $afterId]

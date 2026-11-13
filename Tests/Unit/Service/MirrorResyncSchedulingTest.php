@@ -66,6 +66,8 @@ class MirrorResyncSchedulingTest extends TestCase
         $runs = $this->createMock(PollRunRepository::class);
         $runs->expects($this->once())->method('claim')->with($now, 90, PollRun::KIND_MIRROR_RESYNC)->willReturn(8);
 
+        $runs->expects($this->once())->method('prune')->with($this->equalTo(new \DateTimeImmutable('2026-11-06 10:00:00')));
+
         $this->assertSame(8, (new MirrorResyncScheduler($settings, $runs))->tryStart($now));
     }
 

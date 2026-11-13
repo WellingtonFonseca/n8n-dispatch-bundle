@@ -125,7 +125,7 @@ class MirrorResync
             return self::PRIORITY_FAILED;
         }
 
-        if ($row['contentHash'] !== $this->payload->contentHash($this->fieldsOfRow($row))) {
+        if ($row['contentHash'] !== $this->payload->contentHash($this->payload->fieldsOfRow($row))) {
             return self::PRIORITY_CHANGED;
         }
 
@@ -161,7 +161,7 @@ class MirrorResync
                 continue;
             }
 
-            $fields = $this->fieldsOfRow($row);
+            $fields = $this->payload->fieldsOfRow($row);
 
             if ($this->payload->hasContent($fields)) {
                 $this->pacer->pause($delayMs);
@@ -178,21 +178,5 @@ class MirrorResync
         }
 
         return $counts;
-    }
-
-    /**
-     * @param array<string, mixed> $row
-     *
-     * @return array<string, ?string>
-     */
-    private function fieldsOfRow(array $row): array
-    {
-        $fields = [];
-
-        foreach (['subject', 'customHtml', 'preheaderText', 'fromName', 'fromAddress'] as $key) {
-            $fields[$key] = isset($row[$key]) ? (string) $row[$key] : null;
-        }
-
-        return $fields;
     }
 }
