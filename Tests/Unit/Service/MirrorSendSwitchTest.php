@@ -11,8 +11,11 @@ use MauticPlugin\N8nDispatchBundle\Service\FeatureSettings;
 use MauticPlugin\N8nDispatchBundle\Service\MirrorResyncSettings;
 use MauticPlugin\N8nDispatchBundle\Service\MirrorSendSwitch;
 use PHPUnit\Framework\Attributes\DataProvider;
+use PHPUnit\Framework\Attributes\Group;
 use PHPUnit\Framework\TestCase;
 
+#[Group('area:mirror')]
+#[Group('risk:FLUXO')]
 class MirrorSendSwitchTest extends TestCase
 {
     public function testItIsOnWhenTheKeyIsMissing(): void

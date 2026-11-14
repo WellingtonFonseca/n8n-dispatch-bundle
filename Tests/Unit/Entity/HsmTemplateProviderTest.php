@@ -6,9 +6,14 @@ namespace MauticPlugin\N8nDispatchBundle\Tests\Unit\Entity;
 
 use MauticPlugin\N8nDispatchBundle\Entity\HsmTemplate;
 use PHPUnit\Framework\Attributes\DataProvider;
+use PHPUnit\Framework\Attributes\Group;
 use PHPUnit\Framework\TestCase;
 use Symfony\Component\Validator\Validation;
 
+#[Group('area:dispatch-hsm')]
+#[Group('area:templates')]
+#[Group('risk:CRITICO')]
+#[Group('risk:DADOS')]
 class HsmTemplateProviderTest extends TestCase
 {
     private const REQUIRED         = 'mautic.core.value.required';

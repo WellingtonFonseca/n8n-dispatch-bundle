@@ -8,8 +8,11 @@ use Mautic\PluginBundle\Entity\Integration;
 use Mautic\PluginBundle\Helper\IntegrationHelper;
 use MauticPlugin\N8nDispatchBundle\Integration\N8nDispatchIntegration;
 use MauticPlugin\N8nDispatchBundle\Service\FeatureSettings;
+use PHPUnit\Framework\Attributes\Group;
 use PHPUnit\Framework\TestCase;
 
+#[Group('area:plugin-settings')]
+#[Group('risk:INFRA')]
 class FeatureSettingsTest extends TestCase
 {
     public function testItReturnsWhatTheFeaturesTabStored(): void

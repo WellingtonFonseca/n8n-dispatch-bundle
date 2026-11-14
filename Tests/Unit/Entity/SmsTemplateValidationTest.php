@@ -5,9 +5,14 @@ declare(strict_types=1);
 namespace MauticPlugin\N8nDispatchBundle\Tests\Unit\Entity;
 
 use MauticPlugin\N8nDispatchBundle\Entity\SmsTemplate;
+use PHPUnit\Framework\Attributes\Group;
 use PHPUnit\Framework\TestCase;
 use Symfony\Component\Validator\Validation;
 
+#[Group('area:dispatch-sms')]
+#[Group('area:templates')]
+#[Group('risk:DADOS')]
+#[Group('risk:CRITICO')]
 class SmsTemplateValidationTest extends TestCase
 {
     private const MESSAGE  = 'mautic.n8ndispatch.template.error.numeric_variables';

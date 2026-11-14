@@ -12,9 +12,12 @@ use MauticPlugin\N8nDispatchBundle\Model\HsmTemplateModel;
 use MauticPlugin\N8nDispatchBundle\Model\SmsTemplateModel;
 use MauticPlugin\N8nDispatchBundle\Twig\EventTemplateExtension;
 use PHPUnit\Framework\Attributes\AllowMockObjectsWithoutExpectations;
+use PHPUnit\Framework\Attributes\Group;
 use PHPUnit\Framework\TestCase;
 
 #[AllowMockObjectsWithoutExpectations]
+#[Group('area:templates')]
+#[Group('risk:UI')]
 class EventTemplateExtensionTest extends TestCase
 {
     private function extension(?object $email = null, ?object $sms = null, ?object $hsm = null): EventTemplateExtension

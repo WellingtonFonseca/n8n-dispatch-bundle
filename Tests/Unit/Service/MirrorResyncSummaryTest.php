@@ -5,8 +5,11 @@ declare(strict_types=1);
 namespace MauticPlugin\N8nDispatchBundle\Tests\Unit\Service;
 
 use MauticPlugin\N8nDispatchBundle\Service\MirrorResyncSummary;
+use PHPUnit\Framework\Attributes\Group;
 use PHPUnit\Framework\TestCase;
 
+#[Group('area:mirror')]
+#[Group('risk:DADOS')]
 class MirrorResyncSummaryTest extends TestCase
 {
     public function testTheLineCarriesEveryCountInItsOwnPlace(): void

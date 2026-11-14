@@ -1,3 +1,4 @@
+// Test-tags: areas=dispatch-hsm,templates risks=FLUXO,UI
 // Runs the page script (Assets/js/campaign-hsm-dispatch.js) against a stand-in for Mautic and mQuery:
 // the carousel's image inputs must show for the "carousel" type and hide for any other.
 const test = require('node:test');

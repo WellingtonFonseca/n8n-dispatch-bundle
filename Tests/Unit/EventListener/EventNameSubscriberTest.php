@@ -11,9 +11,12 @@ use Mautic\CampaignBundle\Event\CampaignEvent;
 use MauticPlugin\N8nDispatchBundle\EventListener\EventNameSubscriber;
 use MauticPlugin\N8nDispatchBundle\Service\EventNameSync;
 use PHPUnit\Framework\Attributes\AllowMockObjectsWithoutExpectations;
+use PHPUnit\Framework\Attributes\Group;
 use PHPUnit\Framework\TestCase;
 
 #[AllowMockObjectsWithoutExpectations]
+#[Group('area:templates')]
+#[Group('risk:DADOS')]
 class EventNameSubscriberTest extends TestCase
 {
     private function campaign(Event ...$events): Campaign

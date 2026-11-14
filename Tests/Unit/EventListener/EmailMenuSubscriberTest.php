@@ -11,9 +11,13 @@ use Mautic\CoreBundle\Menu\MenuHelper;
 use Mautic\CoreBundle\Security\Permissions\CorePermissions;
 use Mautic\PluginBundle\Helper\IntegrationHelper;
 use MauticPlugin\N8nDispatchBundle\EventListener\EmailMenuSubscriber;
+use PHPUnit\Framework\Attributes\Group;
 use PHPUnit\Framework\TestCase;
 use Symfony\Component\HttpFoundation\RequestStack;
 
+#[Group('area:email')]
+#[Group('area:dispatch-email')]
+#[Group('risk:FLUXO')]
 class EmailMenuSubscriberTest extends TestCase
 {
     private const CHANNELS = 'mautic.core.channels';

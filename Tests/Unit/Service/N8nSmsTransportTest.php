@@ -7,9 +7,12 @@ namespace MauticPlugin\N8nDispatchBundle\Tests\Unit\Service;
 use Mautic\LeadBundle\Entity\Lead;
 use Mautic\SmsBundle\Sms\TransportInterface;
 use MauticPlugin\N8nDispatchBundle\Service\N8nSmsTransport;
+use PHPUnit\Framework\Attributes\Group;
 use PHPUnit\Framework\TestCase;
 use Symfony\Contracts\Translation\TranslatorInterface;
 
+#[Group('area:dispatch-sms')]
+#[Group('risk:CRITICO')]
 class N8nSmsTransportTest extends TestCase
 {
     public function testItIsAnSmsTransportOfCore(): void

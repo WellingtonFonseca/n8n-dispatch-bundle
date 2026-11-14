@@ -11,10 +11,14 @@ use MauticPlugin\N8nDispatchBundle\Service\Provider\HsmProviderPolicy;
 use MauticPlugin\N8nDispatchBundle\Service\Provider\NullHsmProviderGateway;
 use MauticPlugin\N8nDispatchBundle\Twig\AuditHistoryExtension;
 use PHPUnit\Framework\Attributes\AllowMockObjectsWithoutExpectations;
+use PHPUnit\Framework\Attributes\Group;
 use PHPUnit\Framework\TestCase;
 use Symfony\Contracts\Translation\TranslatorInterface;
 
 #[AllowMockObjectsWithoutExpectations]
+#[Group('area:templates')]
+#[Group('risk:UI')]
+#[Group('risk:DADOS')]
 class AuditHistoryExtensionTest extends TestCase
 {
     private function extension(AuditLogModel $model): AuditHistoryExtension

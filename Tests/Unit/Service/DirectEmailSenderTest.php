@@ -16,6 +16,7 @@ use MauticPlugin\N8nDispatchBundle\Service\DirectEmailSender;
 use MauticPlugin\N8nDispatchBundle\Service\EmailSendMode;
 use MauticPlugin\N8nDispatchBundle\Service\DispatchFailureReasons;
 use MauticPlugin\N8nDispatchBundle\Tests\Unit\EventListener\EnUsTranslator;
+use PHPUnit\Framework\Attributes\Group;
 use PHPUnit\Framework\MockObject\MockObject;
 use PHPUnit\Framework\Attributes\DataProvider;
 use PHPUnit\Framework\Attributes\AllowMockObjectsWithoutExpectations;
@@ -23,6 +24,10 @@ use PHPUnit\Framework\TestCase;
 use Psr\Log\LoggerInterface;
 
 #[AllowMockObjectsWithoutExpectations]
+#[Group('area:email')]
+#[Group('area:dispatch-email')]
+#[Group('risk:CRITICO')]
+#[Group('risk:DADOS')]
 class DirectEmailSenderTest extends TestCase
 {
     private EmailSendMode&MockObject $mode;

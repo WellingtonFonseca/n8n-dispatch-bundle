@@ -11,9 +11,16 @@ use Mautic\LeadBundle\Model\LeadModel;
 use MauticPlugin\N8nDispatchBundle\Resolver\CustomObjectVariableResolver;
 use MauticPlugin\N8nDispatchBundle\Resolver\VariableResolver;
 use PHPUnit\Framework\Attributes\AllowMockObjectsWithoutExpectations;
+use PHPUnit\Framework\Attributes\Group;
 use PHPUnit\Framework\TestCase;
 
 #[AllowMockObjectsWithoutExpectations]
+#[Group('area:variables')]
+#[Group('area:dispatch-email')]
+#[Group('area:dispatch-sms')]
+#[Group('area:dispatch-hsm')]
+#[Group('risk:CRITICO')]
+#[Group('risk:DADOS')]
 class VariableResolverTest extends TestCase
 {
     private CustomObjectVariableResolver $customObjectVariableResolver;

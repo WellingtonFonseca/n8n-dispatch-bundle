@@ -14,6 +14,7 @@ use MauticPlugin\N8nDispatchBundle\Service\StatusPoller;
 use MauticPlugin\N8nDispatchBundle\Service\StatusResponseParser;
 use MauticPlugin\N8nDispatchBundle\Service\StatusTracker;
 use PHPUnit\Framework\Attributes\AllowMockObjectsWithoutExpectations;
+use PHPUnit\Framework\Attributes\Group;
 use PHPUnit\Framework\MockObject\MockObject;
 use PHPUnit\Framework\TestCase;
 use Psr\Log\LoggerInterface;
@@ -21,6 +22,8 @@ use Symfony\Contracts\HttpClient\HttpClientInterface;
 use Symfony\Contracts\HttpClient\ResponseInterface;
 
 #[AllowMockObjectsWithoutExpectations]
+#[Group('area:status-poll')]
+#[Group('risk:CRITICO')]
 class StatusPollerTest extends TestCase
 {
     /** @var IntegrationHelper&MockObject */

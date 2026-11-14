@@ -5,8 +5,14 @@ declare(strict_types=1);
 namespace MauticPlugin\N8nDispatchBundle\Tests\Unit\Resolver;
 
 use MauticPlugin\N8nDispatchBundle\Resolver\FieldCalculator;
+use PHPUnit\Framework\Attributes\Group;
 use PHPUnit\Framework\TestCase;
 
+#[Group('area:variables')]
+#[Group('area:dispatch-email')]
+#[Group('area:dispatch-sms')]
+#[Group('area:dispatch-hsm')]
+#[Group('risk:CRITICO')]
 class FieldCalculatorTest extends TestCase
 {
     public function testADateMovesByTheWholePartOfTheCalculation(): void

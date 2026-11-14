@@ -7,6 +7,7 @@ namespace MauticPlugin\N8nDispatchBundle\Tests\Integration\Service;
 use Doctrine\ORM\EntityManagerInterface;
 use MauticPlugin\N8nDispatchBundle\Service\Alert\BounceSpikeReader;
 use MauticPlugin\N8nDispatchBundle\Tests\Integration\RollbackDatabaseTestCase;
+use PHPUnit\Framework\Attributes\Group;
 
 require_once __DIR__.'/../RollbackDatabaseTestCase.php';
 
@@ -14,6 +15,8 @@ require_once __DIR__.'/../RollbackDatabaseTestCase.php';
  * The query of BounceSpikeReader against the stack's real MySQL, in a transaction rolled back at the end. Every campaign
  * is made by the test, and the result is narrowed to its own campaign id.
  */
+#[Group('area:alerts')]
+#[Group('risk:CRITICO')]
 class BounceSpikeReaderDbTest extends RollbackDatabaseTestCase
 {
     private const SINCE = '2026-03-10 10:00:00';

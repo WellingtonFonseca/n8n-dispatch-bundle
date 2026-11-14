@@ -7,8 +7,11 @@ namespace MauticPlugin\N8nDispatchBundle\Tests\Unit\Service;
 use MauticPlugin\N8nDispatchBundle\Entity\PollRun;
 use MauticPlugin\N8nDispatchBundle\Service\StatusPollJob;
 use MauticPlugin\N8nDispatchBundle\Service\StatusPollSettings;
+use PHPUnit\Framework\Attributes\Group;
 use PHPUnit\Framework\TestCase;
 
+#[Group('area:status-poll')]
+#[Group('risk:INFRA')]
 class StatusPollJobTest extends TestCase
 {
     public function testTheJobIsDueWithTheIntervalOnlyWhenOn(): void

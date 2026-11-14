@@ -8,6 +8,7 @@ use Doctrine\DBAL\ArrayParameterType;
 use Doctrine\DBAL\Connection;
 use Doctrine\ORM\EntityManagerInterface;
 use MauticPlugin\N8nDispatchBundle\EventListener\CampaignEmailStepGuardSubscriber;
+use PHPUnit\Framework\Attributes\Group;
 use PHPUnit\Framework\TestCase;
 use Symfony\Component\HttpFoundation\JsonResponse;
 use Symfony\Component\HttpFoundation\Request;
@@ -19,6 +20,11 @@ use Symfony\Component\HttpKernel\KernelEvents;
  * The guard that keeps the REST API from saving a "Send via n8n (Email)" step with no Email, or with an Email that
  * does not exist (the screen's form already requires one; the API does not look at the step's properties).
  */
+#[Group('area:dispatch-email')]
+#[Group('area:dispatch-sms')]
+#[Group('area:dispatch-hsm')]
+#[Group('risk:CRITICO')]
+#[Group('risk:FLUXO')]
 class CampaignEmailStepGuardSubscriberTest extends TestCase
 {
     private const NEW        = 'Mautic\CampaignBundle\Controller\Api\CampaignApiController::newEntityAction';

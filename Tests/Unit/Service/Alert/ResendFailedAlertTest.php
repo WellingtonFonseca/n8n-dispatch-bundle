@@ -11,9 +11,12 @@ use Mautic\LeadBundle\Entity\Lead;
 use MauticPlugin\N8nDispatchBundle\Service\Alert\AlertSender;
 use MauticPlugin\N8nDispatchBundle\Service\Alert\CampaignLink;
 use MauticPlugin\N8nDispatchBundle\Service\Alert\ResendFailedAlert;
+use PHPUnit\Framework\Attributes\Group;
 use PHPUnit\Framework\TestCase;
 use Symfony\Component\Routing\Generator\UrlGeneratorInterface;
 
+#[Group('area:alerts')]
+#[Group('risk:CRITICO')]
 class ResendFailedAlertTest extends TestCase
 {
     public function testTheAlertNamesTheLogTheContactTheStepTheCampaignTheReasonAndWhoResent(): void

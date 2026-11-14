@@ -9,10 +9,14 @@ use MauticPlugin\N8nDispatchBundle\Service\Provider\HsmProviderPolicy;
 use MauticPlugin\N8nDispatchBundle\Service\Provider\NullHsmProviderGateway;
 use MauticPlugin\N8nDispatchBundle\Twig\HsmProviderExtension;
 use PHPUnit\Framework\Attributes\AllowMockObjectsWithoutExpectations;
+use PHPUnit\Framework\Attributes\Group;
 use PHPUnit\Framework\TestCase;
 use Symfony\Contracts\Translation\TranslatorInterface;
 
 #[AllowMockObjectsWithoutExpectations]
+#[Group('area:dispatch-hsm')]
+#[Group('risk:UI')]
+#[Group('risk:CRITICO')]
 class HsmProviderExtensionTest extends TestCase
 {
     private function extension(): HsmProviderExtension

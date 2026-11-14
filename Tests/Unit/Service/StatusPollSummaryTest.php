@@ -5,8 +5,12 @@ declare(strict_types=1);
 namespace MauticPlugin\N8nDispatchBundle\Tests\Unit\Service;
 
 use MauticPlugin\N8nDispatchBundle\Service\StatusPollSummary;
+use PHPUnit\Framework\Attributes\Group;
 use PHPUnit\Framework\TestCase;
 
+#[Group('area:status-poll')]
+#[Group('risk:DADOS')]
+#[Group('risk:FLUXO')]
 class StatusPollSummaryTest extends TestCase
 {
     public function testTheLineCarriesEveryCountInItsOwnPlace(): void

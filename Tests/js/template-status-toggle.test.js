@@ -1,3 +1,4 @@
+// Test-tags: areas=templates risks=UI,FLUXO
 // The state logic of Assets/js/template-status-toggle.js: what core's icon says about a template. The DOM part is checked in the browser
 // (scripts/5/e2e/tests/hsm-status.spec.js and sms-status.spec.js).
 const test = require('node:test');

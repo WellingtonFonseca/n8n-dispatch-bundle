@@ -6,8 +6,15 @@ namespace MauticPlugin\N8nDispatchBundle\Tests\Unit\Resolver;
 
 use MauticPlugin\N8nDispatchBundle\Resolver\DecimalFormatter;
 use PHPUnit\Framework\Attributes\DataProvider;
+use PHPUnit\Framework\Attributes\Group;
 use PHPUnit\Framework\TestCase;
 
+#[Group('area:variables')]
+#[Group('area:dispatch-email')]
+#[Group('area:dispatch-sms')]
+#[Group('area:dispatch-hsm')]
+#[Group('risk:CRITICO')]
+#[Group('risk:UI')]
 class DecimalFormatterTest extends TestCase
 {
     #[DataProvider('decimalValues')]

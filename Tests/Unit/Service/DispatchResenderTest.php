@@ -26,6 +26,7 @@ use MauticPlugin\N8nDispatchBundle\Service\StatusTracker;
 use MauticPlugin\N8nDispatchBundle\Tests\Unit\EventListener\EnUsTranslator;
 use MauticPlugin\N8nDispatchBundle\Twig\StatusExtension;
 use PHPUnit\Framework\Attributes\AllowMockObjectsWithoutExpectations;
+use PHPUnit\Framework\Attributes\Group;
 use PHPUnit\Framework\MockObject\MockObject;
 use PHPUnit\Framework\TestCase;
 use Psr\Log\LoggerInterface;
@@ -37,6 +38,8 @@ use Symfony\Contracts\HttpClient\ResponseInterface;
  * campaign listeners and the database, checked live.
  */
 #[AllowMockObjectsWithoutExpectations]
+#[Group('area:dispatch-history')]
+#[Group('risk:CRITICO')]
 class DispatchResenderTest extends TestCase
 {
     /** The values of the resend form; null is a resend without one. */

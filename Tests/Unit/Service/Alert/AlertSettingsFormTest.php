@@ -7,11 +7,15 @@ namespace MauticPlugin\N8nDispatchBundle\Tests\Unit\Service\Alert;
 use Mautic\CoreBundle\Form\Type\YesNoButtonGroupType;
 use MauticPlugin\N8nDispatchBundle\Service\Alert\AlertSettings;
 use MauticPlugin\N8nDispatchBundle\Service\Alert\AlertSettingsForm;
+use PHPUnit\Framework\Attributes\Group;
 use PHPUnit\Framework\TestCase;
 use Symfony\Component\Form\Extension\Core\Type\IntegerType;
 use Symfony\Component\Form\Extension\Core\Type\TextType;
 use Symfony\Component\Form\FormBuilderInterface;
 
+#[Group('area:alerts')]
+#[Group('risk:FLUXO')]
+#[Group('risk:UI')]
 class AlertSettingsFormTest extends TestCase
 {
     public function testItAddsTheSwitchAndTheFiveNumbersWithTheirLimitsAndTheTabMarks(): void

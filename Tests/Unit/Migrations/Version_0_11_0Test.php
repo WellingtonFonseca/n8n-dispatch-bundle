@@ -12,9 +12,12 @@ use Doctrine\DBAL\Types\Types;
 use Doctrine\ORM\EntityManager;
 use MauticPlugin\N8nDispatchBundle\Migrations\Version_0_11_0;
 use PHPUnit\Framework\Attributes\AllowMockObjectsWithoutExpectations;
+use PHPUnit\Framework\Attributes\Group;
 use PHPUnit\Framework\TestCase;
 
 #[AllowMockObjectsWithoutExpectations]
+#[Group('area:alerts')]
+#[Group('risk:INFRA')]
 class Version_0_11_0Test extends TestCase
 {
     public function testItCreatesTheAlertLogTableWithItsColumnsAndIndex(): void

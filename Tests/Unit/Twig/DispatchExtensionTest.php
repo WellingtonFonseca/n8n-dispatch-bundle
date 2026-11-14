@@ -7,9 +7,13 @@ namespace MauticPlugin\N8nDispatchBundle\Tests\Unit\Twig;
 use MauticPlugin\N8nDispatchBundle\Service\DispatchListReader;
 use MauticPlugin\N8nDispatchBundle\Twig\DispatchExtension;
 use PHPUnit\Framework\Attributes\AllowMockObjectsWithoutExpectations;
+use PHPUnit\Framework\Attributes\Group;
 use PHPUnit\Framework\TestCase;
 
 #[AllowMockObjectsWithoutExpectations]
+#[Group('area:dispatch-history')]
+#[Group('risk:UI')]
+#[Group('risk:DADOS')]
 class DispatchExtensionTest extends TestCase
 {
     public function testTheFunctionIsRegistered(): void

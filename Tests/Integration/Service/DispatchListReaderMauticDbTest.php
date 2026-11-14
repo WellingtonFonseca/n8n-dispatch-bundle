@@ -9,6 +9,7 @@ use MauticPlugin\N8nDispatchBundle\Service\DispatchFilters;
 use MauticPlugin\N8nDispatchBundle\Service\DispatchListReader;
 use MauticPlugin\N8nDispatchBundle\Service\MauticEmailOutcome;
 use MauticPlugin\N8nDispatchBundle\Tests\Integration\RollbackDatabaseTestCase;
+use PHPUnit\Framework\Attributes\Group;
 
 require_once __DIR__.'/../RollbackDatabaseTestCase.php';
 
@@ -17,6 +18,9 @@ require_once __DIR__.'/../RollbackDatabaseTestCase.php';
  * page hits and Do Not Contact tables (MauticEmailOutcome), next to the rows of n8n that read their callback as before.
  * Every row is made by the test inside a transaction rolled back at the end.
  */
+#[Group('area:dispatch-history')]
+#[Group('risk:DADOS')]
+#[Group('risk:CRITICO')]
 class DispatchListReaderMauticDbTest extends RollbackDatabaseTestCase
 {
     private DispatchListReader $reader;

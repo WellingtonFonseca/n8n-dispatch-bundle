@@ -21,12 +21,16 @@ use MauticPlugin\N8nDispatchBundle\Service\MirrorSendSwitch;
 use MauticPlugin\N8nDispatchBundle\Service\MirrorSync;
 use MauticPlugin\N8nDispatchBundle\Service\MirrorSyncPayload;
 use PHPUnit\Framework\Attributes\AllowMockObjectsWithoutExpectations;
+use PHPUnit\Framework\Attributes\Group;
 use PHPUnit\Framework\TestCase;
 use Psr\Log\LoggerInterface;
 use Symfony\Contracts\HttpClient\HttpClientInterface;
 use Symfony\Contracts\HttpClient\ResponseInterface;
 
 #[AllowMockObjectsWithoutExpectations]
+#[Group('area:mirror')]
+#[Group('risk:DADOS')]
+#[Group('risk:INFRA')]
 class EmailMirrorSyncSubscriberTest extends TestCase
 {
     private IntegrationHelper $integrationHelper;

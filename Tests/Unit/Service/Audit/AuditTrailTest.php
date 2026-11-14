@@ -7,9 +7,12 @@ namespace MauticPlugin\N8nDispatchBundle\Tests\Unit\Service\Audit;
 use MauticPlugin\N8nDispatchBundle\Service\Audit\AuditFieldFormatter;
 use MauticPlugin\N8nDispatchBundle\Service\Audit\AuditTrail;
 use PHPUnit\Framework\Attributes\AllowMockObjectsWithoutExpectations;
+use PHPUnit\Framework\Attributes\Group;
 use PHPUnit\Framework\TestCase;
 
 #[AllowMockObjectsWithoutExpectations]
+#[Group('area:templates')]
+#[Group('risk:DADOS')]
 class AuditTrailTest extends TestCase
 {
     /** A formatter that says everything as stored, so these tests are about the rows, not the wording. */

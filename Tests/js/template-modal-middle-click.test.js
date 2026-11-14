@@ -1,3 +1,4 @@
+// Test-tags: areas=appearance risks=FLUXO
 // Runs the page script (Assets/js/template-modal-middle-click.js) against a stand-in for the browser: a middle click on the
 // details link of an SMS / HSM template opens the modal and cancels the new tab; nothing else is touched.
 const test = require('node:test');
