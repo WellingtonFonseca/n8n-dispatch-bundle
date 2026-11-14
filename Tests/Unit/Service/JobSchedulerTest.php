@@ -9,9 +9,15 @@ use MauticPlugin\N8nDispatchBundle\Entity\PollRunRepository;
 use MauticPlugin\N8nDispatchBundle\Service\BackgroundCommandLauncher;
 use MauticPlugin\N8nDispatchBundle\Service\JobScheduler;
 use MauticPlugin\N8nDispatchBundle\Service\ScheduledJob;
+use PHPUnit\Framework\Attributes\Group;
 use PHPUnit\Framework\MockObject\MockObject;
 use PHPUnit\Framework\TestCase;
 
+#[Group('area:status-poll')]
+#[Group('area:mirror')]
+#[Group('area:alerts')]
+#[Group('risk:INFRA')]
+#[Group('risk:CRITICO')]
 class JobSchedulerTest extends TestCase
 {
     /** @var PollRunRepository&MockObject */

@@ -10,10 +10,14 @@ use MauticPlugin\N8nDispatchBundle\Entity\PollRunRepository;
 use MauticPlugin\N8nDispatchBundle\Service\Alert\AlertSender;
 use MauticPlugin\N8nDispatchBundle\Service\StatusPoller;
 use MauticPlugin\N8nDispatchBundle\Service\StatusPollSettings;
+use PHPUnit\Framework\Attributes\Group;
 use PHPUnit\Framework\MockObject\MockObject;
 use PHPUnit\Framework\TestCase;
 use Symfony\Component\Console\Tester\CommandTester;
 
+#[Group('area:status-poll')]
+#[Group('risk:CRITICO')]
+#[Group('risk:INFRA')]
 class StatusPollCommandTest extends TestCase
 {
     /** @var StatusPoller&MockObject */

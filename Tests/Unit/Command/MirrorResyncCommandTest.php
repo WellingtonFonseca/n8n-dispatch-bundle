@@ -9,6 +9,7 @@ use MauticPlugin\N8nDispatchBundle\Entity\PollRun;
 use MauticPlugin\N8nDispatchBundle\Entity\PollRunRepository;
 use MauticPlugin\N8nDispatchBundle\Service\MirrorResync;
 use MauticPlugin\N8nDispatchBundle\Service\MirrorResyncSettings;
+use PHPUnit\Framework\Attributes\Group;
 use PHPUnit\Framework\MockObject\MockObject;
 use PHPUnit\Framework\TestCase;
 use Symfony\Component\Console\Command\Command;
@@ -17,6 +18,9 @@ use Symfony\Component\Console\Tester\CommandTester;
 /**
  * The resync command.
  */
+#[Group('area:mirror')]
+#[Group('risk:DADOS')]
+#[Group('risk:INFRA')]
 class MirrorResyncCommandTest extends TestCase
 {
     /** @var MirrorResync&MockObject */

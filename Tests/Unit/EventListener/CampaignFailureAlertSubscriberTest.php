@@ -12,10 +12,13 @@ use Mautic\CampaignBundle\Event\FailedEvent;
 use Mautic\CampaignBundle\EventCollector\Accessor\Event\AbstractEventAccessor;
 use MauticPlugin\N8nDispatchBundle\EventListener\CampaignFailureAlertSubscriber;
 use MauticPlugin\N8nDispatchBundle\Service\Alert\CampaignFailureAlerts;
+use PHPUnit\Framework\Attributes\Group;
 use PHPUnit\Framework\MockObject\MockObject;
 use PHPUnit\Framework\TestCase;
 use Psr\Log\LoggerInterface;
 
+#[Group('area:alerts')]
+#[Group('risk:CRITICO')]
 class CampaignFailureAlertSubscriberTest extends TestCase
 {
     /** @var CampaignFailureAlerts&MockObject */

@@ -8,6 +8,7 @@ use Mautic\CoreBundle\Security\Permissions\CorePermissions;
 use Mautic\CoreBundle\Service\FlashBag;
 use MauticPlugin\N8nDispatchBundle\EventListener\EmailDeleteGuardSubscriber;
 use MauticPlugin\N8nDispatchBundle\Service\EmailTemplateUsageFinder;
+use PHPUnit\Framework\Attributes\Group;
 use PHPUnit\Framework\MockObject\MockObject;
 use PHPUnit\Framework\TestCase;
 use Symfony\Component\HttpFoundation\JsonResponse;
@@ -20,6 +21,10 @@ use Symfony\Component\HttpKernel\KernelEvents;
  * The guard that keeps an Email in use by a "Send via n8n (Email)" step from
  * being deleted, on the screen (one and batch) and on the REST API.
  */
+#[Group('area:email')]
+#[Group('area:dispatch-email')]
+#[Group('risk:CRITICO')]
+#[Group('risk:FLUXO')]
 class EmailDeleteGuardSubscriberTest extends TestCase
 {
     private const SCREEN_DELETE = 'Mautic\EmailBundle\Controller\EmailController::deleteAction';

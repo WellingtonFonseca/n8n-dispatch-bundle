@@ -8,6 +8,7 @@ use Doctrine\ORM\EntityManagerInterface;
 use MauticPlugin\N8nDispatchBundle\Service\DispatchFilters;
 use MauticPlugin\N8nDispatchBundle\Service\DispatchListReader;
 use MauticPlugin\N8nDispatchBundle\Tests\Integration\RollbackDatabaseTestCase;
+use PHPUnit\Framework\Attributes\Group;
 
 require_once __DIR__.'/../RollbackDatabaseTestCase.php';
 
@@ -17,6 +18,9 @@ require_once __DIR__.'/../RollbackDatabaseTestCase.php';
  * (also when the test fails), so nothing is left behind and no seed is read;
  * the lists are narrowed to the test's own campaign.
  */
+#[Group('area:dispatch-history')]
+#[Group('risk:DADOS')]
+#[Group('risk:FLUXO')]
 class DispatchListReaderDbTest extends RollbackDatabaseTestCase
 {
     private DispatchListReader $reader;

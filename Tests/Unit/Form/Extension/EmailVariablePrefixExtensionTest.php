@@ -9,6 +9,7 @@ use Mautic\EmailBundle\Entity\Email;
 use Mautic\EmailBundle\Form\Type\EmailType;
 use MauticPlugin\N8nDispatchBundle\Form\Extension\EmailVariablePrefixExtension;
 use MauticPlugin\N8nDispatchBundle\Service\TemplateVariableScanner;
+use PHPUnit\Framework\Attributes\Group;
 use PHPUnit\Framework\MockObject\MockObject;
 use PHPUnit\Framework\TestCase;
 use Symfony\Component\Form\FormBuilderInterface;
@@ -21,6 +22,8 @@ use Symfony\Component\HttpFoundation\RequestStack;
 use Symfony\Component\Validator\ConstraintViolationInterface;
 use Symfony\Contracts\Translation\TranslatorInterface;
 
+#[Group('area:variables')]
+#[Group('risk:FLUXO')]
 class EmailVariablePrefixExtensionTest extends TestCase
 {
     private TranslatorInterface&MockObject $translator;

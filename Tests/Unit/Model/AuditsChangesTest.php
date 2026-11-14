@@ -14,12 +14,16 @@ use MauticPlugin\N8nDispatchBundle\Entity\SmsTemplate;
 use MauticPlugin\N8nDispatchBundle\Model\HsmTemplateModel;
 use MauticPlugin\N8nDispatchBundle\Model\SmsTemplateModel;
 use MauticPlugin\N8nDispatchBundle\Service\Audit\TemplateAuditLog;
+use PHPUnit\Framework\Attributes\Group;
 use PHPUnit\Framework\MockObject\MockObject;
 use PHPUnit\Framework\TestCase;
 use Psr\Log\LoggerInterface;
 use Symfony\Component\Routing\Generator\UrlGeneratorInterface;
 use Symfony\Component\EventDispatcher\EventDispatcherInterface;
 
+#[Group('area:templates')]
+#[Group('risk:DADOS')]
+#[Group('risk:INFRA')]
 class AuditsChangesTest extends TestCase
 {
     /**

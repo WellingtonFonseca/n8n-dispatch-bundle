@@ -20,9 +20,13 @@ use MauticPlugin\N8nDispatchBundle\Service\Provider\HsmSendResult;
 use MauticPlugin\N8nDispatchBundle\Service\Provider\ProviderResender;
 use MauticPlugin\N8nDispatchBundle\Service\ResendVariables;
 use MauticPlugin\N8nDispatchBundle\Tests\Unit\EventListener\EnUsTranslator;
+use PHPUnit\Framework\Attributes\Group;
 use PHPUnit\Framework\MockObject\MockObject;
 use PHPUnit\Framework\TestCase;
 
+#[Group('area:dispatch-hsm')]
+#[Group('area:dispatch-history')]
+#[Group('risk:CRITICO')]
 class ProviderResenderTest extends TestCase
 {
     private const REQUEST = [

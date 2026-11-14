@@ -8,8 +8,12 @@ use Mautic\CoreBundle\CoreEvents;
 use Mautic\CoreBundle\Event\MenuEvent;
 use Mautic\CoreBundle\Menu\MenuHelper;
 use MauticPlugin\N8nDispatchBundle\EventListener\EmailMenuSubscriber;
+use PHPUnit\Framework\Attributes\Group;
 use PHPUnit\Framework\TestCase;
 
+#[Group('area:email')]
+#[Group('area:dispatch-email')]
+#[Group('risk:FLUXO')]
 class EmailMenuSubscriberTest extends TestCase
 {
     private const CHANNELS = 'mautic.core.channels';

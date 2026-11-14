@@ -11,6 +11,7 @@ use MauticPlugin\N8nDispatchBundle\Entity\EmailVariablesRepository;
 use MauticPlugin\N8nDispatchBundle\Form\Extension\EmailVariableMappingExtension;
 use MauticPlugin\N8nDispatchBundle\Service\TemplateVariableScanner;
 use MauticPlugin\N8nDispatchBundle\Service\VariableMappingChecker;
+use PHPUnit\Framework\Attributes\Group;
 use PHPUnit\Framework\MockObject\MockObject;
 use PHPUnit\Framework\TestCase;
 use Symfony\Component\Form\FormBuilderInterface;
@@ -25,6 +26,9 @@ use Symfony\Component\HttpFoundation\RequestStack;
 use Symfony\Component\Validator\ConstraintViolationInterface;
 use Symfony\Contracts\Translation\TranslatorInterface;
 
+#[Group('area:variables')]
+#[Group('risk:CRITICO')]
+#[Group('risk:FLUXO')]
 class EmailVariableMappingExtensionTest extends TestCase
 {
     private EmailVariablesRepository&MockObject $repository;

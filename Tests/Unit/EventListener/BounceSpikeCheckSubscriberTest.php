@@ -6,6 +6,7 @@ namespace MauticPlugin\N8nDispatchBundle\Tests\Unit\EventListener;
 
 use MauticPlugin\N8nDispatchBundle\EventListener\BounceSpikeCheckSubscriber;
 use MauticPlugin\N8nDispatchBundle\Service\Alert\BounceSpikeAlerts;
+use PHPUnit\Framework\Attributes\Group;
 use PHPUnit\Framework\MockObject\MockObject;
 use PHPUnit\Framework\TestCase;
 use Psr\Log\LoggerInterface;
@@ -15,6 +16,9 @@ use Symfony\Component\Console\Event\ConsoleCommandEvent;
 use Symfony\Component\Console\Input\ArrayInput;
 use Symfony\Component\Console\Output\NullOutput;
 
+#[Group('area:alerts')]
+#[Group('risk:CRITICO')]
+#[Group('risk:INFRA')]
 class BounceSpikeCheckSubscriberTest extends TestCase
 {
     /** @var BounceSpikeAlerts&MockObject */

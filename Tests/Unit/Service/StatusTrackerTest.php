@@ -9,9 +9,13 @@ use MauticPlugin\N8nDispatchBundle\Entity\DispatchCallbackRepository;
 use MauticPlugin\N8nDispatchBundle\Entity\DispatchTracking;
 use MauticPlugin\N8nDispatchBundle\Entity\DispatchTrackingRepository;
 use MauticPlugin\N8nDispatchBundle\Service\StatusTracker;
+use PHPUnit\Framework\Attributes\Group;
 use PHPUnit\Framework\MockObject\MockObject;
 use PHPUnit\Framework\TestCase;
 
+#[Group('area:status-poll')]
+#[Group('risk:CRITICO')]
+#[Group('risk:DADOS')]
 class StatusTrackerTest extends TestCase
 {
     /** @var DispatchTrackingRepository&MockObject */

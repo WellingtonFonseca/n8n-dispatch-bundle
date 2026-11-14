@@ -5,8 +5,11 @@ declare(strict_types=1);
 namespace MauticPlugin\N8nDispatchBundle\Tests\Unit\Service;
 
 use MauticPlugin\N8nDispatchBundle\Service\DispatchFilters;
+use PHPUnit\Framework\Attributes\Group;
 use PHPUnit\Framework\TestCase;
 
+#[Group('area:dispatch-history')]
+#[Group('risk:FLUXO')]
 class DispatchFiltersTest extends TestCase
 {
     private \DateTimeZone $sp;

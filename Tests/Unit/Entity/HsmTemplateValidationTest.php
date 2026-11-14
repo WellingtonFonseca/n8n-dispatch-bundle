@@ -5,9 +5,14 @@ declare(strict_types=1);
 namespace MauticPlugin\N8nDispatchBundle\Tests\Unit\Entity;
 
 use MauticPlugin\N8nDispatchBundle\Entity\HsmTemplate;
+use PHPUnit\Framework\Attributes\Group;
 use PHPUnit\Framework\TestCase;
 use Symfony\Component\Validator\Validation;
 
+#[Group('area:dispatch-hsm')]
+#[Group('area:templates')]
+#[Group('risk:DADOS')]
+#[Group('risk:CRITICO')]
 class HsmTemplateValidationTest extends TestCase
 {
     private const MESSAGE  = 'mautic.n8ndispatch.template.error.numeric_variables';

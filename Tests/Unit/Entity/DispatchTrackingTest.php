@@ -5,8 +5,12 @@ declare(strict_types=1);
 namespace MauticPlugin\N8nDispatchBundle\Tests\Unit\Entity;
 
 use MauticPlugin\N8nDispatchBundle\Entity\DispatchTracking;
+use PHPUnit\Framework\Attributes\Group;
 use PHPUnit\Framework\TestCase;
 
+#[Group('area:dispatch-history')]
+#[Group('risk:CRITICO')]
+#[Group('risk:DADOS')]
 class DispatchTrackingTest extends TestCase
 {
     private function tracking(): DispatchTracking

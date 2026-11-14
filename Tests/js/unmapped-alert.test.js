@@ -1,3 +1,4 @@
+// Test-tags: areas=alerts risks=FLUXO,UI
 // Run inside the Mautic container, no extra dependencies (Node's built-in runner):
 //   docker exec mautic-mautic_web-1 sh -c "cd /var/www/html/docroot/plugins/N8nDispatchBundle && node --test 'Tests/js/*.test.js'"
 'use strict';

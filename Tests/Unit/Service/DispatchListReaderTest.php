@@ -5,6 +5,7 @@ declare(strict_types=1);
 namespace MauticPlugin\N8nDispatchBundle\Tests\Unit\Service;
 
 use MauticPlugin\N8nDispatchBundle\Service\DispatchListReader;
+use PHPUnit\Framework\Attributes\Group;
 use PHPUnit\Framework\TestCase;
 
 require_once __DIR__.'/WakeupProbe.php';
@@ -14,6 +15,9 @@ require_once __DIR__.'/WakeupProbe.php';
  * points at, and how a contact is named. The queries themselves are plain
  * SQL, checked in Tests/Integration.
  */
+#[Group('area:dispatch-history')]
+#[Group('risk:DADOS')]
+#[Group('risk:FLUXO')]
 class DispatchListReaderTest extends TestCase
 {
     public function testTheEmailEventPointsAtTheEmailKey(): void

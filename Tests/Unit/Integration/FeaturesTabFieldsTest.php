@@ -7,6 +7,7 @@ namespace MauticPlugin\N8nDispatchBundle\Tests\Unit\Integration;
 use Mautic\CoreBundle\Form\Type\YesNoButtonGroupType;
 use MauticPlugin\N8nDispatchBundle\Integration\N8nDispatchIntegration;
 use PHPUnit\Framework\Attributes\DataProvider;
+use PHPUnit\Framework\Attributes\Group;
 use PHPUnit\Framework\TestCase;
 use Symfony\Component\Form\Extension\Core\Type\FormType;
 use Symfony\Component\Form\Extension\Core\Type\IntegerType;
@@ -20,6 +21,8 @@ use Symfony\Component\Validator\Validation;
  * The status poll and Mirror resync fields of the Features tab, as the real form builds them: type, label, tooltip,
  * limits, saved value and the read-only "Last run" block. The alert fields have their own test.
  */
+#[Group('area:plugin-settings')]
+#[Group('risk:FLUXO')]
 class FeaturesTabFieldsTest extends TestCase
 {
     private function featuresForm(array $saved = []): \Symfony\Component\Form\FormInterface

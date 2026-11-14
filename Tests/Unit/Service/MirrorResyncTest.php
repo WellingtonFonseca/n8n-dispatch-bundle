@@ -10,9 +10,12 @@ use MauticPlugin\N8nDispatchBundle\Service\CallPacer;
 use MauticPlugin\N8nDispatchBundle\Service\MirrorResync;
 use MauticPlugin\N8nDispatchBundle\Service\MirrorSync;
 use MauticPlugin\N8nDispatchBundle\Service\MirrorSyncPayload;
+use PHPUnit\Framework\Attributes\Group;
 use PHPUnit\Framework\MockObject\MockObject;
 use PHPUnit\Framework\TestCase;
 
+#[Group('area:mirror')]
+#[Group('risk:DADOS')]
 class MirrorResyncTest extends TestCase
 {
     /** @var MirrorSyncStateRepository&MockObject */

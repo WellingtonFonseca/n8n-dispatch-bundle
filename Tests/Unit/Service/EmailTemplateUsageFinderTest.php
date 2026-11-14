@@ -5,6 +5,7 @@ declare(strict_types=1);
 namespace MauticPlugin\N8nDispatchBundle\Tests\Unit\Service;
 
 use MauticPlugin\N8nDispatchBundle\Service\EmailTemplateUsageFinder;
+use PHPUnit\Framework\Attributes\Group;
 use PHPUnit\Framework\TestCase;
 
 /**
@@ -15,6 +16,8 @@ use PHPUnit\Framework\TestCase;
  * (Form/Type/EmailDispatchActionType.php's own field) and the
  * 'n8ndispatch.email.send' event type.
  */
+#[Group('area:templates')]
+#[Group('risk:DADOS')]
 class EmailTemplateUsageFinderTest extends TestCase
 {
     /**

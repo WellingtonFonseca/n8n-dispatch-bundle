@@ -5,8 +5,11 @@ declare(strict_types=1);
 namespace MauticPlugin\N8nDispatchBundle\Tests\Unit\Entity;
 
 use MauticPlugin\N8nDispatchBundle\Entity\PollRun;
+use PHPUnit\Framework\Attributes\Group;
 use PHPUnit\Framework\TestCase;
 
+#[Group('area:status-poll')]
+#[Group('risk:DADOS')]
 class PollRunTest extends TestCase
 {
     public function testStartsRunning(): void

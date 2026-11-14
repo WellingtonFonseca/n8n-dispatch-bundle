@@ -7,10 +7,14 @@ namespace MauticPlugin\N8nDispatchBundle\Tests\Unit\Twig;
 use Mautic\CoreBundle\Helper\DateTimeHelper;
 use MauticPlugin\N8nDispatchBundle\Service\StatusTracker;
 use MauticPlugin\N8nDispatchBundle\Twig\StatusExtension;
+use PHPUnit\Framework\Attributes\Group;
 use PHPUnit\Framework\TestCase;
 use Symfony\Contracts\Translation\LocaleAwareInterface;
 use Symfony\Contracts\Translation\TranslatorInterface;
 
+#[Group('area:status-poll')]
+#[Group('risk:UI')]
+#[Group('risk:DADOS')]
 class StatusExtensionTest extends TestCase
 {
     private function extension(string $locale): StatusExtension

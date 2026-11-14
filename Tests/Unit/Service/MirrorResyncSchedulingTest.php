@@ -10,11 +10,15 @@ use MauticPlugin\N8nDispatchBundle\Service\CallPacer;
 use MauticPlugin\N8nDispatchBundle\Service\MirrorResyncJob;
 use MauticPlugin\N8nDispatchBundle\Service\MirrorResyncSettings;
 use MauticPlugin\N8nDispatchBundle\Service\MirrorSendSwitch;
+use PHPUnit\Framework\Attributes\Group;
 use PHPUnit\Framework\TestCase;
 
 /**
  * The settings, the schedule and the pacing of the Mirror resync.
  */
+#[Group('area:mirror')]
+#[Group('risk:INFRA')]
+#[Group('risk:DADOS')]
 class MirrorResyncSchedulingTest extends TestCase
 {
     public function testTheDefaultsAreTwoHoursAHundredTwoSecondsAndADay(): void

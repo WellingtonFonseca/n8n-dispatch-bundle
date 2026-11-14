@@ -17,9 +17,13 @@ use MauticPlugin\N8nDispatchBundle\EventListener\TemplateRenameSubscriber;
 use MauticPlugin\N8nDispatchBundle\Service\EmailTemplateUsageFinder;
 use MauticPlugin\N8nDispatchBundle\Service\HsmTemplateUsageFinder;
 use MauticPlugin\N8nDispatchBundle\Service\SmsTemplateUsageFinder;
+use PHPUnit\Framework\Attributes\Group;
 use PHPUnit\Framework\MockObject\MockObject;
 use PHPUnit\Framework\TestCase;
 
+#[Group('area:templates')]
+#[Group('risk:DADOS')]
+#[Group('risk:CRITICO')]
 class TemplateRenameSubscriberTest extends TestCase
 {
     /** @var EmailTemplateUsageFinder&MockObject */

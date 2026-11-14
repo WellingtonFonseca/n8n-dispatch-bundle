@@ -5,8 +5,11 @@ declare(strict_types=1);
 namespace MauticPlugin\N8nDispatchBundle\Tests\Unit\Service;
 
 use MauticPlugin\N8nDispatchBundle\Service\MirrorResyncLogRows;
+use PHPUnit\Framework\Attributes\Group;
 use PHPUnit\Framework\TestCase;
 
+#[Group('area:mirror')]
+#[Group('risk:DADOS')]
 class MirrorResyncLogRowsTest extends TestCase
 {
     public function testASummaryLineBecomesTheCountsOfTheRow(): void

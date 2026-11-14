@@ -13,6 +13,7 @@ use MauticPlugin\CustomObjectsBundle\Model\CustomObjectModel;
 use MauticPlugin\CustomObjectsBundle\Segment\SegmentItemMatcher;
 use MauticPlugin\CustomObjectsBundle\Segment\SegmentItemResolver;
 use MauticPlugin\N8nDispatchBundle\Resolver\CustomObjectVariableResolver;
+use PHPUnit\Framework\Attributes\Group;
 use PHPUnit\Framework\TestCase;
 use Psr\Log\LoggerInterface;
 
@@ -23,6 +24,12 @@ use Psr\Log\LoggerInterface;
  *
  * Fixture: Custom Object #1 'disciplina' with fields #1 nome (text), #2 posicao (int), #3 inicio (date), #4 valor (decimal).
  */
+#[Group('area:variables')]
+#[Group('area:dispatch-email')]
+#[Group('area:dispatch-sms')]
+#[Group('area:dispatch-hsm')]
+#[Group('risk:CRITICO')]
+#[Group('risk:DADOS')]
 class CustomObjectVariableResolverTest extends TestCase
 {
     private const OBJECT_ID = 1;

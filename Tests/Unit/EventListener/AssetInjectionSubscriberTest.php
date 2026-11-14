@@ -6,8 +6,12 @@ namespace MauticPlugin\N8nDispatchBundle\Tests\Unit\EventListener;
 
 use Mautic\CoreBundle\Event\CustomContentEvent;
 use MauticPlugin\N8nDispatchBundle\EventListener\AssetInjectionSubscriber;
+use PHPUnit\Framework\Attributes\Group;
 use PHPUnit\Framework\TestCase;
 
+#[Group('area:appearance')]
+#[Group('risk:INFRA')]
+#[Group('risk:UI')]
 class AssetInjectionSubscriberTest extends TestCase
 {
     public function testIgnoresContextsOtherThanPageHeaderLeft(): void
