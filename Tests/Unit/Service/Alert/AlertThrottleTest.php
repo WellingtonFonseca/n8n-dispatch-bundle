@@ -6,8 +6,11 @@ namespace MauticPlugin\N8nDispatchBundle\Tests\Unit\Service\Alert;
 
 use Mautic\CoreBundle\Helper\CacheStorageHelper;
 use MauticPlugin\N8nDispatchBundle\Service\Alert\AlertThrottle;
+use PHPUnit\Framework\Attributes\Group;
 use PHPUnit\Framework\TestCase;
 
+#[Group('area:alerts')]
+#[Group('risk:CRITICO')]
 class AlertThrottleTest extends TestCase
 {
     public function testAFreeKeyIsClaimedForTheCooldown(): void

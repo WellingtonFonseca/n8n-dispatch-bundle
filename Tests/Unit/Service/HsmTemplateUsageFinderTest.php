@@ -5,6 +5,7 @@ declare(strict_types=1);
 namespace MauticPlugin\N8nDispatchBundle\Tests\Unit\Service;
 
 use MauticPlugin\N8nDispatchBundle\Service\HsmTemplateUsageFinder;
+use PHPUnit\Framework\Attributes\Group;
 use PHPUnit\Framework\TestCase;
 
 /**
@@ -12,6 +13,9 @@ use PHPUnit\Framework\TestCase;
  * which "Send via n8n (HSM)" step rows point at a template ('hsmTemplateId').
  * The rows query is checked in Tests/Integration.
  */
+#[Group('area:dispatch-hsm')]
+#[Group('area:templates')]
+#[Group('risk:DADOS')]
 class HsmTemplateUsageFinderTest extends TestCase
 {
     /**

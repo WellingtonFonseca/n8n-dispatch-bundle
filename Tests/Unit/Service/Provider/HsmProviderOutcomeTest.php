@@ -7,8 +7,12 @@ namespace MauticPlugin\N8nDispatchBundle\Tests\Unit\Service\Provider;
 use MauticPlugin\N8nDispatchBundle\Service\Provider\HsmProviderOutcome;
 use MauticPlugin\N8nDispatchBundle\Service\Provider\HsmSendRequest;
 use MauticPlugin\N8nDispatchBundle\Service\Provider\HsmSendResult;
+use PHPUnit\Framework\Attributes\Group;
 use PHPUnit\Framework\TestCase;
 
+#[Group('area:dispatch-hsm')]
+#[Group('area:dispatch-history')]
+#[Group('risk:CRITICO')]
 class HsmProviderOutcomeTest extends TestCase
 {
     /**

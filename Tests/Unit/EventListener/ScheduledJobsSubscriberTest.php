@@ -6,6 +6,7 @@ namespace MauticPlugin\N8nDispatchBundle\Tests\Unit\EventListener;
 
 use MauticPlugin\N8nDispatchBundle\EventListener\ScheduledJobsSubscriber;
 use MauticPlugin\N8nDispatchBundle\Service\JobScheduler;
+use PHPUnit\Framework\Attributes\Group;
 use PHPUnit\Framework\MockObject\MockObject;
 use PHPUnit\Framework\TestCase;
 use Psr\Log\LoggerInterface;
@@ -14,6 +15,11 @@ use Symfony\Component\Console\Event\ConsoleCommandEvent;
 use Symfony\Component\Console\Input\ArrayInput;
 use Symfony\Component\Console\Output\NullOutput;
 
+#[Group('area:status-poll')]
+#[Group('area:mirror')]
+#[Group('area:alerts')]
+#[Group('risk:INFRA')]
+#[Group('risk:CRITICO')]
 class ScheduledJobsSubscriberTest extends TestCase
 {
     /** @var JobScheduler&MockObject */

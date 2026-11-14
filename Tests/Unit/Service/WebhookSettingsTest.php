@@ -9,8 +9,17 @@ use Mautic\PluginBundle\Helper\IntegrationHelper;
 use MauticPlugin\N8nDispatchBundle\Integration\N8nDispatchIntegration;
 use MauticPlugin\N8nDispatchBundle\Service\DispatchFailureReasons;
 use MauticPlugin\N8nDispatchBundle\Service\WebhookSettings;
+use PHPUnit\Framework\Attributes\Group;
 use PHPUnit\Framework\TestCase;
 
+#[Group('area:dispatch-email')]
+#[Group('area:dispatch-sms')]
+#[Group('area:dispatch-hsm')]
+#[Group('area:mirror')]
+#[Group('area:status-poll')]
+#[Group('area:alerts')]
+#[Group('area:plugin-settings')]
+#[Group('risk:CRITICO')]
 class WebhookSettingsTest extends TestCase
 {
     /**

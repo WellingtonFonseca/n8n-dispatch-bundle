@@ -19,12 +19,16 @@ use MauticPlugin\N8nDispatchBundle\Resolver\VariableResolver;
 use MauticPlugin\N8nDispatchBundle\Service\ResendVariables;
 use MauticPlugin\N8nDispatchBundle\Service\TemplateVariableScanner;
 use MauticPlugin\N8nDispatchBundle\Service\VariableMappingChecker;
+use PHPUnit\Framework\Attributes\Group;
 use PHPUnit\Framework\MockObject\MockObject;
 use PHPUnit\Framework\TestCase;
 
 /**
  * What the resend form shows and sends: the template's variables as they resolve today, next to the first dispatch's.
  */
+#[Group('area:variables')]
+#[Group('risk:CRITICO')]
+#[Group('risk:FLUXO')]
 class ResendVariablesTest extends TestCase
 {
     private EntityManagerInterface&MockObject $em;

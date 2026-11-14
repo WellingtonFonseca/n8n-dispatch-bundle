@@ -9,8 +9,11 @@ use Mautic\PluginBundle\Helper\IntegrationHelper;
 use MauticPlugin\N8nDispatchBundle\Integration\N8nDispatchIntegration;
 use MauticPlugin\N8nDispatchBundle\Service\FeatureSettings;
 use MauticPlugin\N8nDispatchBundle\Service\Alert\AlertSettings;
+use PHPUnit\Framework\Attributes\Group;
 use PHPUnit\Framework\TestCase;
 
+#[Group('area:alerts')]
+#[Group('risk:CRITICO')]
 class AlertSettingsTest extends TestCase
 {
     public function testTheChannelIsOffWithTheDefaultsUntilSomeoneTurnsItOn(): void

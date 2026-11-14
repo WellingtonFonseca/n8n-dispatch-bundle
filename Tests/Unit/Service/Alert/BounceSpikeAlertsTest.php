@@ -10,10 +10,13 @@ use MauticPlugin\N8nDispatchBundle\Service\Alert\AlertThrottle;
 use MauticPlugin\N8nDispatchBundle\Service\Alert\BounceSpikeAlerts;
 use MauticPlugin\N8nDispatchBundle\Service\Alert\BounceSpikeReader;
 use MauticPlugin\N8nDispatchBundle\Service\Alert\CampaignLink;
+use PHPUnit\Framework\Attributes\Group;
 use PHPUnit\Framework\MockObject\MockObject;
 use PHPUnit\Framework\TestCase;
 use Symfony\Component\Routing\Generator\UrlGeneratorInterface;
 
+#[Group('area:alerts')]
+#[Group('risk:CRITICO')]
 class BounceSpikeAlertsTest extends TestCase
 {
     /** @var AlertThrottle&MockObject */

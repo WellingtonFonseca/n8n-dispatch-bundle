@@ -7,8 +7,12 @@ namespace MauticPlugin\N8nDispatchBundle\Tests\Unit\EventListener;
 use Mautic\CoreBundle\CoreEvents;
 use Mautic\CoreBundle\Event\CustomContentEvent;
 use MauticPlugin\N8nDispatchBundle\EventListener\EmailSenderAlertSubscriber;
+use PHPUnit\Framework\Attributes\Group;
 use PHPUnit\Framework\TestCase;
 
+#[Group('area:alerts')]
+#[Group('risk:FLUXO')]
+#[Group('risk:UI')]
 class EmailSenderAlertSubscriberTest extends TestCase
 {
     private const VIEW = '@MauticEmail/Email/form.html.twig';

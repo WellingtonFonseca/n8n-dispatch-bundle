@@ -15,10 +15,13 @@ use MauticPlugin\N8nDispatchBundle\Service\Alert\AlertSettings;
 use MauticPlugin\N8nDispatchBundle\Service\Alert\AlertThrottle;
 use MauticPlugin\N8nDispatchBundle\Service\Alert\CampaignFailureAlerts;
 use MauticPlugin\N8nDispatchBundle\Service\Alert\CampaignLink;
+use PHPUnit\Framework\Attributes\Group;
 use PHPUnit\Framework\MockObject\MockObject;
 use PHPUnit\Framework\TestCase;
 use Symfony\Component\Routing\Generator\UrlGeneratorInterface;
 
+#[Group('area:alerts')]
+#[Group('risk:CRITICO')]
 class CampaignFailureAlertsTest extends TestCase
 {
     /** @var AlertSender&MockObject */

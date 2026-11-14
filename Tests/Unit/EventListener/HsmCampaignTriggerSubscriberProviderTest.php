@@ -23,6 +23,7 @@ use MauticPlugin\N8nDispatchBundle\Service\Provider\HsmProviderGateway;
 use MauticPlugin\N8nDispatchBundle\Service\Provider\HsmSendRequest;
 use MauticPlugin\N8nDispatchBundle\Service\Provider\HsmSendResult;
 use MauticPlugin\N8nDispatchBundle\Service\StatusTracker;
+use PHPUnit\Framework\Attributes\Group;
 use PHPUnit\Framework\MockObject\MockObject;
 use PHPUnit\Framework\TestCase;
 use Psr\Log\LoggerInterface;
@@ -32,6 +33,11 @@ use Symfony\Contracts\HttpClient\HttpClientInterface;
  * The "Send via n8n (HSM)" step of a template that is sent through the DialogHSM: the plugin hands the message over and
  * its answer is the end of our part, like the Email sent through Mautic's own mailer. No webhook, no tracking rows, no History.
  */
+#[Group('area:dispatch-email')]
+#[Group('area:dispatch-sms')]
+#[Group('area:dispatch-hsm')]
+#[Group('risk:CRITICO')]
+#[Group('risk:FLUXO')]
 class HsmCampaignTriggerSubscriberProviderTest extends TestCase
 {
     private IntegrationHelper&MockObject $integrationHelper;

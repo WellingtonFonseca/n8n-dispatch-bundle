@@ -10,6 +10,7 @@ use MauticPlugin\N8nDispatchBundle\Entity\MirrorSyncStateRepository;
 use MauticPlugin\N8nDispatchBundle\Entity\PollRun;
 use MauticPlugin\N8nDispatchBundle\Entity\PollRunRepository;
 use MauticPlugin\N8nDispatchBundle\Tests\Integration\RollbackDatabaseTestCase;
+use PHPUnit\Framework\Attributes\Group;
 
 require_once __DIR__.'/../RollbackDatabaseTestCase.php';
 
@@ -17,6 +18,8 @@ require_once __DIR__.'/../RollbackDatabaseTestCase.php';
  * The SQL of the Mirror sync state and of the run claim per kind, against the stack's real MySQL, in a transaction
  * rolled back at the end. Every row is the test's own (a unique Email name).
  */
+#[Group('area:mirror')]
+#[Group('risk:DADOS')]
 class MirrorSyncStateRepositoryDbTest extends RollbackDatabaseTestCase
 {
     private MirrorSyncStateRepository $states;

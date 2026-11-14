@@ -8,9 +8,13 @@ use MauticPlugin\N8nDispatchBundle\Service\Audit\AuditFieldFormatter;
 use MauticPlugin\N8nDispatchBundle\Service\Audit\TemplateAuditLog;
 use MauticPlugin\N8nDispatchBundle\Service\Provider\HsmProviderGateway;
 use MauticPlugin\N8nDispatchBundle\Service\Provider\HsmProviderPolicy;
+use PHPUnit\Framework\Attributes\Group;
 use PHPUnit\Framework\TestCase;
 use Symfony\Contracts\Translation\TranslatorInterface;
 
+#[Group('area:templates')]
+#[Group('risk:UI')]
+#[Group('risk:DADOS')]
 class AuditFieldFormatterTest extends TestCase
 {
     private function formatter(): AuditFieldFormatter

@@ -5,8 +5,11 @@ declare(strict_types=1);
 namespace MauticPlugin\N8nDispatchBundle\Tests\Unit\Service;
 
 use MauticPlugin\N8nDispatchBundle\Service\Changelog;
+use PHPUnit\Framework\Attributes\Group;
 use PHPUnit\Framework\TestCase;
 
+#[Group('area:plugin-settings')]
+#[Group('risk:INFRA')]
 class ChangelogTest extends TestCase
 {
     public function testItReadsOneBlockPerDayInTheFileOrder(): void

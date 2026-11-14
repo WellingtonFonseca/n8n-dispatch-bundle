@@ -6,8 +6,12 @@ namespace MauticPlugin\N8nDispatchBundle\Tests\Unit\Service;
 
 use MauticPlugin\N8nDispatchBundle\Entity\DispatchTracking;
 use MauticPlugin\N8nDispatchBundle\Service\DispatchLogReader;
+use PHPUnit\Framework\Attributes\Group;
 use PHPUnit\Framework\TestCase;
 
+#[Group('area:dispatch-history')]
+#[Group('risk:DADOS')]
+#[Group('risk:CRITICO')]
 class DispatchLogReaderTest extends TestCase
 {
     private DispatchLogReader $reader;

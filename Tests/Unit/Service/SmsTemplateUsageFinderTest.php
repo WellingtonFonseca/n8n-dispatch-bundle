@@ -5,6 +5,7 @@ declare(strict_types=1);
 namespace MauticPlugin\N8nDispatchBundle\Tests\Unit\Service;
 
 use MauticPlugin\N8nDispatchBundle\Service\SmsTemplateUsageFinder;
+use PHPUnit\Framework\Attributes\Group;
 use PHPUnit\Framework\TestCase;
 
 /**
@@ -12,6 +13,9 @@ use PHPUnit\Framework\TestCase;
  * "Send via n8n (SMS)" campaign event rows, which ones point at a
  * template. The rows query itself is plain SQL, checked in Tests/Integration.
  */
+#[Group('area:dispatch-sms')]
+#[Group('area:templates')]
+#[Group('risk:DADOS')]
 class SmsTemplateUsageFinderTest extends TestCase
 {
     /**

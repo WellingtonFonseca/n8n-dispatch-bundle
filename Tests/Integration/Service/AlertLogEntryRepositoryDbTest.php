@@ -8,6 +8,7 @@ use Doctrine\ORM\EntityManagerInterface;
 use MauticPlugin\N8nDispatchBundle\Entity\AlertLogEntry;
 use MauticPlugin\N8nDispatchBundle\Entity\AlertLogEntryRepository;
 use MauticPlugin\N8nDispatchBundle\Tests\Integration\RollbackDatabaseTestCase;
+use PHPUnit\Framework\Attributes\Group;
 
 require_once __DIR__.'/../RollbackDatabaseTestCase.php';
 
@@ -15,6 +16,8 @@ require_once __DIR__.'/../RollbackDatabaseTestCase.php';
  * The SQL of AlertLogEntryRepository against the stack's real MySQL, in a transaction rolled back at the end. The test
  * reads only the rows it wrote, found by a unique alert name.
  */
+#[Group('area:alerts')]
+#[Group('risk:DADOS')]
 class AlertLogEntryRepositoryDbTest extends RollbackDatabaseTestCase
 {
     private AlertLogEntryRepository $repository;

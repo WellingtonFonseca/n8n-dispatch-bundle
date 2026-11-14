@@ -10,11 +10,15 @@ use Doctrine\ORM\Mapping\ClassMetadata;
 use MauticPlugin\N8nDispatchBundle\Service\DispatchLogReader;
 use MauticPlugin\N8nDispatchBundle\Service\StatusBackfill;
 use MauticPlugin\N8nDispatchBundle\Service\StatusTracker;
+use PHPUnit\Framework\Attributes\Group;
 use PHPUnit\Framework\MockObject\MockObject;
 use PHPUnit\Framework\TestCase;
 
 require_once __DIR__.'/WakeupProbe.php';
 
+#[Group('area:status-poll')]
+#[Group('risk:CRITICO')]
+#[Group('risk:DADOS')]
 class StatusBackfillTest extends TestCase
 {
     /** @var Connection&MockObject */

@@ -6,9 +6,14 @@ namespace MauticPlugin\N8nDispatchBundle\Tests\Unit\Twig;
 
 use MauticPlugin\N8nDispatchBundle\Service\MauticEmailOutcome;
 use MauticPlugin\N8nDispatchBundle\Twig\MauticOutcomeExtension;
+use PHPUnit\Framework\Attributes\Group;
 use PHPUnit\Framework\MockObject\MockObject;
 use PHPUnit\Framework\TestCase;
 
+#[Group('area:email')]
+#[Group('area:dispatch-email')]
+#[Group('risk:UI')]
+#[Group('risk:CRITICO')]
 class MauticOutcomeExtensionTest extends TestCase
 {
     private MauticEmailOutcome&MockObject $outcome;

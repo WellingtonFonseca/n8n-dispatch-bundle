@@ -8,9 +8,15 @@ use Mautic\CampaignBundle\Entity\LeadEventLog;
 use MauticPlugin\N8nDispatchBundle\Entity\DispatchTracking;
 use MauticPlugin\N8nDispatchBundle\Service\DispatchOutcomeRecorder;
 use MauticPlugin\N8nDispatchBundle\Service\StatusTracker;
+use PHPUnit\Framework\Attributes\Group;
 use PHPUnit\Framework\MockObject\MockObject;
 use PHPUnit\Framework\TestCase;
 
+#[Group('area:dispatch-email')]
+#[Group('area:dispatch-sms')]
+#[Group('area:dispatch-hsm')]
+#[Group('risk:CRITICO')]
+#[Group('risk:DADOS')]
 class DispatchOutcomeRecorderTest extends TestCase
 {
     private const IDS = [

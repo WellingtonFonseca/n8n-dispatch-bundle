@@ -6,6 +6,7 @@ namespace MauticPlugin\N8nDispatchBundle\Tests\Unit\Config;
 
 use MauticPlugin\N8nDispatchBundle\Controller\DispatchController;
 use MauticPlugin\N8nDispatchBundle\EventListener\EmailMenuSubscriber;
+use PHPUnit\Framework\Attributes\Group;
 use PHPUnit\Framework\TestCase;
 
 /**
@@ -13,6 +14,9 @@ use PHPUnit\Framework\TestCase;
  * Dispatches, SMS template and HSM template pages as its submenu. The Email page
  * of core joins it through EmailMenuSubscriber.
  */
+#[Group('area:plugin-settings')]
+#[Group('risk:FLUXO')]
+#[Group('risk:INFRA')]
 class MenuTest extends TestCase
 {
     private array $config;

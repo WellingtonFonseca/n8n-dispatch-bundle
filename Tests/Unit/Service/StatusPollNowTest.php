@@ -7,9 +7,12 @@ namespace MauticPlugin\N8nDispatchBundle\Tests\Unit\Service;
 use MauticPlugin\N8nDispatchBundle\Service\StatusPoller;
 use MauticPlugin\N8nDispatchBundle\Service\StatusPollSettings;
 use MauticPlugin\N8nDispatchBundle\Service\StatusPollNow;
+use PHPUnit\Framework\Attributes\Group;
 use PHPUnit\Framework\MockObject\MockObject;
 use PHPUnit\Framework\TestCase;
 
+#[Group('area:status-poll')]
+#[Group('risk:CRITICO')]
 class StatusPollNowTest extends TestCase
 {
     /** @var StatusPoller&MockObject */

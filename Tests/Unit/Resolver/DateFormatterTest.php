@@ -5,8 +5,15 @@ declare(strict_types=1);
 namespace MauticPlugin\N8nDispatchBundle\Tests\Unit\Resolver;
 
 use MauticPlugin\N8nDispatchBundle\Resolver\DateFormatter;
+use PHPUnit\Framework\Attributes\Group;
 use PHPUnit\Framework\TestCase;
 
+#[Group('area:variables')]
+#[Group('area:dispatch-email')]
+#[Group('area:dispatch-sms')]
+#[Group('area:dispatch-hsm')]
+#[Group('risk:CRITICO')]
+#[Group('risk:UI')]
 class DateFormatterTest extends TestCase
 {
     public function testFormatsADateValue(): void

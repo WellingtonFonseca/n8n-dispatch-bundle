@@ -6,9 +6,14 @@ namespace MauticPlugin\N8nDispatchBundle\Tests\Unit\Entity;
 
 use Doctrine\ORM\Mapping\ClassMetadata;
 use MauticPlugin\N8nDispatchBundle\Entity\SmsTemplate;
+use PHPUnit\Framework\Attributes\Group;
 use PHPUnit\Framework\TestCase;
 use Symfony\Component\Validator\Validation;
 
+#[Group('area:dispatch-sms')]
+#[Group('area:templates')]
+#[Group('risk:CRITICO')]
+#[Group('risk:DADOS')]
 class SmsTemplateProviderTest extends TestCase
 {
     private const INVALID = 'mautic.n8ndispatch.smstemplate.error.provider_invalid';

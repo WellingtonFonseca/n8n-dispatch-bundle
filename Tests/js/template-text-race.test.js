@@ -1,3 +1,4 @@
+// Test-tags: areas=templates risks=FLUXO
 // The numeric-variables alert of the HSM and SMS forms is decided from the text field itself, right away, not from
 // the answer to the (debounced) request that scans the variables. So it is there as soon as the page comes back from
 // a blocked save, and a late answer can't take it away. Work started for a field that already left the page (the

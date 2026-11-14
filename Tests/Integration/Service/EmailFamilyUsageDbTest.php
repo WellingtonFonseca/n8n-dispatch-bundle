@@ -7,6 +7,7 @@ namespace MauticPlugin\N8nDispatchBundle\Tests\Integration\Service;
 use Doctrine\ORM\EntityManagerInterface;
 use MauticPlugin\N8nDispatchBundle\Service\EmailTemplateUsageFinder;
 use MauticPlugin\N8nDispatchBundle\Tests\Integration\RollbackDatabaseTestCase;
+use PHPUnit\Framework\Attributes\Group;
 
 require_once __DIR__.'/../RollbackDatabaseTestCase.php';
 
@@ -15,6 +16,10 @@ require_once __DIR__.'/../RollbackDatabaseTestCase.php';
  * EmailTemplateUsageFinder::inUseAmong() also counts the steps that use any of them. Run against the stack's real
  * MySQL inside a transaction rolled back at the end.
  */
+#[Group('area:email')]
+#[Group('area:dispatch-email')]
+#[Group('risk:DADOS')]
+#[Group('risk:FLUXO')]
 class EmailFamilyUsageDbTest extends RollbackDatabaseTestCase
 {
     private function finder(): EmailTemplateUsageFinder
