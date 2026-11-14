@@ -77,21 +77,16 @@
 <div class="mt-10">
 {% if (item.isScheduled) %}
     {#
-      n8ndispatch-timeline-scheduled is our own inline-flex row, not core's
-      .form-buttons (position: absolute, meant for FormBundle's field-editor
-      rows — with no positioned ancestor nearby on the contact's History
-      tab, it pinned the reschedule/cancel buttons to a distant corner
-      instead of next to this text). The three <button> elements below
-      still carry core's own required classes/ids (.btn, .btn-reschedule,
-      #timeline-campaign-event-save-*) — Mautic's own campaign.js selects
-      them by those exact hooks (disable-during-request, reveal-on-
-      reschedule, etc.), so only their visual classes were swapped for
-      our own (n8ndispatch-timeline-btn), never the functional ones.
+      The <p> is a core alert laid out as a grid by our CSS, not core's
+      .form-buttons (position: absolute, no positioned ancestor here).
+      The action hooks of core's campaign.js stay on the buttons below.
     #}
-    <p class="mt-0 mb-10 text-info n8ndispatch-timeline-scheduled" id="timeline-campaign-event-{{ item.event_id }}">
+    {% set hasRescheduleAudit = item.metadata.n8ndispatch_reschedule is defined and item.metadata.n8ndispatch_reschedule.rescheduledByEmail is defined and item.metadata.n8ndispatch_reschedule.rescheduledByEmail %}
+    {# First schedule: info alert. Rescheduled: warning alert. Cancelled: danger alert. #}
+    {% set alertVariant = cancelled ? 'alert-danger' : (hasRescheduleAudit ? 'alert-warning' : 'alert-info') %}
+    <p class="mt-0 mb-10 text-info n8ndispatch-timeline-scheduled alert {{ alertVariant }} n8ndispatch-timeline-alert" id="timeline-campaign-event-{{ item.event_id }}">
         <span id="timeline-campaign-event-text-{{ item.event_id }}"{{ cancelled ? ' class="text-warning"' : '' }}>
-            <i class="ri-time-line"></i>
-            <span class="timeline-campaign-event-scheduled-{{ item.event_id }}{{cancelled ? ' hide' : '' }}">
+                        <span class="timeline-campaign-event-scheduled-{{ item.event_id }}{{ cancelled ? ' hide' : '' }}">
                 {{ 'mautic.core.timeline.event.scheduled.time'|trans({'%date%' : dateSpan, '%event%' : event.eventLabel})|purify }}
                 {#
                   Unlike the cancellation case, this row stays
@@ -105,7 +100,7 @@
                   fallback is needed for this one.
                 #}
                 <span class="n8ndispatch-timeline-rescheduled-by-{{ item.event_id }}">
-                    {%- if item.metadata.n8ndispatch_reschedule is defined and item.metadata.n8ndispatch_reschedule.rescheduledByEmail is defined and item.metadata.n8ndispatch_reschedule.rescheduledByEmail -%}
+                    {%- if hasRescheduleAudit -%}
                         {% set rescheduledAt = item.metadata.n8ndispatch_reschedule.rescheduledAt is defined ? item.metadata.n8ndispatch_reschedule.rescheduledAt : null %}
                         <br/>{{ 'mautic.n8ndispatch.timeline.rescheduled_by'|trans({
                             '%email%': item.metadata.n8ndispatch_reschedule.rescheduledByEmail,
@@ -147,20 +142,17 @@
                 </span>
             </span>
         </span>
-        {% if (lead and securityHasEntityAccess('lead:leads:editown', 'lead:leads:editother', lead.getPermissionUser())) %}
+        {% if (lead and not cancelled and securityHasEntityAccess('lead:leads:editown', 'lead:leads:editother', lead.getPermissionUser())) %}
         {#
-          Same button component core's own campaign builder canvas card
-          uses for its icon-only edit/delete actions (Event/_generic.html.twig)
-          — variant/icon_only/danger/size, rather than hand-written <button>
-          markup. Functional hooks core's own campaign.js selects by
-          (.btn-reschedule, the save button's id, onclick handlers) are
-          passed through via 'attributes' so reschedule/cancel/save keep
-          working exactly as before; only the visual classes now come
-          from this component instead of .btn-ghost.
+          The actions are our own flat badges (.n8ndispatch-badge: icon +
+          label, no hover animation), as real <button> elements. The hooks
+          core's own campaign.js selects by stay on them: .btn-reschedule,
+          the save button's id (shown and hidden by that script) and the
+          onclick handlers, so reschedule/cancel/save work as before.
 
-          Cancel additionally goes through core's own confirmation-modal
-          helper (Mautic.showConfirmation, Assets/js/9.modals.js) instead
-          of cancelling straight away. It's called directly from onclick
+          Cancel goes through core's own confirmation-modal helper
+          (Mautic.showConfirmation, Assets/js/9.modals.js) instead of
+          cancelling straight away. It's called directly from onclick
           rather than via the usual data-toggle="confirmation"
           auto-binding, since that only wires up <a> elements
           (Mautic.makeConfirmationsAlive's selector is
@@ -173,54 +165,30 @@
           call once the user confirms.
         #}
         <span class="n8ndispatch-timeline-actions" role="group" aria-label="{{ 'mautic.n8ndispatch.timeline.actions.label'|trans }}">
-            {% include '@MauticCore/Helper/button.html.twig' with {
-                buttons: [
-                    {
-                        label: 'mautic.campaign.event.save',
-                        variant: 'primary',
-                        size: 'xs',
-                        icon_only: true,
-                        icon: 'ri-save-line',
-                        onclick: 'Mautic.saveScheduledCampaignEvent(' ~ item.event_id ~ ', ' ~ lead.getId() ~ ')',
-                        attributes: {
-                            id: 'timeline-campaign-event-save-' ~ item.event_id,
-                            onmousedown: 'return false;',
-                            style: 'display:none',
-                        },
-                    },
-                    {
-                        label: 'mautic.campaign.event.reschedule',
-                        variant: 'primary',
-                        size: 'xs',
-                        icon_only: true,
-                        icon: 'ri-time-line',
-                        onclick: 'Mautic.updateScheduledCampaignEvent(' ~ item.event_id ~ ', ' ~ lead.getId() ~ ')',
-                        attributes: {
-                            id: 'timeline-campaign-event-reschedule-' ~ item.event_id,
-                            class: 'btn-reschedule',
-                        },
-                    },
-                    {
-                        label: 'mautic.campaign.event.cancel',
-                        variant: 'primary',
-                        danger: true,
-                        size: 'xs',
-                        icon_only: true,
-                        icon: 'ri-close-line',
-                        onclick: 'Mautic.showConfirmation(this)',
-                        attributes: (cancelled ? { disabled: 'disabled' } : {})|merge({
-                            id: 'timeline-campaign-event-cancel-' ~ item.event_id,
-                            'data-event-id': item.event_id,
-                            'data-contact-id': lead.getId(),
-                            'data-message': 'mautic.n8ndispatch.timeline.cancel_schedule.message'|trans,
-                            'data-confirm-text': 'mautic.n8ndispatch.timeline.cancel_schedule.confirm_btn'|trans,
-                            'data-cancel-text': 'mautic.n8ndispatch.timeline.cancel_schedule.keep_btn'|trans,
-                            'data-confirm-callback': 'n8ndispatchConfirmCancelSchedule',
-                            'data-confirm-btn-class': 'btn btn-danger',
-                        }),
-                    },
-                ]
-            } %}
+            <button type="button" class="n8ndispatch-badge n8ndispatch-badge--success n8ndispatch-badge--soft n8ndispatch-timeline-action"
+                    id="timeline-campaign-event-save-{{ item.event_id }}" style="display:none"
+                    onmousedown="return false;"
+                    onclick="Mautic.saveScheduledCampaignEvent({{ item.event_id }}, {{ lead.getId() }})">
+                <i class="ri-save-line" aria-hidden="true"></i>{{ 'mautic.n8ndispatch.timeline.action.save'|trans }}
+            </button>
+            <button type="button" class="n8ndispatch-badge n8ndispatch-badge--info n8ndispatch-badge--soft n8ndispatch-timeline-action btn-reschedule"
+                    id="timeline-campaign-event-reschedule-{{ item.event_id }}"
+                    onclick="Mautic.updateScheduledCampaignEvent({{ item.event_id }}, {{ lead.getId() }})">
+                <i class="ri-time-line" aria-hidden="true"></i>{{ 'mautic.n8ndispatch.timeline.action.reschedule'|trans }}
+            </button>
+            <button type="button" class="n8ndispatch-badge n8ndispatch-badge--danger n8ndispatch-badge--soft n8ndispatch-timeline-action"
+                    id="timeline-campaign-event-cancel-{{ item.event_id }}"
+                    {{ cancelled ? 'disabled' : '' }}
+                    data-event-id="{{ item.event_id }}"
+                    data-contact-id="{{ lead.getId() }}"
+                    data-message="{{ 'mautic.n8ndispatch.timeline.cancel_schedule.message'|trans }}"
+                    data-confirm-text="{{ 'mautic.n8ndispatch.timeline.cancel_schedule.confirm_btn'|trans }}"
+                    data-cancel-text="{{ 'mautic.n8ndispatch.timeline.cancel_schedule.keep_btn'|trans }}"
+                    data-confirm-callback="n8ndispatchConfirmCancelSchedule"
+                    data-confirm-btn-class="btn btn-danger"
+                    onclick="Mautic.showConfirmation(this)">
+                <i class="ri-close-line" aria-hidden="true"></i>{{ 'mautic.n8ndispatch.timeline.action.cancel'|trans }}
+            </button>
         </span>
         {% endif %}
     </p>
