@@ -9,6 +9,7 @@ use MauticPlugin\N8nDispatchBundle\Service\EmailTemplateUsageFinder;
 use MauticPlugin\N8nDispatchBundle\Service\HsmTemplateUsageFinder;
 use MauticPlugin\N8nDispatchBundle\Service\SmsTemplateUsageFinder;
 use MauticPlugin\N8nDispatchBundle\Tests\Integration\RollbackDatabaseTestCase;
+use PHPUnit\Framework\Attributes\Group;
 
 require_once __DIR__.'/../RollbackDatabaseTestCase.php';
 
@@ -18,6 +19,9 @@ require_once __DIR__.'/../RollbackDatabaseTestCase.php';
  * deleted steps and campaigns do not count. Rows are made by the test inside
  * a transaction rolled back at the end.
  */
+#[Group('area:templates')]
+#[Group('risk:DADOS')]
+#[Group('risk:FLUXO')]
 class TemplateUsageFindersDbTest extends RollbackDatabaseTestCase
 {
     private string $unique;

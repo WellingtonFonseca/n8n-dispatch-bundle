@@ -5,11 +5,15 @@ declare(strict_types=1);
 namespace MauticPlugin\N8nDispatchBundle\Tests\Unit\Service;
 
 use MauticPlugin\N8nDispatchBundle\Service\VariableMappingChecker;
+use PHPUnit\Framework\Attributes\Group;
 use PHPUnit\Framework\TestCase;
 
 /**
  * Same rules as isEntrySet()/findUnmapped() in Assets/js/n8ndispatch-shared.js (tested in Tests/js).
  */
+#[Group('area:variables')]
+#[Group('risk:CRITICO')]
+#[Group('risk:FLUXO')]
 class VariableMappingCheckerTest extends TestCase
 {
     private VariableMappingChecker $checker;

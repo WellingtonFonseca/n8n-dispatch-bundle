@@ -8,8 +8,12 @@ use Mautic\PluginBundle\Helper\IntegrationHelper;
 use MauticPlugin\N8nDispatchBundle\Integration\N8nDispatchIntegration;
 use MauticPlugin\N8nDispatchBundle\Service\EmailSendMode;
 use PHPUnit\Framework\Attributes\DataProvider;
+use PHPUnit\Framework\Attributes\Group;
 use PHPUnit\Framework\TestCase;
 
+#[Group('area:email')]
+#[Group('area:dispatch-email')]
+#[Group('risk:CRITICO')]
 class EmailSendModeTest extends TestCase
 {
     public function testTheModesAreN8nAndMautic(): void

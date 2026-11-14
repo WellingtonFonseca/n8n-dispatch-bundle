@@ -9,11 +9,15 @@ use MauticPlugin\N8nDispatchBundle\Service\StatusTracker;
 use MauticPlugin\N8nDispatchBundle\Twig\StatusExtension;
 use PHPUnit\Framework\Attributes\AllowMockObjectsWithoutExpectations;
 use PHPUnit\Framework\Attributes\DataProvider;
+use PHPUnit\Framework\Attributes\Group;
 use PHPUnit\Framework\TestCase;
 use Symfony\Contracts\Translation\LocaleAwareInterface;
 use Symfony\Contracts\Translation\TranslatorInterface;
 
 #[AllowMockObjectsWithoutExpectations]
+#[Group('area:status-poll')]
+#[Group('risk:UI')]
+#[Group('risk:DADOS')]
 class StatusExtensionTest extends TestCase
 {
     private function extension(string $locale): StatusExtension

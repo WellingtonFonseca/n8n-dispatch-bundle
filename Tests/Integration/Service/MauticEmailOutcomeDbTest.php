@@ -7,6 +7,7 @@ namespace MauticPlugin\N8nDispatchBundle\Tests\Integration\Service;
 use Doctrine\ORM\EntityManagerInterface;
 use MauticPlugin\N8nDispatchBundle\Service\MauticEmailOutcome;
 use MauticPlugin\N8nDispatchBundle\Tests\Integration\RollbackDatabaseTestCase;
+use PHPUnit\Framework\Attributes\Group;
 
 require_once __DIR__.'/../RollbackDatabaseTestCase.php';
 
@@ -14,6 +15,10 @@ require_once __DIR__.'/../RollbackDatabaseTestCase.php';
  * The queries of MauticEmailOutcome against the stack's real MySQL: core's Stat, page hits and Do Not Contact tables.
  * Every row is made by the test inside a transaction rolled back at the end.
  */
+#[Group('area:email')]
+#[Group('area:dispatch-email')]
+#[Group('risk:CRITICO')]
+#[Group('risk:DADOS')]
 class MauticEmailOutcomeDbTest extends RollbackDatabaseTestCase
 {
     private MauticEmailOutcome $outcome;

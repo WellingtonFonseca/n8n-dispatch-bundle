@@ -5,12 +5,16 @@ declare(strict_types=1);
 namespace MauticPlugin\N8nDispatchBundle\Tests\Unit\Translations;
 
 use PHPUnit\Framework\Attributes\DataProvider;
+use PHPUnit\Framework\Attributes\Group;
 use PHPUnit\Framework\TestCase;
 
 /**
  * Every text the plugin has in English must exist in pt_BR too, with the same placeholders, so a new text can't
  * ship in English only (which is how the whole Campaigns tab and the template screens stayed English in pt_BR).
  */
+#[Group('area:translations')]
+#[Group('risk:UI')]
+#[Group('risk:INFRA')]
 class TranslationParityTest extends TestCase
 {
     private const DIR = __DIR__.'/../../../Translations';

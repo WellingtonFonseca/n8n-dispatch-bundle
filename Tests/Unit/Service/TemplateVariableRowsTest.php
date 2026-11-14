@@ -5,8 +5,12 @@ declare(strict_types=1);
 namespace MauticPlugin\N8nDispatchBundle\Tests\Unit\Service;
 
 use MauticPlugin\N8nDispatchBundle\Service\TemplateVariableRows;
+use PHPUnit\Framework\Attributes\Group;
 use PHPUnit\Framework\TestCase;
 
+#[Group('area:variables')]
+#[Group('risk:DADOS')]
+#[Group('risk:UI')]
 class TemplateVariableRowsTest extends TestCase
 {
     public function testEachSourceKindBecomesARow(): void

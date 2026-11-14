@@ -15,6 +15,7 @@ use MauticPlugin\DialogHSMBundle\MessageHandler\SendWhatsAppMessageHandler;
 use MauticPlugin\N8nDispatchBundle\Service\Provider\Dialog\DialogHsmGateway;
 use MauticPlugin\N8nDispatchBundle\Service\Provider\HsmProviderGateway;
 use MauticPlugin\N8nDispatchBundle\Service\Provider\HsmSendRequest;
+use PHPUnit\Framework\Attributes\Group;
 use PHPUnit\Framework\MockObject\MockObject;
 use PHPUnit\Framework\TestCase;
 use Psr\Log\LoggerInterface;
@@ -23,6 +24,9 @@ use Psr\Log\LoggerInterface;
  * Needs the DialogHSM plugin next to this one: the gateway names its classes. Without it the test is skipped, which is
  * the same situation the container is in (NullHsmProviderGateway), covered by the plugin boot test.
  */
+#[Group('area:dispatch-hsm')]
+#[Group('area:dispatch-history')]
+#[Group('risk:CRITICO')]
 class DialogHsmGatewayTest extends TestCase
 {
     /** @var IntegrationsHelper&MockObject */

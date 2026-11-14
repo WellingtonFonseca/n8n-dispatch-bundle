@@ -5,6 +5,7 @@ declare(strict_types=1);
 namespace MauticPlugin\N8nDispatchBundle\Tests\Unit\Service;
 
 use MauticPlugin\N8nDispatchBundle\Service\TemplateVariableScanner;
+use PHPUnit\Framework\Attributes\Group;
 use PHPUnit\Framework\TestCase;
 
 /**
@@ -13,6 +14,8 @@ use PHPUnit\Framework\TestCase;
  * controller) when the scan was extracted into its own service so
  * EventListener/EmailTabSubscriber.php could reuse it too.
  */
+#[Group('area:variables')]
+#[Group('risk:CRITICO')]
 class TemplateVariableScannerTest extends TestCase
 {
     private TemplateVariableScanner $scanner;

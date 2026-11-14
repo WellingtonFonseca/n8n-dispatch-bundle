@@ -8,10 +8,13 @@ use Mautic\CoreBundle\Model\AuditLogModel;
 use MauticPlugin\N8nDispatchBundle\Entity\HsmTemplate;
 use MauticPlugin\N8nDispatchBundle\Service\Audit\TemplateAuditLog;
 use PHPUnit\Framework\Attributes\AllowMockObjectsWithoutExpectations;
+use PHPUnit\Framework\Attributes\Group;
 use PHPUnit\Framework\TestCase;
 use Psr\Log\LoggerInterface;
 
 #[AllowMockObjectsWithoutExpectations]
+#[Group('area:templates')]
+#[Group('risk:DADOS')]
 class TemplateAuditLogTest extends TestCase
 {
     private function template(int $id = 7): HsmTemplate

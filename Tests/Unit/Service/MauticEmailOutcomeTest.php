@@ -6,8 +6,12 @@ namespace MauticPlugin\N8nDispatchBundle\Tests\Unit\Service;
 
 use MauticPlugin\N8nDispatchBundle\Service\MauticEmailOutcome;
 use PHPUnit\Framework\Attributes\DataProvider;
+use PHPUnit\Framework\Attributes\Group;
 use PHPUnit\Framework\TestCase;
 
+#[Group('area:email')]
+#[Group('area:dispatch-email')]
+#[Group('risk:CRITICO')]
 class MauticEmailOutcomeTest extends TestCase
 {
     public function testOnlyTheModeMauticIsADirectDispatch(): void

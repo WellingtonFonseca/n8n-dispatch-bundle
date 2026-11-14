@@ -6,9 +6,12 @@ namespace MauticPlugin\N8nDispatchBundle\Tests\Unit\Service\Alert;
 
 use Mautic\CampaignBundle\Entity\Campaign;
 use MauticPlugin\N8nDispatchBundle\Service\Alert\CampaignLink;
+use PHPUnit\Framework\Attributes\Group;
 use PHPUnit\Framework\TestCase;
 use Symfony\Component\Routing\Generator\UrlGeneratorInterface;
 
+#[Group('area:alerts')]
+#[Group('risk:DADOS')]
 class CampaignLinkTest extends TestCase
 {
     private function link(): CampaignLink

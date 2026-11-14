@@ -19,6 +19,7 @@ use Mautic\CoreBundle\Helper\CoreParametersHelper;
 use Mautic\CoreBundle\Helper\DateTimeHelper;
 use Mautic\CoreBundle\Translation\Translator;
 use Mautic\CoreBundle\Twig\Helper\DateHelper;
+use PHPUnit\Framework\Attributes\Group;
 use PHPUnit\Framework\TestCase;
 use Symfony\Component\HttpFoundation\JsonResponse;
 use Symfony\Component\HttpFoundation\Request;
@@ -33,6 +34,9 @@ use Symfony\Contracts\Translation\TranslatorInterface;
  * (ManagerRegistry, MauticFactory, UserHelper, ...) entirely.
  */
 #[AllowMockObjectsWithoutExpectations]
+#[Group('area:dispatch-history')]
+#[Group('risk:FLUXO')]
+#[Group('risk:CRITICO')]
 class AjaxControllerTest extends TestCase
 {
     private function buildController(): AjaxController

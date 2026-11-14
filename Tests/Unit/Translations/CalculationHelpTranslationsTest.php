@@ -5,12 +5,15 @@ declare(strict_types=1);
 namespace MauticPlugin\N8nDispatchBundle\Tests\Unit\Translations;
 
 use PHPUnit\Framework\Attributes\DataProvider;
+use PHPUnit\Framework\Attributes\Group;
 use PHPUnit\Framework\TestCase;
 
 /**
  * The list that explains the Calculation box is printed by the twig of the Email tab (messages.ini) and built by
  * n8ndispatch-shared.js for the SMS and HSM forms (javascript.ini): two files, so the texts must stay equal.
  */
+#[Group('area:translations')]
+#[Group('risk:UI')]
 class CalculationHelpTranslationsTest extends TestCase
 {
     private const KEYS = ['title', 'negative', 'date', 'number', 'decimal', 'whole'];

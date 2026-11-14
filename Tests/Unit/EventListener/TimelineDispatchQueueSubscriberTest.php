@@ -9,8 +9,11 @@ use Mautic\LeadBundle\LeadEvents;
 use MauticPlugin\N8nDispatchBundle\EventListener\TimelineDispatchQueueSubscriber;
 use MauticPlugin\N8nDispatchBundle\Service\DispatchListReader;
 use MauticPlugin\N8nDispatchBundle\Twig\DispatchExtension;
+use PHPUnit\Framework\Attributes\Group;
 use PHPUnit\Framework\TestCase;
 
+#[Group('area:dispatch-history')]
+#[Group('risk:DADOS')]
 class TimelineDispatchQueueSubscriberTest extends TestCase
 {
     public function testItRunsAfterCoreAddedTheCampaignEvents(): void

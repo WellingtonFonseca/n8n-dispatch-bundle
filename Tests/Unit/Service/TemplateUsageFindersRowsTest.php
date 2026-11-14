@@ -8,6 +8,7 @@ use MauticPlugin\N8nDispatchBundle\Service\EmailTemplateUsageFinder;
 use MauticPlugin\N8nDispatchBundle\Service\HsmTemplateUsageFinder;
 use MauticPlugin\N8nDispatchBundle\Service\SmsTemplateUsageFinder;
 use PHPUnit\Framework\Attributes\DataProvider;
+use PHPUnit\Framework\Attributes\Group;
 use PHPUnit\Framework\TestCase;
 
 require_once __DIR__.'/WakeupProbe.php';
@@ -17,6 +18,8 @@ require_once __DIR__.'/WakeupProbe.php';
  * template key matches no real template, names and status come out as text
  * whatever the driver returned, and a stored payload never builds objects.
  */
+#[Group('area:templates')]
+#[Group('risk:DADOS')]
 class TemplateUsageFindersRowsTest extends TestCase
 {
     /**

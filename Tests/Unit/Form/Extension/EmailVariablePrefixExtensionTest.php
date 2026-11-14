@@ -4,6 +4,7 @@ declare(strict_types=1);
 
 namespace MauticPlugin\N8nDispatchBundle\Tests\Unit\Form\Extension;
 
+use PHPUnit\Framework\Attributes\Group;
 use PHPUnit\Framework\MockObject\Stub;
 use Mautic\CoreBundle\Service\FlashBag;
 use Mautic\EmailBundle\Entity\Email;
@@ -24,6 +25,8 @@ use Symfony\Component\Validator\ConstraintViolationInterface;
 use Symfony\Contracts\Translation\TranslatorInterface;
 
 #[AllowMockObjectsWithoutExpectations]
+#[Group('area:variables')]
+#[Group('risk:FLUXO')]
 class EmailVariablePrefixExtensionTest extends TestCase
 {
     private TranslatorInterface&Stub $translator;

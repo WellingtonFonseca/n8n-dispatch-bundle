@@ -13,6 +13,7 @@ use MauticPlugin\N8nDispatchBundle\Service\Alert\AlertSender;
 use MauticPlugin\N8nDispatchBundle\Service\Alert\AlertSettings;
 use MauticPlugin\N8nDispatchBundle\Service\Alert\AlertThrottle;
 use MauticPlugin\N8nDispatchBundle\Service\DispatchFailureReasons;
+use PHPUnit\Framework\Attributes\Group;
 use PHPUnit\Framework\MockObject\MockObject;
 use PHPUnit\Framework\TestCase;
 use Psr\Log\LoggerInterface;
@@ -20,6 +21,8 @@ use Symfony\Component\HttpClient\MockHttpClient;
 use Symfony\Component\HttpClient\Response\MockResponse;
 
 #[\PHPUnit\Framework\Attributes\AllowMockObjectsWithoutExpectations] // setUp builds the doubles; each test uses the ones it needs
+#[Group('area:alerts')]
+#[Group('risk:CRITICO')]
 class AlertSenderTest extends TestCase
 {
     /** @var list<array{method: string, url: string, options: array<string, mixed>}> */

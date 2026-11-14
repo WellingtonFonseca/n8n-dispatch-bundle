@@ -7,9 +7,13 @@ namespace MauticPlugin\N8nDispatchBundle\Tests\Unit\Service;
 use MauticPlugin\N8nDispatchBundle\Service\DispatchFailureReasons;
 use MauticPlugin\N8nDispatchBundle\Tests\Unit\EventListener\EnUsTranslator;
 use PHPUnit\Framework\Attributes\DataProvider;
+use PHPUnit\Framework\Attributes\Group;
 use PHPUnit\Framework\TestCase;
 use Symfony\Contracts\Translation\TranslatorInterface;
 
+#[Group('area:dispatch-history')]
+#[Group('risk:UI')]
+#[Group('risk:DADOS')]
 class DispatchFailureReasonsTest extends TestCase
 {
     private DispatchFailureReasons $reasons;

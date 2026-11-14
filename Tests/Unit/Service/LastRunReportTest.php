@@ -6,8 +6,12 @@ namespace MauticPlugin\N8nDispatchBundle\Tests\Unit\Service;
 
 use MauticPlugin\N8nDispatchBundle\Entity\PollRun;
 use MauticPlugin\N8nDispatchBundle\Service\LastRunReport;
+use PHPUnit\Framework\Attributes\Group;
 use PHPUnit\Framework\TestCase;
 
+#[Group('area:plugin-settings')]
+#[Group('risk:FLUXO')]
+#[Group('risk:DADOS')]
 class LastRunReportTest extends TestCase
 {
     private function at(): \DateTimeImmutable

@@ -6,9 +6,12 @@ namespace MauticPlugin\N8nDispatchBundle\Tests\Unit\Service;
 
 use MauticPlugin\N8nDispatchBundle\Service\MirrorResyncSettings;
 use MauticPlugin\N8nDispatchBundle\Service\MirrorSettingsForm;
+use PHPUnit\Framework\Attributes\Group;
 use PHPUnit\Framework\TestCase;
 use Symfony\Component\Form\FormBuilderInterface;
 
+#[Group('area:mirror')]
+#[Group('risk:FLUXO')]
 class MirrorSettingsFormTest extends TestCase
 {
     public function testTheSwitchCarriesTheTabLabelAndTheScriptCallback(): void

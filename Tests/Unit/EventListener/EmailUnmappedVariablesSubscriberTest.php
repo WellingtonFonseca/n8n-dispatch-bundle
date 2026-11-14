@@ -13,6 +13,7 @@ use MauticPlugin\N8nDispatchBundle\EventListener\EmailUnmappedVariablesSubscribe
 use MauticPlugin\N8nDispatchBundle\Service\TemplateVariableScanner;
 use MauticPlugin\N8nDispatchBundle\Service\VariableMappingChecker;
 use PHPUnit\Framework\Attributes\AllowMockObjectsWithoutExpectations;
+use PHPUnit\Framework\Attributes\Group;
 use PHPUnit\Framework\MockObject\MockObject;
 use PHPUnit\Framework\TestCase;
 use Symfony\Component\HttpFoundation\Request;
@@ -20,6 +21,9 @@ use Symfony\Component\HttpFoundation\RequestStack;
 use Symfony\Contracts\Translation\TranslatorInterface;
 
 #[AllowMockObjectsWithoutExpectations]
+#[Group('area:variables')]
+#[Group('risk:FLUXO')]
+#[Group('risk:CRITICO')]
 class EmailUnmappedVariablesSubscriberTest extends TestCase
 {
     private EmailVariablesRepository&MockObject $repository;

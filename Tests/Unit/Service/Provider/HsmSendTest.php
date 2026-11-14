@@ -7,8 +7,12 @@ namespace MauticPlugin\N8nDispatchBundle\Tests\Unit\Service\Provider;
 use MauticPlugin\N8nDispatchBundle\Service\Provider\HsmSendRequest;
 use MauticPlugin\N8nDispatchBundle\Service\Provider\HsmSendResult;
 use MauticPlugin\N8nDispatchBundle\Service\Provider\NullHsmProviderGateway;
+use PHPUnit\Framework\Attributes\Group;
 use PHPUnit\Framework\TestCase;
 
+#[Group('area:dispatch-hsm')]
+#[Group('area:dispatch-history')]
+#[Group('risk:CRITICO')]
 class HsmSendTest extends TestCase
 {
     private function request(): HsmSendRequest

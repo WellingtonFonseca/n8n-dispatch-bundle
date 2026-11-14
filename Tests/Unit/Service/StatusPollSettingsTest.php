@@ -8,8 +8,12 @@ use MauticPlugin\N8nDispatchBundle\Entity\PollRun;
 use MauticPlugin\N8nDispatchBundle\Service\FeatureSettings;
 use MauticPlugin\N8nDispatchBundle\Service\StatusPollSettings;
 use PHPUnit\Framework\Attributes\DataProvider;
+use PHPUnit\Framework\Attributes\Group;
 use PHPUnit\Framework\TestCase;
 
+#[Group('area:status-poll')]
+#[Group('risk:CRITICO')]
+#[Group('risk:FLUXO')]
 class StatusPollSettingsTest extends TestCase
 {
     public function testTheCurrentSettingsAreReadFromTheIntegrationFeatures(): void

@@ -6,6 +6,7 @@ namespace MauticPlugin\N8nDispatchBundle\Tests\Unit\Integration;
 
 use MauticPlugin\N8nDispatchBundle\Form\Type\VisiblePasswordType;
 use MauticPlugin\N8nDispatchBundle\Integration\N8nDispatchIntegration;
+use PHPUnit\Framework\Attributes\Group;
 use PHPUnit\Framework\TestCase;
 use Symfony\Component\Form\Extension\Core\Type\FormType;
 use Symfony\Component\Form\Extension\Core\Type\TextType;
@@ -13,6 +14,9 @@ use Symfony\Component\Form\Extension\Validator\ValidatorExtension;
 use Symfony\Component\Form\Forms;
 use Symfony\Component\Validator\Validation;
 
+#[Group('area:dispatch-history')]
+#[Group('risk:INFRA')]
+#[Group('risk:FLUXO')]
 class N8nDispatchIntegrationTest extends TestCase
 {
     private function integration(?\MauticPlugin\N8nDispatchBundle\Entity\AlertLogEntryRepository $alertLog = null, ?\Psr\Log\LoggerInterface $logger = null): N8nDispatchIntegration
