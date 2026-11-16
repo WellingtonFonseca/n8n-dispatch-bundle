@@ -3,6 +3,7 @@
 Um bloco por dia, do mais novo para o mais antigo. Formato fixo: `## AAAA-MM-DD` e uma linha `- ` por mudança (a tela do plugin lê este arquivo).
 
 ## 2026-11-16
+- O alerta de contatos presos não espera mais o fim da verificação de status nem do reenvio ao Mirror: a varredura tem uma fila própria e roda no mesmo ciclo do cron que essas tarefas
 - Um passo de disparo do plugin (Email, SMS ou HSM) que falha não desliga mais a campanha. Antes, com 10% dos contatos falhos em um só passo, o Mautic desligava a campanha inteira e parava os alunos dos outros passos. Agora o contato que falhou continua sendo tentado de novo a cada hora, até alguém corrigir a causa (por exemplo, colocar o telefone), cancelar o evento na Timeline do contato ou tirar o contato da campanha
 - Novo alerta alert.campaign.step_failing: de tempos em tempos o Mautic conta, por passo, os contatos que falharam a tolerância de vezes ou mais e envia um alerta com a campanha, o passo, quantos contatos estão presos, o maior número de falhas, há quantas horas a falha mais antiga e os motivos mais comuns. O alerta se repete a cada varredura enquanto houver contato preso e para quando não houver nenhum. Campanha desligada não alerta
 - A aba Alertas ganhou dois campos: quantas falhas de um contato em um passo contam como preso (padrão 3) e de quantos em quantos minutos o Mautic faz a varredura (padrão 60)

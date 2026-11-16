@@ -4,6 +4,7 @@ declare(strict_types=1);
 
 namespace MauticPlugin\N8nDispatchBundle\Entity;
 
+use Doctrine\DBAL\ArrayParameterType;
 use Mautic\CoreBundle\Entity\CommonRepository;
 
 /**
@@ -31,34 +32,40 @@ class PollRunRepository extends CommonRepository
      * minutes never fires at exactly the same second, and without that
      * margin a "15 minutes" interval would often miss a tick and wait for
      * the next one.
+     *
+     * The interval counts only the runs of the same kind. The lock covers the kinds in `$lockKinds` (the lane of the job,
+     * Config/services.php): a run of one of them still "running" blocks the claim. A run "running" for longer than
+     * RUNNING_STALE_MINUTES is taken as dead (crashed, or killed before it could close itself), so it cannot block
+     * its lane forever.
+     *
+     * @param list<string> $lockKinds the kinds of the lane of `$kind`, `$kind` included
      */
-    public function claim(\DateTimeImmutable $now, int $intervalMinutes, string $kind): ?int
+    public function claim(\DateTimeImmutable $now, int $intervalMinutes, string $kind, array $lockKinds): ?int
     {
+        if ([] === $lockKinds) {
+            throw new \InvalidArgumentException('A run needs the kinds of its lane to take the lock.');
+        }
+
         $connection = $this->getEntityManager()->getConnection();
         $table      = $this->getTableName();
         $utc        = new \DateTimeZone('UTC');
         $threshold  = $now->modify('-'.max(0, $intervalMinutes * 60 - 60).' seconds');
         $stale      = $now->modify('-'.self::RUNNING_STALE_MINUTES.' minutes');
 
-        // The interval counts only the runs of the same kind. A run of any kind still "running" blocks every kind, so
-        // one instance never runs the status poll and the Mirror resync at the same time.
-        // A run is also never started while the previous one is still going
-        // (a run empties the whole queue, so on a big one it can outlast the
-        // interval). One that has been "running" for longer than
-        // RUNNING_STALE_MINUTES is taken as dead — crashed, or killed before
-        // it could close itself — so it cannot block the schedule forever.
         $inserted = $connection->executeStatement(
             "INSERT INTO {$table} (started_at, status, kind) SELECT :now, :status, :kind FROM DUAL "
             ."WHERE NOT EXISTS (SELECT 1 FROM {$table} WHERE kind = :same_kind AND started_at > :threshold) "
-            ."AND NOT EXISTS (SELECT 1 FROM {$table} WHERE status = :status AND started_at > :stale)",
+            ."AND NOT EXISTS (SELECT 1 FROM {$table} WHERE status = :status AND started_at > :stale AND kind IN (:lock_kinds))",
             [
-                'now'       => $now->setTimezone($utc)->format('Y-m-d H:i:s'),
-                'status'    => PollRun::STATUS_RUNNING,
-                'kind'      => $kind,
-                'same_kind' => $kind,
-                'threshold' => $threshold->setTimezone($utc)->format('Y-m-d H:i:s'),
-                'stale'     => $stale->setTimezone($utc)->format('Y-m-d H:i:s'),
-            ]
+                'now'        => $now->setTimezone($utc)->format('Y-m-d H:i:s'),
+                'status'     => PollRun::STATUS_RUNNING,
+                'kind'       => $kind,
+                'same_kind'  => $kind,
+                'threshold'  => $threshold->setTimezone($utc)->format('Y-m-d H:i:s'),
+                'stale'      => $stale->setTimezone($utc)->format('Y-m-d H:i:s'),
+                'lock_kinds' => array_values($lockKinds),
+            ],
+            ['lock_kinds' => ArrayParameterType::STRING]
         );
 
         return $inserted > 0 ? (int) $connection->lastInsertId() : null;

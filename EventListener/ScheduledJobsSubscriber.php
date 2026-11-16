@@ -12,7 +12,7 @@ use Symfony\Component\Console\Event\ConsoleCommandEvent;
 use Symfony\Component\EventDispatcher\EventSubscriberInterface;
 
 /**
- * Wakes the scheduled jobs (status poll, Mirror resync) on the cron commands every Mautic install runs for its
+ * Wakes the scheduled jobs (failure sweep, status poll, Mirror resync) on the cron commands every Mautic install runs for its
  * campaigns and segments. Symfony announces a command the moment it starts, so this runs on every cron tick, busy or
  * not. Nothing that goes wrong here may reach the command that woke us up.
  */
