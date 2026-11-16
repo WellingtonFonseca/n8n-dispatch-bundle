@@ -37,4 +37,10 @@ class CampaignLinkTest extends TestCase
 
         $this->assertSame(['id' => 7, 'name' => 'Boas-vindas', 'url' => 'https://mautic.test/s/campaigns/view/7'], $this->link()->reference($campaign));
     }
+
+    public function testAReferenceFromAnIdAndANameIsTheSameAsOneFromTheCampaign(): void
+    {
+        $this->assertSame(['id' => 7, 'name' => 'Boas-vindas', 'url' => 'https://mautic.test/s/campaigns/view/7'], $this->link()->named(7, 'Boas-vindas'));
+        $this->assertNull($this->link()->named(7, null)['name']);
+    }
 }

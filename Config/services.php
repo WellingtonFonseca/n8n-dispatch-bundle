@@ -39,10 +39,15 @@ return function (ContainerConfigurator $configurator): void {
     $services->set(MauticPlugin\N8nDispatchBundle\Service\BackgroundCommandLauncher::class)
         ->args(['%kernel.project_dir%', null]);
 
-    // The order is the priority: when two jobs are due on one tick, the first takes the turn.
+    // The order is the priority: when two jobs are due on one tick, the first takes the turn. The failure sweep is short
+    // and never off, so it goes first: a long Mirror resync must not hold the alert back.
     $services->set(MauticPlugin\N8nDispatchBundle\Service\JobScheduler::class)
         ->args([
-            [service(MauticPlugin\N8nDispatchBundle\Service\StatusPollJob::class), service(MauticPlugin\N8nDispatchBundle\Service\MirrorResyncJob::class)],
+            [
+                service(MauticPlugin\N8nDispatchBundle\Service\FailureSweepJob::class),
+                service(MauticPlugin\N8nDispatchBundle\Service\StatusPollJob::class),
+                service(MauticPlugin\N8nDispatchBundle\Service\MirrorResyncJob::class),
+            ],
             service(MauticPlugin\N8nDispatchBundle\Entity\PollRunRepository::class),
             service(MauticPlugin\N8nDispatchBundle\Service\BackgroundCommandLauncher::class),
         ]);

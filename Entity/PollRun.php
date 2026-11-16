@@ -29,6 +29,7 @@ class PollRun
     /** Which job the run belongs to. Rows from before the Mirror resync existed are status polls. */
     public const KIND_STATUS_POLL   = 'status_poll';
     public const KIND_MIRROR_RESYNC = 'mirror_resync';
+    public const KIND_FAILURE_SWEEP = 'failure_sweep';
 
     private ?int $id = null;
 

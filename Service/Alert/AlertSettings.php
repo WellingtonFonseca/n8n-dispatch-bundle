@@ -20,6 +20,8 @@ class AlertSettings
     public const KEY_BOUNCE_PERCENT     = 'alert_bounce_percent';
     public const KEY_BOUNCE_WINDOW      = 'alert_bounce_window_minutes';
     public const KEY_BOUNCE_MIN_SENDS   = 'alert_bounce_min_sends';
+    public const KEY_FAILING_THRESHOLD  = 'alert_failing_threshold';
+    public const KEY_FAILING_INTERVAL   = 'alert_failing_interval_minutes';
 
     /** Core unpublishes a campaign at 10% of failed contacts, so a warning must come below it. */
     public const DEFAULT_WARNING_PERCENT = 5;
@@ -41,6 +43,16 @@ class AlertSettings
 
     public const DEFAULT_BOUNCE_MIN_SENDS = 20;
 
+    /** Failures of one contact on one step from which the contact counts as stuck (FailingStepAlerts). */
+    public const DEFAULT_FAILING_THRESHOLD = 3;
+    public const MIN_FAILING_THRESHOLD     = 1;
+    public const MAX_FAILING_THRESHOLD     = 1000;
+
+    /** Minutes between two sweeps. Core retries a failed contact every hour, so under 60 the count rarely changes. */
+    public const DEFAULT_FAILING_INTERVAL = 60;
+    public const MIN_FAILING_INTERVAL     = 15;
+    public const MAX_FAILING_INTERVAL     = 1440;
+
     public const MAX_INSTANCE_NAME_LENGTH = 100;
 
     public function __construct(private FeatureSettings $featureSettings)
@@ -48,7 +60,7 @@ class AlertSettings
     }
 
     /**
-     * @return array{enabled: bool, instanceName: string, warningPercent: int, warningMinContacts: int, bouncePercent: int, bounceWindow: int, bounceMinSends: int}
+     * @return array{enabled: bool, instanceName: string, warningPercent: int, warningMinContacts: int, bouncePercent: int, bounceWindow: int, bounceMinSends: int, failingThreshold: int, failingInterval: int}
      */
     public function current(): array
     {
@@ -58,7 +70,7 @@ class AlertSettings
     /**
      * @param array<string, mixed> $featureSettings
      *
-     * @return array{enabled: bool, instanceName: string, warningPercent: int, warningMinContacts: int, bouncePercent: int, bounceWindow: int, bounceMinSends: int}
+     * @return array{enabled: bool, instanceName: string, warningPercent: int, warningMinContacts: int, bouncePercent: int, bounceWindow: int, bounceMinSends: int, failingThreshold: int, failingInterval: int}
      */
     public static function fromArray(array $featureSettings): array
     {
@@ -70,6 +82,8 @@ class AlertSettings
             'bouncePercent'      => SettingValue::clamp($featureSettings[self::KEY_BOUNCE_PERCENT] ?? null, self::MIN_BOUNCE_PERCENT, self::MAX_BOUNCE_PERCENT, self::DEFAULT_BOUNCE_PERCENT),
             'bounceWindow'       => SettingValue::clamp($featureSettings[self::KEY_BOUNCE_WINDOW] ?? null, self::MIN_BOUNCE_WINDOW, self::MAX_BOUNCE_WINDOW, self::DEFAULT_BOUNCE_WINDOW),
             'bounceMinSends'     => SettingValue::clamp($featureSettings[self::KEY_BOUNCE_MIN_SENDS] ?? null, self::MIN_COUNT, self::MAX_COUNT, self::DEFAULT_BOUNCE_MIN_SENDS),
+            'failingThreshold'   => SettingValue::clamp($featureSettings[self::KEY_FAILING_THRESHOLD] ?? null, self::MIN_FAILING_THRESHOLD, self::MAX_FAILING_THRESHOLD, self::DEFAULT_FAILING_THRESHOLD),
+            'failingInterval'    => SettingValue::clamp($featureSettings[self::KEY_FAILING_INTERVAL] ?? null, self::MIN_FAILING_INTERVAL, self::MAX_FAILING_INTERVAL, self::DEFAULT_FAILING_INTERVAL),
         ];
     }
 
