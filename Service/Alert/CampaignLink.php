@@ -26,8 +26,16 @@ class CampaignLink
      */
     public function reference(Campaign $campaign): array
     {
-        $id = (int) $campaign->getId();
+        return $this->named((int) $campaign->getId(), $campaign->getName());
+    }
 
-        return ['id' => $id, 'name' => $campaign->getName(), 'url' => $this->url($id)];
+    /**
+     * The same reference for a caller that has only the id and the name (a SQL row), not the entity.
+     *
+     * @return array{id: int, name: string|null, url: string}
+     */
+    public function named(int $campaignId, ?string $name): array
+    {
+        return ['id' => $campaignId, 'name' => $name, 'url' => $this->url($campaignId)];
     }
 }

@@ -18,7 +18,7 @@ use Symfony\Component\Form\FormBuilderInterface;
 #[Group('risk:UI')]
 class AlertSettingsFormTest extends TestCase
 {
-    public function testItAddsTheSwitchAndTheFiveNumbersWithTheirLimitsAndTheTabMarks(): void
+    public function testItAddsTheSwitchAndTheSevenNumbersWithTheirLimitsAndTheTabMarks(): void
     {
         $added   = [];
         $builder = $this->createMock(FormBuilderInterface::class);
@@ -28,10 +28,10 @@ class AlertSettingsFormTest extends TestCase
             return $builder;
         });
 
-        AlertSettingsForm::addTo($builder, AlertSettings::fromArray([AlertSettings::KEY_ENABLED => 1, AlertSettings::KEY_INSTANCE_NAME => 'Mautic Vendas', AlertSettings::KEY_BOUNCE_WINDOW => 90]), 'Alertas');
+        AlertSettingsForm::addTo($builder, AlertSettings::fromArray([AlertSettings::KEY_ENABLED => 1, AlertSettings::KEY_INSTANCE_NAME => 'Mautic Vendas', AlertSettings::KEY_BOUNCE_WINDOW => 90, AlertSettings::KEY_FAILING_THRESHOLD => 4]), 'Alertas');
 
         $this->assertSame(
-            [AlertSettings::KEY_ENABLED, AlertSettings::KEY_INSTANCE_NAME, AlertSettings::KEY_WARNING_PERCENT, AlertSettings::KEY_WARNING_MIN, AlertSettings::KEY_BOUNCE_PERCENT, AlertSettings::KEY_BOUNCE_WINDOW, AlertSettings::KEY_BOUNCE_MIN_SENDS],
+            [AlertSettings::KEY_ENABLED, AlertSettings::KEY_INSTANCE_NAME, AlertSettings::KEY_WARNING_PERCENT, AlertSettings::KEY_WARNING_MIN, AlertSettings::KEY_BOUNCE_PERCENT, AlertSettings::KEY_BOUNCE_WINDOW, AlertSettings::KEY_BOUNCE_MIN_SENDS, AlertSettings::KEY_FAILING_THRESHOLD, AlertSettings::KEY_FAILING_INTERVAL],
             array_keys($added)
         );
         [$type, $switch] = $added[AlertSettings::KEY_ENABLED];
@@ -44,6 +44,21 @@ class AlertSettingsFormTest extends TestCase
 
         foreach ($added as $key => [$type, $options]) {
             $this->assertSame('1', $options['attr']['data-alerts-field'], $key);
+        }
+
+        // every number has its own label and tooltip key: a key built wrong would show the raw key on the screen
+        $text = 'mautic.n8ndispatch.settings.alerts.';
+        foreach ([
+            AlertSettings::KEY_WARNING_PERCENT   => 'warning_percent',
+            AlertSettings::KEY_WARNING_MIN       => 'warning_min',
+            AlertSettings::KEY_BOUNCE_PERCENT    => 'bounce_percent',
+            AlertSettings::KEY_BOUNCE_WINDOW     => 'bounce_window',
+            AlertSettings::KEY_BOUNCE_MIN_SENDS  => 'bounce_min',
+            AlertSettings::KEY_FAILING_THRESHOLD => 'failing_threshold',
+            AlertSettings::KEY_FAILING_INTERVAL  => 'failing_interval',
+        ] as $key => $name) {
+            $this->assertSame($text.$name, $added[$key][1]['label'], $key);
+            $this->assertSame($text.$name.'.tooltip', $added[$key][1]['attr']['tooltip'], $key);
         }
 
         [$type, $instance] = $added[AlertSettings::KEY_INSTANCE_NAME];
@@ -69,6 +84,16 @@ class AlertSettingsFormTest extends TestCase
         $this->assertSame(1440, $window['constraints'][0]->max);
         $this->assertSame([1, 9], [$added[AlertSettings::KEY_WARNING_PERCENT][1]['attr']['min'], $added[AlertSettings::KEY_WARNING_PERCENT][1]['attr']['max']]);
         $this->assertSame([1, 100], [$added[AlertSettings::KEY_BOUNCE_PERCENT][1]['attr']['min'], $added[AlertSettings::KEY_BOUNCE_PERCENT][1]['attr']['max']]);
+
+        [, $threshold] = $added[AlertSettings::KEY_FAILING_THRESHOLD];
+        $this->assertSame(4, $threshold['data']);
+        $this->assertSame([1, 1000], [$threshold['attr']['min'], $threshold['attr']['max']]);
+        $this->assertSame('mautic.n8ndispatch.settings.alerts.failing_threshold', $threshold['label']);
+        $this->assertSame('mautic.n8ndispatch.settings.alerts.failing_threshold.tooltip', $threshold['attr']['tooltip']);
+        [, $interval] = $added[AlertSettings::KEY_FAILING_INTERVAL];
+        $this->assertSame(60, $interval['data']);
+        $this->assertSame([15, 1440], [$interval['attr']['min'], $interval['attr']['max']]);
+        $this->assertSame('mautic.n8ndispatch.settings.alerts.failing_interval.tooltip', $interval['attr']['tooltip']);
     }
 
     public function testTheSwitchIsOffUntilTheChannelIsTurnedOn(): void

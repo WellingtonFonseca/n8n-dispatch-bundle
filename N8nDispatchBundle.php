@@ -16,6 +16,7 @@ use MauticPlugin\N8nDispatchBundle\Entity\HsmTemplate;
 use MauticPlugin\N8nDispatchBundle\Entity\MirrorSyncState;
 use MauticPlugin\N8nDispatchBundle\Entity\PollRun;
 use MauticPlugin\N8nDispatchBundle\Entity\SmsTemplate;
+use MauticPlugin\N8nDispatchBundle\Entity\StepFailure;
 use MauticPlugin\N8nDispatchBundle\Resolver\LocaleConventions;
 
 class N8nDispatchBundle extends PluginBundleBase
@@ -44,7 +45,7 @@ class N8nDispatchBundle extends PluginBundleBase
             $toInstall[] = $metadata[EmailVariables::class];
         }
 
-        foreach ([DispatchTracking::class => DispatchTracking::TABLE_NAME, DispatchCallback::class => DispatchCallback::TABLE_NAME, PollRun::class => PollRun::TABLE_NAME, AlertLogEntry::class => AlertLogEntry::TABLE_NAME, MirrorSyncState::class => MirrorSyncState::TABLE_NAME] as $entity => $table) {
+        foreach ([DispatchTracking::class => DispatchTracking::TABLE_NAME, DispatchCallback::class => DispatchCallback::TABLE_NAME, PollRun::class => PollRun::TABLE_NAME, AlertLogEntry::class => AlertLogEntry::TABLE_NAME, MirrorSyncState::class => MirrorSyncState::TABLE_NAME, StepFailure::class => StepFailure::TABLE_NAME] as $entity => $table) {
             if (!empty($metadata[$entity]) && (null === $installedSchema || !$installedSchema->hasTable($table))) {
                 $toInstall[] = $metadata[$entity];
             }

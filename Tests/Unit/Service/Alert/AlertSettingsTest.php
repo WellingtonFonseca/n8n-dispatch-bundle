@@ -19,7 +19,7 @@ class AlertSettingsTest extends TestCase
     public function testTheChannelIsOffWithTheDefaultsUntilSomeoneTurnsItOn(): void
     {
         $this->assertSame(
-            ['enabled' => false, 'instanceName' => '', 'warningPercent' => 5, 'warningMinContacts' => 20, 'bouncePercent' => 10, 'bounceWindow' => 60, 'bounceMinSends' => 20],
+            ['enabled' => false, 'instanceName' => '', 'warningPercent' => 5, 'warningMinContacts' => 20, 'bouncePercent' => 10, 'bounceWindow' => 60, 'bounceMinSends' => 20, 'failingThreshold' => 3, 'failingInterval' => 60],
             AlertSettings::fromArray([])
         );
     }
@@ -29,9 +29,10 @@ class AlertSettingsTest extends TestCase
         $current = AlertSettings::fromArray([
             AlertSettings::KEY_ENABLED => '1', AlertSettings::KEY_INSTANCE_NAME => '  Mautic Compras  ', AlertSettings::KEY_WARNING_PERCENT => '7', AlertSettings::KEY_WARNING_MIN => '50',
             AlertSettings::KEY_BOUNCE_PERCENT => '15', AlertSettings::KEY_BOUNCE_WINDOW => '120', AlertSettings::KEY_BOUNCE_MIN_SENDS => '300',
+            AlertSettings::KEY_FAILING_THRESHOLD => '5', AlertSettings::KEY_FAILING_INTERVAL => '30',
         ]);
 
-        $this->assertSame(['enabled' => true, 'instanceName' => 'Mautic Compras', 'warningPercent' => 7, 'warningMinContacts' => 50, 'bouncePercent' => 15, 'bounceWindow' => 120, 'bounceMinSends' => 300], $current);
+        $this->assertSame(['enabled' => true, 'instanceName' => 'Mautic Compras', 'warningPercent' => 7, 'warningMinContacts' => 50, 'bouncePercent' => 15, 'bounceWindow' => 120, 'bounceMinSends' => 300, 'failingThreshold' => 5, 'failingInterval' => 30], $current);
     }
 
     public function testTheInstanceNameIsCutAtTheLimitAndANonTextIsEmpty(): void
@@ -45,11 +46,11 @@ class AlertSettingsTest extends TestCase
 
     public function testValuesOutsideTheLimitsAreClamped(): void
     {
-        $low  = AlertSettings::fromArray([AlertSettings::KEY_WARNING_PERCENT => 0, AlertSettings::KEY_WARNING_MIN => 0, AlertSettings::KEY_BOUNCE_PERCENT => 0, AlertSettings::KEY_BOUNCE_WINDOW => 1, AlertSettings::KEY_BOUNCE_MIN_SENDS => -4]);
-        $high = AlertSettings::fromArray([AlertSettings::KEY_WARNING_PERCENT => 50, AlertSettings::KEY_WARNING_MIN => 999999, AlertSettings::KEY_BOUNCE_PERCENT => 500, AlertSettings::KEY_BOUNCE_WINDOW => 99999, AlertSettings::KEY_BOUNCE_MIN_SENDS => 999999]);
+        $low  = AlertSettings::fromArray([AlertSettings::KEY_WARNING_PERCENT => 0, AlertSettings::KEY_WARNING_MIN => 0, AlertSettings::KEY_BOUNCE_PERCENT => 0, AlertSettings::KEY_BOUNCE_WINDOW => 1, AlertSettings::KEY_BOUNCE_MIN_SENDS => -4, AlertSettings::KEY_FAILING_THRESHOLD => 0, AlertSettings::KEY_FAILING_INTERVAL => 14]);
+        $high = AlertSettings::fromArray([AlertSettings::KEY_WARNING_PERCENT => 50, AlertSettings::KEY_WARNING_MIN => 999999, AlertSettings::KEY_BOUNCE_PERCENT => 500, AlertSettings::KEY_BOUNCE_WINDOW => 99999, AlertSettings::KEY_BOUNCE_MIN_SENDS => 999999, AlertSettings::KEY_FAILING_THRESHOLD => 5000, AlertSettings::KEY_FAILING_INTERVAL => 99999]);
 
-        $this->assertSame([1, 1, 1, 5, 1], [$low['warningPercent'], $low['warningMinContacts'], $low['bouncePercent'], $low['bounceWindow'], $low['bounceMinSends']]);
-        $this->assertSame([9, 100000, 100, 1440, 100000], [$high['warningPercent'], $high['warningMinContacts'], $high['bouncePercent'], $high['bounceWindow'], $high['bounceMinSends']]);
+        $this->assertSame([1, 1, 1, 5, 1, 1, 15], [$low['warningPercent'], $low['warningMinContacts'], $low['bouncePercent'], $low['bounceWindow'], $low['bounceMinSends'], $low['failingThreshold'], $low['failingInterval']]);
+        $this->assertSame([9, 100000, 100, 1440, 100000, 1000, 1440], [$high['warningPercent'], $high['warningMinContacts'], $high['bouncePercent'], $high['bounceWindow'], $high['bounceMinSends'], $high['failingThreshold'], $high['failingInterval']]);
     }
 
     public function testATextThatIsNotANumberFallsBackToTheDefault(): void

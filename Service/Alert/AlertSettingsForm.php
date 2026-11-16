@@ -16,7 +16,7 @@ use Symfony\Component\Validator\Constraints\Length;
 class AlertSettingsForm
 {
     /**
-     * @param array{enabled: bool, instanceName: string, warningPercent: int, warningMinContacts: int, bouncePercent: int, bounceWindow: int, bounceMinSends: int} $current
+     * @param array{enabled: bool, instanceName: string, warningPercent: int, warningMinContacts: int, bouncePercent: int, bounceWindow: int, bounceMinSends: int, failingThreshold: int, failingInterval: int} $current
      */
     public static function addTo(FormBuilderInterface $builder, array $current, string $tabLabel): void
     {
@@ -42,10 +42,21 @@ class AlertSettingsForm
             'constraints' => [new Length(max: AlertSettings::MAX_INSTANCE_NAME_LENGTH)],
         ]);
 
+        self::addNumbers($builder, $current, $text, $inTab);
+    }
+
+    /**
+     * @param array{enabled: bool, instanceName: string, warningPercent: int, warningMinContacts: int, bouncePercent: int, bounceWindow: int, bounceMinSends: int, failingThreshold: int, failingInterval: int} $current
+     * @param array<string, string>                                                                                                                                                                              $inTab
+     */
+    private static function addNumbers(FormBuilderInterface $builder, array $current, string $text, array $inTab): void
+    {
         SettingsFields::number($builder, AlertSettings::KEY_WARNING_PERCENT, $current['warningPercent'], AlertSettings::MIN_WARNING_PERCENT, AlertSettings::MAX_WARNING_PERCENT, $text.'warning_percent', $inTab);
         SettingsFields::number($builder, AlertSettings::KEY_WARNING_MIN, $current['warningMinContacts'], AlertSettings::MIN_COUNT, AlertSettings::MAX_COUNT, $text.'warning_min', $inTab);
         SettingsFields::number($builder, AlertSettings::KEY_BOUNCE_PERCENT, $current['bouncePercent'], AlertSettings::MIN_BOUNCE_PERCENT, AlertSettings::MAX_BOUNCE_PERCENT, $text.'bounce_percent', $inTab);
         SettingsFields::number($builder, AlertSettings::KEY_BOUNCE_WINDOW, $current['bounceWindow'], AlertSettings::MIN_BOUNCE_WINDOW, AlertSettings::MAX_BOUNCE_WINDOW, $text.'bounce_window', $inTab);
         SettingsFields::number($builder, AlertSettings::KEY_BOUNCE_MIN_SENDS, $current['bounceMinSends'], AlertSettings::MIN_COUNT, AlertSettings::MAX_COUNT, $text.'bounce_min', $inTab);
+        SettingsFields::number($builder, AlertSettings::KEY_FAILING_THRESHOLD, $current['failingThreshold'], AlertSettings::MIN_FAILING_THRESHOLD, AlertSettings::MAX_FAILING_THRESHOLD, $text.'failing_threshold', $inTab);
+        SettingsFields::number($builder, AlertSettings::KEY_FAILING_INTERVAL, $current['failingInterval'], AlertSettings::MIN_FAILING_INTERVAL, AlertSettings::MAX_FAILING_INTERVAL, $text.'failing_interval', $inTab);
     }
 }

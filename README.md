@@ -139,6 +139,11 @@ Contacts on the Do Not Contact list for the channel are not sent to (SMS and
 HSM use the `sms` channel). The step passes for them with the reason on the
 History (as core's Email action does), so core does not retry it.
 
+A dispatch step that fails (n8n refuses, no phone, template missing) is tried
+again by core every hour until the cause is fixed, someone cancels the event on
+the contact's Timeline or the contact leaves the campaign. It never switches the
+campaign off. See Alerts below for `alert.campaign.step_failing`.
+
 A campaign step held back by an hour/day restriction shows its real
 scheduled time on the contact's Timeline (not a blank card), with buttons to
 reschedule or cancel it — cancelling asks for confirmation first, and both
@@ -175,8 +180,9 @@ Settings > Plugins > N8N Dispatch > tab **Alertas** (off by default) posts an al
 
 | Header | When |
 |---|---|
-| `alert.campaign.unpublished` | Mautic switched a campaign off after failed steps |
-| `alert.campaign.failure_warning` | a step failed for the warning percent of the contacts (5%, once a day per campaign, not below 20 contacts) |
+| `alert.campaign.step_failing` | contacts are stuck on a step of this plugin: each failed the tolerance of times or more (3). One alert per step on every sweep (every 60 minutes), repeated while any contact is stuck; none for a campaign that is off |
+| `alert.campaign.unpublished` | Mautic switched a campaign off after failed steps (only steps of core and of other plugins: a step of this plugin never does) |
+| `alert.campaign.failure_warning` | a step of core or of another plugin failed for the warning percent of the contacts (5%, once a day per campaign, not below 20 contacts) |
 | `alert.campaign.bounce_spike` | bounces reached the bounce percent of the Emails of the window (10%, 1 hour, at least 20 Emails; once every 6 hours per campaign) |
 | `alert.status_poll.failed` | a run of the status poll ended in error (once every 6 hours) |
 | `alert.dispatch.resend_failed` | a Resend failed again |
