@@ -5,9 +5,8 @@ declare(strict_types=1);
 namespace MauticPlugin\N8nDispatchBundle\Command;
 
 use MauticPlugin\N8nDispatchBundle\Entity\DispatchTracking;
-use MauticPlugin\N8nDispatchBundle\Entity\PollRun;
-use MauticPlugin\N8nDispatchBundle\Entity\PollRunRepository;
 use MauticPlugin\N8nDispatchBundle\Service\Alert\AlertSender;
+use MauticPlugin\N8nDispatchBundle\Service\ScheduledRun;
 use MauticPlugin\N8nDispatchBundle\Service\StatusPoller;
 use MauticPlugin\N8nDispatchBundle\Service\StatusPollSettings;
 use MauticPlugin\N8nDispatchBundle\Service\StatusPollSummary;
@@ -31,7 +30,7 @@ class StatusPollCommand extends Command
 
     private const ALERT_COOLDOWN_SECONDS = 21600;
 
-    public function __construct(private StatusPoller $poller, private PollRunRepository $runs, private StatusPollSettings $settings, private ?AlertSender $alerts = null)
+    public function __construct(private StatusPoller $poller, private ScheduledRun $scheduledRun, private StatusPollSettings $settings, private ?AlertSender $alerts = null)
     {
         parent::__construct();
     }
@@ -44,8 +43,8 @@ class StatusPollCommand extends Command
             ->addOption('max-calls', null, InputOption::VALUE_REQUIRED, 'Most calls per channel in one run (a safety net: the run goes on until the queue is empty).', (string) StatusPoller::MAX_CALLS)
             ->addOption('max-age-days', null, InputOption::VALUE_REQUIRED, 'Ids dispatched longer ago than this stop being asked about.', '7')
             ->addOption('outcome', null, InputOption::VALUE_REQUIRED, 'Which outcome to ask about: pending (default), or error to re-check failures.', DispatchTracking::OUTCOME_PENDING)
-            ->addOption('webhook-url', null, InputOption::VALUE_REQUIRED, 'Call this URL instead of the configured webhook (for tests).')
-            ->addOption('run-id', null, InputOption::VALUE_REQUIRED, 'Set by the plugin when it starts a scheduled run: the run to close when this one ends.');
+            ->addOption('webhook-url', null, InputOption::VALUE_REQUIRED, 'Call this URL instead of the configured webhook (for tests).');
+        ScheduledRun::addOption($this);
     }
 
     protected function execute(InputInterface $input, OutputInterface $output): int
@@ -68,47 +67,45 @@ class StatusPollCommand extends Command
             return Command::INVALID;
         }
 
-        $override  = $input->getOption('webhook-url');
-        $runOption = $input->getOption('run-id');
-        $runId     = null !== $runOption ? (int) $runOption : null;
-        $failed    = false;
-        $lines     = [];
+        $override = $input->getOption('webhook-url');
+        $override = is_string($override) ? $override : null;
 
-        try {
-            foreach (null === $channel ? DispatchTracking::CHANNELS : [$channel] as $name) {
-                $summary = $this->poller->poll($name, $batch, $maxAge, $outcome, is_string($override) ? $override : null, new \DateTimeImmutable(), $maxCalls);
+        $result = $this->scheduledRun->run(
+            ScheduledRun::id($input),
+            fn (): array => $this->pollChannels($channel, $batch, $maxAge, $outcome, $override, $maxCalls, $output),
+            // one alert per cooldown: a poll that keeps failing runs every interval
+            fn (int $runId, string $summary) => $this->alerts?->send('status_poll.failed', ['run_id' => $runId, 'summary' => $summary], 'status_poll', self::ALERT_COOLDOWN_SECONDS),
+        );
 
-                if (null !== $summary['error']) {
-                    $failed  = true;
-                    $lines[] = StatusPollSummary::errorLine($name, $summary['error']);
-                    $output->writeln('<error>'.$lines[array_key_last($lines)].'</error>');
-
-                    continue;
-                }
-
-                $lines[] = StatusPollSummary::line($name, $summary);
-                $output->writeln($lines[array_key_last($lines)]);
-            }
-        } catch (\Throwable $e) {
-            // A scheduled run must always end up closed, or the settings
-            // screen would show it running forever.
-            $this->closeRun($runId, PollRun::STATUS_ERROR, $e->getMessage());
-
-            throw $e;
-        }
-
-        $this->closeRun($runId, $failed ? PollRun::STATUS_ERROR : PollRun::STATUS_OK, implode("\n", $lines));
-
-        return $failed ? Command::FAILURE : Command::SUCCESS;
+        return $result['ok'] ? Command::SUCCESS : Command::FAILURE;
     }
 
-    private function closeRun(?int $runId, string $status, string $summary): void
+    /**
+     * Polls one channel or all three. A channel that answers with an error does not stop the others: the run ends in
+     * error at the end, with one line per channel.
+     *
+     * @return array{ok: bool, summary: string}
+     */
+    private function pollChannels(?string $channel, int $batch, int $maxAge, string $outcome, ?string $override, int $maxCalls, OutputInterface $output): array
     {
-        $this->runs->close($runId, $status, $summary, new \DateTimeImmutable());
+        $failed = false;
+        $lines  = [];
 
-        if (null !== $runId && PollRun::STATUS_ERROR === $status) {
-            // one alert per cooldown: a poll that keeps failing runs every interval
-            $this->alerts?->send('status_poll.failed', ['run_id' => $runId, 'summary' => $summary], 'status_poll', self::ALERT_COOLDOWN_SECONDS);
+        foreach (null === $channel ? DispatchTracking::CHANNELS : [$channel] as $name) {
+            $summary = $this->poller->poll($name, $batch, $maxAge, $outcome, $override, new \DateTimeImmutable(), $maxCalls);
+
+            if (null !== $summary['error']) {
+                $failed  = true;
+                $lines[] = StatusPollSummary::errorLine($name, $summary['error']);
+                $output->writeln('<error>'.$lines[array_key_last($lines)].'</error>');
+
+                continue;
+            }
+
+            $lines[] = StatusPollSummary::line($name, $summary);
+            $output->writeln($lines[array_key_last($lines)]);
         }
+
+        return ['ok' => !$failed, 'summary' => implode("\n", $lines)];
     }
 }

@@ -8,6 +8,7 @@ use MauticPlugin\N8nDispatchBundle\Command\StatusPollCommand;
 use MauticPlugin\N8nDispatchBundle\Entity\PollRun;
 use MauticPlugin\N8nDispatchBundle\Entity\PollRunRepository;
 use MauticPlugin\N8nDispatchBundle\Service\Alert\AlertSender;
+use MauticPlugin\N8nDispatchBundle\Service\ScheduledRun;
 use MauticPlugin\N8nDispatchBundle\Service\StatusPoller;
 use MauticPlugin\N8nDispatchBundle\Service\StatusPollSettings;
 use PHPUnit\Framework\Attributes\Group;
@@ -34,7 +35,7 @@ class StatusPollCommandTest extends TestCase
         $this->runs   = $this->createMock(PollRunRepository::class);
         $settings = $this->createMock(StatusPollSettings::class);
         $settings->method('current')->willReturn(['enabled' => false, 'interval' => 60, 'batch' => 70, 'timeout' => 180, 'maxDuration' => 300]);
-        $this->tester = new CommandTester(new StatusPollCommand($this->poller, $this->runs, $settings));
+        $this->tester = new CommandTester(new StatusPollCommand($this->poller, new ScheduledRun($this->runs), $settings));
     }
 
     private function summary(int $requested = 0, ?string $error = null): array
@@ -104,7 +105,7 @@ class StatusPollCommandTest extends TestCase
         $settings = $this->createMock(StatusPollSettings::class);
         $settings->method('current')->willReturn(['enabled' => false, 'interval' => 60, 'batch' => 70, 'timeout' => 180, 'maxDuration' => 300]);
 
-        return new CommandTester(new StatusPollCommand($this->poller, $this->runs, $settings, $alerts));
+        return new CommandTester(new StatusPollCommand($this->poller, new ScheduledRun($this->runs), $settings, $alerts));
     }
 
     public function testARunThatEndsInErrorRaisesTheStatusPollAlertOncePerSixHours(): void
@@ -113,7 +114,7 @@ class StatusPollCommandTest extends TestCase
         $alerts = $this->createMock(AlertSender::class);
         $alerts->expects($this->once())->method('send')->with(
             'status_poll.failed',
-            $this->callback(static fn (array $data): bool => str_contains($data['summary'], 'webhook returned HTTP 500.')),
+            $this->callback(static fn (array $data): bool => 7 === $data['run_id'] && str_contains($data['summary'], 'webhook returned HTTP 500.')),
             'status_poll',
             21600
         );
@@ -134,7 +135,12 @@ class StatusPollCommandTest extends TestCase
     {
         $this->poller->method('poll')->willThrowException(new \RuntimeException('boom'));
         $alerts = $this->createMock(AlertSender::class);
-        $alerts->expects($this->once())->method('send')->with('status_poll.failed', $this->anything(), 'status_poll', 21600);
+        $alerts->expects($this->once())->method('send')->with(
+            'status_poll.failed',
+            ['run_id' => 7, 'summary' => 'boom'],
+            'status_poll',
+            21600
+        );
 
         try {
             $this->commandWithAlerts($alerts)->execute(['--run-id' => '7']);

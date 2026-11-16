@@ -8,6 +8,7 @@ use MauticPlugin\N8nDispatchBundle\Command\FailureSweepCommand;
 use MauticPlugin\N8nDispatchBundle\Entity\PollRun;
 use MauticPlugin\N8nDispatchBundle\Entity\PollRunRepository;
 use MauticPlugin\N8nDispatchBundle\Service\Alert\FailingStepAlerts;
+use MauticPlugin\N8nDispatchBundle\Service\ScheduledRun;
 use PHPUnit\Framework\Attributes\Group;
 use PHPUnit\Framework\MockObject\MockObject;
 use PHPUnit\Framework\TestCase;
@@ -30,7 +31,7 @@ class FailureSweepCommandTest extends TestCase
     {
         $this->alerts = $this->createMock(FailingStepAlerts::class);
         $this->runs   = $this->createMock(PollRunRepository::class);
-        $this->tester = new CommandTester(new FailureSweepCommand($this->alerts, $this->runs));
+        $this->tester = new CommandTester(new FailureSweepCommand($this->alerts, new ScheduledRun($this->runs)));
     }
 
     public function testARunPrintsTheSummaryAndClosesTheScheduledRunAsOk(): void

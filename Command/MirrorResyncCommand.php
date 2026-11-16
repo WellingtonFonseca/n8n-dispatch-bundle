@@ -4,11 +4,10 @@ declare(strict_types=1);
 
 namespace MauticPlugin\N8nDispatchBundle\Command;
 
-use MauticPlugin\N8nDispatchBundle\Entity\PollRun;
-use MauticPlugin\N8nDispatchBundle\Entity\PollRunRepository;
 use MauticPlugin\N8nDispatchBundle\Service\MirrorResync;
 use MauticPlugin\N8nDispatchBundle\Service\MirrorResyncSettings;
 use MauticPlugin\N8nDispatchBundle\Service\MirrorResyncSummary;
+use MauticPlugin\N8nDispatchBundle\Service\ScheduledRun;
 use Symfony\Component\Console\Attribute\AsCommand;
 use Symfony\Component\Console\Command\Command;
 use Symfony\Component\Console\Input\InputInterface;
@@ -24,7 +23,7 @@ class MirrorResyncCommand extends Command
 {
     public const NAME = 'n8ndispatch:mirror:resync';
 
-    public function __construct(private MirrorResync $resync, private PollRunRepository $runs, private MirrorResyncSettings $settings)
+    public function __construct(private MirrorResync $resync, private ScheduledRun $scheduledRun, private MirrorResyncSettings $settings)
     {
         parent::__construct();
     }
@@ -34,8 +33,8 @@ class MirrorResyncCommand extends Command
         $this
             ->addOption('batch', null, InputOption::VALUE_REQUIRED, "Most Emails sent in this run. Default: the plugin's settings screen (100 unless changed).")
             ->addOption('delay', null, InputOption::VALUE_REQUIRED, "Milliseconds between two calls to n8n. Default: the plugin's settings screen (2000 unless changed).")
-            ->addOption('email-id', null, InputOption::VALUE_REQUIRED, 'Send only this Email, whatever the state of its last sync.')
-            ->addOption('run-id', null, InputOption::VALUE_REQUIRED, 'Set by the plugin when it starts a scheduled run: the run to close when this one ends.');
+            ->addOption('email-id', null, InputOption::VALUE_REQUIRED, 'Send only this Email, whatever the state of its last sync.');
+        ScheduledRun::addOption($this);
     }
 
     protected function execute(InputInterface $input, OutputInterface $output): int
@@ -51,25 +50,17 @@ class MirrorResyncCommand extends Command
             return Command::INVALID;
         }
 
-        $runOption = $input->getOption('run-id');
-        $runId     = null !== $runOption ? (int) $runOption : null;
-
-        try {
+        $result = $this->scheduledRun->run(ScheduledRun::id($input), function () use ($emailId, $batch, $delay, $settings, $output): array {
             $summary = $emailId > 0
                 ? $this->resync->runOne($emailId)
                 : $this->resync->run($batch, $delay, $settings['refreshHours'], new \DateTimeImmutable());
-        } catch (\Throwable $e) {
-            // A scheduled run must always end up closed, or the settings screen would show it running forever.
-            $this->runs->close($runId, PollRun::STATUS_ERROR, $e->getMessage(), new \DateTimeImmutable());
+            $line = MirrorResyncSummary::line($summary);
+            $output->writeln(null === $summary['error'] ? $line : '<error>'.$line.'</error>');
 
-            throw $e;
-        }
+            return ['ok' => null === $summary['error'], 'summary' => $line];
+        });
 
-        $line = MirrorResyncSummary::line($summary);
-        $output->writeln(null === $summary['error'] ? $line : '<error>'.$line.'</error>');
-        $this->runs->close($runId, null === $summary['error'] ? PollRun::STATUS_OK : PollRun::STATUS_ERROR, $line, new \DateTimeImmutable());
-
-        return null === $summary['error'] ? Command::SUCCESS : Command::FAILURE;
+        return $result['ok'] ? Command::SUCCESS : Command::FAILURE;
     }
 
     /** The option as a whole number of at least $min, $default when it is not given, null when it is invalid. */

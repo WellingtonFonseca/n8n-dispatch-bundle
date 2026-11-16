@@ -9,6 +9,7 @@ use MauticPlugin\N8nDispatchBundle\Entity\PollRun;
 use MauticPlugin\N8nDispatchBundle\Entity\PollRunRepository;
 use MauticPlugin\N8nDispatchBundle\Service\MirrorResync;
 use MauticPlugin\N8nDispatchBundle\Service\MirrorResyncSettings;
+use MauticPlugin\N8nDispatchBundle\Service\ScheduledRun;
 use PHPUnit\Framework\Attributes\Group;
 use PHPUnit\Framework\MockObject\MockObject;
 use PHPUnit\Framework\TestCase;
@@ -39,7 +40,7 @@ class MirrorResyncCommandTest extends TestCase
         $this->runs   = $this->createMock(PollRunRepository::class);
         $settings     = $this->createMock(MirrorResyncSettings::class);
         $settings->method('current')->willReturn(['enabled' => false, 'interval' => 120, 'batch' => 70, 'delay' => 1500, 'refreshHours' => 12]);
-        $this->tester = new CommandTester(new MirrorResyncCommand($this->resync, $this->runs, $settings));
+        $this->tester = new CommandTester(new MirrorResyncCommand($this->resync, new ScheduledRun($this->runs), $settings));
     }
 
     public function testARunUsesTheSettingsAndPrintsTheSummary(): void
