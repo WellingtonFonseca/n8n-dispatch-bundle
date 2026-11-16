@@ -40,7 +40,7 @@ class FailureSweepCommand extends Command
         try {
             $result = $this->alerts->sweep(new \DateTimeImmutable());
         } catch (\Throwable $e) {
-            // a scheduled run must always end up closed, or it would block every job of the plugin for two hours
+            // a scheduled run must always end up closed, or it would block the next sweep for two hours
             $this->runs->close($runId, PollRun::STATUS_ERROR, $e->getMessage(), new \DateTimeImmutable());
 
             throw $e;

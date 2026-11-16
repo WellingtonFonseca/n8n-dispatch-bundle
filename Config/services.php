@@ -39,17 +39,18 @@ return function (ContainerConfigurator $configurator): void {
     $services->set(MauticPlugin\N8nDispatchBundle\Service\BackgroundCommandLauncher::class)
         ->args(['%kernel.project_dir%', null]);
 
-    // The order is the priority: when two jobs are due on one tick, the first takes the turn. The failure sweep is short
-    // and never off, so it goes first: a long Mirror resync must not hold the alert back.
+    // The jobs are in lanes. A lane takes one job per tick and its jobs lock each other; lanes never block each other.
+    // The status poll and the Mirror resync share a lane (both call n8n, one at a time; the first due one takes the
+    // turn). The failure sweep reads only our table, so a long resync must not hide its alert: a lane of its own.
     $services->set(MauticPlugin\N8nDispatchBundle\Service\JobScheduler::class)
         ->args([
             [
-                service(MauticPlugin\N8nDispatchBundle\Service\FailureSweepJob::class),
-                service(MauticPlugin\N8nDispatchBundle\Service\StatusPollJob::class),
-                service(MauticPlugin\N8nDispatchBundle\Service\MirrorResyncJob::class),
+                [service(MauticPlugin\N8nDispatchBundle\Service\FailureSweepJob::class)],
+                [service(MauticPlugin\N8nDispatchBundle\Service\StatusPollJob::class), service(MauticPlugin\N8nDispatchBundle\Service\MirrorResyncJob::class)],
             ],
             service(MauticPlugin\N8nDispatchBundle\Entity\PollRunRepository::class),
             service(MauticPlugin\N8nDispatchBundle\Service\BackgroundCommandLauncher::class),
+            service(Psr\Log\LoggerInterface::class),
         ]);
 
     // One pacer per class: it remembers when the last call started, and the status poll and the Mirror resync must not

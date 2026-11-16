@@ -26,6 +26,12 @@ class MirrorSyncStateRepositoryDbTest extends RollbackDatabaseTestCase
 
     private PollRunRepository $runs;
 
+    /** The lock of the status poll and the Mirror resync: a run of one blocks the other. */
+    private const SHARED_LANE = [PollRun::KIND_STATUS_POLL, PollRun::KIND_MIRROR_RESYNC];
+
+    /** The failure sweep has a lane of its own. */
+    private const SWEEP_LANE = [PollRun::KIND_FAILURE_SWEEP];
+
     private int $emailId;
 
     protected function setUp(): void
@@ -126,28 +132,61 @@ class MirrorSyncStateRepositoryDbTest extends RollbackDatabaseTestCase
         $this->assertSame([], $this->stateRow());
     }
 
-    public function testTheIntervalCountsOnlyItsOwnKindAndARunningRunOfAnyKindBlocksTheOther(): void
+    public function testTheIntervalCountsOnlyItsOwnKindAndARunningRunOfItsLaneBlocksTheOther(): void
     {
         $now = new \DateTimeImmutable('2026-11-13 10:00:00', new \DateTimeZone('UTC'));
 
-        $poll = $this->runs->claim($now, 60, PollRun::KIND_STATUS_POLL);
+        $poll = $this->runs->claim($now, 60, PollRun::KIND_STATUS_POLL, self::SHARED_LANE);
         $this->assertNotNull($poll);
-        $this->assertNull($this->runs->claim($now, 120, PollRun::KIND_MIRROR_RESYNC), 'the status poll is still running');
+        $this->assertNull($this->runs->claim($now, 120, PollRun::KIND_MIRROR_RESYNC, self::SHARED_LANE), 'the status poll is still running');
 
         $this->db->update(PollRun::TABLE_NAME, ['status' => PollRun::STATUS_OK], ['id' => $poll]);
-        $resync = $this->runs->claim($now, 120, PollRun::KIND_MIRROR_RESYNC);
+        $resync = $this->runs->claim($now, 120, PollRun::KIND_MIRROR_RESYNC, self::SHARED_LANE);
         $this->assertNotNull($resync, 'a status poll inside the interval does not count for the resync');
         $this->assertSame(PollRun::KIND_MIRROR_RESYNC, $this->db->fetchOne('SELECT kind FROM '.PollRun::TABLE_NAME.' WHERE id = ?', [$resync]));
 
         $this->db->update(PollRun::TABLE_NAME, ['status' => PollRun::STATUS_OK], ['id' => $resync]);
-        $this->assertNull($this->runs->claim($now->modify('+30 minutes'), 120, PollRun::KIND_MIRROR_RESYNC), 'not time yet for the resync');
-        $this->assertNotNull($this->runs->claim($now->modify('+60 minutes'), 60, PollRun::KIND_STATUS_POLL));
+        $this->assertNull($this->runs->claim($now->modify('+30 minutes'), 120, PollRun::KIND_MIRROR_RESYNC, self::SHARED_LANE), 'not time yet for the resync');
+        $this->assertNotNull($this->runs->claim($now->modify('+60 minutes'), 60, PollRun::KIND_STATUS_POLL, self::SHARED_LANE));
+    }
+
+    public function testARunningSweepNeverBlocksTheSharedLaneAndTheOtherWayRound(): void
+    {
+        $now = new \DateTimeImmutable('2026-11-13 10:00:00', new \DateTimeZone('UTC'));
+
+        $sweep = $this->runs->claim($now, 60, PollRun::KIND_FAILURE_SWEEP, self::SWEEP_LANE);
+        $this->assertNotNull($sweep);
+        $poll = $this->runs->claim($now, 60, PollRun::KIND_STATUS_POLL, self::SHARED_LANE);
+        $this->assertNotNull($poll, 'a sweep that is still running does not hold the status poll back');
+
+        $this->db->update(PollRun::TABLE_NAME, ['status' => PollRun::STATUS_OK], ['id' => $sweep]);
+        $this->assertNotNull($this->runs->claim($now->modify('+61 minutes'), 60, PollRun::KIND_FAILURE_SWEEP, self::SWEEP_LANE), 'the poll that is still running does not hold the sweep back');
+    }
+
+    public function testASweepStillRunningBlocksTheNextSweepUntilItIsTakenAsDead(): void
+    {
+        $now = new \DateTimeImmutable('2026-11-13 10:00:00', new \DateTimeZone('UTC'));
+
+        $first = $this->runs->claim($now, 15, PollRun::KIND_FAILURE_SWEEP, self::SWEEP_LANE);
+        $this->assertNotNull($first);
+        $this->assertNull($this->runs->claim($now->modify('+30 minutes'), 15, PollRun::KIND_FAILURE_SWEEP, self::SWEEP_LANE), 'the first sweep is still running');
+        $this->assertNotNull(
+            $this->runs->claim($now->modify('+'.(PollRunRepository::RUNNING_STALE_MINUTES + 5).' minutes'), 15, PollRun::KIND_FAILURE_SWEEP, self::SWEEP_LANE),
+            'a sweep stuck for two hours is taken as dead'
+        );
+    }
+
+    public function testALaneWithNoKindIsRejected(): void
+    {
+        $this->expectException(\InvalidArgumentException::class);
+
+        $this->runs->claim(new \DateTimeImmutable(), 60, PollRun::KIND_STATUS_POLL, []);
     }
 
     public function testCloseEndsTheClaimedRunAndIgnoresAnEmptyOrUnknownId(): void
     {
         $now   = new \DateTimeImmutable('2026-11-13 10:00:00', new \DateTimeZone('UTC'));
-        $runId = $this->runs->claim($now, 60, PollRun::KIND_STATUS_POLL);
+        $runId = $this->runs->claim($now, 60, PollRun::KIND_STATUS_POLL, self::SHARED_LANE);
         $this->assertNotNull($runId);
 
         $this->runs->close(null, PollRun::STATUS_ERROR, 'no id', $now);

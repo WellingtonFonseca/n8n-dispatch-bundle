@@ -10,7 +10,7 @@ namespace MauticPlugin\N8nDispatchBundle\Service;
  */
 interface ScheduledJob
 {
-    /** The PollRun kind of its runs. The interval counts only the runs of the same kind. */
+    /** The PollRun kind of its runs. The interval counts only the runs of the same kind; the lock covers the kinds of the job's lane (JobScheduler). */
     public function kind(): string;
 
     /** The console command that does the work. It takes --run-id. */
