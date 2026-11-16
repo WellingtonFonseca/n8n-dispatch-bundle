@@ -28,8 +28,10 @@ use MauticPlugin\N8nDispatchBundle\EventListener\CampaignTriggerSubscriber;
 use MauticPlugin\N8nDispatchBundle\Integration\N8nDispatchIntegration;
 use MauticPlugin\N8nDispatchBundle\Resolver\VariableResolver;
 use MauticPlugin\N8nDispatchBundle\UnsubscribeVariable;
+use MauticPlugin\N8nDispatchBundle\Service\DirectEmailDispatch;
 use MauticPlugin\N8nDispatchBundle\Service\DirectEmailSender;
 use MauticPlugin\N8nDispatchBundle\Service\DispatchFailureReasons;
+use MauticPlugin\N8nDispatchBundle\Service\EmailDncGuard;
 use MauticPlugin\N8nDispatchBundle\Service\StatusTracker;
 use PHPUnit\Framework\Attributes\Group;
 use PHPUnit\Framework\MockObject\MockObject;
@@ -110,7 +112,7 @@ class CampaignTriggerSubscriberTest extends TestCase
             $this->variableResolver,
             $this->mailHashHelper,
             $this->entityManager,
-            $this->dncModel,
+            new EmailDncGuard($this->dncModel, new DispatchFailureReasons(new EnUsTranslator())),
             $this->emailVariablesRepository,
             new DispatchFailureReasons(new EnUsTranslator()),
             $this->statusTracker,
@@ -395,7 +397,7 @@ class CampaignTriggerSubscriberTest extends TestCase
             $this->variableResolver,
             $this->mailHashHelper,
             $this->entityManager,
-            $this->dncModel,
+            new EmailDncGuard($this->dncModel, new DispatchFailureReasons(new EnUsTranslator())),
             $this->emailVariablesRepository,
             new DispatchFailureReasons(new EnUsTranslator()),
         );
@@ -404,7 +406,7 @@ class CampaignTriggerSubscriberTest extends TestCase
 
         $this->subscriber->onEmailSend($pendingEvent);
 
-        // Passed with the reason, not failed: a failed step is retried until core unpublishes the campaign.
+        // Passed with the reason, not failed: a failed step is tried again by core every hour with no end.
         $this->assertCount(0, $pendingEvent->getFailures());
         $this->assertCount(1, $pendingEvent->getSuccessful());
         $log = $pendingEvent->getSuccessful()->first();
@@ -1075,7 +1077,7 @@ class CampaignTriggerSubscriberTest extends TestCase
             $this->variableResolver,
             $this->mailHashHelper,
             $this->entityManager,
-            $this->dncModel,
+            new EmailDncGuard($this->dncModel, new DispatchFailureReasons(new EnUsTranslator())),
             $this->emailVariablesRepository,
             new DispatchFailureReasons(new EnUsTranslator()),
         );
@@ -1119,6 +1121,30 @@ class CampaignTriggerSubscriberTest extends TestCase
     }
 
     /**
+     * The subscriber with Mautic's mailer as a way out: the real guard and the real direct dispatcher around the given mocks.
+     */
+    private function subscriberWith(DncModel $dnc, DirectEmailSender $sender): CampaignTriggerSubscriber
+    {
+        $reasons = new DispatchFailureReasons(new EnUsTranslator());
+        $guard   = new EmailDncGuard($dnc, $reasons);
+
+        return new CampaignTriggerSubscriber(
+            $this->integrationHelper,
+            $this->httpClient,
+            $this->logger,
+            $this->emailModel,
+            $this->variableResolver,
+            $this->mailHashHelper,
+            $this->entityManager,
+            $guard,
+            $this->emailVariablesRepository,
+            $reasons,
+            $this->statusTracker,
+            new DirectEmailDispatch($sender, $this->variableResolver, $reasons, $guard),
+        );
+    }
+
+    /**
      * @param array{outcome?: string, reason?: ?string, statId?: ?int} $answer
      */
     private function directSubscriber(array $answer = ['outcome' => 'sent', 'reason' => null, 'statId' => 4321], bool $on = true): array
@@ -1127,20 +1153,7 @@ class CampaignTriggerSubscriberTest extends TestCase
         $sender->method('isOn')->willReturn($on);
         $sender->method('send')->willReturn($answer + ['outcome' => 'sent', 'reason' => null, 'statId' => null]);
 
-        $subscriber = new CampaignTriggerSubscriber(
-            $this->integrationHelper,
-            $this->httpClient,
-            $this->logger,
-            $this->emailModel,
-            $this->variableResolver,
-            $this->mailHashHelper,
-            $this->entityManager,
-            $this->dncModel,
-            $this->emailVariablesRepository,
-            new DispatchFailureReasons(new EnUsTranslator()),
-            $this->statusTracker,
-            $sender,
-        );
+        $subscriber = $this->subscriberWith($this->dncModel, $sender);
 
         return [$subscriber, $sender];
     }
@@ -1163,6 +1176,18 @@ class CampaignTriggerSubscriberTest extends TestCase
         $this->assertCount(0, $event->getFailures());
         $log = $event->getSuccessful()->first();
         $this->assertSame(['mode' => 'mautic', 'status' => 'production', 'mautic_template_id' => 1, 'contact_id' => 0, 'contact_email' => 'contact@example.test', 'language' => $email->getLanguage(), 'variables' => ['foo' => 'bar'], 'outcome' => 'sent', 'statId' => 4321], $log->getMetadata()['n8ndispatch']);
+    }
+
+    public function testInDirectModeTheMailerGetsTheIdOfTheStep(): void
+    {
+        [$subscriber, $sender] = $this->directSubscriber();
+        $event = $this->buildPendingEvent(['email' => 1, 'status' => 'production']);
+        // every other test has a step with no id: a step that has one is what reaches the Stat of the mailer
+        (new \ReflectionProperty(Event::class, 'id'))->setValue($event->getEvent(), 77);
+        $this->emailModel->method('getEntity')->willReturn(new Email());
+        $sender->expects($this->once())->method('send')->with($this->anything(), $this->anything(), 77, $this->anything());
+
+        $subscriber->onEmailSend($event);
     }
 
     public function testInDirectModeNoWebhookIsNeeded(): void
@@ -1238,11 +1263,7 @@ class CampaignTriggerSubscriberTest extends TestCase
         [$subscriber, $sender] = $this->directSubscriber();
         $dnc = $this->createMock(DncModel::class);
         $dnc->method('isContactable')->willReturn(DoNotContact::UNSUBSCRIBED);
-        $subscriber = new CampaignTriggerSubscriber(
-            $this->integrationHelper, $this->httpClient, $this->logger, $this->emailModel, $this->variableResolver,
-            $this->mailHashHelper, $this->entityManager, $dnc, $this->emailVariablesRepository,
-            new DispatchFailureReasons(new EnUsTranslator()), $this->statusTracker, $sender,
-        );
+        $subscriber = $this->subscriberWith($dnc, $sender);
         $event = $this->buildPendingEvent(['email' => 1, 'status' => 'production']);
         $this->emailModel->method('getEntity')->willReturn(new Email());
         $sender->expects($this->never())->method('send');
@@ -1259,11 +1280,7 @@ class CampaignTriggerSubscriberTest extends TestCase
         [, $sender] = $this->directSubscriber();
         $dnc = $this->createMock(DncModel::class);
         $dnc->method('isContactable')->willReturnOnConsecutiveCalls(DoNotContact::UNSUBSCRIBED, DoNotContact::IS_CONTACTABLE);
-        $subscriber = new CampaignTriggerSubscriber(
-            $this->integrationHelper, $this->httpClient, $this->logger, $this->emailModel, $this->variableResolver,
-            $this->mailHashHelper, $this->entityManager, $dnc, $this->emailVariablesRepository,
-            new DispatchFailureReasons(new EnUsTranslator()), $this->statusTracker, $sender,
-        );
+        $subscriber = $this->subscriberWith($dnc, $sender);
         $this->emailModel->method('getEntity')->willReturn(new Email());
 
         $event = new Event();
@@ -1361,11 +1378,7 @@ class CampaignTriggerSubscriberTest extends TestCase
         $sender->method('isOn')->willReturn(true);
         $sender->method('send')->willReturnOnConsecutiveCalls(...$answers);
 
-        $subscriber = new CampaignTriggerSubscriber(
-            $this->integrationHelper, $this->httpClient, $this->logger, $this->emailModel, $this->variableResolver,
-            $this->mailHashHelper, $this->entityManager, $this->dncModel, $this->emailVariablesRepository,
-            new DispatchFailureReasons(new EnUsTranslator()), $this->statusTracker, $sender,
-        );
+        $subscriber = $this->subscriberWith($this->dncModel, $sender);
         $this->emailModel->method('getEntity')->willReturn(new Email());
 
         $event = new Event();
@@ -1435,6 +1448,29 @@ class CampaignTriggerSubscriberTest extends TestCase
         $this->assertCount(1, $event->getSuccessful());
     }
 
+    public function testInDirectModeFailuresWithNoReasonAreTheSameErrorAndStopTheBatchToo(): void
+    {
+        $noReason = ['outcome' => 'failed', 'reason' => null, 'statId' => null];
+        [$subscriber, $event, $sender] = $this->directBatch(4, [$noReason, $noReason, $noReason, $noReason]);
+        $sender->expects($this->exactly(3))->method('send');
+
+        $subscriber->onEmailSend($event);
+
+        $this->assertCount(4, $event->getFailures());
+    }
+
+    public function testInDirectModeTheCountOfFailuresWithNoReasonStartsAgainAfterASendThatWorks(): void
+    {
+        $noReason = ['outcome' => 'failed', 'reason' => null, 'statId' => null];
+        [$subscriber, $event, $sender] = $this->directBatch(5, [self::sentOk(9), $noReason, $noReason, $noReason, $noReason]);
+        $sender->expects($this->exactly(4))->method('send');
+
+        $subscriber->onEmailSend($event);
+
+        $this->assertCount(1, $event->getSuccessful());
+        $this->assertCount(4, $event->getFailures());
+    }
+
     public function testInDirectModeAContactLeftOutNeitherCountsNorStartsTheCountAgain(): void
     {
         $skipped = ['outcome' => 'skipped', 'reason' => 'N8nDispatch: the contact has no email address.', 'statId' => null];
@@ -1453,11 +1489,7 @@ class CampaignTriggerSubscriberTest extends TestCase
         $dnc = $this->createMock(DncModel::class);
         $dnc->method('isContactable')->willReturnOnConsecutiveCalls(DoNotContact::IS_CONTACTABLE, DoNotContact::IS_CONTACTABLE, DoNotContact::IS_CONTACTABLE, DoNotContact::UNSUBSCRIBED, DoNotContact::IS_CONTACTABLE);
         [, $event, $sender] = $this->directBatch(5, [self::failure(), self::failure(), self::failure()]);
-        $subscriber = new CampaignTriggerSubscriber(
-            $this->integrationHelper, $this->httpClient, $this->logger, $this->emailModel, $this->variableResolver,
-            $this->mailHashHelper, $this->entityManager, $dnc, $this->emailVariablesRepository,
-            new DispatchFailureReasons(new EnUsTranslator()), $this->statusTracker, $sender,
-        );
+        $subscriber = $this->subscriberWith($dnc, $sender);
         $event->getPending()->get(5)->setMetadata(['n8ndispatch' => ['statId' => 10]]);
 
         $subscriber->onEmailSend($event);
@@ -1504,11 +1536,7 @@ class CampaignTriggerSubscriberTest extends TestCase
         $dnc = $this->createMock(DncModel::class);
         $dnc->method('isContactable')->willReturnOnConsecutiveCalls(DoNotContact::IS_CONTACTABLE, DoNotContact::IS_CONTACTABLE, DoNotContact::IS_CONTACTABLE, DoNotContact::UNSUBSCRIBED);
         [, $event, $sender] = $this->directBatch(4, [self::failure(), self::failure(), self::failure()]);
-        $subscriber = new CampaignTriggerSubscriber(
-            $this->integrationHelper, $this->httpClient, $this->logger, $this->emailModel, $this->variableResolver,
-            $this->mailHashHelper, $this->entityManager, $dnc, $this->emailVariablesRepository,
-            new DispatchFailureReasons(new EnUsTranslator()), $this->statusTracker, $sender,
-        );
+        $subscriber = $this->subscriberWith($dnc, $sender);
 
         $subscriber->onEmailSend($event);
 
