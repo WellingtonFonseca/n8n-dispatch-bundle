@@ -72,17 +72,20 @@ class FailingStepAlertsTest extends TestCase
         $this->alerts->sweep(new \DateTimeImmutable());
     }
 
-    public function testOneAlertPerStuckStepCarriesTheNumbersTheLinkAndEveryReason(): void
+    public function testOneAlertPerStuckStepCarriesTheNumbersTheLinkAndTheTopReasons(): void
     {
         $other = ['campaign_id' => 8, 'campaign_name' => 'Cobrança', 'event_id' => 30, 'step_name' => 'Email 2', 'step_type' => 'n8ndispatch.email.send', 'contacts' => 1, 'max_failures' => 4, 'oldest' => '2026-11-16 11:59:00'];
         $this->failures->method('failingSteps')->willReturn([self::STEP, $other]);
-        $this->failures->method('reasons')->willReturn([
-            ['event_id' => 21, 'reason' => 'HTTP 500', 'contacts' => 8],
-            ['event_id' => 21, 'reason' => 'no phone', 'contacts' => 3],
-            ['event_id' => 21, 'reason' => 'timeout', 'contacts' => 1],
-            ['event_id' => 21, 'reason' => 'fourth reason', 'contacts' => 1],
-            ['event_id' => 30, 'reason' => 'template deleted', 'contacts' => 1],
-        ]);
+        $stepReasons = [
+            ['reason' => 'HTTP 500', 'contacts' => 8],
+            ['reason' => 'no phone', 'contacts' => 3],
+        ];
+        // 12 reasons in all: the alert keeps the 10 most common ones
+        for ($i = 1; $i <= 10; ++$i) {
+            $stepReasons[] = ['reason' => sprintf('other %02d', $i), 'contacts' => 1];
+        }
+        $rows = array_map(static fn (array $row): array => ['event_id' => 21] + $row, $stepReasons);
+        $this->failures->method('reasons')->willReturn([...$rows, ['event_id' => 30, 'reason' => 'template deleted', 'contacts' => 1]]);
         $sent = [];
         $this->sender->expects($this->exactly(2))->method('send')->willReturnCallback(function (string $type, array $data) use (&$sent): bool {
             $sent[] = [$type, $data];
@@ -102,9 +105,9 @@ class FailingStepAlertsTest extends TestCase
             'max_failures'         => 9,
             'oldest_failure_at'    => '2026-11-16T09:30:00+00:00',
             'oldest_failure_hours' => 2,
-            'reasons'              => [['reason' => 'HTTP 500', 'contacts' => 8], ['reason' => 'no phone', 'contacts' => 3], ['reason' => 'timeout', 'contacts' => 1], ['reason' => 'fourth reason', 'contacts' => 1]],
+            'top_reasons'          => array_slice($stepReasons, 0, 10),
         ], $sent[0][1]);
-        $this->assertSame([['reason' => 'template deleted', 'contacts' => 1]], $sent[1][1]['reasons']);
+        $this->assertSame([['reason' => 'template deleted', 'contacts' => 1]], $sent[1][1]['top_reasons']);
         $this->assertSame(0, $sent[1][1]['oldest_failure_hours']);
     }
 
