@@ -14,6 +14,8 @@ use MauticPlugin\N8nDispatchBundle\Entity\StepFailureRepository;
  */
 class FailingStepAlerts
 {
+    private const TOP_REASONS = 10;
+
     public function __construct(
         private StepFailureRepository $failures,
         private AlertSender $sender,
@@ -45,14 +47,16 @@ class FailingStepAlerts
     /**
      * @param list<array{event_id: int, reason: string, contacts: int}> $rows
      *
-     * @return array<int, list<array{reason: string, contacts: int}>> every reason of each step, most common first
+     * @return array<int, list<array{reason: string, contacts: int}>> the most common reasons of each step
      */
     private function reasonsByStep(array $rows): array
     {
         $byStep = [];
 
         foreach ($rows as $row) {
-            $byStep[$row['event_id']][] = ['reason' => $row['reason'], 'contacts' => $row['contacts']];
+            if (count($byStep[$row['event_id']] ?? []) < self::TOP_REASONS) {
+                $byStep[$row['event_id']][] = ['reason' => $row['reason'], 'contacts' => $row['contacts']];
+            }
         }
 
         return $byStep;
@@ -60,11 +64,11 @@ class FailingStepAlerts
 
     /**
      * @param array{campaign_id: int, campaign_name: string, event_id: int, step_name: string, step_type: string, contacts: int, max_failures: int, oldest: string} $step
-     * @param list<array{reason: string, contacts: int}>                                                                                                           $reasons
+     * @param list<array{reason: string, contacts: int}>                                                                                                           $topReasons
      *
      * @return array<string, mixed>
      */
-    private function payload(array $step, array $reasons, int $threshold, \DateTimeImmutable $now): array
+    private function payload(array $step, array $topReasons, int $threshold, \DateTimeImmutable $now): array
     {
         $oldest = new \DateTimeImmutable($step['oldest'], new \DateTimeZone('UTC'));
 
@@ -76,7 +80,7 @@ class FailingStepAlerts
             'max_failures'         => $step['max_failures'],
             'oldest_failure_at'    => $oldest->format(\DATE_ATOM),
             'oldest_failure_hours' => max(0, intdiv($now->getTimestamp() - $oldest->getTimestamp(), 3600)),
-            'reasons'              => $reasons,
+            'top_reasons'          => $topReasons,
         ];
     }
 }

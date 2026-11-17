@@ -3,7 +3,7 @@
 Um bloco por dia, do mais novo para o mais antigo. Formato fixo: `## AAAA-MM-DD` e uma linha `- ` por mudança (a tela do plugin lê este arquivo).
 
 ## 2026-11-17
-- O alerta de contatos presos agora envia todos os motivos de falha do passo, e não só os 3 mais comuns. O campo do alerta mudou de top_reasons para reasons: ajuste os fluxos do n8n que liam top_reasons
+- O alerta de contatos presos agora envia até 10 motivos de falha por passo (antes eram 3), do mais comum para o menos comum. O campo continua top_reasons
 
 ## 2026-11-16
 - O alerta de contatos presos não espera mais o fim da verificação de status nem do reenvio ao Mirror: a varredura tem uma fila própria e roda no mesmo ciclo do cron que essas tarefas
