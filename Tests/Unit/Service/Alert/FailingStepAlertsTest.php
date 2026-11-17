@@ -72,7 +72,7 @@ class FailingStepAlertsTest extends TestCase
         $this->alerts->sweep(new \DateTimeImmutable());
     }
 
-    public function testOneAlertPerStuckStepCarriesTheNumbersTheLinkAndTheTopReasons(): void
+    public function testOneAlertPerStuckStepCarriesTheNumbersTheLinkAndEveryReason(): void
     {
         $other = ['campaign_id' => 8, 'campaign_name' => 'Cobrança', 'event_id' => 30, 'step_name' => 'Email 2', 'step_type' => 'n8ndispatch.email.send', 'contacts' => 1, 'max_failures' => 4, 'oldest' => '2026-11-16 11:59:00'];
         $this->failures->method('failingSteps')->willReturn([self::STEP, $other]);
@@ -102,9 +102,9 @@ class FailingStepAlertsTest extends TestCase
             'max_failures'         => 9,
             'oldest_failure_at'    => '2026-11-16T09:30:00+00:00',
             'oldest_failure_hours' => 2,
-            'top_reasons'          => [['reason' => 'HTTP 500', 'contacts' => 8], ['reason' => 'no phone', 'contacts' => 3], ['reason' => 'timeout', 'contacts' => 1]],
+            'reasons'              => [['reason' => 'HTTP 500', 'contacts' => 8], ['reason' => 'no phone', 'contacts' => 3], ['reason' => 'timeout', 'contacts' => 1], ['reason' => 'fourth reason', 'contacts' => 1]],
         ], $sent[0][1]);
-        $this->assertSame([['reason' => 'template deleted', 'contacts' => 1]], $sent[1][1]['top_reasons']);
+        $this->assertSame([['reason' => 'template deleted', 'contacts' => 1]], $sent[1][1]['reasons']);
         $this->assertSame(0, $sent[1][1]['oldest_failure_hours']);
     }
 
