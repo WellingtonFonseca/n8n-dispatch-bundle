@@ -2,6 +2,9 @@
 
 Um bloco por dia, do mais novo para o mais antigo. Formato fixo: `## AAAA-MM-DD` e uma linha `- ` por mudança (a tela do plugin lê este arquivo).
 
+## 2026-11-17
+- O alerta de contatos presos agora envia todos os motivos de falha do passo, e não só os 3 mais comuns. O campo do alerta mudou de top_reasons para reasons: ajuste os fluxos do n8n que liam top_reasons
+
 ## 2026-11-16
 - O alerta de contatos presos não espera mais o fim da verificação de status nem do reenvio ao Mirror: a varredura tem uma fila própria e roda no mesmo ciclo do cron que essas tarefas
 - Um passo de disparo do plugin (Email, SMS ou HSM) que falha não desliga mais a campanha. Antes, com 10% dos contatos falhos em um só passo, o Mautic desligava a campanha inteira e parava os alunos dos outros passos. Agora o contato que falhou continua sendo tentado de novo a cada hora, até alguém corrigir a causa (por exemplo, colocar o telefone), cancelar o evento na Timeline do contato ou tirar o contato da campanha
