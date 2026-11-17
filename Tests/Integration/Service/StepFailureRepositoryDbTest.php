@@ -285,12 +285,34 @@ class StepFailureRepositoryDbTest extends RollbackDatabaseTestCase
         $this->stuck($campaign, $step, 4, 'HTTP 500');
         $this->stuck($campaign, $step, 1, 'ignored: under the threshold');
 
-        $mine = array_values(array_filter($this->repository->reasons(3), static fn (array $row): bool => $row['event_id'] === $step));
+        $mine = array_values(array_filter($this->repository->reasons(3, 10), static fn (array $row): bool => $row['event_id'] === $step));
 
         $this->assertSame([
             ['event_id' => $step, 'reason' => 'HTTP 500', 'contacts' => 2],
             ['event_id' => $step, 'reason' => 'no phone', 'contacts' => 1],
         ], $mine);
+    }
+
+    public function testReasonsKeepTheMostCommonOnesOfEachStepUpToTheLimit(): void
+    {
+        $campaign = $this->campaign();
+        $step     = $this->step($campaign);
+        $other    = $this->step($campaign);
+        $this->stuck($campaign, $step, 3, 'rare');
+        $this->stuck($campaign, $step, 3, 'common');
+        $this->stuck($campaign, $step, 3, 'common');
+        $this->stuck($campaign, $step, 3, 'middle');
+        $this->stuck($campaign, $step, 3, 'middle');
+        $this->stuck($campaign, $step, 3, 'common');
+        $this->stuck($campaign, $other, 3, 'only one');
+
+        $rows = array_values(array_filter($this->repository->reasons(3, 2), static fn (array $row): bool => in_array($row['event_id'], [$step, $other], true)));
+
+        $this->assertSame([
+            ['event_id' => $step, 'reason' => 'common', 'contacts' => 3],
+            ['event_id' => $step, 'reason' => 'middle', 'contacts' => 2],
+            ['event_id' => $other, 'reason' => 'only one', 'contacts' => 1],
+        ], $rows, 'the limit is per step: the rare reason is cut, the other step keeps its own');
     }
 
     /**

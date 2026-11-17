@@ -32,7 +32,7 @@ class FailingStepAlerts
         $cleaned   = $this->failures->deleteResolved();
         $threshold = $this->settings->current()['failingThreshold'];
         $steps     = $this->failures->failingSteps($threshold);
-        $reasons   = $this->reasonsByStep($this->failures->reasons($threshold));
+        $reasons   = $this->reasonsByStep($this->failures->reasons($threshold, self::TOP_REASONS));
         $contacts  = 0;
 
         foreach ($steps as $step) {
@@ -54,9 +54,7 @@ class FailingStepAlerts
         $byStep = [];
 
         foreach ($rows as $row) {
-            if (count($byStep[$row['event_id']] ?? []) < self::TOP_REASONS) {
-                $byStep[$row['event_id']][] = ['reason' => $row['reason'], 'contacts' => $row['contacts']];
-            }
+            $byStep[$row['event_id']][] = ['reason' => $row['reason'], 'contacts' => $row['contacts']];
         }
 
         return $byStep;
