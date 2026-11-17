@@ -55,7 +55,7 @@ class FailingStepAlertsTest extends TestCase
 
             return [];
         });
-        $this->failures->expects($this->once())->method('reasons')->with(4)->willReturn([]);
+        $this->failures->expects($this->once())->method('reasons')->with(4, 10)->willReturn([]);
 
         $result = $this->alerts->sweep(new \DateTimeImmutable('2026-11-16 12:00:00', new \DateTimeZone('UTC')));
 
@@ -80,12 +80,12 @@ class FailingStepAlertsTest extends TestCase
             ['reason' => 'HTTP 500', 'contacts' => 8],
             ['reason' => 'no phone', 'contacts' => 3],
         ];
-        // 12 reasons in all: the alert keeps the 10 most common ones
-        for ($i = 1; $i <= 10; ++$i) {
+        // the repository already cuts the list to 10 for each step: the alert sends what it gets
+        for ($i = 1; $i <= 8; ++$i) {
             $stepReasons[] = ['reason' => sprintf('other %02d', $i), 'contacts' => 1];
         }
         $rows = array_map(static fn (array $row): array => ['event_id' => 21] + $row, $stepReasons);
-        $this->failures->method('reasons')->willReturn([...$rows, ['event_id' => 30, 'reason' => 'template deleted', 'contacts' => 1]]);
+        $this->failures->method('reasons')->with(4, 10)->willReturn([...$rows, ['event_id' => 30, 'reason' => 'template deleted', 'contacts' => 1]]);
         $sent = [];
         $this->sender->expects($this->exactly(2))->method('send')->willReturnCallback(function (string $type, array $data) use (&$sent): bool {
             $sent[] = [$type, $data];
@@ -105,7 +105,7 @@ class FailingStepAlertsTest extends TestCase
             'max_failures'         => 9,
             'oldest_failure_at'    => '2026-11-16T09:30:00+00:00',
             'oldest_failure_hours' => 2,
-            'top_reasons'          => array_slice($stepReasons, 0, 10),
+            'top_reasons'          => $stepReasons,
         ], $sent[0][1]);
         $this->assertSame([['reason' => 'template deleted', 'contacts' => 1]], $sent[1][1]['top_reasons']);
         $this->assertSame(0, $sent[1][1]['oldest_failure_hours']);

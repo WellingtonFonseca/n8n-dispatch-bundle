@@ -106,16 +106,20 @@ class StepFailureRepository extends CommonRepository
     }
 
     /**
-     * The reasons of the contacts at or over the threshold, most common first, per step.
+     * The reasons of the contacts at or over the threshold, most common first, at most `$perStep` for each step. The
+     * limit is in the query so a step whose reasons carry contact data (one reason per contact) never loads them all.
      *
      * @return list<array{event_id: int, reason: string, contacts: int}>
      */
-    public function reasons(int $threshold): array
+    public function reasons(int $threshold, int $perStep): array
     {
         $rows = $this->getEntityManager()->getConnection()->fetchAllAssociative(
-            'SELECT event_id, COALESCE(last_reason, \'\') AS reason, COUNT(*) AS contacts FROM '.$this->getTableName()
-            .' WHERE failures >= :threshold GROUP BY event_id, reason ORDER BY event_id, contacts DESC, reason',
-            ['threshold' => $threshold]
+            'SELECT event_id, reason, contacts FROM ('
+            .'SELECT event_id, reason, contacts, ROW_NUMBER() OVER (PARTITION BY event_id ORDER BY contacts DESC, reason) AS rank_in_step FROM ('
+            .'SELECT event_id, COALESCE(last_reason, \'\') AS reason, COUNT(*) AS contacts FROM '.$this->getTableName()
+            .' WHERE failures >= :threshold GROUP BY event_id, reason) AS grouped) AS ranked'
+            .' WHERE rank_in_step <= :perStep ORDER BY event_id, rank_in_step',
+            ['threshold' => $threshold, 'perStep' => $perStep]
         );
 
         return array_map(static fn (array $row): array => [
