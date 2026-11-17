@@ -88,7 +88,7 @@ class StepFailureRepositoryDbTest extends RollbackDatabaseTestCase
     }
 
     /** One stuck contact: a pending log and a row with $failures failures, as the shield leaves it. */
-    private function stuck(int $campaignId, int $stepId, int $failures, string $reason = 'HTTP 500'): int
+    private function stuck(int $campaignId, int $stepId, int $failures, ?string $reason = 'HTTP 500'): int
     {
         $lead = $this->lead();
         $log  = $this->log($campaignId, $stepId, $lead);
@@ -313,6 +313,30 @@ class StepFailureRepositoryDbTest extends RollbackDatabaseTestCase
             ['event_id' => $step, 'reason' => 'middle', 'contacts' => 2],
             ['event_id' => $other, 'reason' => 'only one', 'contacts' => 1],
         ], $rows, 'the limit is per step: the rare reason is cut, the other step keeps its own');
+    }
+
+    public function testReasonsOfTheSameSizeAreCutByNameAndAMissingReasonIsEmpty(): void
+    {
+        $campaign = $this->campaign();
+        $step     = $this->step($campaign);
+        $this->stuck($campaign, $step, 3, 'top');
+        $this->stuck($campaign, $step, 3, 'top');
+        $this->stuck($campaign, $step, 3, 'top');
+        $this->stuck($campaign, $step, 3, 'b tie');
+        $this->stuck($campaign, $step, 3, 'b tie');
+        $this->stuck($campaign, $step, 3, 'a tie');
+        $this->stuck($campaign, $step, 3, 'a tie');
+        $none = $this->step($campaign);
+        $this->stuck($campaign, $none, 3, null);
+        $this->stuck($campaign, $none, 3, '');
+
+        $rows = array_values(array_filter($this->repository->reasons(3, 2), static fn (array $row): bool => in_array($row['event_id'], [$step, $none], true)));
+
+        $this->assertSame([
+            ['event_id' => $step, 'reason' => 'top', 'contacts' => 3],
+            ['event_id' => $step, 'reason' => 'a tie', 'contacts' => 2],
+            ['event_id' => $none, 'reason' => '', 'contacts' => 2],
+        ], $rows, 'a tie at the cut keeps the first name, a null reason counts with the empty ones');
     }
 
     /**
