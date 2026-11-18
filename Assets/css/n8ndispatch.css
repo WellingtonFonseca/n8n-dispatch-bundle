@@ -575,15 +575,15 @@ a[data-n8n-status-action]:hover * {
     display: none !important;
 }
 
-/* The icon of the "N8N Dispatch" main menu entry (Config/config.php, iconClass): n8n's own logo mark (Assets/img/n8n-logo.svg, the mark only,
+/* The icon of the "N8N Dispatch" main menu entry (Config/config.php, iconClass): n8n's own logo symbol (Assets/img/n8n-logo.svg, the official symbol,
    without the name) drawn as a mask, so it takes the color of the menu text like the other icons, in every theme. */
 .n8ndispatch-logo-icon {
     /* the box keeps the width core gives every menu icon (26px, so the names line up); the logo is drawn smaller inside it */
     height: 1.4em;
     --n8ndispatch-logo: url('../img/n8n-logo.svg'); /* relative to this file: it follows the plugin wherever the plugins folder is served */
     background-color: currentColor;
-    -webkit-mask: var(--n8ndispatch-logo) center / 20px auto no-repeat;
-    mask: var(--n8ndispatch-logo) center / 20px auto no-repeat;
+    -webkit-mask: var(--n8ndispatch-logo) center / 24px auto no-repeat;
+    mask: var(--n8ndispatch-logo) center / 24px auto no-repeat;
 }
 
 /* The change log on the plugin's settings screen: a scrolling list of days. */
