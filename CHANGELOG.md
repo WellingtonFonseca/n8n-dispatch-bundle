@@ -2,6 +2,9 @@
 
 Um bloco por dia, do mais novo para o mais antigo. Formato fixo: `## AAAA-MM-DD` e uma linha `- ` por mudança (a tela do plugin lê este arquivo).
 
+## 2026-11-18
+- O logo do n8n mudou para o novo símbolo oficial: no ícone do plugin (tile de Configurações > Plugins e lista de plugins) e no ícone do menu N8N Dispatch
+
 ## 2026-11-17
 - O alerta de contatos presos agora envia até 10 motivos de falha por passo (antes eram 3), do mais comum para o menos comum. O campo continua top_reasons
 
