@@ -63,6 +63,21 @@ class N8nDispatchIntegrationTest extends TestCase
         $this->assertSame('@N8nDispatch/Integration/_notes.html.twig', $note['template']);
         $this->assertTrue($note['custom'], 'core only draws the note when custom is set');
         $this->assertNotEmpty($note['parameters']['days']);
+        $this->assertSame(N8nDispatchIntegration::ICON, $note['parameters']['icon']);
+    }
+
+    public function testTheTileIconIsTheFileCoreLooksForAndMatchesThePluginIcon(): void
+    {
+        $this->assertSame('plugins/N8nDispatchBundle/Assets/img/'.strtolower(N8nDispatchIntegration::NAME).'.png', N8nDispatchIntegration::ICON);
+        $this->assertFileEquals(__DIR__.'/../../../Assets/img/icon.png', __DIR__.'/../../../Assets/img/n8ndispatch.png');
+    }
+
+    public function testTheNoteDrawsTheAboutBlockBeforeTheLogs(): void
+    {
+        $template = file_get_contents(__DIR__.'/../../../Resources/views/Integration/_notes.html.twig');
+
+        $this->assertLessThan(strpos($template, '_alert_log.html.twig'), strpos($template, '_about.html.twig'));
+        $this->assertStringContainsString('data-onload-callback="n8ndispatchAboutTab"', file_get_contents(__DIR__.'/../../../Resources/views/Integration/_about.html.twig'));
     }
 
     public function testTheNoteCarriesTheLatestAlertsOfTheLog(): void

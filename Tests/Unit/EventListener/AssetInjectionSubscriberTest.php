@@ -10,8 +10,10 @@ use PHPUnit\Framework\Attributes\Group;
 use PHPUnit\Framework\TestCase;
 
 #[Group('area:appearance')]
+#[Group('area:plugin-settings')]
 #[Group('risk:INFRA')]
 #[Group('risk:UI')]
+#[Group('risk:FLUXO')]
 class AssetInjectionSubscriberTest extends TestCase
 {
     public function testIgnoresContextsOtherThanPageHeaderLeft(): void
@@ -87,7 +89,7 @@ class AssetInjectionSubscriberTest extends TestCase
 
         (new AssetInjectionSubscriber())->injectViewCustomContent($event);
 
-        $scripts = ['n8ndispatch-shared', 'email-tab-variables', 'email-sender-alert', 'campaign-sms-dispatch', 'campaign-hsm-dispatch', 'campaign-timeline-scheduled', 'campaign-preview-icons', 'status-poll-check-now', 'plugin-changelog-tab', 'plugin-alerts-tab', 'plugin-mirror-tab', 'dispatch-resend', 'template-modal-middle-click', 'template-status-toggle'];
+        $scripts = ['n8ndispatch-shared', 'email-tab-variables', 'email-sender-alert', 'campaign-sms-dispatch', 'campaign-hsm-dispatch', 'campaign-timeline-scheduled', 'campaign-preview-icons', 'status-poll-check-now', 'plugin-about-tab', 'plugin-changelog-tab', 'plugin-alerts-tab', 'plugin-mirror-tab', 'dispatch-resend', 'template-modal-middle-click', 'template-status-toggle'];
         $expected = '';
         foreach ($scripts as $name) {
             $expected .= '<script src="/plugins/N8nDispatchBundle/Assets/js/'.$name.'.js?v='.filemtime(__DIR__.'/../../../Assets/js/'.$name.'.js').'"></script>';
@@ -95,6 +97,14 @@ class AssetInjectionSubscriberTest extends TestCase
         $expected .= '<link rel="stylesheet" href="/plugins/N8nDispatchBundle/Assets/css/n8ndispatch.css?v='.filemtime(__DIR__.'/../../../Assets/css/n8ndispatch.css').'">';
 
         $this->assertSame($expected, implode('', $event->getContent()));
+    }
+
+    public function testTheAboutModalIsWidenedTo780pxByTheStylesheet(): void
+    {
+        $css = file_get_contents(__DIR__.'/../../../Assets/css/n8ndispatch.css');
+
+        $this->assertMatchesRegularExpression('/\.modal-dialog:has\(\.n8ndispatch-about-block\)[^{]*\{\s*width: 780px;/', $css);
+        $this->assertStringContainsString('.n8ndispatch-about__icon {', $css);
     }
 
     public function testItListensToTheInjectionEvent(): void

@@ -39,6 +39,9 @@ class N8nDispatchIntegration extends AbstractIntegration
 {
     public const NAME = 'N8nDispatch';
 
+    // core takes the tile icon from <integration name in lower case>.png, not from icon.png
+    public const ICON = 'plugins/N8nDispatchBundle/Assets/img/n8ndispatch.png';
+
     private const ALERT_LOG_ROWS  = 50;
     private const MIRROR_LOG_ROWS = 50;
 
@@ -72,7 +75,7 @@ class N8nDispatchIntegration extends AbstractIntegration
         return [
             'custom'     => true,
             'template'   => '@N8nDispatch/Integration/_notes.html.twig',
-            'parameters' => ['days' => Changelog::days(), 'alertLog' => $this->latestAlerts(), 'mirrorLog' => $this->latestMirrorRuns()],
+            'parameters' => ['icon' => self::ICON, 'days' => Changelog::days(), 'alertLog' => $this->latestAlerts(), 'mirrorLog' => $this->latestMirrorRuns()],
         ];
     }
 
