@@ -601,13 +601,32 @@ a[data-n8n-status-action]:hover * {
     padding-left: 20px;
 }
 
+.n8ndispatch-about {
+    padding: 24px 16px;
+}
+
+.n8ndispatch-about__icon {
+    height: 160px;
+    margin: 0 auto 16px;
+}
+
+.n8ndispatch-about__title {
+    margin: 0 0 8px;
+}
+
+.n8ndispatch-about__text {
+    max-width: 520px;
+    margin: 0 auto;
+}
+
 /* The log of the alerts in the Alertas tab of the plugin's settings screen. The Mirror resync log (_mirror_log.html.twig) uses the same rules: change both together. */
 .n8ndispatch-alert-log {
     max-height: 40vh;
     overflow: auto;
 }
 
-/* The plugin's settings modal is core's 600px: too narrow for the log. Only the modal that holds the log is widened, to the width of the resend modal. */
+/* The plugin's settings modal is core's 600px: too narrow for the log. Only the modal that holds the About block or a log is widened, to the width of the resend modal. */
+.modal-dialog:has(.n8ndispatch-about-block),
 .modal-dialog:has(.n8ndispatch-alert-log-block),
 .modal-dialog:has(.n8ndispatch-mirror-log-block) {
     width: 780px;
