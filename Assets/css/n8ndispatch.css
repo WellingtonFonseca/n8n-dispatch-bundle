@@ -625,7 +625,9 @@ a[data-n8n-status-action]:hover * {
     overflow: auto;
 }
 
-/* The plugin's settings modal is core's 600px: too narrow for the log. Only the modal that holds the About block or a log is widened, to the width of the resend modal. */
+/* The plugin's settings modal is core's 600px: too narrow for the About block and the logs. The resend modal (Dispatches screen) is 30% wider than core's shared modal
+   too, so its table of variables and the message breathe. Only a modal holding one of these bodies is widened: every other use of the shared modal keeps its size. */
+.modal-dialog:has(.n8ndispatch-resend),
 .modal-dialog:has(.n8ndispatch-about-block),
 .modal-dialog:has(.n8ndispatch-alert-log-block),
 .modal-dialog:has(.n8ndispatch-mirror-log-block) {
@@ -685,13 +687,6 @@ a[data-n8n-status-action]:hover * {
 /* The help under the label of the SMS and HSM text: 14px like the Calculation list, so it is read. */
 .form-group p.help-block.n8ndispatch-text-help {
     font-size: 14px;
-}
-
-/* The resend modal (Dispatches screen): 30% wider than core's shared modal (600px), so the table of variables and the message breathe.
-   Only a modal holding this body is widened, every other use of the shared modal keeps its size. */
-.modal-dialog:has(.n8ndispatch-resend) {
-    width: 780px;
-    max-width: 95vw;
 }
 
 /* A long first value (a 1500-character variable) would stretch the table and push the input off the modal: the cell
