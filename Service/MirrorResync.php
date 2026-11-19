@@ -163,12 +163,18 @@ class MirrorResync
 
             $fields = $this->payload->fieldsOfRow($row);
 
-            if ($this->payload->hasContent($fields)) {
+            $calls = $this->payload->hasContent($fields);
+
+            if ($calls) {
                 $this->pacer->pause($delayMs);
                 ++$counts['calls'];
             }
 
             $status = $this->mirrorSync->sync($emailId, $fields, null, MirrorSyncState::SOURCE_JOB, new \DateTimeImmutable());
+
+            if ($calls) {
+                $this->pacer->finished();
+            }
 
             if (null === $status) {
                 return ['error' => 'the integration was turned off during the run', 'left' => count($emailIds) - $index] + $counts;

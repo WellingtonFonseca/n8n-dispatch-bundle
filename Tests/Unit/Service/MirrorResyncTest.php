@@ -203,6 +203,44 @@ class MirrorResyncTest extends TestCase
         $this->assertSame(['due' => 3, 'calls' => 2, 'ok' => 1, 'failed' => 1, 'skipped' => 0, 'left' => 1, 'error' => null], $summary);
     }
 
+    public function testTheNextPauseStartsWhenTheCallOfAnEmailEnds(): void
+    {
+        $log   = new \ArrayObject();
+        $pacer = new class($log) extends CallPacer {
+            /** @param \ArrayObject<int, string> $log */
+            public function __construct(private \ArrayObject $log)
+            {
+                parent::__construct(static function (): void {});
+            }
+
+            public function pause(int $delayMs): void
+            {
+                $this->log[] = 'pause';
+            }
+
+            public function finished(): void
+            {
+                $this->log[] = 'finished';
+            }
+        };
+        $resync = new MirrorResync($this->states, $this->mirrorSync, $this->payload, $pacer);
+        $this->states->method('page')->willReturnCallback(fn (int $afterId): array => $afterId > 0 ? [] : [$this->row(1, null), $this->row(2, null), $this->row(3, null)]);
+        $this->states->method('emailRow')->willReturnCallback(fn (int $id): array => $this->email($id, 2 === $id ? '' : '<p>x</p>'));
+        $this->mirrorSync->method('sync')->willReturnCallback(function (int $id) use ($log): string {
+            $log[] = 'sync '.$id;
+
+            return MirrorSyncState::STATUS_OK;
+        });
+
+        $resync->run(10, 60000, 24, $this->now);
+
+        $this->assertSame(
+            ['pause', 'sync 1', 'finished', 'sync 2', 'pause', 'sync 3', 'finished'],
+            $log->getArrayCopy(),
+            'finished() follows each call to n8n; an empty Email makes no call, so no pause and no finished()'
+        );
+    }
+
     public function testThePauseIsKeptBetweenCallsButNotBeforeTheFirstNorForAnEmptyEmail(): void
     {
         $this->states->method('page')->willReturnCallback(fn (int $afterId): array => $afterId > 0 ? [] : [$this->row(1, null), $this->row(2, null), $this->row(3, null)]);
