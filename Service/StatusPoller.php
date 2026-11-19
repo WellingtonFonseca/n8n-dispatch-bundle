@@ -116,6 +116,8 @@ class StatusPoller
                 $summary['error'] = $e->getMessage();
 
                 break;
+            } finally {
+                $this->pacer->finished();
             }
 
             if ($statusCode >= 300) {

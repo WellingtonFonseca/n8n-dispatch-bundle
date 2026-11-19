@@ -312,6 +312,77 @@ class StatusPollerTest extends TestCase
         }
     }
 
+    /** @return array{0: CallPacer, 1: \ArrayObject<int, string>} a pacer that logs pause() and finished(), and the log */
+    private function loggingPacer(): array
+    {
+        $log   = new \ArrayObject();
+        $pacer = new class($log) extends CallPacer {
+            /** @param \ArrayObject<int, string> $log */
+            public function __construct(private \ArrayObject $log)
+            {
+                parent::__construct(static function (): void {});
+            }
+
+            public function pause(int $delayMs): void
+            {
+                $this->log[] = 'pause';
+            }
+
+            public function finished(): void
+            {
+                $this->log[] = 'finished';
+            }
+        };
+
+        return [$pacer, $log];
+    }
+
+    public function testTheNextPauseStartsWhenTheCallEndsAlsoWhenTheCallFails(): void
+    {
+        $this->mockIntegration(true, ['webhook_url' => 'https://n8n.example.test/hook']);
+        $this->tracker->method('pending')->willReturnCallback(fn (string $c, string $o, int $limit, int $age, \DateTimeImmutable $now, int $after): array => match ($after) {
+            0       => $this->page([1, 2]),
+            default => [],
+        });
+        [$pacer, $log] = $this->loggingPacer();
+        $this->httpClient->method('request')->willReturnCallback(function () use ($log): never {
+            $log[] = 'call';
+
+            throw new \RuntimeException('n8n is down');
+        });
+        $settings = $this->createMock(StatusPollSettings::class);
+        $settings->method('current')->willReturn(['enabled' => false, 'interval' => 60, 'batch' => 2, 'timeout' => 180, 'delay' => 1000, 'maxDuration' => 300]);
+        $poller = new StatusPoller($this->integrationHelper, $this->httpClient, $this->tracker, new StatusResponseParser(), $this->createMock(LoggerInterface::class), $settings, $pacer);
+
+        $poller->poll(DispatchTracking::CHANNEL_EMAIL, 2, 7, DispatchTracking::OUTCOME_PENDING, null, $this->now);
+
+        $this->assertSame(['pause', 'call', 'finished'], $log->getArrayCopy(), 'finished() runs after the call even when it failed');
+    }
+
+    public function testEveryCallIsFollowedByFinishedBeforeTheNextPause(): void
+    {
+        $this->mockIntegration(true, ['webhook_url' => 'https://n8n.example.test/hook']);
+        $this->tracker->method('pending')->willReturnCallback(fn (string $c, string $o, int $limit, int $age, \DateTimeImmutable $now, int $after): array => match ($after) {
+            0       => $this->page([1, 2]),
+            2       => $this->page([3, 4]),
+            default => [],
+        });
+        [$pacer, $log] = $this->loggingPacer();
+        $this->httpClient->method('request')->willReturnCallback(function () use ($log) {
+            $log[] = 'call';
+
+            return $this->response(200, '{"items":[]}');
+        });
+        $this->tracker->method('apply')->willReturn(['changed' => 1, 'unchanged' => 1, 'unknown' => 0]);
+        $settings = $this->createMock(StatusPollSettings::class);
+        $settings->method('current')->willReturn(['enabled' => false, 'interval' => 60, 'batch' => 2, 'timeout' => 180, 'delay' => 1000, 'maxDuration' => 300]);
+        $poller = new StatusPoller($this->integrationHelper, $this->httpClient, $this->tracker, new StatusResponseParser(), $this->createMock(LoggerInterface::class), $settings, $pacer);
+
+        $poller->poll(DispatchTracking::CHANNEL_EMAIL, 2, 7, DispatchTracking::OUTCOME_PENDING, null, $this->now);
+
+        $this->assertSame(['pause', 'call', 'finished', 'pause', 'call', 'finished'], $log->getArrayCopy());
+    }
+
     public function testThePauseAlsoSeparatesTwoChannelsOfTheSamePoller(): void
     {
         $this->mockIntegration(true, ['webhook_url' => 'https://n8n.example.test/hook']);
