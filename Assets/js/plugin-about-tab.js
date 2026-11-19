@@ -19,7 +19,7 @@
 
         if (!$content.length || !$tabs.length || $('#' + PANE_ID).length) { return false; }
 
-        // a save that failed re-draws the modal with the error on its tab: that tab stays the active one, or the error would be hidden behind "Sobre"
+        // a save that failed re-draws the modal and core keeps its first tab ("Habilitar/Autenticar", where the keys are) active: "Sobre" is then added without being active, or the error would be hidden behind it. An error on another tab was hidden before "Sobre" too.
         var failed = $content.find('.has-error').length > 0;
 
         if (!failed) {
