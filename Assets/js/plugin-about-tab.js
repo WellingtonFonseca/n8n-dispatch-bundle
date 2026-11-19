@@ -19,15 +19,20 @@
 
         if (!$content.length || !$tabs.length || $('#' + PANE_ID).length) { return false; }
 
-        // the tab that was the first one is no longer the active one
-        $tabs.children('li').removeClass('active');
-        $content.children('.tab-pane').removeClass('in active');
+        // a save that failed re-draws the modal with the error on its tab: that tab stays the active one, or the error would be hidden behind "Sobre"
+        var failed = $content.find('.has-error').length > 0;
 
-        $('<li id="n8ndispatch-about-tab" class="active"></li>')
+        if (!failed) {
+            // the tab that was the first one is no longer the active one
+            $tabs.children('li').removeClass('active');
+            $content.children('.tab-pane').removeClass('in active');
+        }
+
+        $('<li id="n8ndispatch-about-tab"' + (failed ? '' : ' class="active"') + '></li>')
             .append($('<a role="tab" data-toggle="tab"></a>').attr('href', '#' + PANE_ID).text($block.attr('data-tab-label')))
             .prependTo($tabs);
 
-        $('<div class="tab-pane fade in active bdr-w-0"></div>').attr('id', PANE_ID).append($block).prependTo($content);
+        $('<div class="tab-pane fade' + (failed ? '' : ' in active') + ' bdr-w-0"></div>').attr('id', PANE_ID).append($block).prependTo($content);
 
         return true;
     }

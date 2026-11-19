@@ -40,6 +40,16 @@ test('moveToTab: the tab is put first and is the only active one', () => {
     ], 'the old tab is deactivated BEFORE the new one is added, or it would lose its own class');
 });
 
+test('moveToTab: a tab content with an error from a failed save keeps its own tab active and "Sobre" is only added', () => {
+    const {$, block, log} = page(false, false, true);
+
+    assert.strictEqual(api.moveToTab($, block), true);
+    assert.deepStrictEqual(log, [
+        'li prepended to tabs: <li id="n8ndispatch-about-tab"></li>',
+        'pane prepended to content: <div class="tab-pane fade bdr-w-0"></div>',
+    ], 'nothing is deactivated: the error stays in view');
+});
+
 test('moveToTab: a second call does not add the tab again', () => {
     const {$, block, log} = page(true);
 
