@@ -205,6 +205,8 @@ its "Current state" section.
 docker exec mautic-mautic_web-1 sh -c "cd /var/www/html/docroot/plugins/N8nDispatchBundle && /var/www/html/vendor/bin/phpunit"
 ```
 
+**Only the red ones** (after each fix): `scripts/test-failed.sh` re-runs just the tests that failed in the last run (cache in `.phpunit.result.cache`); `scripts/test-failed.sh --all` runs everything and records the result. Run the full suite only at the end or on demand.
+
 It runs two suites: `unit` (`Tests/Unit`) and `integration` (`Tests/Integration`).
 The integration tests run the plugin's SQL against the stack's MySQL (the
 `MAUTIC_DB_*` variables of the web container; without them they fail):
