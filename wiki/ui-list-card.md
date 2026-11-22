@@ -13,4 +13,4 @@ regras:
 - Core's `|purify` must be on messages that embed real HTML (a `<span data-date>`), or Twig prints the tag as text.
 - Twig 3 has no `for ... if`: use |filter.
 
-Buttons: [ui-botoes.md](ui-botoes.md). Modals: [ui-modal.md](ui-modal.md). Badges: [ui-badge-n8n.md](ui-badge-n8n.md).
+Buttons: [ui-buttons.md](ui-buttons.md). Modals: [ui-modal.md](ui-modal.md). Badges: [ui-badge-n8n.md](ui-badge-n8n.md).

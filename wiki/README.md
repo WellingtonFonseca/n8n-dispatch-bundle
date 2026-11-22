@@ -8,9 +8,9 @@ Notes of the N8N Dispatch plugin for Mautic 5. Read the pattern files first: the
 
 - [ui-badge-n8n.md](ui-badge-n8n.md): the status pill, the canvas badge and the Status column icon badge (twin of the patches plugin; shared rules in [../../wiki/ui-badge.md](../../wiki/ui-badge.md) and [../../wiki/ui-status-column.md](../../wiki/ui-status-column.md)).
 - [ui-modal.md](ui-modal.md): modal width, footer buttons, details modals, middle click, confirmation.
-- [ui-botoes.md](ui-botoes.md): core's button component, row menu items, options dropdown, `<button>` vs `<a>`.
-- [ui-lista-card.md](ui-lista-card.md): lists, log tables, Timeline / details cards, dark themes.
-- [ui-textos-idioma.md](ui-textos-idioma.md): translations (en_US / pt_BR), dates, failure reasons, icon.
+- [ui-buttons.md](ui-buttons.md): core's button component, row menu items, options dropdown, `<button>` vs `<a>`.
+- [ui-list-card.md](ui-list-card.md): lists, log tables, Timeline / details cards, dark themes.
+- [ui-language-texts.md](ui-language-texts.md): translations (en_US / pt_BR), dates, failure reasons, icon.
 
 ### api
 
@@ -18,11 +18,11 @@ Notes of the N8N Dispatch plugin for Mautic 5. Read the pattern files first: the
 
 ### stack
 
-- [stack-mautic-armadilhas.md](stack-mautic-armadilhas.md): traps of Mautic core, the container cache, services.php, entities and forms.
+- [stack-mautic-traps.md](stack-mautic-traps.md): traps of Mautic core, the container cache, services.php, entities and forms.
 
 ### testes
 
-- [testes.md](testes.md): traps shared by the tests (live, specs, mutants), restarting a dispatch for a test.
+- [tests.md](tests.md): traps shared by the tests (live, specs, mutants), restarting a dispatch for a test.
 
 ## Funcionalidades
 

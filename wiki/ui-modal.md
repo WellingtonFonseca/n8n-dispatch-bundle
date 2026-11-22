@@ -10,4 +10,4 @@ regras:
 - The details modal of the Dispatches screen is 1100px wide for the History table.
 - Mautic.showConfirmation (CoreBundle/Assets/js/9.modals.js) is the confirmation: core's data-toggle='confirmation' auto-binding only wires <a> elements; call it from a button's onclick when the element must stay a <button>.
 
-Buttons: [ui-botoes.md](ui-botoes.md). Badges: [ui-badge-n8n.md](ui-badge-n8n.md).
+Buttons: [ui-buttons.md](ui-buttons.md). Badges: [ui-badge-n8n.md](ui-badge-n8n.md).

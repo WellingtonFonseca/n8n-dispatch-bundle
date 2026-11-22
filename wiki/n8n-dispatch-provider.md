@@ -30,11 +30,11 @@ An HSM template can be sent by another plugin (the DialogHSMBundle, 360dialog) i
 
 ## Traps
 
-- Padrão: [stack-mautic-armadilhas.md](stack-mautic-armadilhas.md) (services.php autowire exclusions Service/Provider/Dialog, HsmSendRequest, HsmSendResult; `scripts/5/test-plugin-boots.sh N8nDispatchBundle n8n_dispatch`).
-- Padrão: [ui-textos-idioma.md](ui-textos-idioma.md) (changed translation/template needs `cache:clear` and `apachectl graceful`; reason text follows the language of the cron, tests compare the prefix and the `{{n}}`).
+- Padrão: [stack-mautic-traps.md](stack-mautic-traps.md) (services.php autowire exclusions Service/Provider/Dialog, HsmSendRequest, HsmSendResult; `scripts/5/test-plugin-boots.sh N8nDispatchBundle n8n_dispatch`).
+- Padrão: [ui-language-texts.md](ui-language-texts.md) (changed translation/template needs `cache:clear` and `apachectl graceful`; reason text follows the language of the cron, tests compare the prefix and the `{{n}}`).
 - The same contact in the same step again within 1 h: the plugin's handler answers success without resending.
-- Padrão: [testes.md](testes.md) (Chosen select, spec data dated `NOW()`, specs skip without the plugin via `dialogHsmInstalled()`; the DialogHSM integration must be published, `seed-dialoghsm.sh` does it, the live test fails with that command when it is missing).
-- Padrão: [testes.md](testes.md) (campaign and segment prefix `lib/campaign-prefix.sh`; `DIALOGHSM_DISABLE_SSRF_CHECK=1` only on the cron command).
+- Padrão: [tests.md](tests.md) (Chosen select, spec data dated `NOW()`, specs skip without the plugin via `dialogHsmInstalled()`; the DialogHSM integration must be published, `seed-dialoghsm.sh` does it, the live test fails with that command when it is missing).
+- Padrão: [tests.md](tests.md) (campaign and segment prefix `lib/campaign-prefix.sh`; `DIALOGHSM_DISABLE_SSRF_CHECK=1` only on the cron command).
 
 ## Names to review when a second provider arrives
 

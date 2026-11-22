@@ -33,7 +33,7 @@ This is the n8n path. An instance set to send the Email through Mautic's mailer 
   "webhook and headers of a dispatch": "Service/WebhookSettings::forAction($integrationHelper, $action) returns [url, headers] or the DispatchFailureReasons key of what is missing (INTEGRATION_DISABLED, WEBHOOK_MISSING). The Email, SMS and HSM subscribers and DispatchResender use it. StatusPoller and EmailMirrorSyncSubscriber read the same settings on their own (different errors).",
   "full response always recorded": "recordDispatchOutcome() (each subscriber's own, which hands the work to Service/DispatchOutcomeRecorder::record(): the three channels differ only in the ids n8n returns) runs on EVERY outcome, before the pass/fail branch, and writes metadata['n8ndispatch'] (payload, response, httpStatusCode). PendingEvent::fail() only array_merge()s 'failed'/'reason' over the existing metadata, it never clears it. The outcome badge reads httpStatusCode (Padrão: [api-payload.md](api-payload.md)).",
   "send-log id": "logSendEmailId / logSendSmsId / logSendHsmId, flat or under 'body' in n8n's answer (n8n forwards Mirror's raw output nested), kept as its own metadata key and, for Email, written to metadata['timeline'] ('N8nDispatch: sent via n8n/Mirror (log id: N).'), the one key core's Timeline template always renders. Best effort: a missing id never blocks the pass.",
-  "failure reasons are translated": "Padrão: [ui-textos-idioma.md](ui-textos-idioma.md) (prefix `N8nDispatch: `, translated when the step runs, what n8n answers passes through)""
+  "failure reasons are translated": "Padrão: [ui-language-texts.md](ui-language-texts.md) (prefix `N8nDispatch: `, translated when the step runs, what n8n answers passes through)""
 }
 ```
 
