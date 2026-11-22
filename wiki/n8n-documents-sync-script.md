@@ -1,8 +1,8 @@
 # n8n script: sync "documents" Custom Object items from an external mirror
 
-Lives at [mautic-5/n8n/documents-sync-classifier.js](../mautic-5/n8n/documents-sync-classifier.js),
+Lives at [mautic-5/n8n/documents-sync-classifier.js](../../mautic-5/n8n/documents-sync-classifier.js),
 with a standalone test harness next to it,
-[mautic-5/n8n/documents-sync-classifier.test.js](../mautic-5/n8n/documents-sync-classifier.test.js).
+[mautic-5/n8n/documents-sync-classifier.test.js](../../mautic-5/n8n/documents-sync-classifier.test.js).
 This is code for an n8n **Code node**, not a Mautic plugin — it doesn't run inside the
 `mautic/` Docker stack, it runs inside an n8n workflow that talks to a live Mautic instance
 over the REST API described in the REST API guide in `mc-cs-plugin-custom-objects-5/README.md`. This n8n
