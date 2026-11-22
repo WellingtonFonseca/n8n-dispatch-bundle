@@ -30,13 +30,11 @@ An HSM template can be sent by another plugin (the DialogHSMBundle, 360dialog) i
 
 ## Traps
 
-- Config/services.php loads EVERY class of the plugin with autowire: a value class or a class that names the other plugin must be excluded (Service/Provider/Dialog, HsmSendRequest, HsmSendResult). A mistake breaks `cache:clear` and the login. After touching classes or services.php run `scripts/5/test-plugin-boots.sh N8nDispatchBundle n8n_dispatch`.
-- A changed translation or template needs `cache:clear` and `apachectl graceful`, or the screen shows the raw key.
-- The reason text follows the language of the cron (pt_BR here): tests compare the prefix and the `{{n}}`.
+- Padrão: [stack-mautic-armadilhas.md](stack-mautic-armadilhas.md) (services.php autowire exclusions Service/Provider/Dialog, HsmSendRequest, HsmSendResult; `scripts/5/test-plugin-boots.sh N8nDispatchBundle n8n_dispatch`).
+- Padrão: [ui-textos-idioma.md](ui-textos-idioma.md) (changed translation/template needs `cache:clear` and `apachectl graceful`; reason text follows the language of the cron, tests compare the prefix and the `{{n}}`).
 - The same contact in the same step again within 1 h: the plugin's handler answers success without resending.
-- Specs: the select is Chosen (the real `<select>` is hidden: use `#..._chosen` to see it, `evaluate` to choose). New spec data is dated `NOW()`: the History spec opens the LAST row of the Dispatches screen. The specs of the card and the provider form skip without the plugin (`dialogHsmInstalled()` in helpers.js).
-- The specs and the live test need the DialogHSM integration published (`plugin_integration_settings`, name `DialogHSM`, is_published 1): after `mautic:plugins:reload` it is 0 and the gateway refuses every send. `seed-dialoghsm.sh` publishes it; the live test fails with that command when it is missing.
-- The live test needs the campaign prefix and a segment prefix (`lib/campaign-prefix.sh`); `DIALOGHSM_DISABLE_SSRF_CHECK=1` goes only on the cron command.
+- Padrão: [testes.md](testes.md) (Chosen select, spec data dated `NOW()`, specs skip without the plugin via `dialogHsmInstalled()`; the DialogHSM integration must be published, `seed-dialoghsm.sh` does it, the live test fails with that command when it is missing).
+- Padrão: [testes.md](testes.md) (campaign and segment prefix `lib/campaign-prefix.sh`; `DIALOGHSM_DISABLE_SSRF_CHECK=1` only on the cron command).
 
 ## Names to review when a second provider arrives
 

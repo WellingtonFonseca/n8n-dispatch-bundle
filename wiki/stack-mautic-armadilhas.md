@@ -1,0 +1,13 @@
+categoria: stack
+regras:
+- Config/services.php loads EVERY class of the plugin with autowire: a value class or a class that names another plugin must be excluded (Service/Provider/Dialog, HsmSendRequest, HsmSendResult). A mistake breaks `cache:clear` and the login. After touching classes or services.php run `scripts/5/test-plugin-boots.sh N8nDispatchBundle n8n_dispatch`.
+- A renamed or removed service class, a renamed form class or a changed constructor/`$lanes` list breaks `cache:clear` itself (the old compiled container fails to boot; every Mautic cron command dies with `Too few arguments to ...`). Delete `var/cache/prod` BEFORE `cache:clear`, then `mautic:plugins:reload` for the version (e.g. 0.14.0 StatusPollLauncher became BackgroundCommandLauncher; 0.15.1 JobScheduler got a logger argument).
+- Core caches the translation catalog and templates: after a new key or template, `cache:clear` (and `apachectl graceful`), or the screen shows the raw key.
+- Right after `cache:clear` the first request can still run the old container ([../../wiki/docker-mautic5.md](../../wiki/docker-mautic5.md)).
+- An unsubmitted form field throws on `isValid()`: an API PATCH that omits `customHtml` leaves that child unsubmitted and `isValid()` raised 'Cannot check if an unsubmitted form is valid' (HTTP 500). Use `getErrors()` in form extensions.
+- Core's API error handling reads `$error->getCause()->getCode()`: a `FormError` with no cause crashes it (500); every extension here gives its errors a `ConstraintViolation` as the cause.
+- A typed action-method parameter is autowired only through routing: when core calls an action as a plain PHP call (AbstractStandardFormController::cloneStandard() calls `editAction($request, $newEntity, true)`), editAction() must keep core's signature (Request, $objectId, $ignorePost) and get other services from the constructor.
+- A clonable entity needs its own `__clone()` with `$this->id = null;` before parent::__clone(), like Email, Trigger and Form do. FormEntity::__clone() resets only the fields it owns; the cloned entity keeps the old id, Doctrine sees it as detached, persist() on Save throws. HsmTemplate has it; any new clonable entity needs it.
+- A column added to an entity needs a nullable property when old rows hold NULL (a non-nullable property gave a 500 on the list page); migrations go in `onPluginUpdate` with a `hasColumn` guard and `mautic:plugins:reload`. Before `mautic:plugins:reload` a new table is missing: code that reads it must survive.
+- `VALUES()` in an upsert is deprecated since MySQL 8.0.20 (warning 1287, it works); it stays for MariaDB.
+- Mautic's cron drives everything (poll, bounce check, sweep, resync): nothing runs while it is stopped.

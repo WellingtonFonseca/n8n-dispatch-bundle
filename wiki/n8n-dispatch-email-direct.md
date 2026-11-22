@@ -75,8 +75,7 @@ The plugin treats the subject like the HTML for `{{n8n_...}}`: TemplateVariableS
   "frequency rules": "marketing Emails obey the contact's and the global frequency rules; a held Email passes the step as `queued` and the Stat appears later (late Stat).",
   "failure notices": "Mautic emails the admin when a step fails and can unpublish a campaign whose step keeps failing (core, both modes).",
   "Stat time zone": "a Stat read back from the database has its time shifted by the zone: DirectEmailSender finds the new Stat by id (higher than the last one of the step), never by date.",
-  "click tests": "Mautic ignores hits of known bots: curl needs a browser User-Agent. The links carry the site URL (port 8080); inside the web container the site answers on port 80.",
-  "docker exec": "needs `-i` to read a heredoc, and `-e MAUTIC_MAILER_DSN=smtp://127.0.0.1:2525` gives one process the fake SMTP without touching the stack's mailer settings. An `rm` inside `sh -c` is refused by Claude Code: clean up with Python os.remove.",
+  "click tests": "Padrão: [testes.md](testes.md) (browser User-Agent for curl, `docker exec -i`, `-e MAUTIC_MAILER_DSN`, no `rm` in `sh -c`; the links carry the site URL, port 8080, inside the web container port 80)",
   "per instance (not code)": "the instance needs its SMTP (`mailer_dsn`), SPF / DKIM for the sender domain, and bounce handling (the provider's webhook or an IMAP bounce box) for Do Not Contact to learn bounces. With a queue (messenger) 'sent' means 'queued'."
 }
 ```
@@ -88,6 +87,6 @@ The plugin treats the subject like the HTML for `{{n8n_...}}`: TemplateVariableS
   "PHPUnit": "EmailSendModeTest, DirectEmailSenderTest, MauticEmailOutcomeTest, MauticOutcomeExtensionTest, DispatchResenderTest (direct), DispatchFiltersTest, CampaignTriggerSubscriberTest (direct, breaker, through the real DirectEmailDispatch and EmailDncGuard); database tests in Tests/Integration/Service (MauticEmailOutcomeDbTest, DispatchListReaderMauticDbTest) run in a rolled-back transaction.",
   "live": "scripts/5/test-email-direct-send.sh (real campaign, the fake SMTP scripts/5/fake-smtp.py inside mautic_web: tokens, subject, click link, pixel, one-click unsubscribe, DNC, refused mailbox, resend, state read back), test-dispatch-end-to-end.sh still covers the n8n path.",
   "browser": "scripts/5/e2e/tests/email-send-mode-setting.spec.js, dispatch-mautic-card.spec.js, email-subject-variables.spec.js (light and dark).",
-  "Infection": "`--filter=EventListener/CampaignTriggerSubscriber.php,Service/DirectEmailDispatch.php,Service/EmailDncGuard.php` (the short name also matches the SMS / HSM subscribers and Infection stops)."
+  "Infection": "`--filter=EventListener/CampaignTriggerSubscriber.php,Service/DirectEmailDispatch.php,Service/EmailDncGuard.php` Padrão: [testes.md](testes.md)."
 }
 ```

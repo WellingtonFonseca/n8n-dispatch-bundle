@@ -36,10 +36,10 @@ Core unpublishes a campaign when 10% of its contacts failed on ONE step (Campaig
 - Never use `stopPropagation()` without the type check: it would hide the failures of every other plugin from core.
 - An n8n flow that sends the message and then answers an error makes the retry send it again every hour. The alert (reason, count, oldest failure) is the only defense.
 - Empty `campaign_time_wait_on_event_false`: core does not reschedule the FIRST failure of a log. That log never gets `is_scheduled = 1`, so the sweep deletes the row. A log that was already scheduled keeps its flag and its row. The default is PT1H.
-- `VALUES()` in the upsert is deprecated since MySQL 8.0.20 (warning 1287, it works). It stays for MariaDB.
+- `VALUES()` in the upsert: Padrão: [stack-mautic-armadilhas.md](stack-mautic-armadilhas.md).
 - A sweep that runs between the first failure and core's reschedule save can delete the new row. The count restarts at 1 and recovers by itself.
 - The sweep has its own lock lane: only a sweep that is still 'running' (up to 120 minutes, the stale limit of PollRunRepository) delays the next sweep. It runs in the background, so the alert HTTP calls never slow the cron command.
-- Deploy of the lanes (0.15.1): delete `var/cache/prod` BEFORE `cache:clear`. JobScheduler got a new constructor argument (a logger) and a different `$lanes` list: the old compiled container still builds it with 3 arguments, `cache:clear` itself fails to boot and every Mautic cron command dies with `Too few arguments to ... JobScheduler::__construct()` until the folder is gone (../wiki/docker-mautic5.md, wiki/n8n-dispatch-mirror-resync.md). Then `mautic:plugins:reload` for the version.
+- Deploy of the lanes (0.15.1): Padrão: [stack-mautic-armadilhas.md](stack-mautic-armadilhas.md) (delete `var/cache/prod` BEFORE `cache:clear`, then `mautic:plugins:reload`; JobScheduler got a logger argument and a new `$lanes` list; see also wiki/n8n-dispatch-mirror-resync.md).
 - The cleanup is ONE multi-table DELETE that reads every row of the table. With very many stuck contacts (an outage on a big campaign) it holds row locks for the length of the statement and the shield's upserts wait. The table has no index on `failures` on purpose: the upsert changes it on every retry.
 - A DNC contact still PASSES with `passWithError` (not counted). An outage with many failing steps sends one alert per step on every run.
 - `paused` records the payload and PASSES the step: the contact moves on (see wiki/n8n-dispatch-plugin.md).
