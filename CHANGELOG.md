@@ -2,6 +2,9 @@
 
 Um bloco por dia, do mais novo para o mais antigo. Formato fixo: `## AAAA-MM-DD` e uma linha `- ` por mudança (a tela do plugin lê este arquivo).
 
+## 2026-11-23
+- Na aba Variáveis n8n dos templates de e-mail, SMS e HSM, a mensagem sobre o cálculo agora aparece dentro de um alert informativo
+
 ## 2026-11-19
 - A pausa entre duas chamadas ao n8n (verificação de status e reenvio do Mirror) agora conta a partir do fim da chamada anterior: uma chamada lenta não é mais seguida de imediato pela próxima
 
