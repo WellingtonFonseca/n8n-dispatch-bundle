@@ -120,8 +120,25 @@
                                 <div class="col-xs-3" id="n8ndispatch-hsm-number-box"{% if not usesDialogHsm %} style="display: none;"{% endif %}>
                                     {{ form_row(form.whatsappNumberId) }}
                                 </div>
-                                <div class="col-xs-3">
-                                    {{ form_row(form.hsmTemplate) }}
+                                <div class="col-xs-3" id="n8ndispatch-hsm-template-box">
+                                    {# The free text is the manual form (n8n, or the DialogHSM list not available). With the DialogHSM list,
+                                       campaign-hsm-dispatch.js hides it and shows the select below, which fills this field, the template's
+                                       language and the text. #}
+                                    <div id="n8ndispatch-hsm-template-manual">
+                                        {{ form_row(form.hsmTemplate) }}
+                                    </div>
+                                    {{ form_widget(form.templateLanguage) }}
+                                    {% if form.vars.dialoghsm_templates_url %}
+                                        <div class="form-group" id="n8ndispatch-hsm-template-select-row" style="display: none;">
+                                            <label class="control-label" for="n8ndispatch-hsm-template-select">{{ 'mautic.n8ndispatch.hsmtemplate.dialog.select.label'|trans }}</label>
+                                            <div class="input-group">
+                                                <select id="n8ndispatch-hsm-template-select" class="form-control"></select>
+                                                <span class="input-group-btn">
+                                                    <button type="button" class="btn btn-default" id="n8ndispatch-hsm-template-refresh" title="{{ 'mautic.n8ndispatch.hsmtemplate.dialog.select.refresh'|trans }}"><i class="ri-refresh-line"></i></button>
+                                                </span>
+                                            </div>
+                                        </div>
+                                    {% endif %}
                                 </div>
                                 <div class="col-xs-3">
                                     {{ form_row(form.type) }}
@@ -169,14 +186,26 @@
                                n8ndispatch-shared.js). #}
                             {# Read by Assets/js/campaign-hsm-dispatch.js: the alert text, translated in the system language. Same
                                message (validators domain) as the error shown when the template is saved. #}
+                            {# The DialogHSM's preview component (absent without the plugin: the include is skipped). Filled by the script. #}
+                            {% if form.vars.dialoghsm_templates_url %}
+                                {% include '@DialogHSM/FormTheme/_wa_preview.html.twig' ignore missing %}
+                                <div id="n8ndispatch-hsm-preview" class="row" style="display: none;"><div class="col-xs-12 col-md-6" id="n8ndispatch-hsm-preview-body"></div></div>
+                            {% endif %}
                             <div class="hidden" id="n8ndispatch-hsm-config"
+                                 data-templates-url="{{ form.vars.dialoghsm_templates_url }}"
+                                 data-number-id="{{ form.whatsappNumberId.vars.id }}"
+                                 data-select-placeholder="{{ 'mautic.n8ndispatch.hsmtemplate.dialog.select.placeholder'|trans }}"
+                                 data-select-loading="{{ 'mautic.n8ndispatch.hsmtemplate.dialog.select.loading'|trans }}"
+                                 data-select-unapproved="{{ 'mautic.n8ndispatch.hsmtemplate.dialog.select.unapproved'|trans }}"
+                                 data-select-missing="{{ 'mautic.n8ndispatch.hsmtemplate.dialog.select.missing'|trans }}"
+                                 data-preview-title="{{ 'mautic.n8ndispatch.hsmtemplate.dialog.preview.title'|trans }}"
                                  data-numeric-alert-text="{{ 'mautic.n8ndispatch.template.error.numeric_variables'|trans({}, 'validators') }}"
                                  data-sequence-gap-text="{{ 'mautic.n8ndispatch.template.error.variables_gap'|trans({}, 'validators') }}"
                                  data-sequence-zero-text="{{ 'mautic.n8ndispatch.template.error.variables_zero'|trans({}, 'validators') }}"
                                  data-sequence-limit-text="{{ 'mautic.n8ndispatch.template.error.variables_limit'|trans({}, 'validators') }}"
                                  data-unmapped-alert-text="{{ 'mautic.n8ndispatch.template.alert.unmapped_variables'|trans({}, 'validators') }}"></div>
                             {# Core's form_row, with the help between the label and the textarea. #}
-                            <div class="row">
+                            <div class="row" id="n8ndispatch-hsm-text-row">
                                 <div class="form-group col-xs-12{{ form.text.vars.errors|length ? ' has-error' : '' }}">
                                     {{ form_label(form.text) }}
                                     <p class="help-block n8ndispatch-text-help">{{ 'mautic.n8ndispatch.hsmtemplate.text.help'|trans }}</p>

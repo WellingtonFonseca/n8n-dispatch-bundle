@@ -151,6 +151,7 @@ class HsmCampaignTriggerSubscriber extends AbstractTemplateDispatchSubscriber
         $cards         = [];
         $provider      = HsmTemplate::PROVIDER_N8N;
         $numberId      = null;
+        $templateLanguage = '';
 
         if ($templateId > 0) {
             $template = $this->hsmTemplateModel->getEntity($templateId);
@@ -172,9 +173,10 @@ class HsmCampaignTriggerSubscriber extends AbstractTemplateDispatchSubscriber
             $cards         = $template->usesCards() ? $template->getCardsPayload() : [];
             $provider      = $template->getProvider();
             $numberId      = $template->getWhatsappNumberId();
+            $templateLanguage = (string) $template->getTemplateLanguage();
         }
 
-        return ['router' => $router, 'hsmTemplate' => $hsmTemplate, 'type' => $hsmType, 'variablesJson' => $variablesJson, 'language' => $language, 'cards' => $cards, 'provider' => $provider, 'numberId' => $numberId];
+        return ['router' => $router, 'hsmTemplate' => $hsmTemplate, 'type' => $hsmType, 'variablesJson' => $variablesJson, 'language' => $language, 'cards' => $cards, 'provider' => $provider, 'numberId' => $numberId, 'templateLanguage' => $templateLanguage];
     }
 
     protected function sendsThroughProvider(array $step): bool
@@ -216,7 +218,8 @@ class HsmCampaignTriggerSubscriber extends AbstractTemplateDispatchSubscriber
         return new HsmSendRequest(
             contactId: (int) $contact->getId(),
             phone: $phone,
-            language: $step['language'],
+            // The language the 360dialog gave the template; templates saved before it existed keep the old value.
+            language: '' !== ($step['templateLanguage'] ?? '') ? $step['templateLanguage'] : $step['language'],
             template: $step['hsmTemplate'],
             type: $step['type'],
             variables: $variables,

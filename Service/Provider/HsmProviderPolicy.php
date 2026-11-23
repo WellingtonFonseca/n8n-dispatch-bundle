@@ -25,6 +25,11 @@ class HsmProviderPolicy
     {
     }
 
+    public function isAvailable(): bool
+    {
+        return $this->gateway->isAvailable();
+    }
+
     /**
      * Label key => value for the provider select. The DialogHSM is offered when the other plugin is available, and
      * also to a template already saved on it: without its own value in the list, the edit form would refuse it.

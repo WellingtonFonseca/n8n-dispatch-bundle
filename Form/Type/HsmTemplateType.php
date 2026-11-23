@@ -21,6 +21,10 @@ use Symfony\Component\Form\FormBuilderInterface;
 use Symfony\Component\Form\FormError;
 use Symfony\Component\Form\FormEvent;
 use Symfony\Component\Form\FormEvents;
+use Symfony\Component\Form\FormInterface;
+use Symfony\Component\Form\FormView;
+use Symfony\Component\Routing\Exception\RouteNotFoundException;
+use Symfony\Component\Routing\Generator\UrlGeneratorInterface;
 use Symfony\Component\OptionsResolver\OptionsResolver;
 use Symfony\Component\Validator\Constraints\NotBlank;
 use Symfony\Contracts\Translation\TranslatorInterface;
@@ -58,7 +62,27 @@ class HsmTemplateType extends AbstractType
     public function __construct(
         private readonly HsmProviderPolicy $providerPolicy,
         private readonly TranslatorInterface $translator,
+        private readonly UrlGeneratorInterface $router,
     ) {
+    }
+
+    /**
+     * The DialogHSM's template list (GET, one number per call; the number id is appended by the script). Null when the
+     * plugin is not there: the form then stays the manual one, see Assets/js/campaign-hsm-dispatch.js.
+     */
+    public function finishView(FormView $view, FormInterface $form, array $options): void
+    {
+        $view->vars['dialoghsm_templates_url'] = null;
+
+        if (!$this->providerPolicy->isAvailable()) {
+            return;
+        }
+
+        try {
+            $view->vars['dialoghsm_templates_url'] = rtrim($this->router->generate('mautic_dialoghsm_number_templates', ['objectId' => 0]), '0');
+        } catch (RouteNotFoundException) {
+            // An older DialogHSM without the list: manual form.
+        }
     }
 
     public function buildForm(FormBuilderInterface $builder, array $options): void
@@ -148,6 +172,11 @@ class HsmTemplateType extends AbstractType
                 $event->getForm()->get($problem[0])->addError(new FormError($this->translator->trans($problem[1], [], 'validators')));
             }
         });
+
+        // The language the 360dialog gave the template, filled by the template select (campaign-hsm-dispatch.js).
+        $builder->add('templateLanguage', HiddenType::class, [
+            'required' => false,
+        ]);
 
         $builder->add('hsmTemplate', TextType::class, [
             'label'      => 'mautic.n8ndispatch.campaign.event.hsm.template',

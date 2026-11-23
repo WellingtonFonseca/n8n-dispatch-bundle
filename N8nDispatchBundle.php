@@ -175,6 +175,11 @@ class N8nDispatchBundle extends PluginBundleBase
                 $factory->getDatabase()->executeQuery('ALTER TABLE '.HsmTemplate::TABLE_NAME.' ADD COLUMN whatsapp_number_id INT NULL');
             }
 
+            // 0.16.0: the language the 360dialog gave the template (DialogHSM provider).
+            if (!$table->hasColumn('template_language')) {
+                $factory->getDatabase()->executeQuery('ALTER TABLE '.HsmTemplate::TABLE_NAME.' ADD COLUMN template_language VARCHAR(191) NULL');
+            }
+
             // A template sent by the DialogHSM has no router: the column takes NULL.
             if ($table->hasColumn('router') && $table->getColumn('router')->getNotnull()) {
                 $factory->getDatabase()->executeQuery('ALTER TABLE '.HsmTemplate::TABLE_NAME.' MODIFY router VARCHAR(191) NULL');

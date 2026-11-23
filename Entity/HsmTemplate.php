@@ -83,6 +83,10 @@ class HsmTemplate extends FormEntity
 
     private ?string $hsmTemplate = null;
 
+    // The language the 360dialog gave the template (DialogHSM provider only). Our own 'language' stays the formatting
+    // locale of the variables.
+    private ?string $templateLanguage = null;
+
     private ?string $text = null;
 
     private ?string $variablesJson = null;
@@ -162,6 +166,7 @@ class HsmTemplate extends FormEntity
         // Nullable: a template sent by the DialogHSM has no router.
         $builder->addNamedField('router', 'string', 'router', true);
         $builder->addNamedField('hsmTemplate', 'string', 'hsm_template');
+        $builder->addNamedField('templateLanguage', 'string', 'template_language', true);
         $builder->addField('text', 'text');
         $builder->addNamedField('variablesJson', 'text', 'variables_json', true);
 
@@ -289,6 +294,19 @@ class HsmTemplate extends FormEntity
     {
         $this->isChanged('whatsappNumberId', $whatsappNumberId);
         $this->whatsappNumberId = $whatsappNumberId;
+
+        return $this;
+    }
+
+    public function getTemplateLanguage(): ?string
+    {
+        return $this->templateLanguage;
+    }
+
+    public function setTemplateLanguage(?string $templateLanguage): self
+    {
+        $this->isChanged('templateLanguage', $templateLanguage);
+        $this->templateLanguage = $templateLanguage;
 
         return $this;
     }

@@ -160,7 +160,169 @@
 
         mQuery('#n8ndispatch-hsm-router-box').toggle(!dialog);
         mQuery('#n8ndispatch-hsm-number-box').toggle(dialog);
+        bindNumberSelect();
+        loadDialogTemplates(false);
     };
+
+    // ---- DialogHSM template select -------------------------------------------------------------------------------
+    // With the DialogHSM provider the template is picked from the list of the number (GET route of the DialogHSM, see
+    // HsmTemplateType::finishView): the select fills the template name, the language the 360dialog gave it and the body
+    // text (the field below stays in the form, hidden, so the variable rows and alerts keep scanning it). Without the
+    // plugin, without access, or when the list is not available, the manual form (free name + text) is shown as before.
+    var templates   = [];
+    var loadCounter = 0;
+
+    function providerValue() {
+        return mQuery('select[name$="[provider]"]').val();
+    }
+
+    function numberSelect() {
+        return mQuery('#' + mQuery('#n8ndispatch-hsm-config').data('number-id'));
+    }
+
+    function bindNumberSelect() {
+        mQuery(document).off('change.n8ndispatchhsmnumber').on('change.n8ndispatchhsmnumber', '#' + mQuery('#n8ndispatch-hsm-config').data('number-id'), function () {
+            loadDialogTemplates(false);
+        });
+        mQuery('#n8ndispatch-hsm-template-refresh').off('click.n8ndispatchhsm').on('click.n8ndispatchhsm', function () {
+            loadDialogTemplates(true);
+        });
+    }
+
+    function showManual() {
+        mQuery('#n8ndispatch-hsm-template-manual, #n8ndispatch-hsm-text-row').show();
+        mQuery('#n8ndispatch-hsm-template-select-row, #n8ndispatch-hsm-preview').hide();
+    }
+
+    function showSelect() {
+        mQuery('#n8ndispatch-hsm-template-manual, #n8ndispatch-hsm-text-row').hide();
+        mQuery('#n8ndispatch-hsm-template-select-row').show();
+    }
+
+    function findTemplate(key) {
+        for (var i = 0; i < templates.length; i++) {
+            if (templates[i].name + '|' + templates[i].language === key) {
+                return templates[i];
+            }
+        }
+
+        return null;
+    }
+
+    function renderPreview(tpl) {
+        var $box = mQuery('#n8ndispatch-hsm-preview');
+        var ok   = false;
+
+        if (tpl && window.DialogHsmPreview) {
+            ok = window.DialogHsmPreview.render(document.getElementById('n8ndispatch-hsm-preview-body'), tpl, {}, {title: mQuery('#n8ndispatch-hsm-config').data('preview-title')});
+        }
+
+        $box.toggle(!!ok);
+    }
+
+    // Copies the chosen template into the form's own fields; the body text drives the variable rows and the alerts.
+    function applyTemplate(tpl, rescan) {
+        var $text = mQuery('textarea[name$="[text]"]');
+        var text  = tpl && tpl.body && tpl.body.text ? String(tpl.body.text).replace(/\\r\\n|\\n/g, '\n') : '';
+
+        if (tpl) {
+            mQuery('input[name$="[hsmTemplate]"]').val(tpl.name);
+            mQuery('input[name$="[templateLanguage]"]').val(tpl.language);
+        } else {
+            mQuery('input[name$="[hsmTemplate]"]').val('');
+            mQuery('input[name$="[templateLanguage]"]').val('');
+        }
+
+        if ($text.val() !== text || rescan) {
+            $text.val(text);
+            renderHsmVariables($text);
+        }
+
+        renderPreview(tpl);
+    }
+
+    function fillSelect() {
+        var config   = mQuery('#n8ndispatch-hsm-config');
+        var select   = document.getElementById('n8ndispatch-hsm-template-select');
+        var name     = mQuery('input[name$="[hsmTemplate]"]').val();
+        var language = mQuery('input[name$="[templateLanguage]"]').val();
+        var current  = name ? name + '|' + language : '';
+        var found    = false;
+
+        select.innerHTML = '';
+        select.appendChild(new Option(config.data('select-placeholder'), ''));
+
+        templates.forEach(function (tpl) {
+            var label = tpl.name + ' (' + tpl.language + ')' + (tpl.approved ? '' : ' ' + config.data('select-unapproved'));
+            var opt   = new Option(label, tpl.name + '|' + tpl.language);
+
+            if (opt.value === current) {
+                opt.selected = true;
+                found        = true;
+            }
+
+            select.appendChild(opt);
+        });
+
+        // A saved template that the list no longer has: kept (and shown), so saving does not lose it silently.
+        if (current && !found) {
+            var missing = new Option(String(config.data('select-missing')).replace('%name%', name), current, true, true);
+            select.appendChild(missing);
+        }
+
+        mQuery(select).trigger('chosen:updated');
+        mQuery(select).off('change.n8ndispatchhsm').on('change.n8ndispatchhsm', function () {
+            applyTemplate(findTemplate(select.value), true);
+        });
+
+        // The page opens with the template already saved: keep its text in step with the list (not a rescan of a typed text).
+        applyTemplate(findTemplate(current), false);
+    }
+
+    function loadDialogTemplates(refresh) {
+        var config = mQuery('#n8ndispatch-hsm-config');
+        var url    = config.data('templates-url');
+        var number = numberSelect().val();
+
+        if ('dialoghsm' !== providerValue() || !url || !number) {
+            showManual();
+
+            return;
+        }
+
+        var ticket = ++loadCounter;
+        var select = document.getElementById('n8ndispatch-hsm-template-select');
+
+        select.innerHTML = '';
+        select.appendChild(new Option(config.data('select-loading'), ''));
+        mQuery(select).trigger('chosen:updated');
+        showSelect();
+
+        fetch(url + encodeURIComponent(number) + (refresh ? '?refresh=1' : ''), {
+            credentials: 'same-origin',
+            headers:     {'X-Requested-With': 'XMLHttpRequest', Accept: 'application/json'}
+        }).then(function (response) {
+            // 403 (no access), 404 (number gone), 5xx: the manual form.
+            return response.ok ? response.json() : null;
+        }).then(function (data) {
+            if (ticket !== loadCounter) {
+                return;
+            }
+
+            if (!data || !data.available || !data.templates) {
+                showManual();
+
+                return;
+            }
+
+            templates = data.templates;
+            fillSelect();
+        }).catch(function () {
+            if (ticket === loadCounter) {
+                showManual();
+            }
+        });
+    }
 
     // data-onload-callback convention (see CoreBundle Assets/js/1a.content.js) —
     // fires once when an HSM Template's edit page opens (Form/Type/
