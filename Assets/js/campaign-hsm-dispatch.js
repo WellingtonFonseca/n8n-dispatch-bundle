@@ -191,12 +191,12 @@
 
     function showManual() {
         mQuery('#n8ndispatch-hsm-template-manual, #n8ndispatch-hsm-text-row').show();
-        mQuery('#n8ndispatch-hsm-template-select-row, #n8ndispatch-hsm-preview').hide();
+        mQuery('#n8ndispatch-hsm-template-select-row, #n8ndispatch-hsm-preview, #n8ndispatch-hsm-unsupported').hide();
     }
 
     function showSelect() {
         mQuery('#n8ndispatch-hsm-template-manual, #n8ndispatch-hsm-text-row').hide();
-        mQuery('#n8ndispatch-hsm-template-select-row').show();
+        mQuery('#n8ndispatch-hsm-template-select-row, #n8ndispatch-hsm-unsupported').show();
     }
 
     function findTemplate(key) {
@@ -220,6 +220,52 @@
         $box.toggle(!!ok);
     }
 
+    // What the template asks for and this form does not send yet (only the body variables, and the image header /
+    // carousel through the type): shown under the preview so nobody expects it to work.
+    function unsupportedParts(tpl) {
+        var parts  = [];
+        var header = tpl.header || {};
+
+        if (['VIDEO', 'DOCUMENT', 'LOCATION'].indexOf(header.format) >= 0) {
+            parts.push('header ' + header.format);
+        }
+
+        if (header.vars) {
+            parts.push('header {{n}}');
+        }
+
+        if (null === (tpl.body || {}).vars) {
+            parts.push('named variables');
+        }
+
+        (tpl.buttons || []).forEach(function (b) {
+            if (b.vars) {
+                parts.push('button ' + b.type + ' ' + (b.index + 1));
+            }
+        });
+
+        return parts;
+    }
+
+    // The image header and the carousel are the form's own types: follow what the template needs.
+    function followTemplateType(tpl) {
+        var type = tpl.carousel ? 'carousel' : ('IMAGE' === (tpl.header || {}).format ? 'image' : 'text');
+        var $type = mQuery('select[name$="[type]"]');
+
+        if ($type.val() !== type) {
+            $type.val(type).trigger('chosen:updated').trigger('change');
+        }
+    }
+
+    function renderUnsupported(tpl) {
+        var $box  = mQuery('#n8ndispatch-hsm-unsupported').empty();
+        var parts = tpl ? unsupportedParts(tpl) : [];
+
+        if (parts.length) {
+            $box.append(mQuery('<div class="alert alert-warning"></div>').text(String(mQuery('#n8ndispatch-hsm-config').data('unsupported-text')).replace('%what%', parts.join(', '))));
+        }
+    }
+
     // Copies the chosen template into the form's own fields; the body text drives the variable rows and the alerts.
     function applyTemplate(tpl, rescan) {
         var $text = mQuery('textarea[name$="[text]"]');
@@ -238,6 +284,11 @@
             renderHsmVariables($text);
         }
 
+        if (tpl && rescan) {
+            followTemplateType(tpl);
+        }
+
+        renderUnsupported(tpl);
         renderPreview(tpl);
     }
 

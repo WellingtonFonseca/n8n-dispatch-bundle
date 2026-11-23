@@ -190,6 +190,7 @@
                             {% if form.vars.dialoghsm_templates_url %}
                                 {% include '@DialogHSM/FormTheme/_wa_preview.html.twig' ignore missing %}
                                 <div id="n8ndispatch-hsm-preview" class="row" style="display: none;"><div class="col-xs-12 col-md-6" id="n8ndispatch-hsm-preview-body"></div></div>
+                                <div id="n8ndispatch-hsm-unsupported"></div>
                             {% endif %}
                             <div class="hidden" id="n8ndispatch-hsm-config"
                                  data-templates-url="{{ form.vars.dialoghsm_templates_url }}"
@@ -198,6 +199,7 @@
                                  data-select-loading="{{ 'mautic.n8ndispatch.hsmtemplate.dialog.select.loading'|trans }}"
                                  data-select-unapproved="{{ 'mautic.n8ndispatch.hsmtemplate.dialog.select.unapproved'|trans }}"
                                  data-select-missing="{{ 'mautic.n8ndispatch.hsmtemplate.dialog.select.missing'|trans }}"
+                                 data-unsupported-text="{{ 'mautic.n8ndispatch.hsmtemplate.dialog.unsupported'|trans }}"
                                  data-preview-title="{{ 'mautic.n8ndispatch.hsmtemplate.dialog.preview.title'|trans }}"
                                  data-numeric-alert-text="{{ 'mautic.n8ndispatch.template.error.numeric_variables'|trans({}, 'validators') }}"
                                  data-sequence-gap-text="{{ 'mautic.n8ndispatch.template.error.variables_gap'|trans({}, 'validators') }}"
