@@ -3,6 +3,7 @@
 Um bloco por dia, do mais novo para o mais antigo. Formato fixo: `## AAAA-MM-DD` e uma linha `- ` por mudança (a tela do plugin lê este arquivo).
 
 ## 2026-11-23
+- Na janela de detalhes do HSM, o título agora é o nome do template, com o badge de status (o mesmo da coluna Status da lista) logo abaixo; o badge que ficava dentro da aba foi removido
 - Na aba Variáveis n8n dos templates de e-mail, SMS e HSM, a mensagem sobre o cálculo agora aparece dentro de um alert informativo
 
 ## 2026-11-19
