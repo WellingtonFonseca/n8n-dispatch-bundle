@@ -209,16 +209,64 @@
         return null;
     }
 
+    var previewTemplate = null;
+
+    // What the preview shows for the variables and the header: the image link typed in the first image input (the type
+    // Image sends it as the header) and, per {{n}}, the value of its mapping row (a field or Custom Object shows as a
+    // token badge, since the real value only exists at send time).
+    function previewValues() {
+        var values  = {header: String(mQuery(CARDS + ' input').first().val() || '').trim(), body: []};
+        var mapping = {};
+
+        try {
+            mapping = JSON.parse(mQuery('.n8ndispatch-variables-json').val() || '{}');
+        } catch (e) {
+            mapping = {};
+        }
+
+        mQuery.each(mapping, function (name, entry) {
+            var n = parseInt(name, 10);
+
+            if (!n || !entry) {
+                return;
+            }
+
+            if ('field' === entry.source && entry.field) {
+                values.body[n - 1] = '{contactfield=' + entry.field + '}';
+            } else if ('custom_object' === entry.source && entry.customObject && entry.customObjectField) {
+                values.body[n - 1] = '{contactfield=' + entry.customObject + '.' + entry.customObjectField + '}';
+            } else if (entry.value) {
+                values.body[n - 1] = String(entry.value);
+            }
+        });
+
+        return values;
+    }
+
     function renderPreview(tpl) {
         var $box = mQuery('#n8ndispatch-hsm-preview');
         var ok   = false;
 
+        previewTemplate = tpl;
+
         if (tpl && window.DialogHsmPreview) {
-            ok = window.DialogHsmPreview.render(document.getElementById('n8ndispatch-hsm-preview-body'), tpl, {}, {title: mQuery('#n8ndispatch-hsm-config').data('preview-title')});
+            ok = window.DialogHsmPreview.render(document.getElementById('n8ndispatch-hsm-preview-body'), tpl, previewValues(), {title: mQuery('#n8ndispatch-hsm-config').data('preview-title')});
         }
 
-        $box.toggle(!!ok);
+        $box.toggle(!!ok && 'dialoghsm' === providerValue());
     }
+
+    // Live: the image link and the mapping rows feed the preview as they are typed.
+    mQuery(document).on('input.n8ndispatchhsmpreview change.n8ndispatchhsmpreview', CARDS + ' input', function () {
+        if (previewTemplate) {
+            renderPreview(previewTemplate);
+        }
+    });
+    mQuery(document).on('n8ndispatch:synced.n8ndispatchhsmpreview', 'form', function () {
+        if (previewTemplate && document.getElementById('n8ndispatch-hsm-preview-body')) {
+            renderPreview(previewTemplate);
+        }
+    });
 
     // What the template asks for and this form does not send yet (only the body variables, and the image header /
     // carousel through the type): shown under the preview so nobody expects it to work.
