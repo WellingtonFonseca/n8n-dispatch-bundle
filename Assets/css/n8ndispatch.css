@@ -492,13 +492,41 @@ textarea.n8ndispatch-json-block {
     margin-bottom: 12px;
 }
 
-/* Header of the HSM details modal: the name, then the status badge below it, and a gap before the tabs. */
+/* Header of the HSM details modal, the look of the patches details modals (contact, segment, campaign; twin of .patches-modal-head): the name as
+   title, the status badge below it as a 40px circle with an icon that opens to the right on hover and shows the word. */
 .n8ndispatch-modal-head {
     margin-bottom: 15px;
 }
 
 .n8ndispatch-modal-head .n8ndispatch-modal-name {
-    margin: 0 0 6px;
+    margin: 0 0 12px;
+    word-break: break-word;
+    float: none;
+}
+
+.n8ndispatch-modal-head .n8ndispatch-template-status {
+    position: relative;
+    z-index: 2;
+    flex: none;
+    height: 40px;
+    max-width: 40px;
+    border-radius: 20px;
+    font-size: 14px;
+}
+
+.n8ndispatch-modal-head .n8ndispatch-template-status:hover {
+    z-index: 3;
+    max-width: 140px;
+}
+
+.n8ndispatch-modal-head .n8ndispatch-template-status > i {
+    flex: 0 0 40px;
+    width: 40px;
+    height: 40px;
+}
+
+.n8ndispatch-modal-head .n8ndispatch-template-status__text {
+    padding: 0 14px 0 0;
 }
 
 /* Status of the SMS / HSM template lists (Assets/js/template-status-toggle.js): a column of its own right after the menu column, with the Timeline
