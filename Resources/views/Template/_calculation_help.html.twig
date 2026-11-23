@@ -1,0 +1,15 @@
+{#
+  The Calculation help of the Variables box: title and list inside core's alert-info. One component, no data needed.
+  Used by the Email tab (twig). The SMS and HSM forms have no twig for it: Assets/js/n8ndispatch-shared.js
+  calculationHelpHtml() draws the same markup, same classes and same texts (javascript.ini). Change both together.
+#}
+<div class="alert alert-info n8ndispatch-var-offset-help">
+    <p class="mb-xs">{{ 'mautic.n8ndispatch.email.tab.calculation.title'|trans }}</p>
+    <ul>
+        <li>{{ 'mautic.n8ndispatch.email.tab.calculation.negative'|trans }}</li>
+        <li>{{ 'mautic.n8ndispatch.email.tab.calculation.date'|trans }}</li>
+        <li>{{ 'mautic.n8ndispatch.email.tab.calculation.number'|trans }}</li>
+        <li>{{ 'mautic.n8ndispatch.email.tab.calculation.decimal'|trans }}</li>
+        <li>{{ 'mautic.n8ndispatch.email.tab.calculation.whole'|trans }}</li>
+    </ul>
+</div>
