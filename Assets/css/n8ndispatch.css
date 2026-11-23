@@ -492,6 +492,15 @@ textarea.n8ndispatch-json-block {
     margin-bottom: 12px;
 }
 
+/* Header of the HSM details modal: the name, then the status badge below it, and a gap before the tabs. */
+.n8ndispatch-modal-head {
+    margin-bottom: 15px;
+}
+
+.n8ndispatch-modal-head .n8ndispatch-modal-name {
+    margin: 0 0 6px;
+}
+
 /* Status of the SMS / HSM template lists (Assets/js/template-status-toggle.js): a column of its own right after the menu column, with the Timeline
    badge as a 22px circle holding an icon (play on green, stop on red); on hover it opens to the right and shows the word, as the status badge of
    the campaign card, pushing the next cell (it is in the flow of the cell). Core's toggle icon is hidden, and the first menu item is red / green
