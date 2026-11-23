@@ -212,11 +212,16 @@
     var previewTemplate = null;
 
     // What the preview shows for the variables and the header: the image link typed in the first image input (the type
-    // Image sends it as the header) and, per {{n}}, the value of its mapping row (a field or Custom Object shows as a
+    // Image sends it as the header), the carousel's image links and, per {{n}}, the value of its mapping row (a field or Custom Object shows as a
     // token badge, since the real value only exists at send time).
     function previewValues() {
-        var values  = {header: String(mQuery(CARDS + ' input').first().val() || '').trim(), body: []};
+        var values  = {header: String(mQuery(CARDS + ' input').first().val() || '').trim(), body: [], cards: []};
         var mapping = {};
+
+        // The carousel's image links, one per card input (the DialogHSM preview draws the cards from them).
+        mQuery(CARDS + ' input').each(function () {
+            values.cards.push(String(mQuery(this).val() || '').trim());
+        });
 
         try {
             mapping = JSON.parse(mQuery('.n8ndispatch-variables-json').val() || '{}');
