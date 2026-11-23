@@ -67,7 +67,7 @@ class HsmTemplateType extends AbstractType
     }
 
     /**
-     * The DialogHSM's template list (GET, one number per call; the number id is appended by the script). Null when the
+     * The DialogHSM's template list (GET, one number per call; the number id is appended by the script; core makes a last route parameter optional, so a sentinel id marks where it goes). Null when the
      * plugin is not there: the form then stays the manual one, see Assets/js/campaign-hsm-dispatch.js.
      */
     public function finishView(FormView $view, FormInterface $form, array $options): void
@@ -79,7 +79,7 @@ class HsmTemplateType extends AbstractType
         }
 
         try {
-            $view->vars['dialoghsm_templates_url'] = rtrim($this->router->generate('mautic_dialoghsm_number_templates', ['objectId' => 0]), '0');
+            $view->vars['dialoghsm_templates_url'] = str_replace('987654321', '', $this->router->generate('mautic_dialoghsm_number_templates', ['objectId' => 987654321]));
         } catch (RouteNotFoundException) {
             // An older DialogHSM without the list: manual form.
         }

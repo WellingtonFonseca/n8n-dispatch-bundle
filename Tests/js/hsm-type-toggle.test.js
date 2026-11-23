@@ -18,10 +18,11 @@ function load() {
                 off: () => chain, on: () => chain, each: () => chain,
             };
 
-            return chain;
+            return new Proxy(chain, {get: (t, k) => (k in t ? t[k] : () => chain)}); // any other jQuery method (show, hide, prop...) is a no-op
         }
 
-        return {val: () => arg.value, data: () => ''};
+        const doc = {val: () => arg.value, data: () => '', off: () => doc, on: () => doc}; // mQuery(document).off().on() binds the number select
+        return doc;
     };
     const Mautic = {n8ndispatchShared: {}};
     const code = fs.readFileSync(path.join(__dirname, '../../Assets/js/campaign-hsm-dispatch.js'), 'utf8');
