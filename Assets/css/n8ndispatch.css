@@ -492,7 +492,7 @@ textarea.n8ndispatch-json-block {
     margin-bottom: 12px;
 }
 
-/* Header of the HSM details modal, the look of the patches details modals (contact, segment, campaign; twin of .patches-modal-head): the name as
+/* Header of the HSM/SMS details modals, the look of the patches details modals (contact, segment, campaign; twin of .patches-modal-head): the name as
    title, the status badge below it as a 40px circle with an icon that opens to the right on hover and shows the word. */
 .n8ndispatch-modal-head {
     margin-bottom: 15px;
