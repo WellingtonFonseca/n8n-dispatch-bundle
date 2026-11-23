@@ -378,7 +378,7 @@
             list += '<li>' + escapePlain(translate('mautic.n8ndispatch.js.calculation.' + item[0], item[1])) + '</li>';
         });
 
-        return '<div class="text-muted n8ndispatch-var-offset-help">'
+        return '<div class="alert alert-info n8ndispatch-var-offset-help">'
             + '<p class="mb-xs">' + escapePlain(translate('mautic.n8ndispatch.js.calculation.title', 'Calculation:')) + '</p>'
             + '<ul>' + list + '</ul></div>';
     }
