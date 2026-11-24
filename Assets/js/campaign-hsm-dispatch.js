@@ -305,7 +305,50 @@
         }
 
         $box.toggle(!!ok && 'dialoghsm' === providerValue());
+        floatPreview();
     }
+
+    // The preview floats: while the long form scrolls it stays on the screen, FLOAT_GAP px under the bar at the top of the page (the one of the
+    // notifications and settings), and goes back to its place when the page comes back to the top. At the end of its column it slides up
+    // with the page. position: sticky does not work here: the page wrapper has overflow hidden, so it is the scroll container for sticky.
+    var FLOAT_GAP = 16;
+
+    function floatPreview() {
+        var $preview = mQuery('#n8ndispatch-hsm-preview');
+        var $slot    = mQuery('#n8ndispatch-hsm-preview-slot');
+
+        if (!$preview.length || !$slot.length) {
+            // The page was replaced (ajax navigation): stop listening.
+            mQuery(window).off('.n8ndispatchhsmfloat');
+
+            return;
+        }
+
+        if (!$preview.is(':visible') && 'fixed' !== $preview.css('position')) {
+            return;
+        }
+
+        var bar    = document.querySelector('header, #app-header, .app-header');
+        var offset = (bar ? bar.getBoundingClientRect().bottom : 56) + FLOAT_GAP;
+        var height = $preview.outerHeight();
+        var column = $slot.closest('[class*="col-md-"]')[0];
+        var top    = $slot[0].getBoundingClientRect().top;
+
+        if (top >= offset) {
+            $slot.css('height', '');
+            $preview.css({position: '', top: '', width: ''});
+
+            return;
+        }
+
+        // Pinned: never lower than the end of the column (it slides up with the page there).
+        var limit = column ? column.getBoundingClientRect().bottom - height : offset;
+
+        $slot.css('height', height);
+        $preview.css({position: 'fixed', top: Math.min(offset, limit), width: $slot.width()});
+    }
+
+    mQuery(window).off('scroll.n8ndispatchhsmfloat resize.n8ndispatchhsmfloat').on('scroll.n8ndispatchhsmfloat resize.n8ndispatchhsmfloat', floatPreview);
 
     // Live: the image link and the mapping rows feed the preview as they are typed.
     mQuery(document).on('input.n8ndispatchhsmpreview change.n8ndispatchhsmpreview', CARDS + ' input', function () {

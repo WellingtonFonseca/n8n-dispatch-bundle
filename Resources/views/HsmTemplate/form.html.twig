@@ -269,8 +269,11 @@
             </div>
             {# The DialogHSM's preview, in the column on the right (filled by campaign-hsm-dispatch.js; the component's script is included in the form). #}
             {% if form.vars.dialoghsm_templates_url %}
-                <div id="n8ndispatch-hsm-preview" class="pb-md" style="display: none;">
-                    <div id="n8ndispatch-hsm-preview-body" style="width: 100%; max-width: 360px; margin: 0 auto;"></div>
+                {# The slot keeps the place while the preview floats (campaign-hsm-dispatch.js: floatPreview). #}
+                <div id="n8ndispatch-hsm-preview-slot">
+                    <div id="n8ndispatch-hsm-preview" class="pb-md" style="display: none;">
+                        <div id="n8ndispatch-hsm-preview-body" style="width: 100%; max-width: 360px; margin: 0 auto;"></div>
+                    </div>
                 </div>
             {% endif %}
         </div>
