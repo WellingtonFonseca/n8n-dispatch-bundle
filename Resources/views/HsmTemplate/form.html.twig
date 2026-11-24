@@ -189,7 +189,7 @@
                             {# The DialogHSM's preview component (absent without the plugin: the include is skipped). Filled by the script. #}
                             {% if form.vars.dialoghsm_templates_url %}
                                 {% include '@DialogHSM/FormTheme/_wa_preview.html.twig' ignore missing %}
-                                <div id="n8ndispatch-hsm-preview" class="row" style="display: none;"><div class="col-xs-12"><div id="n8ndispatch-hsm-preview-body" style="max-width: 360px; margin: 0 auto;"></div></div></div>
+                                <div id="n8ndispatch-hsm-preview" class="row" style="display: none;"><div class="col-xs-12"><div id="n8ndispatch-hsm-preview-body" style="width: 360px; max-width: 100%; margin: 0 auto;"></div></div></div>
                                 <div id="n8ndispatch-hsm-unsupported"></div>
                             {% endif %}
                             <div class="hidden" id="n8ndispatch-hsm-config"
