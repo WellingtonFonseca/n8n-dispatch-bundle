@@ -142,4 +142,20 @@ class HsmCampaignTriggerSubscriberButtonsTest extends TestCase
 
         $subscriber->onHsmSend($this->pending());
     }
+
+    public function testTheButtonRowsLeftAfterSwitchingToN8nDoNotGoToTheWebhookPayload(): void
+    {
+        $this->template->setProvider(HsmTemplate::PROVIDER_N8N)->setRouter('r1');
+        $this->resolved = ['1' => 'Ana', 'button_1_url' => 'abc', 'button_0_copy_code' => 'CUPOM10'];
+        $subscriber     = $this->subscriber();
+        $this->gateway->expects($this->never())->method('send');
+
+        $pending = $this->pending();
+        $pending->getEvent()->setProperties(['hsmTemplateId' => '7', 'status' => 'test']);
+        $subscriber->onHsmSend($pending);
+
+        /** @var LeadEventLog $log */
+        $log = $pending->getSuccessful()->first();
+        $this->assertSame(['1' => 'Ana'], $log->getMetadata()['n8ndispatch']['variables']);
+    }
 }

@@ -248,6 +248,13 @@ class HsmCampaignTriggerSubscriber extends AbstractTemplateDispatchSubscriber
             return HsmProviderOutcome::card($this->providerRequest($contact, $phone, $step, $variables, null, null), $status, null);
         }
 
+        // Rows of the buttons of a DialogHSM template (button_<n>_<kind>) left after switching the provider to n8n: not for the webhook.
+        foreach (array_keys($variables) as $key) {
+            if (str_starts_with((string) $key, 'button_')) {
+                unset($variables[$key]);
+            }
+        }
+
         $payload = [
             'contact_id'                    => $contact->getId(),
             'contact_email'                 => $contact->getEmail(),

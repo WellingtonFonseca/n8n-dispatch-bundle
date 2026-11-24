@@ -158,7 +158,7 @@
 
         var config  = mQuery(CARDS);
         var problem = isSingle(currentType)
-            ? imageProblem(values, {image: 'image' === currentType ? config.data('image-text') : config.data('file-text'), url: config.data('image-url-text')})
+            ? imageProblem(values, {image: 'image' === currentType ? config.data('image-text') : config.data('file-text'), url: config.data('image' === currentType ? 'image-url-text' : 'file-url-text')})
             : cardsProblem(values, {min: config.data('min-text'), gap: config.data('gap-text'), url: config.data('url-text')});
         var $alert  = mQuery('#n8ndispatch-hsm-cards-alert');
 
@@ -193,6 +193,8 @@
     // (they share one slot of the form). Also the provider select's data-onload-callback, so the page opens in the
     // right state.
     Mautic.n8nDispatchOnHsmProviderChange = function (el) {
+        resetFormState();
+
         var dialog = 'dialoghsm' === mQuery(el).val();
 
         mQuery('#n8ndispatch-hsm-router-box').toggle(!dialog);
@@ -208,6 +210,26 @@
     // plugin, without access, or when the list is not available, the manual form (free name + text) is shown as before.
     var templates   = [];
     var loadCounter = 0;
+    var formNode    = null;
+
+    // The module outlives the pages (ajax navigation): a new form (its config node is a new element) starts from a clean state, or its
+    // first scan would use the list, the buttons and the "settled" flag of the form before. Runs first on a form (the provider
+    // select's onload), so the text field's own onload callback finds the state already reset.
+    function resetFormState() {
+        var node = document.getElementById('n8ndispatch-hsm-config');
+
+        if (node === formNode) {
+            return;
+        }
+
+        formNode        = node;
+        templates       = [];
+        previewTemplate = null;
+        renderedExtra   = '';
+        listSettled     = false;
+        initHeld        = false;
+        loadCounter++;
+    }
 
     function providerValue() {
         return mQuery('select[name$="[provider]"]').val();
@@ -228,6 +250,11 @@
 
     function showManual() {
         lockType(false);
+
+        // A hand-typed name is not the template of the stored language any more.
+        mQuery('input[name$="[hsmTemplate]"]').off('input.n8ndispatchhsmname').on('input.n8ndispatchhsmname', function () {
+            mQuery('input[name$="[templateLanguage]"]').val('');
+        });
 
         // The list will not come: the page's own scan (held back while the list was awaited) can run now.
         if (!listSettled) {
@@ -318,9 +345,7 @@
         var $slot    = mQuery('#n8ndispatch-hsm-preview-slot');
 
         if (!$preview.length || !$slot.length) {
-            // The page was replaced (ajax navigation): stop listening.
-            mQuery(window).off('.n8ndispatchhsmfloat');
-
+            // The page has no preview (the handler is bound once, at load: it must stay for the next form).
             return;
         }
 
@@ -460,6 +485,16 @@
         listSettled = true;
     }
 
+    function findTemplateByName(name) {
+        for (var i = 0; i < templates.length; i++) {
+            if (templates[i].name === name) {
+                return templates[i];
+            }
+        }
+
+        return null;
+    }
+
     function fillSelect() {
         var config   = mQuery('#n8ndispatch-hsm-config');
         var select   = document.getElementById('n8ndispatch-hsm-template-select');
@@ -467,6 +502,13 @@
         var language = mQuery('input[name$="[templateLanguage]"]').val();
         var current  = name ? name + '|' + language : '';
         var found    = false;
+
+        // Saved before the language was kept (templateLanguage empty): matched by name, the language is filled in by applyTemplate().
+        var byName   = name && !language ? findTemplateByName(name) : null;
+
+        if (byName) {
+            current = byName.name + '|' + byName.language;
+        }
 
         select.innerHTML = '';
         select.appendChild(new Option(config.data('select-placeholder'), ''));
@@ -495,7 +537,23 @@
         });
 
         // The page opens with the template already saved: keep its text in step with the list (not a rescan of a typed text).
-        applyTemplate(findTemplate(current), false);
+        if (!current || found) {
+            applyTemplate(findTemplate(current), false);
+
+            return;
+        }
+
+        // A saved template that the list no longer has: its saved name, language, text and variables stay as they are.
+        renderUnsupported(null);
+        renderPreview(null);
+
+        if (!listSettled) {
+            listSettled = true;
+
+            if (initHeld) {
+                renderHsmVariables(mQuery('textarea[name$="[text]"]'));
+            }
+        }
     }
 
     function loadDialogTemplates(refresh) {
