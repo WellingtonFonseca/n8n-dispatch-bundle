@@ -262,7 +262,7 @@
     // ---- DialogHSM template select -------------------------------------------------------------------------------
     // With the DialogHSM provider the template is picked from the list of the number (GET route of the DialogHSM, see
     // HsmTemplateType::finishView): the select fills the template name, the language the 360dialog gave it and the body
-    // text (the field below stays in the form, hidden, so the variable rows and alerts keep scanning it). Without the
+    // text (the field below stays in the form, read only, so the variable rows and alerts keep scanning it). Without the
     // plugin, without access, or when the list is not available, the manual form (free name + text) is shown as before.
     var templates   = [];
     var loadCounter = 0;
@@ -307,6 +307,7 @@
 
     function showManual() {
         lockType(false);
+        mQuery('textarea[name$="[text]"]').prop('readonly', false);
 
         // A hand-typed name is not the template of the stored language any more.
         mQuery('input[name$="[hsmTemplate]"]').off('input.n8ndispatchhsmname').on('input.n8ndispatchhsmname', function () {
@@ -330,6 +331,8 @@
     }
 
     function showSelect() {
+        // The text follows the template for the whole select mode: read only (not disabled, so it still posts).
+        mQuery('textarea[name$="[text]"]').prop('readonly', true);
         mQuery('#n8ndispatch-hsm-template-manual').hide();
         mQuery('#n8ndispatch-hsm-text-row').show();
         mQuery('#n8ndispatch-hsm-template-select-row, #n8ndispatch-hsm-unsupported').show();
@@ -519,8 +522,6 @@
 
         $type.prop('disabled', locked).trigger('chosen:updated');
 
-        // The text follows the template too: read only (not disabled, so it still posts).
-        mQuery('textarea[name$="[text]"]').prop('readonly', locked);
     }
 
     function renderUnsupported(tpl) {
