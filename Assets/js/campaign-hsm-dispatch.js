@@ -791,9 +791,12 @@
             .then(function (response) { return response.ok ? response.json() : null; })
             .then(function (data) {
                 var found = null;
+                var wantName = String($cfg.attr('data-template-name') || '');
+                var wantLanguage = String($cfg.attr('data-template-language') || '');
 
                 ((data && data.available && data.templates) || []).forEach(function (tpl) {
-                    if (tpl.name === $cfg.data('template-name') && tpl.language === $cfg.data('template-language')) {
+                    // Language empty (saved before it was kept): match by name only, as the edit page.
+                    if (tpl.name === wantName && (wantLanguage === '' || tpl.language === wantLanguage)) {
                         found = tpl;
                     }
                 });
