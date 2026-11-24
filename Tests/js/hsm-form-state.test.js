@@ -19,11 +19,12 @@ function load({vals, list}) {
     const nodes = {config: {id: 'config1'}};
     const data  = {'templates-url': '/t/', 'number-id': 'num', 'select-placeholder': 'p', 'select-missing': '%name%'};
     const win   = {};
+    const select = {innerHTML: '', value: '', appendChild: () => {}};
 
     const shared = new Proxy({}, {get: (t, k) => ('hasUnmappedVariables' === k ? () => false : () => {})});
     const Mautic = {n8ndispatchShared: shared, ajaxActionRequest: (a, params) => { log.ajax++; log.params = params; }};
 
-    const key = (sel) => (/hsmTemplate/.test(sel) ? 'hsmTemplate' : /templateLanguage/.test(sel) ? 'templateLanguage' : /\[text\]/.test(sel) ? 'text' : /variables-json/.test(sel) ? 'json' : /provider/.test(sel) ? 'provider' : /^#num$/.test(sel) ? 'number' : null);
+    const key = (sel) => (/hsmTemplate/.test(sel) ? 'hsmTemplate' : /templateLanguage/.test(sel) ? 'templateLanguage' : /\[text\]/.test(sel) ? 'text' : /variables-json/.test(sel) ? 'json' : /\[type\]/.test(sel) ? 'type' : /provider/.test(sel) ? 'provider' : /^#num$/.test(sel) ? 'number' : null);
 
     const mQuery = (arg) => {
         const sel  = 'string' === typeof arg ? arg : null;
@@ -36,24 +37,33 @@ function load({vals, list}) {
 
                 return chain;
             },
+            prop:   (k, v) => {
+                if (undefined === v) {
+                    return vals.typeDisabled;
+                }
+                if ('disabled' === k && 'type' === key(sel)) {
+                    vals.typeDisabled = v;
+                }
+
+                return chain;
+            },
             data:   (k) => (undefined === data[k] ? 'x' : data[k]),
             length: '#n8ndispatch-hsm-preview' === sel && !log.previewPresent ? 0 : 1,
             off:    (ev) => { if (arg === win) { log.windowOff.push(ev); } return chain; },
-            on:     (ev, fn) => { if (arg === win && 'function' === typeof fn) { log.handler = fn; } return chain; },
+            on:     (ev, fn) => { if (arg === select && 'function' === typeof fn) { log.change = fn; } if (arg === win && 'function' === typeof fn) { log.handler = fn; } return chain; },
         };
         const chain = new Proxy(node, {get: (t, k) => (k in t ? t[k] : () => chain)});
 
         return chain;
     };
 
-    const select   = {innerHTML: '', appendChild: () => {}};
     const document = {body: {contains: () => true}, getElementById: (id) => ('n8ndispatch-hsm-config' === id ? nodes.config : select), querySelector: () => null};
     const fetch    = () => Promise.resolve({ok: true, json: () => Promise.resolve({available: true, templates: list})});
     const context  = {window: Object.assign(win, {Mautic, mQuery, setTimeout: (fn) => { fn(); return 1; }, clearTimeout: () => {}}), Mautic, mQuery, document, fetch, Option: function (l, v) { this.text = l; this.value = v; }};
 
     require('node:vm').runInNewContext(code, context);
 
-    return {Mautic, log, nodes, vals};
+    return {Mautic, log, nodes, vals, select};
 }
 
 const tick = () => new Promise((resolve) => setImmediate(resolve));
@@ -118,4 +128,27 @@ test('a saved button row stays in the rescan when the list does not give the tem
 
     assert.ok(page.log.params, 'a scan ran');
     assert.strictEqual(page.log.params.extra, 'button_1_url,button_2_copy_code');
+});
+
+test('re-picking the saved missing option restores type, lock and the variable rescan', async () => {
+    const vals = {hsmTemplate: 'old_tpl', templateLanguage: 'pt_BR', text: 'saved {{1}}', type: 'image', typeDisabled: false, provider: 'dialoghsm', number: 3};
+    const page = load({vals, list: [{name: 'other', language: 'pt_BR', approved: true}]});
+
+    page.Mautic.n8nDispatchOnHsmProviderChange({});
+    await tick();
+
+    // The user picks a real template (type locked to text), then goes back to the saved option.
+    vals.type         = 'text';
+    vals.typeDisabled = true;
+    vals.text         = 'other body';
+    vals.hsmTemplate  = 'other';
+    page.log.ajax     = 0;
+    page.select.value = 'old_tpl|pt_BR';
+    page.log.change();
+
+    assert.strictEqual(vals.hsmTemplate, 'old_tpl');
+    assert.strictEqual(vals.text, 'saved {{1}}');
+    assert.strictEqual(vals.type, 'image');
+    assert.strictEqual(vals.typeDisabled, false, 'a missing template leaves the type unlocked');
+    assert.ok(page.log.ajax > 0, 'variable rows rescanned from the restored text');
 });

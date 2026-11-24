@@ -522,7 +522,8 @@
         var language = mQuery('input[name$="[templateLanguage]"]').val();
         var current  = name ? name + '|' + language : '';
         var found    = false;
-        var snapshot = {name: name, language: language, text: mQuery('textarea[name$="[text]"]').val()};
+        var $typeSel = mQuery('select[name$="[type]"]');
+        var snapshot = {name: name, language: language, text: mQuery('textarea[name$="[text]"]').val(), type: $typeSel.val(), locked: !!$typeSel.prop('disabled')};
 
         // Saved before the language was kept (templateLanguage empty): matched by name, the language is filled in by applyTemplate().
         var byName   = name && !language ? findTemplateByName(name) : null;
@@ -561,8 +562,20 @@
                 mQuery('input[name$="[hsmTemplate]"]').val(snapshot.name);
                 mQuery('input[name$="[templateLanguage]"]').val(snapshot.language);
                 mQuery('textarea[name$="[text]"]').val(snapshot.text);
+
+                var $pickType = mQuery('select[name$="[type]"]');
+
+                // Unlock first: a disabled select may not take the value, and the mirror is rebuilt by lockType().
+                lockType(false);
+
+                if ($pickType.val() !== snapshot.type) {
+                    $pickType.val(snapshot.type).trigger('chosen:updated').trigger('change');
+                }
+
+                lockType(snapshot.locked);
                 renderUnsupported(null);
                 renderPreview(null);
+                renderHsmVariables(mQuery('textarea[name$="[text]"]'));
 
                 return;
             }
