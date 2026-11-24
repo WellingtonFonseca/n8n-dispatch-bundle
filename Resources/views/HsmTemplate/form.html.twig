@@ -98,6 +98,12 @@
                                 <a href="#hsm-history-container" role="tab" data-toggle="tab">{{ 'mautic.n8ndispatch.audit.tab'|trans }}</a>
                             </li>
                         {% endif %}
+                        {# The 360Dialog's JSON of the picked template: last tab, shown by campaign-hsm-dispatch.js only while a template of the 360Dialog is picked (it goes away in manual mode, as the preview). #}
+                        {% if form.vars.dialoghsm_templates_url %}
+                            <li id="hsm-json-tab" style="display: none;">
+                                <a href="#hsm-json-container" role="tab" data-toggle="tab">{{ 'mautic.n8ndispatch.hsmtemplate.dialog.json'|trans }}</a>
+                            </li>
+                        {% endif %}
                     </ul>
                     <!--/ tabs controls -->
 
@@ -260,6 +266,18 @@
                         {% if entity.id %}
                             {% include '@N8nDispatch/Template/_audit_pane.html.twig' with {'id': 'hsm-history-container', 'rows': n8ndispatch_template_audit('hsm_template', entity.id)} only %}
                         {% endif %}
+                        {% if form.vars.dialoghsm_templates_url %}
+                            {# Same layout as the Clonar tab of the Custom Objects modal: help, copy button, read only <pre> (never a field of the form, so it is not submitted). #}
+                            <div class="tab-pane fade bdr-w-0" id="hsm-json-container">
+                                <p class="help-block">{{ 'mautic.n8ndispatch.hsmtemplate.dialog.json.help'|trans }}</p>
+                                <div class="mb-sm">
+                                    <button type="button" class="btn btn-tertiary btn-sm btn-nospin" id="n8ndispatch-hsm-json-copy" data-copied="{{ 'mautic.n8ndispatch.hsmtemplate.dialog.json.copied'|trans|e('html_attr') }}">
+                                        <i class="ri-file-copy-line"></i> <span>{{ 'mautic.n8ndispatch.hsmtemplate.dialog.json.copy'|trans }}</span>
+                                    </button>
+                                </div>
+                                <pre id="n8ndispatch-hsm-json" style="max-height: 60vh; overflow: auto; white-space: pre; user-select: all;"></pre>
+                            </div>
+                        {% endif %}
                     </div>
                 </div>
             </div>
@@ -268,16 +286,6 @@
             <div class="pr-lg pl-lg pt-md pb-md">
                 {{ form_row(form.isPublished) }}
             </div>
-            {% if form.vars.dialoghsm_templates_url %}
-                {# Read only copy of the 360Dialog's template (filled by campaign-hsm-dispatch.js: renderPreview); not a form field, never posted. #}
-                <div id="n8ndispatch-hsm-json-row" class="form-group pr-lg pl-lg" style="display: none;">
-                    <label class="control-label" for="n8ndispatch-hsm-json">{{ 'mautic.n8ndispatch.hsmtemplate.dialog.json'|trans }}</label>
-                    <div class="n8ndispatch-json-box">
-                        <button type="button" id="n8ndispatch-hsm-json-copy" class="n8ndispatch-badge n8ndispatch-badge--neutral n8ndispatch-badge--grow-left n8ndispatch-copy-status" title="{{ 'mautic.n8ndispatch.hsmtemplate.dialog.json.copy'|trans }}" aria-label="{{ 'mautic.n8ndispatch.hsmtemplate.dialog.json.copy'|trans }}"><svg class="n8ndispatch-copy-status__copy" viewBox="0 0 24 24"  fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><rect x="9" y="9" width="11" height="11" rx="2"/><path d="M5 15V6a2 2 0 0 1 2-2h9"/></svg><svg class="n8ndispatch-copy-status__done" viewBox="0 0 24 24"  fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M5 12.5l4.5 4.5L19 7.5"/></svg><span class="n8ndispatch-copy-status__text">{{ 'mautic.n8ndispatch.hsmtemplate.dialog.json.copied'|trans }}</span></button>
-                        <pre id="n8ndispatch-hsm-json" class="n8ndispatch-json-code"></pre>
-                    </div>
-                </div>
-            {% endif %}
             {# The DialogHSM's preview, in the column on the right (filled by campaign-hsm-dispatch.js; the component's script is included in the form). #}
             {% if form.vars.dialoghsm_templates_url %}
                 {# The slot keeps the place while the preview floats (campaign-hsm-dispatch.js: floatPreview). #}

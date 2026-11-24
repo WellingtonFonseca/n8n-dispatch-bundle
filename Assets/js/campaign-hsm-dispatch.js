@@ -286,7 +286,8 @@
         }
 
         mQuery('#n8ndispatch-hsm-template-manual, #n8ndispatch-hsm-text-row').show();
-        mQuery('#n8ndispatch-hsm-template-select-row, #n8ndispatch-hsm-preview, #n8ndispatch-hsm-json-row, #n8ndispatch-hsm-unsupported').hide();
+        mQuery('#n8ndispatch-hsm-template-select-row, #n8ndispatch-hsm-preview, #n8ndispatch-hsm-unsupported').hide();
+        showJson(null);
     }
 
     function showSelect() {
@@ -341,6 +342,18 @@
         return values;
     }
 
+    // The 360Dialog's JSON of the picked template, in the last tab; the tab is there only while a template of the 360Dialog is picked.
+    function showJson(tpl) {
+        var on = !!tpl && 'dialoghsm' === providerValue();
+
+        mQuery('#n8ndispatch-hsm-json').text(on ? JSON.stringify(tpl, null, 2) : '');
+        mQuery('#hsm-json-tab').toggle(on);
+
+        if (!on && mQuery('#hsm-json-tab').hasClass('active')) {
+            mQuery('a[href="#hsm-template-container"]').tab('show');
+        }
+    }
+
     function renderPreview(tpl) {
         var $box = mQuery('#n8ndispatch-hsm-preview');
         var ok   = false;
@@ -352,8 +365,7 @@
         }
 
         $box.toggle(!!ok && 'dialoghsm' === providerValue());
-        mQuery('#n8ndispatch-hsm-json').text(tpl ? JSON.stringify(tpl, null, 2) : '');
-        mQuery('#n8ndispatch-hsm-json-row').toggle(!!tpl && 'dialoghsm' === providerValue());
+        showJson(tpl);
         floatPreview();
     }
 
@@ -704,13 +716,14 @@
             renderHsmVariables($el);
         }, DEBOUNCE_MS);
     };
-    // Copy button of the 360Dialog JSON box (top right, shown on hover).
+    // Copy button of the 360Dialog JSON tab (same as the Clonar tab of the Custom Objects modal: the label turns into "Copiado!" for 2s).
     mQuery(document).off('click.n8ndispatchJson').on('click.n8ndispatchJson', '#n8ndispatch-hsm-json-copy', function () {
         var text  = mQuery('#n8ndispatch-hsm-json').text();
-        var $btn  = mQuery(this);
+        var $span = mQuery(this).find('span');
+        var label = $span.text();
         var done  = function () {
-            $btn.addClass('is-open');
-            setTimeout(function () { $btn.removeClass('is-open'); }, 1500);
+            $span.text(mQuery('#n8ndispatch-hsm-json-copy').data('copied'));
+            setTimeout(function () { $span.text(label); }, 2000);
         };
 
         if (navigator.clipboard && window.isSecureContext) {
