@@ -255,7 +255,7 @@
         previewTemplate = tpl;
 
         if (tpl && window.DialogHsmPreview) {
-            ok = window.DialogHsmPreview.render(document.getElementById('n8ndispatch-hsm-preview-body'), tpl, previewValues(), {title: mQuery('#n8ndispatch-hsm-config').data('preview-title'), phone: true});
+            ok = window.DialogHsmPreview.render(document.getElementById('n8ndispatch-hsm-preview-body'), tpl, previewValues(), {title: mQuery('#n8ndispatch-hsm-config').data('preview-title')});
         }
 
         $box.toggle(!!ok && 'dialoghsm' === providerValue());
