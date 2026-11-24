@@ -145,12 +145,16 @@
                             </div>
                             {# Only for the carousel and image types: campaign-hsm-dispatch.js shows/hides it as the type changes, and for
                                the image type (class n8ndispatch-cards-single) leaves the first input alone. #}
-                            <div data-image-text="{{ 'mautic.n8ndispatch.hsmtemplate.alert.image_required'|trans({}, 'validators') }}"
+                            <div data-file-text="{{ 'mautic.n8ndispatch.hsmtemplate.alert.file_required'|trans({}, 'validators') }}"
+                                 data-label-image="{{ 'mautic.n8ndispatch.hsmtemplate.image.label'|trans }}"
+                                 data-label-video="{{ 'mautic.n8ndispatch.hsmtemplate.video.label'|trans }}"
+                                 data-label-document="{{ 'mautic.n8ndispatch.hsmtemplate.document.label'|trans }}"
+                                 data-image-text="{{ 'mautic.n8ndispatch.hsmtemplate.alert.image_required'|trans({}, 'validators') }}"
                                  data-image-url-text="{{ 'mautic.n8ndispatch.hsmtemplate.error.image_url'|trans({}, 'validators') }}"
                                  data-min-text="{{ 'mautic.n8ndispatch.hsmtemplate.alert.cards_min'|trans({}, 'validators') }}"
                                  data-gap-text="{{ 'mautic.n8ndispatch.hsmtemplate.error.cards_gap'|trans({}, 'validators') }}"
                                  data-url-text="{{ 'mautic.n8ndispatch.hsmtemplate.error.cards_url'|trans({}, 'validators') }}"
-                                 id="n8ndispatch-hsm-cards" class="row{% if form.type.vars.value == 'image' %} n8ndispatch-cards-single{% endif %}"{% if form.type.vars.value not in ['carousel', 'image'] %} style="display: none;"{% endif %}>
+                                 id="n8ndispatch-hsm-cards" class="row{% if form.type.vars.value in ['image', 'video', 'document'] %} n8ndispatch-cards-single{% endif %}"{% if form.type.vars.value not in ['carousel', 'image', 'video', 'document'] %} style="display: none;"{% endif %}>
                                 <div class="col-xs-12">
                                     <label class="control-label n8ndispatch-cards-label-multi">{{ 'mautic.n8ndispatch.hsmtemplate.cards.label'|trans }}</label>
                                     <label class="control-label n8ndispatch-cards-label-single">{{ 'mautic.n8ndispatch.hsmtemplate.image.label'|trans }}</label>

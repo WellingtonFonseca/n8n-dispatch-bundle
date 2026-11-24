@@ -29,8 +29,12 @@ final class DialogHsmGateway implements HsmProviderGateway
     // The DialogHSM keeps this default in three places of its own code and offers no way to read it: copied here.
     private const DEFAULT_BASE_URL = 'https://waba-v2.360dialog.io/messages';
 
-    // The links the DialogHSM turns into a header (DialogHSMApi::buildHeaderParameter): any other is left out of the message.
-    private const IMAGE_HEADER_LINK = '/\.(jpe?g|png)(\?.*)?$/i';
+    // The links the DialogHSM turns into a header, by type (DialogHSMApi::buildHeaderParameter): any other is left out of the message.
+    private const HEADER_LINKS = [
+        'image'    => ['/\.(jpe?g|png)(\?.*)?$/i', 'The image link must end in .jpg, .jpeg or .png'],
+        'video'    => ['/\.mp4(\?.*)?$/i', 'The video link must end in .mp4'],
+        'document' => ['/\.pdf(\?.*)?$/i', 'The document link must end in .pdf'],
+    ];
 
     private ?bool $available = null;
 
@@ -96,8 +100,8 @@ final class DialogHsmGateway implements HsmProviderGateway
             return HsmSendResult::refused(sprintf('The DialogHSM number "%s" has no API key.', (string) $number->getName()));
         }
 
-        if ('image' === $request->type && 1 !== preg_match(self::IMAGE_HEADER_LINK, $this->imageLink($request))) {
-            return HsmSendResult::refused('The image link must end in .jpg, .jpeg or .png: the DialogHSM does not build the header for other links.');
+        if (isset(self::HEADER_LINKS[$request->type]) && 1 !== preg_match(self::HEADER_LINKS[$request->type][0], $this->imageLink($request))) {
+            return HsmSendResult::refused(self::HEADER_LINKS[$request->type][1].': the DialogHSM does not build the header for other links.');
         }
 
         $message = new SendWhatsAppMessage(
@@ -145,8 +149,23 @@ final class DialogHsmGateway implements HsmProviderGateway
             $data[$number] = $value;
         }
 
-        if ('image' === $request->type) {
+        if (isset(self::HEADER_LINKS[$request->type])) {
             $data['url_arquivo'] = $this->imageLink($request);
+        }
+
+        // Buttons with a value: 'buttons' lists the kind of each button by its position in the template (empty where the button takes none),
+        // 'buttons_vars' the value of each. A comma would split a value in two: it goes out as a space.
+        if ([] !== $request->buttonVariables) {
+            $kinds  = [];
+            $values = [];
+
+            for ($i = 0; $i <= max(array_keys($request->buttonVariables)); ++$i) {
+                $kinds[]  = $request->buttonVariables[$i]['type'] ?? '';
+                $values[] = str_replace(',', ' ', $request->buttonVariables[$i]['value'] ?? '');
+            }
+
+            $data['buttons']      = implode(',', $kinds);
+            $data['buttons_vars'] = implode(',', $values);
         }
 
         if ('carousel' === $request->type) {

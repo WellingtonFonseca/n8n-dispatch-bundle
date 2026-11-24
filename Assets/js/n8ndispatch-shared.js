@@ -396,7 +396,7 @@
         return /^[+-]?\d+$/.test(clean) && Number.isSafeInteger(parseInt(clean, 10)) ? parseInt(clean, 10) : clean;
     }
 
-    function variableRowHtml(name, existingEntry, fields, customObjects, allowDateOffset) {
+    function variableRowHtml(name, existingEntry, fields, customObjects, allowDateOffset, label) {
         var entry  = mQuery.extend({}, DEFAULT_ENTRY, existingEntry || {});
         var source = entry.source || 'static';
 
@@ -428,7 +428,7 @@
             + '</div>';
 
         return '<div class="form-group n8ndispatch-var-row" data-var-name="' + escapeHtml(name) + '">'
-            + '<label class="control-label">{{' + escapeHtml(name) + '}}</label>'
+            + '<label class="control-label">' + (label ? escapeHtml(label) : '{{' + escapeHtml(name) + '}}') + '</label>'
             + '<div class="row">'
             + '<div class="col-xs-4">' + sourceSelect + '</div>'
             + '<div class="col-xs-8">' + valueBlock + (allowDateOffset ? dateOffsetBlock(entry, source) : '') + '</div>'
@@ -461,7 +461,7 @@
 
         var html = '';
         mQuery.each(response.variables || [], function (i, name) {
-            html += variableRowHtml(name, existing[name], response.fields, response.customObjects, !!response.dateOffset);
+            html += variableRowHtml(name, existing[name], response.fields, response.customObjects, !!response.dateOffset, (response.labels || {})[name]);
         });
 
         if (html && response.dateOffset && 0 === mQuery('.n8ndispatch-var-offset-help').not($container.find('.n8ndispatch-var-offset-help')).length) {

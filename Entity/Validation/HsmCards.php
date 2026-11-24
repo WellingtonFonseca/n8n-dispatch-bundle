@@ -28,10 +28,15 @@ final class HsmCards
     public const IMAGE_REQUIRED = 'mautic.n8ndispatch.hsmtemplate.error.image_required';
     public const IMAGE_BAD_URL  = 'mautic.n8ndispatch.hsmtemplate.error.image_url';
 
+    public const FILE_REQUIRED = 'mautic.n8ndispatch.hsmtemplate.error.file_required';
+    public const FILE_BAD_URL  = 'mautic.n8ndispatch.hsmtemplate.error.file_url';
+
     public static function validate(HsmTemplate $template, ExecutionContextInterface $context): void
     {
         match ($template->getType()) {
             HsmTemplate::TYPE_IMAGE    => self::validateImage($template->getCards()[0], $context),
+            HsmTemplate::TYPE_VIDEO,
+            HsmTemplate::TYPE_DOCUMENT => self::validateFile($template->getCards()[0], $context),
             HsmTemplate::TYPE_CAROUSEL => self::validateCarousel($template->getCards(), $context),
             default                    => null,
         };
@@ -79,6 +84,20 @@ final class HsmCards
                 ->setParameter('%min%', (string) self::MIN_CARDS)
                 ->atPath('cards')
                 ->addViolation();
+        }
+    }
+
+    // Video and document: the same rule as the image (a filled link, https), with the messages of a file.
+    private static function validateFile(string $url, ExecutionContextInterface $context): void
+    {
+        if ('' === $url) {
+            $context->buildViolation(self::FILE_REQUIRED)->atPath('cards')->addViolation();
+
+            return;
+        }
+
+        if (!self::isHttpsUrl($url)) {
+            $context->buildViolation(self::FILE_BAD_URL)->atPath('cards')->addViolation();
         }
     }
 

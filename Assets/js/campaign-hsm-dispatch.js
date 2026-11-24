@@ -35,6 +35,29 @@
         shared.setUnmappedAlert($textField, UNMAPPED_ALERT_ID, mQuery('#n8ndispatch-hsm-config').data('unmapped-alert-text'), shared.hasUnmappedVariables($textField));
     }
 
+    var previewTemplate = null;
+    var renderedExtra   = '';
+    var listSettled     = false;
+    var initHeld        = false;
+
+    // The buttons of the picked DialogHSM template that take a value (a URL with {{1}}, a code to copy) get a mapping row each, named
+    // button_<position>_<kind>: they are not in the text. The server builds the rows and their labels (Controller/AjaxController.php).
+    function buttonRowNames() {
+        var names = [];
+
+        if ('dialoghsm' !== providerValue() || !previewTemplate) {
+            return names;
+        }
+
+        (previewTemplate.buttons || []).forEach(function (b) {
+            if (b.vars && -1 !== ['URL', 'COPY_CODE'].indexOf(b.type)) {
+                names.push('button_' + b.index + '_' + b.type.toLowerCase());
+            }
+        });
+
+        return names;
+    }
+
     function renderHsmVariables($textField) {
         // Work started for a field that already left the page (this scan is debounced, so the form may have been
         // re-rendered by a blocked save meanwhile) would remove the new form's alert (same id) and put a new one
@@ -51,13 +74,16 @@
         updateSequenceAlert($textField);
         updateUnmappedAlert($textField);
 
-        if (!text) {
+        var extra = buttonRowNames();
+        renderedExtra = extra.join(',');
+
+        if (!text && !extra.length) {
             shared.clearVariables($textField);
 
             return;
         }
 
-        Mautic.ajaxActionRequest('plugin:N8nDispatch:getHsmVariables', {text: text}, function (response) {
+        Mautic.ajaxActionRequest('plugin:N8nDispatch:getHsmVariables', {text: text, extra: extra.join(',')}, function (response) {
             // Same reason as above, for an answer that arrives after the form was re-rendered.
             if (!document.body.contains($textField[0])) {
                 return;
@@ -118,6 +144,11 @@
 
     var currentType = '';
 
+    // The types with one file in the header (the image, the video, the document): only the first input counts.
+    function isSingle(type) {
+        return -1 !== ['image', 'video', 'document'].indexOf(type);
+    }
+
     // The alert between the help text and the inputs, following what is typed (same look as the variables alert).
     function updateCardsAlert() {
         var values = [];
@@ -126,8 +157,8 @@
         });
 
         var config  = mQuery(CARDS);
-        var problem = 'image' === currentType
-            ? imageProblem(values, {image: config.data('image-text'), url: config.data('image-url-text')})
+        var problem = isSingle(currentType)
+            ? imageProblem(values, {image: 'image' === currentType ? config.data('image-text') : config.data('file-text'), url: config.data('image-url-text')})
             : cardsProblem(values, {min: config.data('min-text'), gap: config.data('gap-text'), url: config.data('url-text')});
         var $alert  = mQuery('#n8ndispatch-hsm-cards-alert');
 
@@ -146,8 +177,14 @@
     // the right state (and with the alert bound).
     Mautic.n8nDispatchOnHsmTypeChange = function (el) {
         currentType = mQuery(el).val();
-        var single  = 'image' === currentType;
+        var single  = isSingle(currentType);
         mQuery(CARDS).toggle(single || 'carousel' === currentType).toggleClass('n8ndispatch-cards-single', single);
+
+        // The label of the single file follows the type (Image, Video, Document).
+        if (single) {
+            mQuery(CARDS + ' .n8ndispatch-cards-label-single').text(mQuery(CARDS).data('label-' + currentType));
+        }
+
         mQuery(CARDS).off('input.cardsalert change.cardsalert').on('input.cardsalert change.cardsalert', 'input', updateCardsAlert);
         updateCardsAlert();
     };
@@ -191,6 +228,16 @@
 
     function showManual() {
         lockType(false);
+
+        // The list will not come: the page's own scan (held back while the list was awaited) can run now.
+        if (!listSettled) {
+            listSettled = true;
+
+            if (initHeld) {
+                renderHsmVariables(mQuery('textarea[name$="[text]"]'));
+            }
+        }
+
         mQuery('#n8ndispatch-hsm-template-manual, #n8ndispatch-hsm-text-row').show();
         mQuery('#n8ndispatch-hsm-template-select-row, #n8ndispatch-hsm-preview, #n8ndispatch-hsm-unsupported').hide();
     }
@@ -209,8 +256,6 @@
 
         return null;
     }
-
-    var previewTemplate = null;
 
     // What the preview shows for the variables and the header: the image link typed in the first image input (the type
     // Image sends it as the header), the carousel's image links and, per {{n}}, the value of its mapping row (a field or Custom Object shows as a
@@ -280,8 +325,8 @@
         var parts  = [];
         var header = tpl.header || {};
 
-        if (['VIDEO', 'DOCUMENT', 'LOCATION'].indexOf(header.format) >= 0) {
-            parts.push('header ' + header.format);
+        if ('LOCATION' === header.format) {
+            parts.push('header LOCATION');
         }
 
         if (header.vars) {
@@ -293,7 +338,7 @@
         }
 
         (tpl.buttons || []).forEach(function (b) {
-            if (b.vars) {
+            if (b.vars && -1 === ['URL', 'COPY_CODE'].indexOf(b.type)) {
                 parts.push('button ' + b.type + ' ' + (b.index + 1));
             }
         });
@@ -304,7 +349,7 @@
     // The image header and the carousel are the form's own types: the template (the 360dialog) decides, so while a template is
     // picked the Type select is read only (a disabled select is not posted: a hidden twin carries the value).
     function followTemplateType(tpl) {
-        var type  = tpl.carousel ? 'carousel' : ('IMAGE' === (tpl.header || {}).format ? 'image' : 'text');
+        var type  = tpl.carousel ? 'carousel' : ({IMAGE: 'image', VIDEO: 'video', DOCUMENT: 'document'}[(tpl.header || {}).format] || 'text');
         var $type = mQuery('select[name$="[type]"]');
 
         if ($type.val() !== type) {
@@ -348,9 +393,10 @@
             mQuery('input[name$="[templateLanguage]"]').val('');
         }
 
-        if ($text.val() !== text || rescan) {
+        var textChanged = $text.val() !== text || rescan;
+
+        if (textChanged) {
             $text.val(text);
-            renderHsmVariables($text);
         }
 
         if (tpl) {
@@ -361,6 +407,14 @@
 
         renderUnsupported(tpl);
         renderPreview(tpl);
+
+        // One scan of the variables: the text changed, the buttons that take a value changed, or the page just opened (its own scan waited
+        // for this list, see n8nDispatchInitHsmVariables: a scan before the buttons are known would drop their mapping).
+        if (textChanged || buttonRowNames().join(',') !== renderedExtra || !listSettled) {
+            renderHsmVariables($text);
+        }
+
+        listSettled = true;
     }
 
     function fillSelect() {
@@ -474,6 +528,13 @@
                 updateUnmappedAlert($el);
             }
         });
+
+        // Held back while the DialogHSM template list is awaited (applyTemplate / showManual scan then), so the button rows are known.
+        if (!listSettled && 'dialoghsm' === providerValue() && mQuery('#n8ndispatch-hsm-config').data('templates-url') && numberSelect().val()) {
+            initHeld = true;
+
+            return;
+        }
 
         renderHsmVariables($el);
     };

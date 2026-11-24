@@ -197,6 +197,8 @@ class HsmTemplateType extends AbstractType
                 'mautic.n8ndispatch.hsmtemplate.type.text'     => HsmTemplate::TYPE_TEXT,
                 'mautic.n8ndispatch.hsmtemplate.type.image'    => HsmTemplate::TYPE_IMAGE,
                 'mautic.n8ndispatch.hsmtemplate.type.carousel' => HsmTemplate::TYPE_CAROUSEL,
+                'mautic.n8ndispatch.hsmtemplate.type.video'    => HsmTemplate::TYPE_VIDEO,
+                'mautic.n8ndispatch.hsmtemplate.type.document' => HsmTemplate::TYPE_DOCUMENT,
             ],
             // Shows the image inputs only for the carousel (all) and image (the first) types, see campaign-hsm-dispatch.js.
             'attr' => [

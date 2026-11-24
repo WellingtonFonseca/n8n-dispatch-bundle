@@ -24,6 +24,9 @@ final class HsmProviderFields
     public const PROVIDER_INVALID = 'mautic.n8ndispatch.hsmtemplate.error.provider_invalid';
     public const NUMBER_REQUIRED  = 'mautic.n8ndispatch.hsmtemplate.error.number_required';
     public const IMAGE_EXTENSION  = 'mautic.n8ndispatch.hsmtemplate.error.dialoghsm_image_extension';
+    public const VIDEO_EXTENSION    = 'mautic.n8ndispatch.hsmtemplate.error.dialoghsm_video_extension';
+    public const DOCUMENT_EXTENSION = 'mautic.n8ndispatch.hsmtemplate.error.dialoghsm_document_extension';
+    public const TYPE_NOT_FOR_N8N   = 'mautic.n8ndispatch.hsmtemplate.error.type_dialoghsm_only';
 
     public static function validate(HsmTemplate $template, ExecutionContextInterface $context): void
     {
@@ -39,6 +42,11 @@ final class HsmProviderFields
         if ('' === trim((string) $template->getRouter())) {
             $context->buildViolation('mautic.core.value.required')->atPath('router')->addViolation();
         }
+
+        // Video and document are built by the DialogHSM from the link's extension: n8n has no such type.
+        if (in_array($template->getType(), [HsmTemplate::TYPE_VIDEO, HsmTemplate::TYPE_DOCUMENT], true)) {
+            $context->buildViolation(self::TYPE_NOT_FOR_N8N)->atPath('type')->addViolation();
+        }
     }
 
     private static function validateDialogHsm(HsmTemplate $template, ExecutionContextInterface $context): void
@@ -49,11 +57,17 @@ final class HsmProviderFields
             $context->buildViolation(self::NUMBER_REQUIRED)->atPath('whatsappNumberId')->addViolation();
         }
 
-        // Whatever HsmCards found wrong with the link is its own message: only a valid https link is judged here.
-        $image = $template->getCards()[0];
+        // Whatever HsmCards found wrong with the link is its own message: only a valid https link is judged here. The DialogHSM
+        // makes the header file only for these extensions, and a message without the header is refused by the Meta.
+        $link = $template->getCards()[0];
+        $rule = [
+            HsmTemplate::TYPE_IMAGE    => ['/\.(jpe?g|png)(\?.*)?$/i', self::IMAGE_EXTENSION],
+            HsmTemplate::TYPE_VIDEO    => ['/\.mp4(\?.*)?$/i', self::VIDEO_EXTENSION],
+            HsmTemplate::TYPE_DOCUMENT => ['/\.pdf(\?.*)?$/i', self::DOCUMENT_EXTENSION],
+        ][$template->getType()] ?? null;
 
-        if (HsmTemplate::TYPE_IMAGE === $template->getType() && '' !== $image && 1 !== preg_match('/\.(jpe?g|png)(\?.*)?$/i', $image)) {
-            $context->buildViolation(self::IMAGE_EXTENSION)->atPath('cards')->addViolation();
+        if (null !== $rule && '' !== $link && 1 !== preg_match($rule[0], $link)) {
+            $context->buildViolation($rule[1])->atPath('cards')->addViolation();
         }
     }
 }

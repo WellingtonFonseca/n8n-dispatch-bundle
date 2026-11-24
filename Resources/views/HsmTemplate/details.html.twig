@@ -52,9 +52,9 @@
                 <td width="20%"><span class="fw-b textTitle">{{ 'mautic.n8ndispatch.campaign.event.hsm.type'|trans }}</span></td>
                 <td>{{ ('mautic.n8ndispatch.hsmtemplate.type.' ~ entity.type)|trans }}</td>
             </tr>
-            {% if entity.type == 'image' %}
+            {% if entity.type in ['image', 'video', 'document'] %}
                 <tr>
-                    <td width="20%"><span class="fw-b textTitle">{{ 'mautic.n8ndispatch.hsmtemplate.image.label'|trans }}</span></td>
+                    <td width="20%"><span class="fw-b textTitle">{{ ('mautic.n8ndispatch.hsmtemplate.' ~ entity.type ~ '.label')|trans }}</span></td>
                     <td><a href="{{ entity.cards[0] }}" target="_blank" rel="noopener noreferrer">{{ entity.cards[0] }}</a></td>
                 </tr>
             {% elseif entity.type == 'carousel' %}

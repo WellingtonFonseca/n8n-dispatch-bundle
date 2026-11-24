@@ -56,6 +56,14 @@ class HsmTemplate extends FormEntity
     // Image: one image URL, kept in the first card slot and sent like a carousel with one card.
     public const TYPE_IMAGE = 'image';
 
+    // Video and document: like the image, one link kept in the first card slot, sent as the header file. Only through the DialogHSM
+    // (Entity/Validation/HsmProviderFields.php): the DialogHSM builds them from the link's extension (.mp4, .pdf).
+    public const TYPE_VIDEO    = 'video';
+    public const TYPE_DOCUMENT = 'document';
+
+    // The types with a single file in the header.
+    public const SINGLE_MEDIA_TYPES = [self::TYPE_IMAGE, self::TYPE_VIDEO, self::TYPE_DOCUMENT];
+
     public const CARD_SLOTS = 10;
 
     // How the template is sent: through the n8n webhook (the router names the Blip origin) or through the DialogHSM
@@ -392,7 +400,12 @@ class HsmTemplate extends FormEntity
 
     public function usesCards(): bool
     {
-        return in_array($this->type, [self::TYPE_CAROUSEL, self::TYPE_IMAGE], true);
+        return self::TYPE_CAROUSEL === $this->type || $this->usesSingleMedia();
+    }
+
+    public function usesSingleMedia(): bool
+    {
+        return in_array($this->type, self::SINGLE_MEDIA_TYPES, true);
     }
 
     /**
@@ -405,7 +418,7 @@ class HsmTemplate extends FormEntity
     public function getCardsPayload(): array
     {
         $cards = [];
-        $slots = self::TYPE_IMAGE === $this->type ? array_slice($this->getCards(), 0, 1) : $this->getCards();
+        $slots = $this->usesSingleMedia() ? array_slice($this->getCards(), 0, 1) : $this->getCards();
 
         foreach ($slots as $index => $url) {
             if ('' !== $url) {

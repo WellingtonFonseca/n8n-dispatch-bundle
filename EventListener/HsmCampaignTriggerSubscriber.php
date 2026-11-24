@@ -215,6 +215,16 @@ class HsmCampaignTriggerSubscriber extends AbstractTemplateDispatchSubscriber
      */
     private function providerRequest(Lead $contact, string $phone, array $step, array $variables, ?int $campaignId, ?int $campaignEventId): HsmSendRequest
     {
+        // The mapping rows of the buttons are named button_<position>_<kind> (button_1_url): they are not {{n}} of the body.
+        $buttons = [];
+
+        foreach ($variables as $name => $value) {
+            if (1 === preg_match('/^button_(\d+)_([a-z_]+)$/', (string) $name, $m)) {
+                $buttons[(int) $m[1]] = ['type' => $m[2], 'value' => (string) $value];
+                unset($variables[$name]);
+            }
+        }
+
         return new HsmSendRequest(
             contactId: (int) $contact->getId(),
             phone: $phone,
@@ -227,6 +237,7 @@ class HsmCampaignTriggerSubscriber extends AbstractTemplateDispatchSubscriber
             numberId: (int) $step['numberId'],
             campaignId: $campaignId,
             campaignEventId: $campaignEventId,
+            buttonVariables: $buttons,
         );
     }
 

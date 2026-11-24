@@ -268,6 +268,17 @@ class AjaxController extends CommonAjaxController
         $customObjects = $this->buildCustomObjectsList($customObjectModel);
         $variables     = $variableScanner->extract($text);
 
+        // The buttons of a DialogHSM template that take a value get a row each, named button_<position>_<kind> (campaign-hsm-dispatch.js):
+        // they are not in the text. The label of each row says which button it is.
+        $labels = [];
+
+        foreach (array_filter(array_map('trim', explode(',', (string) $request->request->get('extra', $request->query->get('extra', ''))))) as $extra) {
+            if (1 === preg_match('/^button_(\d+)_(url|copy_code)$/', $extra, $m)) {
+                $variables[]    = $extra;
+                $labels[$extra] = $this->translator->trans('mautic.n8ndispatch.hsmtemplate.button.label', ['%n%' => (int) $m[1] + 1, '%kind%' => $this->translator->trans('mautic.n8ndispatch.hsmtemplate.button.kind.'.$m[2])]);
+            }
+        }
+
         // An HSM template only takes numeric placeholders ({{1}}, {{2}}, ...); the edit page warns about the
         // others as the text is typed, before the user tries to save.
         $nonNumericVariables = $variableScanner->findNonNumeric($text);
@@ -279,6 +290,7 @@ class AjaxController extends CommonAjaxController
             'fields'              => $fields,
             'customObjects'       => $customObjects,
             'dateOffset'          => true,
+            'labels'              => $labels,
         ]);
     }
 
