@@ -330,7 +330,8 @@
     }
 
     function showSelect() {
-        mQuery('#n8ndispatch-hsm-template-manual, #n8ndispatch-hsm-text-row').hide();
+        mQuery('#n8ndispatch-hsm-template-manual').hide();
+        mQuery('#n8ndispatch-hsm-text-row').show();
         mQuery('#n8ndispatch-hsm-template-select-row, #n8ndispatch-hsm-unsupported').show();
     }
 
@@ -517,6 +518,9 @@
         }
 
         $type.prop('disabled', locked).trigger('chosen:updated');
+
+        // The text follows the template too: read only (not disabled, so it still posts).
+        mQuery('textarea[name$="[text]"]').prop('readonly', locked);
     }
 
     function renderUnsupported(tpl) {
