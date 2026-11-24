@@ -523,7 +523,7 @@
         var current  = name ? name + '|' + language : '';
         var found    = false;
         var $typeSel = mQuery('select[name$="[type]"]');
-        var snapshot = {name: name, language: language, text: mQuery('textarea[name$="[text]"]').val(), type: $typeSel.val(), locked: !!$typeSel.prop('disabled')};
+        var snapshot = {name: name, language: language, text: mQuery('textarea[name$="[text]"]').val(), type: $typeSel.val(), locked: !!$typeSel.prop('disabled'), variablesJson: mQuery('.n8ndispatch-variables-json').val()};
 
         // Saved before the language was kept (templateLanguage empty): matched by name, the language is filled in by applyTemplate().
         var byName   = name && !language ? findTemplateByName(name) : null;
@@ -562,6 +562,8 @@
                 mQuery('input[name$="[hsmTemplate]"]').val(snapshot.name);
                 mQuery('input[name$="[templateLanguage]"]').val(snapshot.language);
                 mQuery('textarea[name$="[text]"]').val(snapshot.text);
+                // The mappings and button rows come back as saved: the other template's rows had rewritten them.
+                mQuery('.n8ndispatch-variables-json').val(snapshot.variablesJson);
 
                 var $pickType = mQuery('select[name$="[type]"]');
 

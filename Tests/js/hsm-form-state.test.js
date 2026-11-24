@@ -130,8 +130,10 @@ test('a saved button row stays in the rescan when the list does not give the tem
     assert.strictEqual(page.log.params.extra, 'button_1_url,button_2_copy_code');
 });
 
+const SAVED_JSON = '{"1":{"source":"name"},"button_1_url":{"source":"x"}}';
+
 test('re-picking the saved missing option restores type, lock and the variable rescan', async () => {
-    const vals = {hsmTemplate: 'old_tpl', templateLanguage: 'pt_BR', text: 'saved {{1}}', type: 'image', typeDisabled: false, provider: 'dialoghsm', number: 3};
+    const vals = {hsmTemplate: 'old_tpl', templateLanguage: 'pt_BR', text: 'saved {{1}}', type: 'image', typeDisabled: false, provider: 'dialoghsm', number: 3, json: SAVED_JSON};
     const page = load({vals, list: [{name: 'other', language: 'pt_BR', approved: true}]});
 
     page.Mautic.n8nDispatchOnHsmProviderChange({});
@@ -142,12 +144,16 @@ test('re-picking the saved missing option restores type, lock and the variable r
     vals.typeDisabled = true;
     vals.text         = 'other body';
     vals.hsmTemplate  = 'other';
+    vals.json         = '{"1":{}}';
     page.log.ajax     = 0;
+    page.log.params   = null;
     page.select.value = 'old_tpl|pt_BR';
     page.log.change();
 
     assert.strictEqual(vals.hsmTemplate, 'old_tpl');
     assert.strictEqual(vals.text, 'saved {{1}}');
+    assert.strictEqual(vals.json, SAVED_JSON, 'saved mappings and button rows restored');
+    assert.strictEqual(page.log.params.extra, 'button_1_url', 'button rows back in the rescan');
     assert.strictEqual(vals.type, 'image');
     assert.strictEqual(vals.typeDisabled, false, 'a missing template leaves the type unlocked');
     assert.ok(page.log.ajax > 0, 'variable rows rescanned from the restored text');
