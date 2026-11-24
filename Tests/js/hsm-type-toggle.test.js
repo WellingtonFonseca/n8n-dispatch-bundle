@@ -29,7 +29,7 @@ function load() {
     const Mautic = {n8ndispatchShared: {}};
     const code = fs.readFileSync(path.join(__dirname, '../../Assets/js/campaign-hsm-dispatch.js'), 'utf8');
 
-    vm.runInNewContext(code, {window: {Mautic, mQuery, clearTimeout() {}, setTimeout() {}}, document: {body: {contains: () => true}}, Mautic, mQuery});
+    vm.runInNewContext(code, {window: {Mautic, mQuery, clearTimeout() {}, setTimeout() {}}, document: {body: {contains: () => true}, getElementById: () => null}, Mautic, mQuery});
 
     return {Mautic, shown};
 }
@@ -108,7 +108,7 @@ function loadWithInputs(values, config) {
     };
     const Mautic = {n8ndispatchShared: {}};
     const code = fs.readFileSync(path.join(__dirname, '../../Assets/js/campaign-hsm-dispatch.js'), 'utf8');
-    vm.runInNewContext(code, {window: {Mautic, mQuery, clearTimeout() {}, setTimeout() {}}, document: {body: {contains: () => true}}, Mautic, mQuery});
+    vm.runInNewContext(code, {window: {Mautic, mQuery, clearTimeout() {}, setTimeout() {}}, document: {body: {contains: () => true}, getElementById: () => null}, Mautic, mQuery});
 
     return {Mautic, alertTexts, cleared: () => cleared};
 }

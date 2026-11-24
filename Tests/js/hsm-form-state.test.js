@@ -124,6 +124,7 @@ test('a saved button row stays in the rescan when the list does not give the tem
     const page = load({vals, list: [{name: 'other', language: 'pt_BR', approved: true}]});
 
     page.Mautic.n8nDispatchOnHsmProviderChange({});
+    page.Mautic.n8nDispatchInitHsmVariables({}); // the page's own scan is held until the list answers
     await tick();
 
     assert.ok(page.log.params, 'a scan ran');
