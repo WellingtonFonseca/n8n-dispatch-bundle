@@ -657,6 +657,27 @@ a[data-n8n-status-action]:hover * {
 }
 
 /* The log of the alerts in the Alertas tab of the plugin's settings screen. The Mirror resync log (_mirror_log.html.twig) uses the same rules: change both together. */
+/* The HSM template details modal is as wide as the segment details modal (mautic-patches: Contact/contacts_modal_width.html.twig, same formula), for the preview beside the fields. */
+.modal-dialog:has(.n8ndispatch-hsm-details) {
+    width: 1310px;
+    width: round(up, calc((1100px + 95vw) / 2), 1px);
+    max-width: 95vw;
+}
+/* Template tab of that modal: fields on the left, a vertical divider, the DialogHSM's preview on the right. */
+.n8ndispatch-hsm-split {
+    display: flex;
+    align-items: flex-start;
+}
+.n8ndispatch-hsm-split__main {
+    flex: 1 1 auto;
+    min-width: 0;
+}
+.n8ndispatch-hsm-split__side {
+    flex: 0 0 400px;
+    margin-left: 15px;
+    padding-left: 15px;
+    border-left: 1px solid #ddd;
+}
 .n8ndispatch-alert-log {
     max-height: 40vh;
     overflow: auto;

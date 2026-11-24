@@ -7,6 +7,8 @@ namespace MauticPlugin\N8nDispatchBundle\Twig;
 use MauticPlugin\N8nDispatchBundle\Entity\HsmTemplate;
 use MauticPlugin\N8nDispatchBundle\Service\Provider\HsmProviderOutcome;
 use MauticPlugin\N8nDispatchBundle\Service\Provider\HsmProviderPolicy;
+use Symfony\Component\Routing\Exception\RouteNotFoundException;
+use Symfony\Component\Routing\RouterInterface;
 use Symfony\Contracts\Translation\TranslatorInterface;
 use Twig\Extension\AbstractExtension;
 use Twig\TwigFunction;
@@ -21,6 +23,7 @@ class HsmProviderExtension extends AbstractExtension
     public function __construct(
         private readonly HsmProviderPolicy $policy,
         private readonly TranslatorInterface $translator,
+        private readonly ?RouterInterface $router = null,
     ) {
     }
 
@@ -30,6 +33,7 @@ class HsmProviderExtension extends AbstractExtension
             new TwigFunction('n8ndispatch_hsm_provider_label', [$this, 'providerLabel']),
             new TwigFunction('n8ndispatch_hsm_router_label', [$this, 'routerLabel']),
             new TwigFunction('n8ndispatch_hsm_number_label', [$this, 'numberLabel']),
+            new TwigFunction('n8ndispatch_dialoghsm_templates_url', [$this, 'dialogTemplatesUrl']),
             new TwigFunction('n8ndispatch_is_provider', [$this, 'isProvider']),
         ];
     }
@@ -37,6 +41,23 @@ class HsmProviderExtension extends AbstractExtension
     public function providerLabel(HsmTemplate $template): string
     {
         return $this->translator->trans('mautic.n8ndispatch.hsmtemplate.provider.'.$template->getProvider());
+    }
+
+    /**
+     * The DialogHSM's template list URL (the number id is appended by the script), for a DialogHSM template whose plugin is there; null
+     * otherwise. Same URL as HsmTemplateType::finishView, read by the details modal of the list.
+     */
+    public function dialogTemplatesUrl(HsmTemplate $template): ?string
+    {
+        if (null === $this->router || HsmTemplate::PROVIDER_DIALOGHSM !== $template->getProvider() || !$template->getWhatsappNumberId() || !$this->policy->isAvailable()) {
+            return null;
+        }
+
+        try {
+            return str_replace('987654321', '', $this->router->generate('mautic_dialoghsm_number_templates', ['objectId' => 987654321]));
+        } catch (RouteNotFoundException) {
+            return null;
+        }
     }
 
     public function routerLabel(HsmTemplate $template): string

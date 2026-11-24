@@ -348,16 +348,23 @@
     // Image sends it as the header), the carousel's image links and, per {{n}}, the value of its mapping row (a field or Custom Object shows as a
     // token badge, since the real value only exists at send time).
     function previewValues() {
-        var values  = {header: String(mQuery(CARDS + ' input').first().val() || '').trim(), body: [], cards: []};
-        var mapping = {};
+        var cards = [];
 
-        // The carousel's image links, one per card input (the DialogHSM preview draws the cards from them).
         mQuery(CARDS + ' input').each(function () {
-            values.cards.push(String(mQuery(this).val() || '').trim());
+            cards.push(String(mQuery(this).val() || '').trim());
         });
 
+        return previewValuesOf(cards, mQuery('.n8ndispatch-variables-json').val());
+    }
+
+    // The same values from the saved card links and variables JSON (the details modal has no inputs).
+    function previewValuesOf(cards, mappingJson) {
+        var mapping = {};
+        // The carousel's image links, one per card input (the DialogHSM preview draws the cards from them).
+        var values  = {header: String(cards[0] || '').trim(), body: [], cards: cards.map(function (c) { return String(c || '').trim(); })};
+
         try {
-            mapping = JSON.parse(mQuery('.n8ndispatch-variables-json').val() || '{}');
+            mapping = JSON.parse(mappingJson || '{}');
         } catch (e) {
             mapping = {};
         }
@@ -770,6 +777,40 @@
         }, DEBOUNCE_MS);
     };
     var copyTimer;
+
+    // The details modal of the HSM list (HsmTemplate/details.html.twig, DialogHSM template): the 360Dialog's list is read, the template is found by
+    // name and language, and the preview (right of the divider) and the JSON tab are filled with the same components as the edit page.
+    Mautic.n8nDispatchHsmDetails = function () {
+        var $cfg = mQuery('#n8ndispatch-hsm-details-config');
+
+        if (!$cfg.length) {
+            return;
+        }
+
+        fetch($cfg.data('templates-url'), {credentials: 'same-origin', headers: {'X-Requested-With': 'XMLHttpRequest', Accept: 'application/json'}})
+            .then(function (response) { return response.ok ? response.json() : null; })
+            .then(function (data) {
+                var found = null;
+
+                ((data && data.available && data.templates) || []).forEach(function (tpl) {
+                    if (tpl.name === $cfg.data('template-name') && tpl.language === $cfg.data('template-language')) {
+                        found = tpl;
+                    }
+                });
+
+                if (!found) {
+                    return;
+                }
+
+                mQuery('#n8ndispatch-hsm-json').text(JSON.stringify(found, null, 2));
+                mQuery('#hsm-json-tab').show();
+
+                if (window.DialogHsmPreview && window.DialogHsmPreview.render(document.getElementById('n8ndispatch-hsm-preview-body'), found, previewValuesOf($cfg.data('cards'), JSON.stringify($cfg.data('variables'))), {title: $cfg.data('preview-title')})) {
+                    mQuery('#n8ndispatch-hsm-preview').show();
+                }
+            })
+            .catch(function () {});
+    };
 
     // Copy button of the 360Dialog JSON tab (same as the Clonar tab of the Custom Objects modal: the label turns into "Copiado!" for 2s).
     mQuery(document).off('click.n8ndispatchJson').on('click.n8ndispatchJson', '#n8ndispatch-hsm-json-copy', function () {

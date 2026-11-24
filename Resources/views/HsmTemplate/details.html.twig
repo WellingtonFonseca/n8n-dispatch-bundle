@@ -2,7 +2,8 @@
   Body of the read-only details modal of an HSM template, opened from its name on the list: the same information as the
   edit page (language, name, description, provider, router, template, type, carousel cards, text, availability, variables, campaigns).
 #}
-<div class="n8ndispatch-details">
+{% set dialogUrl = n8ndispatch_dialoghsm_templates_url(entity) %}
+<div class="n8ndispatch-details n8ndispatch-hsm-details">
     {# Header like the patches details modals: the template name as title and, below it, the same status badge of the list's Status column. #}
     <div class="n8ndispatch-modal-head">
         <h1 class="page-header-title n8ndispatch-modal-name">{{ entity.name }}</h1>
@@ -13,10 +14,12 @@
     <ul class="nav nav-tabs nav-tabs-contained">
         <li class="active"><a href="#hsm-details-template" role="tab" data-toggle="tab">{{ 'mautic.n8ndispatch.hsmtemplate.tab.template.label'|trans }}</a></li>
         <li><a href="#hsm-details-campaigns" role="tab" data-toggle="tab">{{ 'mautic.n8ndispatch.hsmtemplate.tab.campaigns.label'|trans }}</a></li>
-        <li><a href="#hsm-details-history" role="tab" data-toggle="tab">{{ 'mautic.n8ndispatch.audit.tab'|trans }}</a></li>
+        XXrole="tab" data-toggle="tab">{{ 'mautic.n8ndispatch.audit.tab'|trans }}</a></li>
     </ul>
     <div class="tab-content pa-md">
     <div class="tab-pane fade in active bdr-w-0" id="hsm-details-template">
+    <div class="n8ndispatch-hsm-split">
+    <div class="n8ndispatch-hsm-split__main">
     {# The fields as a table, like the contact page: a bold label in a 20% column, the value beside it. #}
     <div class="panel shd-none mb-0">
         <table class="table table-hover mb-0">
@@ -78,10 +81,40 @@
     </div>
     {% include '@N8nDispatch/Template/_variables.html.twig' %}
     </div>
+    {# The DialogHSM's preview on the right of a vertical divider, like the edit page (filled by the script; the component is the DialogHSM's, absent without the plugin). #}
+    {% if dialogUrl %}
+        {% include '@DialogHSM/FormTheme/_wa_preview.html.twig' ignore missing %}
+        <div class="n8ndispatch-hsm-split__side" id="n8ndispatch-hsm-preview" style="display: none;">
+            <div id="n8ndispatch-hsm-preview-body" style="width: 100%; max-width: 360px; margin: 0 auto;"></div>
+        </div>
+    {% endif %}
+    </div>
+    </div>
     <div class="tab-pane fade bdr-w-0" id="hsm-details-campaigns">
         {% include '@N8nDispatch/Template/_campaigns.html.twig' with {'translationBase': 'mautic.n8ndispatch.hsmtemplate'} %}
     </div>
     {% include '@N8nDispatch/Template/_audit_pane.html.twig' with {'id': 'hsm-details-history', 'rows': n8ndispatch_template_audit('hsm_template', entity.id)} only %}
+    {% if dialogUrl %}
+        <div class="tab-pane fade bdr-w-0" id="hsm-json-container">
+            <p class="help-block">{{ 'mautic.n8ndispatch.hsmtemplate.dialog.json.help'|trans }}</p>
+            <div class="mb-sm">
+                <button type="button" class="btn btn-tertiary btn-sm btn-nospin" id="n8ndispatch-hsm-json-copy" data-copied="{{ 'mautic.n8ndispatch.hsmtemplate.dialog.json.copied'|trans|e('html_attr') }}">
+                    <i class="ri-file-copy-line"></i> <span>{{ 'mautic.n8ndispatch.hsmtemplate.dialog.json.copy'|trans }}</span>
+                </button>
+            </div>
+            <pre id="n8ndispatch-hsm-json" style="max-height: 60vh; overflow: auto; white-space: pre; user-select: all;"></pre>
+        </div>
+    {% endif %}
     </div>
+    {% if dialogUrl %}
+        <div class="hidden" id="n8ndispatch-hsm-details-config"
+             data-templates-url="{{ dialogUrl }}{{ entity.whatsappNumberId }}"
+             data-template-name="{{ entity.hsmTemplate|e('html_attr') }}"
+             data-template-language="{{ entity.language|e('html_attr') }}"
+             data-cards="{{ entity.cards|json_encode|e('html_attr') }}"
+             data-variables="{{ (entity.variablesJson ?: '{}')|e('html_attr') }}"
+             data-preview-title="{{ 'mautic.n8ndispatch.hsmtemplate.dialog.preview.title'|trans|e('html_attr') }}"></div>
+        <script>if (window.Mautic && Mautic.n8nDispatchHsmDetails) { Mautic.n8nDispatchHsmDetails(); }</script>
+    {% endif %}
     {% include '@N8nDispatch/Template/_modal_buttons.html.twig' with {'editUrl': canEdit ? path('mautic_n8ndispatch.hsmtemplate_action', {'objectAction': 'edit', 'objectId': entity.id}) : null} %}
 </div>
