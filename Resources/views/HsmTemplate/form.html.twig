@@ -133,9 +133,8 @@
                                             <label class="control-label" for="n8ndispatch-hsm-template-select">{{ 'mautic.n8ndispatch.hsmtemplate.dialog.select.label'|trans }}</label>
                                             <div class="input-group">
                                                 <select id="n8ndispatch-hsm-template-select" class="form-control"></select>
-                                                <span class="input-group-btn">
-                                                    <button type="button" class="btn btn-default" id="n8ndispatch-hsm-template-refresh" title="{{ 'mautic.n8ndispatch.hsmtemplate.dialog.select.refresh'|trans }}"><i class="ri-refresh-line"></i></button>
-                                                </span>
+                                                {# Core's "postaddon", like the open-the-image button of the cards below: reloads the list (?refresh=1). #}
+                                                <span class="input-group-addon postaddon" id="n8ndispatch-hsm-template-refresh" style="cursor:pointer" title="{{ 'mautic.n8ndispatch.hsmtemplate.dialog.select.refresh'|trans }}"><i class="ri-refresh-line"></i></span>
                                             </div>
                                         </div>
                                     {% endif %}
