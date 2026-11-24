@@ -854,3 +854,30 @@ a[data-n8n-status-action]:hover * {
     display: inline-block;
     animation: n8ndispatch-spin 0.8s linear infinite;
 }
+
+/* HSM template: the 360Dialog's JSON, read only, scrolls; the copy button shows on hover (top right). */
+.n8ndispatch-json-box {
+    position: relative;
+}
+
+.n8ndispatch-json-code {
+    max-height: 260px;
+    margin: 0;
+    overflow: auto;
+    font-size: 12px;
+    white-space: pre;
+}
+
+.n8ndispatch-json-copy {
+    position: absolute;
+    top: 6px;
+    right: 6px;
+    z-index: 1;
+    opacity: 0;
+    transition: opacity .15s;
+}
+
+.n8ndispatch-json-box:hover .n8ndispatch-json-copy,
+.n8ndispatch-json-copy:focus {
+    opacity: 1;
+}

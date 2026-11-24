@@ -272,7 +272,10 @@
                 {# Read only copy of the 360Dialog's template (filled by campaign-hsm-dispatch.js: renderPreview); not a form field, never posted. #}
                 <div id="n8ndispatch-hsm-json-row" class="form-group pr-lg pl-lg" style="display: none;">
                     <label class="control-label" for="n8ndispatch-hsm-json">{{ 'mautic.n8ndispatch.hsmtemplate.dialog.json'|trans }}</label>
-                    <textarea id="n8ndispatch-hsm-json" class="form-control" rows="8" readonly style="font-family: monospace; font-size: 12px;"></textarea>
+                    <div class="n8ndispatch-json-box">
+                        <button type="button" id="n8ndispatch-hsm-json-copy" class="btn btn-default btn-xs n8ndispatch-json-copy" title="{{ 'mautic.n8ndispatch.hsmtemplate.dialog.json.copy'|trans }}" aria-label="{{ 'mautic.n8ndispatch.hsmtemplate.dialog.json.copy'|trans }}"><i class="ri-file-copy-line"></i></button>
+                        <pre id="n8ndispatch-hsm-json" class="n8ndispatch-json-code"></pre>
+                    </div>
                 </div>
             {% endif %}
             {# The DialogHSM's preview, in the column on the right (filled by campaign-hsm-dispatch.js; the component's script is included in the form). #}

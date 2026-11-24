@@ -352,7 +352,7 @@
         }
 
         $box.toggle(!!ok && 'dialoghsm' === providerValue());
-        mQuery('#n8ndispatch-hsm-json').val(tpl ? JSON.stringify(tpl, null, 2) : '');
+        mQuery('#n8ndispatch-hsm-json').text(tpl ? JSON.stringify(tpl, null, 2) : '');
         mQuery('#n8ndispatch-hsm-json-row').toggle(!!tpl && 'dialoghsm' === providerValue());
         floatPreview();
     }
@@ -704,4 +704,26 @@
             renderHsmVariables($el);
         }, DEBOUNCE_MS);
     };
+    // Copy button of the 360Dialog JSON box (top right, shown on hover).
+    mQuery(document).off('click.n8ndispatchJson').on('click.n8ndispatchJson', '#n8ndispatch-hsm-json-copy', function () {
+        var text  = mQuery('#n8ndispatch-hsm-json').text();
+        var $icon = mQuery(this).find('i');
+        var done  = function () {
+            $icon.attr('class', 'ri-check-line');
+            setTimeout(function () { $icon.attr('class', 'ri-file-copy-line'); }, 1500);
+        };
+
+        if (navigator.clipboard && window.isSecureContext) {
+            navigator.clipboard.writeText(text).then(done);
+
+            return;
+        }
+
+        var $tmp = mQuery('<textarea></textarea>').val(text).css({position: 'fixed', opacity: 0}).appendTo('body');
+        $tmp[0].select();
+        document.execCommand('copy');
+        $tmp.remove();
+        done();
+    });
+
 })(window.Mautic, window.mQuery);
