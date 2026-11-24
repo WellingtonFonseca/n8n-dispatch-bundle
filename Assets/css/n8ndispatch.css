@@ -780,14 +780,65 @@ a[data-n8n-status-action]:hover * {
     right: 0;
 }
 
-/* The HSM template form's preview (the DialogHSM's component, Resources/views/HsmTemplate/form.html.twig): the official WhatsApp dark chat wallpaper behind the bubbles.
-   Ours, not part of the DialogHSM component. Tile from web.whatsapp.com (bg-chat-tile-dark), 412px like the WhatsApp Web chat. */
-#n8ndispatch-hsm-preview-body .dialoghsm-wa-preview {
-    /* the tile is white lines: WhatsApp shows it at 6% opacity over the chat colour, here a colour layer at 94% over it */
-    background: linear-gradient(rgba(11, 20, 26, 0.94), rgba(11, 20, 26, 0.94)), #0b141a url('../img/wa-chat-bg-dark.png') repeat;
-    background-size: auto, 412.5px auto;
+/* The HSM template form's preview (the DialogHSM's component, Resources/views/HsmTemplate/form.html.twig): the WhatsApp chat wallpaper behind the bubbles.
+   Ours, not part of the DialogHSM component. The tile (web.whatsapp.com, bg-chat-tile-dark: the drawing only, as alpha) is a mask over a layer of the
+   line colour, so one file serves both looks; the look follows the Mautic theme (Account > Appearance): dark and solarized-dark are dark, any other is light.
+   Colours as WhatsApp Web: light #ECE8E3 / lines #D6D2CE / bubble white; dark #0B1B23 / lines #15262E / bubble #1F2D36. */
+#n8ndispatch-hsm-preview-body {
+    --n8ndispatch-wa-bg: #ece8e3;
+    --n8ndispatch-wa-lines: #d6d2ce;
+    --n8ndispatch-wa-bubble: #fff;
+    --n8ndispatch-wa-text: #111b21;
+    --n8ndispatch-wa-muted: #667781;
+    --n8ndispatch-wa-link: #027eb5;
+    --n8ndispatch-wa-media: #d1d7db;
 }
 
-#n8ndispatch-hsm-preview-body .dialoghsm-wa-preview__title {
-    color: #8696a0;
+:root[theme="dark"] #n8ndispatch-hsm-preview-body,
+:root[theme="solarized-dark"] #n8ndispatch-hsm-preview-body {
+    --n8ndispatch-wa-bg: #0b1b23;
+    --n8ndispatch-wa-lines: #15262e;
+    --n8ndispatch-wa-bubble: #1f2d36;
+    --n8ndispatch-wa-text: #e9edef;
+    --n8ndispatch-wa-muted: #8696a0;
+    --n8ndispatch-wa-link: #53bdeb;
+    --n8ndispatch-wa-media: #2a3942;
+}
+
+#n8ndispatch-hsm-preview-body .dialoghsm-wa-preview {
+    position: relative;
+    isolation: isolate;
+    background: var(--n8ndispatch-wa-bg);
+}
+
+#n8ndispatch-hsm-preview-body .dialoghsm-wa-preview::before {
+    content: '';
+    position: absolute;
+    inset: 0;
+    z-index: -1;
+    border-radius: inherit;
+    background: var(--n8ndispatch-wa-lines);
+    -webkit-mask: url('../img/wa-chat-bg-dark.png') repeat 0 0 / 412.5px auto;
+    mask: url('../img/wa-chat-bg-dark.png') repeat 0 0 / 412.5px auto;
+}
+
+#n8ndispatch-hsm-preview-body .dialoghsm-wa-preview__title,
+#n8ndispatch-hsm-preview-body .dialoghsm-wa-bubble__footer {
+    color: var(--n8ndispatch-wa-muted);
+}
+
+#n8ndispatch-hsm-preview-body .dialoghsm-wa-bubble,
+#n8ndispatch-hsm-preview-body .dialoghsm-wa-carousel__card {
+    background: var(--n8ndispatch-wa-bubble);
+    color: var(--n8ndispatch-wa-text);
+}
+
+#n8ndispatch-hsm-preview-body .dialoghsm-wa-bubble__media,
+#n8ndispatch-hsm-preview-body .dialoghsm-wa-carousel__media {
+    background: var(--n8ndispatch-wa-media);
+}
+
+#n8ndispatch-hsm-preview-body .dialoghsm-wa-bubble__button,
+#n8ndispatch-hsm-preview-body .dialoghsm-wa-carousel__button {
+    color: var(--n8ndispatch-wa-link);
 }
