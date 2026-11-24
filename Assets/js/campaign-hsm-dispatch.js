@@ -195,7 +195,7 @@
                 mQuery(this).val('');
                 $col.hide();
             } else {
-                $col.show();
+                $col.css('display', '');
             }
         });
     }
