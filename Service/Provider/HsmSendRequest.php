@@ -105,6 +105,43 @@ final class HsmSendRequest
     }
 
     /**
+     * The same request with the value of each button replaced: {button_<position>_<kind>: value}. Names of no button of
+     * the request are ignored.
+     *
+     * @param array<string, string> $values
+     */
+    public function withButtonValues(array $values): self
+    {
+        $buttons = $this->buttonVariables;
+
+        foreach ($buttons as $index => $button) {
+            $name = 'button_'.$index.'_'.$button['type'];
+
+            if (isset($values[$name])) {
+                $buttons[$index]['value'] = $values[$name];
+            }
+        }
+
+        return new self($this->contactId, $this->phone, $this->language, $this->template, $this->type, $this->variables, $this->cards, $this->numberId, $this->campaignId, $this->campaignEventId, $buttons);
+    }
+
+    /**
+     * The values of the buttons by the name the resend form uses: {button_<position>_<kind>: value}.
+     *
+     * @return array<string, string>
+     */
+    public function buttonValues(): array
+    {
+        $values = [];
+
+        foreach ($this->buttonVariables as $index => $button) {
+            $values['button_'.$index.'_'.$button['type']] = $button['value'];
+        }
+
+        return $values;
+    }
+
+    /**
      * The number of the first variable (or the name of the first button) with no text, or null. A "0" is a value.
      */
     public function firstEmptyVariable(): int|string|null

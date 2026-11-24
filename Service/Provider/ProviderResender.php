@@ -60,7 +60,10 @@ class ProviderResender
         }
 
         if (null !== $confirmed) {
-            $request = $request->withVariables($confirmed + $request->variables);
+            // The button_<n>_<kind> values of the form go to the buttons, never to the body's {{n}}.
+            $buttons = array_filter($confirmed, static fn (string $name): bool => ResendVariables::isButtonName($name), ARRAY_FILTER_USE_KEY);
+            $body    = array_diff_key($confirmed, $buttons);
+            $request = $request->withVariables($body + $request->variables)->withButtonValues($buttons);
 
             if (null !== $empty = $this->emptyFormValues($log, $request)) {
                 return $empty;
@@ -115,7 +118,7 @@ class ProviderResender
             return null;
         }
 
-        $names = $this->resendVariables->emptyNames($log, $request->variables);
+        $names = $this->resendVariables->emptyNames($log, $request->variables + $request->buttonValues());
 
         return [] === $names ? null : $this->result(false, 'mautic.n8ndispatch.dispatch.resend.empty_variables', ['%names%' => implode(', ', $names)]);
     }

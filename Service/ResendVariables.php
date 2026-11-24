@@ -139,8 +139,15 @@ class ResendVariables
 
         // A message handed to another plugin keeps its values in the request it sent.
         $variables = $card['variables'] ?? $card['request']['variables'] ?? [];
+        $variables = is_array($variables) ? array_map('strval', array_filter($variables, 'is_scalar')) : [];
 
-        return is_array($variables) ? array_map('strval', array_filter($variables, 'is_scalar')) : [];
+        foreach ((array) ($card['request']['button_variables'] ?? []) as $index => $button) {
+            if (is_array($button) && isset($button['type'], $button['value'])) {
+                $variables['button_'.(int) $index.'_'.$button['type']] = (string) $button['value'];
+            }
+        }
+
+        return $variables;
     }
 
     /**
@@ -171,7 +178,20 @@ class ResendVariables
      */
     private function namesOf(array $source, array $mapping): array
     {
-        return [] === $source['names'] ? array_map('strval', array_keys($mapping)) : $source['names'];
+        $body = [] === $source['names'] ? array_map('strval', array_keys($mapping)) : $source['names'];
+
+        // The rows of a DialogHSM template's buttons (button_<position>_<kind>) are not {{n}} of the body: they go below it.
+        $body = array_values(array_filter($body, static fn (string $name): bool => !self::isButtonName($name)));
+
+        return array_merge($body, array_values(array_filter(array_map('strval', array_keys($mapping)), static fn (string $name): bool => self::isButtonName($name))));
+    }
+
+    /**
+     * button_<position>_<kind> (button_1_url): the value of a button of a DialogHSM template.
+     */
+    public static function isButtonName(string $name): bool
+    {
+        return 1 === preg_match('/^button_\d+_[a-z_]+$/', $name);
     }
 
     /**
