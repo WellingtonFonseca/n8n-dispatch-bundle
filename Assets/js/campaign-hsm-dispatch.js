@@ -352,6 +352,8 @@
         }
 
         $box.toggle(!!ok && 'dialoghsm' === providerValue());
+        mQuery('#n8ndispatch-hsm-json').val(tpl ? JSON.stringify(tpl, null, 2) : '');
+        mQuery('#n8ndispatch-hsm-json-row').toggle(!!tpl && 'dialoghsm' === providerValue());
         floatPreview();
     }
 
