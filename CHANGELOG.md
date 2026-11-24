@@ -2,6 +2,12 @@
 
 Um bloco por dia, do mais novo para o mais antigo. Formato fixo: `## AAAA-MM-DD` e uma linha `- ` por mudança (a tela do plugin lê este arquivo).
 
+## 2026-11-24
+- Formulário do HSM: com o 360dialog como ferramenta de disparo, o template é escolhido da lista do plugin DialogHSM (o idioma vem de lá) e a prévia no estilo WhatsApp aparece na coluna da direita, flutuando enquanto o formulário rola, com o fundo e os balões seguindo o tema do Mautic
+- Formulário do HSM: o Tipo fica somente leitura enquanto um template do 360dialog está escolhido, e o ícone de atualizar gira enquanto a lista carrega
+- HSM: novos tipos vídeo e documento, e os botões do template (URL e código para copiar) agora têm valores enviados ao DialogHSM; o reenvio lista os valores dos botões separados das variáveis do corpo
+- HSM: ao escolher de novo um template salvo que não existe mais no DialogHSM, o formulário restaura o tipo, o bloqueio, o texto e as variáveis salvos
+
 ## 2026-11-23
 - Na janela de detalhes do SMS, o título agora é o nome do template, com o badge de status (o mesmo da coluna Status da lista) logo abaixo; o badge que ficava dentro da aba foi removido
 - Na janela de detalhes do HSM, o título agora é o nome do template, com o badge de status (o mesmo da coluna Status da lista) logo abaixo; o badge que ficava dentro da aba foi removido
