@@ -190,6 +190,7 @@
     }
 
     function showManual() {
+        lockType(false);
         mQuery('#n8ndispatch-hsm-template-manual, #n8ndispatch-hsm-text-row').show();
         mQuery('#n8ndispatch-hsm-template-select-row, #n8ndispatch-hsm-preview, #n8ndispatch-hsm-unsupported').hide();
     }
@@ -300,14 +301,29 @@
         return parts;
     }
 
-    // The image header and the carousel are the form's own types: follow what the template needs.
+    // The image header and the carousel are the form's own types: the template (the 360dialog) decides, so while a template is
+    // picked the Type select is read only (a disabled select is not posted: a hidden twin carries the value).
     function followTemplateType(tpl) {
-        var type = tpl.carousel ? 'carousel' : ('IMAGE' === (tpl.header || {}).format ? 'image' : 'text');
+        var type  = tpl.carousel ? 'carousel' : ('IMAGE' === (tpl.header || {}).format ? 'image' : 'text');
         var $type = mQuery('select[name$="[type]"]');
 
         if ($type.val() !== type) {
             $type.val(type).trigger('chosen:updated').trigger('change');
         }
+
+        lockType(true);
+    }
+
+    function lockType(locked) {
+        var $type = mQuery('select[name$="[type]"]');
+
+        mQuery('#n8ndispatch-hsm-type-mirror').remove();
+
+        if (locked) {
+            mQuery('<input type="hidden" id="n8ndispatch-hsm-type-mirror">').attr('name', $type.attr('name')).val($type.val()).insertAfter($type);
+        }
+
+        $type.prop('disabled', locked).trigger('chosen:updated');
     }
 
     function renderUnsupported(tpl) {
@@ -337,8 +353,10 @@
             renderHsmVariables($text);
         }
 
-        if (tpl && rescan) {
+        if (tpl) {
             followTemplateType(tpl);
+        } else {
+            lockType(false);
         }
 
         renderUnsupported(tpl);
