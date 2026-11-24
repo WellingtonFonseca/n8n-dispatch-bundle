@@ -869,12 +869,43 @@ a[data-n8n-status-action]:hover * {
 }
 
 .n8ndispatch-json-copy {
+    --n8ndispatch-json-btn-bg: #fff;
+    --n8ndispatch-json-btn-fg: #111;
+    --n8ndispatch-json-btn-border: #c9ccd1;
     position: absolute;
     top: 6px;
-    right: 6px;
+    right: 14px;
     z-index: 1;
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    width: 24px;
+    height: 24px;
+    padding: 0;
+    color: var(--n8ndispatch-json-btn-fg);
+    background: var(--n8ndispatch-json-btn-bg);
+    border: 1px solid var(--n8ndispatch-json-btn-border);
+    border-radius: 4px;
+    cursor: pointer;
     opacity: 0;
     transition: opacity .15s;
+}
+
+/* Dark themes: black button, light lines. */
+:root[theme="dark"] .n8ndispatch-json-copy,
+:root[theme="solarized-dark"] .n8ndispatch-json-copy {
+    --n8ndispatch-json-btn-bg: #000;
+    --n8ndispatch-json-btn-fg: #e5e7eb;
+    --n8ndispatch-json-btn-border: #3a3f47;
+}
+
+.n8ndispatch-json-copy__done,
+.n8ndispatch-json-copy.is-copied .n8ndispatch-json-copy__copy {
+    display: none;
+}
+
+.n8ndispatch-json-copy.is-copied .n8ndispatch-json-copy__done {
+    display: block;
 }
 
 .n8ndispatch-json-box:hover .n8ndispatch-json-copy,

@@ -707,10 +707,10 @@
     // Copy button of the 360Dialog JSON box (top right, shown on hover).
     mQuery(document).off('click.n8ndispatchJson').on('click.n8ndispatchJson', '#n8ndispatch-hsm-json-copy', function () {
         var text  = mQuery('#n8ndispatch-hsm-json').text();
-        var $icon = mQuery(this).find('i');
+        var $btn  = mQuery(this);
         var done  = function () {
-            $icon.attr('class', 'ri-check-line');
-            setTimeout(function () { $icon.attr('class', 'ri-file-copy-line'); }, 1500);
+            $btn.addClass('is-copied');
+            setTimeout(function () { $btn.removeClass('is-copied'); }, 1500);
         };
 
         if (navigator.clipboard && window.isSecureContext) {
