@@ -779,3 +779,15 @@ a[data-n8n-status-action]:hover * {
     left: auto;
     right: 0;
 }
+
+/* The HSM template form's preview (the DialogHSM's component, Resources/views/HsmTemplate/form.html.twig): the official WhatsApp dark chat wallpaper behind the bubbles.
+   Ours, not part of the DialogHSM component. Tile from web.whatsapp.com (bg-chat-tile-dark), 412px like the WhatsApp Web chat. */
+#n8ndispatch-hsm-preview-body .dialoghsm-wa-preview {
+    /* the tile is white lines: WhatsApp shows it at 6% opacity over the chat colour, here a colour layer at 94% over it */
+    background: linear-gradient(rgba(11, 20, 26, 0.94), rgba(11, 20, 26, 0.94)), #0b141a url('../img/wa-chat-bg-dark.png') repeat;
+    background-size: auto, 412.5px auto;
+}
+
+#n8ndispatch-hsm-preview-body .dialoghsm-wa-preview__title {
+    color: #8696a0;
+}
