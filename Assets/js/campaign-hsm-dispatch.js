@@ -543,6 +543,7 @@
         var count = tpl && tpl.carousel ? (Array.isArray(tpl.carousel) ? tpl.carousel.length : parseInt(tpl.carousel, 10)) : 0;
 
         applyCardsLimit(count > 0 ? count : 0);
+        updateCardsAlert();
 
         if (tpl) {
             followTemplateType(tpl);
@@ -580,7 +581,7 @@
         var current  = name ? name + '|' + language : '';
         var found    = false;
         var $typeSel = mQuery('select[name$="[type]"]');
-        var snapshot = {name: name, language: language, text: mQuery('textarea[name$="[text]"]').val(), type: $typeSel.val(), locked: !!$typeSel.prop('disabled'), variablesJson: mQuery('.n8ndispatch-variables-json').val()};
+        var snapshot = {name: name, language: language, text: mQuery('textarea[name$="[text]"]').val(), type: $typeSel.val(), locked: !!$typeSel.prop('disabled'), variablesJson: mQuery('.n8ndispatch-variables-json').val(), cards: mQuery(CARDS + ' input').map(function () { return mQuery(this).val(); }).get()};
 
         // Saved before the language was kept (templateLanguage empty): matched by name, the language is filled in by applyTemplate().
         var byName   = name && !language ? findTemplateByName(name) : null;
@@ -622,6 +623,13 @@
                 // The mappings and button rows come back as saved: the other template's rows had rewritten them.
                 mQuery('.n8ndispatch-variables-json').val(snapshot.variablesJson);
 
+                // The saved cards come back too: the other template's limit had hidden and emptied some of them.
+                applyCardsLimit(0);
+                mQuery(CARDS + ' input').each(function (i) {
+                    mQuery(this).val(snapshot.cards[i] || '');
+                });
+                updateCardsAlert();
+
                 var $pickType = mQuery('select[name$="[type]"]');
 
                 // Unlock first: a disabled select may not take the value, and the mirror is rebuilt by lockType().
@@ -650,6 +658,8 @@
         }
 
         // A saved template that the list no longer has: its saved name, language, text and variables stay as they are.
+        applyCardsLimit(0);
+        updateCardsAlert();
         renderUnsupported(null);
         renderPreview(null);
 
@@ -759,14 +769,22 @@
             renderHsmVariables($el);
         }, DEBOUNCE_MS);
     };
+    var copyTimer;
+
     // Copy button of the 360Dialog JSON tab (same as the Clonar tab of the Custom Objects modal: the label turns into "Copiado!" for 2s).
     mQuery(document).off('click.n8ndispatchJson').on('click.n8ndispatchJson', '#n8ndispatch-hsm-json-copy', function () {
         var text  = mQuery('#n8ndispatch-hsm-json').text();
         var $span = mQuery(this).find('span');
-        var label = $span.text();
+        // The original label is kept on the first click: a second click inside the 2s would read 'Copiado!' as the label.
+        if (undefined === $span.data('label')) {
+            $span.data('label', $span.text());
+        }
+
+        var label = $span.data('label');
         var done  = function () {
             $span.text(mQuery('#n8ndispatch-hsm-json-copy').data('copied'));
-            setTimeout(function () { $span.text(label); }, 2000);
+            window.clearTimeout(copyTimer);
+            copyTimer = window.setTimeout(function () { $span.text(label); }, 2000);
         };
 
         if (navigator.clipboard && window.isSecureContext) {
