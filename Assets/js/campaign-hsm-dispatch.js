@@ -123,8 +123,26 @@
     // The first thing wrong with the carousel's image inputs, as text (or '' when nothing is): the same rules, in the
     // same order, as HsmCards in PHP. texts carry the %filled%/%blank%/%card% placeholders of the messages
     // shown when a save is refused; the minimum is a plain reminder, on screen until two images are in.
-    function cardsProblem(values, texts) {
+    // limit (optional): the template of the 360Dialog asks for exactly that many cards, so all of them are required (no minimum, no gap rule).
+    function cardsProblem(values, texts, limit) {
         var blankAt = 0;
+
+        if (limit) {
+            for (var c = 0; c < limit; c++) {
+                var link = String(values[c] || '').trim();
+
+                if ('' === link) {
+                    return String(texts.required).replace('%card%', c + 1);
+                }
+
+                if (!/^https:\/\/\S+$/i.test(link)) {
+                    return String(texts.url).replace('%card%', c + 1);
+                }
+            }
+
+            return '';
+        }
+
         var filled  = 0;
 
         for (var i = 0; i < values.length; i++) {
@@ -163,6 +181,24 @@
     }
 
     var currentType = '';
+    // How many card inputs the picked 360Dialog template asks for (0 = no template, or manual: all of them show, the count is unknown).
+    var cardsLimit  = 0;
+
+    // Shows the first cardsLimit card inputs (all when 0); the others are emptied, so nothing hidden is posted.
+    function applyCardsLimit(limit) {
+        cardsLimit = limit;
+
+        mQuery(CARDS + ' input').each(function (i) {
+            var $col = mQuery(this).closest('.col-xs-6');
+
+            if (limit && i >= limit) {
+                mQuery(this).val('');
+                $col.hide();
+            } else {
+                $col.show();
+            }
+        });
+    }
 
     // The types with one file in the header (the image, the video, the document): only the first input counts.
     function isSingle(type) {
@@ -179,7 +215,7 @@
         var config  = mQuery(CARDS);
         var problem = isSingle(currentType)
             ? imageProblem(values, {image: 'image' === currentType ? config.data('image-text') : config.data('file-text'), url: config.data('image' === currentType ? 'image-url-text' : 'file-url-text')})
-            : cardsProblem(values, {min: config.data('min-text'), gap: config.data('gap-text'), url: config.data('url-text')});
+            : cardsProblem(values, {min: config.data('min-text'), gap: config.data('gap-text'), url: config.data('url-text'), required: config.data('required-text')}, cardsLimit);
         var $alert  = mQuery('#n8ndispatch-hsm-cards-alert');
 
         $alert.html('');
@@ -236,6 +272,7 @@
     // first scan would use the list, the buttons and the "settled" flag of the form before. Runs first on a form (the provider
     // select's onload), so the text field's own onload callback finds the state already reset.
     function resetFormState() {
+        cardsLimit = 0;
         var node = document.getElementById('n8ndispatch-hsm-config');
 
         if (node === formNode) {
@@ -286,6 +323,8 @@
         }
 
         mQuery('#n8ndispatch-hsm-template-manual, #n8ndispatch-hsm-text-row').show();
+        applyCardsLimit(0);
+        updateCardsAlert();
         mQuery('#n8ndispatch-hsm-template-select-row, #n8ndispatch-hsm-preview, #n8ndispatch-hsm-unsupported').hide();
         showJson(null);
     }
@@ -500,6 +539,10 @@
         if (textChanged) {
             $text.val(text);
         }
+
+        var count = tpl && tpl.carousel ? (Array.isArray(tpl.carousel) ? tpl.carousel.length : parseInt(tpl.carousel, 10)) : 0;
+
+        applyCardsLimit(count > 0 ? count : 0);
 
         if (tpl) {
             followTemplateType(tpl);
