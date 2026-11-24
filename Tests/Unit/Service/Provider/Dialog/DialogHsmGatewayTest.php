@@ -391,4 +391,52 @@ class DialogHsmGatewayTest extends TestCase
         $this->assertFalse($result->accepted);
         $this->assertStringContainsString('database gone', (string) $result->error);
     }
+
+    public function testButtonsGoAsKindsAndValuesByPositionWithGapsEmptyAndCommasAsSpaces(): void
+    {
+        $this->readyToSend();
+        $captured = $this->handlerAnswers(['success' => true, 'wamid' => 'w', 'http_status' => 200]);
+        $request  = new HsmSendRequest(7, '11999990001', 'pt_BR', 'welcome_v1', 'text', ['1' => 'Ana'], [], 3, 11, 22, [2 => ['type' => 'url', 'value' => 'a,b'], 0 => ['type' => 'copy_code', 'value' => 'X1']]);
+
+        $this->gateway()->send($request);
+
+        $this->assertSame('copy_code,,url', $captured['message']->payloadData['buttons']);
+        $this->assertSame('X1,,a b', $captured['message']->payloadData['buttons_vars']);
+    }
+
+    public function testNoButtonVariablesMeansNoButtonsKeys(): void
+    {
+        $this->readyToSend();
+        $captured = $this->handlerAnswers(['success' => true, 'wamid' => 'w', 'http_status' => 200]);
+
+        $this->gateway()->send($this->request());
+
+        $this->assertArrayNotHasKey('buttons', $captured['message']->payloadData);
+        $this->assertArrayNotHasKey('buttons_vars', $captured['message']->payloadData);
+    }
+
+    public function testAVideoAndADocumentGoAsTheHeaderFile(): void
+    {
+        foreach (['video' => 'https://x.test/a.mp4?v=2', 'document' => 'https://x.test/a.PDF'] as $type => $link) {
+            $this->readyToSend();
+            $captured = $this->handlerAnswers(['success' => true, 'wamid' => 'w', 'http_status' => 200]);
+
+            $this->gateway()->send($this->request($type, ['1' => 'Ana'], [['card_index' => 0, 'header_image_link' => $link]]));
+
+            $this->assertSame($link, $captured['message']->payloadData['url_arquivo'], $type);
+        }
+    }
+
+    public function testAVideoOrDocumentLinkOfAnotherExtensionIsRefusedBeforeTheSend(): void
+    {
+        $this->readyToSend();
+        $this->handler->expects($this->never())->method('__invoke');
+
+        foreach (['video' => ['https://x.test/a.mov', 'mp4'], 'document' => ['https://x.test/a.docx', 'pdf']] as $type => [$link, $ext]) {
+            $result = $this->gateway()->send($this->request($type, ['1' => 'Ana'], [['card_index' => 0, 'header_image_link' => $link]]));
+
+            $this->assertFalse($result->accepted, $type);
+            $this->assertStringContainsString($ext, (string) $result->error);
+        }
+    }
 }

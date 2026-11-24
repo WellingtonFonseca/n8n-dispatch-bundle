@@ -44,7 +44,14 @@ function load(file, {text, attached, unmapped = {value: false}}) {
         n8ndispatchShared: shared,
         ajaxActionRequest: (action, data, callback) => { calls.ajax++; ajaxCallback = callback; },
     };
-    const mQuery   = (arg) => ({0: arg, val: () => text.value, data: () => 'alert text'});
+    const mQuery   = (arg) => {
+        const node = {0: arg, val: () => text.value, data: () => 'alert text'};
+
+        // Any other jQuery method the page script calls (off, on, toggle...) is a no-op that chains.
+        const chain = new Proxy(node, {get: (t, k) => (k in t ? t[k] : () => chain)});
+
+        return chain;
+    };
     const window   = {Mautic, mQuery, setTimeout: (fn) => { fn(); return 1; }, clearTimeout: () => {}};
     const document = {body: {contains: () => attached.value}};
 

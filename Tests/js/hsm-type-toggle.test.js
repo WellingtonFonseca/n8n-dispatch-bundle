@@ -18,7 +18,9 @@ function load() {
                 off: () => chain, on: () => chain, each: () => chain,
             };
 
-            return new Proxy(chain, {get: (t, k) => (k in t ? t[k] : () => chain)}); // any other jQuery method (show, hide, prop...) is a no-op
+            const any = new Proxy(chain, {get: (t, k) => (k in t ? t[k] : () => any)});
+
+            return any; // any other jQuery method (show, hide, prop...) is a no-op
         }
 
         const doc = {val: () => arg.value, data: () => '', off: () => doc, on: () => doc}; // mQuery(document).off().on() binds the number select
@@ -84,7 +86,9 @@ function loadWithInputs(values, config) {
     let cleared = 0;
     const mQuery = (arg) => {
         if (typeof arg === 'function' || typeof arg === 'object') {
-            return {val: () => arg.value};
+            const doc = {val: () => arg.value, off: () => doc, on: () => doc};
+
+            return doc;
         }
         if (arg.startsWith('<div')) {
             return {text: (t) => ({alert: t})};
@@ -96,9 +100,11 @@ function loadWithInputs(values, config) {
             each: (fn) => { values.forEach((v) => fn.call({value: v})); return chain; },
             html: () => { cleared++; return chain; },
             append: (node) => { alertTexts.push(node.alert); return chain; },
+            text: () => chain,
         };
+        const any = new Proxy(chain, {get: (t, k) => (k in t ? t[k] : () => any)});
 
-        return chain;
+        return any;
     };
     const Mautic = {n8ndispatchShared: {}};
     const code = fs.readFileSync(path.join(__dirname, '../../Assets/js/campaign-hsm-dispatch.js'), 'utf8');
@@ -168,4 +174,12 @@ test('the n8n provider shows the router and hides the number select', () => {
         {selector: '#n8ndispatch-hsm-router-box', visible: true},
         {selector: '#n8ndispatch-hsm-number-box', visible: false},
     ]);
+});
+
+test('the file input shows for the video and the document types', () => {
+    for (const type of ['video', 'document']) {
+        const {Mautic, shown} = load();
+        Mautic.n8nDispatchOnHsmTypeChange({value: type});
+        assert.deepStrictEqual(shown, [{selector: '#n8ndispatch-hsm-cards', visible: true}], type);
+    }
 });

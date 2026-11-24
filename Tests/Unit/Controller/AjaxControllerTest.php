@@ -425,4 +425,45 @@ class AjaxControllerTest extends TestCase
         $this->assertTrue($this->smsVariablesResponse('Ola {{1}}')['dateOffset']);
         $this->assertTrue($this->hsmVariablesResponse('Ola {{1}}')['dateOffset']);
     }
+
+    public function testHsmVariablesAddsARowAndALabelForEachButtonThatTakesAValue(): void
+    {
+        $translator = $this->createMock(\Mautic\CoreBundle\Translation\Translator::class);
+        $translator->method('trans')->willReturnCallback(fn (string $id, array $parameters = []): string => $id.json_encode($parameters));
+        $controller = new class($translator) extends AjaxController {
+            public function __construct(\Mautic\CoreBundle\Translation\Translator $translator)
+            {
+                $this->translator = $translator;
+            }
+
+            protected function sendJsonResponse($dataArray, $statusCode = null, $addIgnoreWdt = true): JsonResponse
+            {
+                return new JsonResponse($dataArray);
+            }
+        };
+        $fieldModel = $this->createMock(FieldModel::class);
+        $fieldModel->method('getFieldList')->willReturn([]);
+        $customObjectModel = $this->createMock(CustomObjectModel::class);
+        $customObjectModel->method('fetchAllPublishedEntities')->willReturn([]);
+
+        $response = $controller->getHsmVariablesAction(
+            new Request([], ['text' => 'Hi {{1}}', 'extra' => 'button_1_url, button_0_copy_code,button_2_other,evil']),
+            $fieldModel,
+            $customObjectModel,
+            new TemplateVariableScanner()
+        );
+        $data = json_decode((string) $response->getContent(), true);
+
+        $this->assertSame(['1', 'button_1_url', 'button_0_copy_code'], array_map('strval', $data['variables']));
+        $this->assertSame(['button_1_url', 'button_0_copy_code'], array_keys($data['labels']));
+        $this->assertStringContainsString('"%n%":2', $data['labels']['button_1_url']);
+        $this->assertStringContainsString('"%n%":1', $data['labels']['button_0_copy_code']);
+    }
+
+    public function testHsmVariablesWithoutExtraHasNoLabels(): void
+    {
+        $data = $this->hsmVariablesResponse('Hi {{1}}');
+
+        $this->assertSame([], $data['labels']);
+    }
 }
