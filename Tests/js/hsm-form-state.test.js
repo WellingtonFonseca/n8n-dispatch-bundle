@@ -15,15 +15,15 @@ const path   = require('node:path');
 const code = fs.readFileSync(path.join(__dirname, '../../Assets/js/campaign-hsm-dispatch.js'), 'utf8');
 
 function load({vals, list}) {
-    const log   = {ajax: 0, windowOff: [], handler: null, previewPresent: false};
+    const log   = {ajax: 0, params: null, windowOff: [], handler: null, previewPresent: false};
     const nodes = {config: {id: 'config1'}};
     const data  = {'templates-url': '/t/', 'number-id': 'num', 'select-placeholder': 'p', 'select-missing': '%name%'};
     const win   = {};
 
     const shared = new Proxy({}, {get: (t, k) => ('hasUnmappedVariables' === k ? () => false : () => {})});
-    const Mautic = {n8ndispatchShared: shared, ajaxActionRequest: () => { log.ajax++; }};
+    const Mautic = {n8ndispatchShared: shared, ajaxActionRequest: (a, params) => { log.ajax++; log.params = params; }};
 
-    const key = (sel) => (/hsmTemplate/.test(sel) ? 'hsmTemplate' : /templateLanguage/.test(sel) ? 'templateLanguage' : /\[text\]/.test(sel) ? 'text' : /provider/.test(sel) ? 'provider' : /^#num$/.test(sel) ? 'number' : null);
+    const key = (sel) => (/hsmTemplate/.test(sel) ? 'hsmTemplate' : /templateLanguage/.test(sel) ? 'templateLanguage' : /\[text\]/.test(sel) ? 'text' : /variables-json/.test(sel) ? 'json' : /provider/.test(sel) ? 'provider' : /^#num$/.test(sel) ? 'number' : null);
 
     const mQuery = (arg) => {
         const sel  = 'string' === typeof arg ? arg : null;
@@ -107,4 +107,15 @@ test('a page without the preview does not unbind the scroll handler', () => {
     page.log.handler();
 
     assert.strictEqual(page.log.windowOff.length, before);
+});
+
+test('a saved button row stays in the rescan when the list does not give the template', async () => {
+    const vals = {hsmTemplate: 'old_tpl', templateLanguage: 'pt_BR', text: 'saved {{1}}', provider: 'dialoghsm', number: 3, json: '{"1":{},"button_1_url":{"source":"x"},"button_2_copy_code":{}}'};
+    const page = load({vals, list: [{name: 'other', language: 'pt_BR', approved: true}]});
+
+    page.Mautic.n8nDispatchOnHsmProviderChange({});
+    await tick();
+
+    assert.ok(page.log.params, 'a scan ran');
+    assert.strictEqual(page.log.params.extra, 'button_1_url,button_2_copy_code');
 });

@@ -45,7 +45,27 @@
     function buttonRowNames() {
         var names = [];
 
-        if ('dialoghsm' !== providerValue() || !previewTemplate) {
+        if ('dialoghsm' !== providerValue()) {
+            return names;
+        }
+
+        // No template to read the buttons from (the list failed, or the saved template is not in it): the button rows
+        // already saved stay, or the rescan would drop them and the sends would miss their button values.
+        if (!previewTemplate) {
+            var saved = {};
+
+            try {
+                saved = JSON.parse(mQuery('.n8ndispatch-variables-json').val() || '{}') || {};
+            } catch (e) {
+                saved = {};
+            }
+
+            Object.keys(saved).forEach(function (name) {
+                if (/^button_\d+_(url|copy_code)$/.test(name)) {
+                    names.push(name);
+                }
+            });
+
             return names;
         }
 
