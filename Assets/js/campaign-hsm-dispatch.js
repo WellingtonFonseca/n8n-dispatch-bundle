@@ -709,8 +709,8 @@
         var text  = mQuery('#n8ndispatch-hsm-json').text();
         var $btn  = mQuery(this);
         var done  = function () {
-            $btn.addClass('is-copied');
-            setTimeout(function () { $btn.removeClass('is-copied'); }, 1500);
+            $btn.addClass('is-open');
+            setTimeout(function () { $btn.removeClass('is-open'); }, 1500);
         };
 
         if (navigator.clipboard && window.isSecureContext) {

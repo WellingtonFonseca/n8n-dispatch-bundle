@@ -541,7 +541,8 @@ textarea.n8ndispatch-json-block {
 }
 
 .n8ndispatch-template-status,
-.n8ndispatch-alert-status {
+.n8ndispatch-alert-status,
+.n8ndispatch-copy-status {
     display: inline-flex;
     vertical-align: middle;
     box-sizing: border-box;
@@ -855,7 +856,9 @@ a[data-n8n-status-action]:hover * {
     animation: n8ndispatch-spin 0.8s linear infinite;
 }
 
-/* HSM template: the 360Dialog's JSON, read only, scrolls; the copy button shows on hover (top right). */
+/* HSM template: the 360Dialog's JSON, read only, scrolls. Its copy button is the icon badge (.n8ndispatch-copy-status, grouped with the status icon badges
+   above) in the top right corner, on the right of the scrollbar's reach; --grow-left opens it to the LEFT (the icon stays under the pointer), on click only:
+   it shows the check and the word "copied" for 1.5s (campaign-hsm-dispatch.js) and closes. Shown on hover of the box. */
 .n8ndispatch-json-box {
     position: relative;
 }
@@ -868,51 +871,55 @@ a[data-n8n-status-action]:hover * {
     white-space: pre;
 }
 
-.n8ndispatch-json-copy {
-    --n8ndispatch-json-btn-bg: #fff;
-    --n8ndispatch-json-btn-fg: #111;
-    --n8ndispatch-json-btn-border: #c9ccd1;
+.n8ndispatch-copy-status {
     position: absolute;
     top: 6px;
     right: 28px;
     z-index: 1;
-    display: inline-flex;
-    align-items: center;
-    justify-content: center;
-    height: 29px;
-    padding: 0 16px;
-    color: var(--n8ndispatch-json-btn-fg);
-    background: var(--n8ndispatch-json-btn-bg);
-    border: 1px solid var(--n8ndispatch-json-btn-border);
-    border-radius: 11px;
+    border: 0;
     cursor: pointer;
     opacity: 0;
-    transition: opacity .15s;
+    transition: max-width 0.2s ease, box-shadow 0.2s ease, opacity 0.15s ease;
 }
 
-/* Dark themes: black button, light lines. */
-:root[theme="dark"] .n8ndispatch-json-copy,
-:root[theme="solarized-dark"] .n8ndispatch-json-copy {
-    --n8ndispatch-json-btn-bg: #000;
-    --n8ndispatch-json-btn-fg: #e5e7eb;
-    --n8ndispatch-json-btn-border: #3a3f47;
-}
-
-.n8ndispatch-json-copy__done,
-.n8ndispatch-json-copy.is-copied .n8ndispatch-json-copy__copy {
-    display: none;
-}
-
-.n8ndispatch-json-copy.is-copied .n8ndispatch-json-copy__done {
-    display: block;
-}
-
-.n8ndispatch-json-box:hover .n8ndispatch-json-copy,
-.n8ndispatch-json-copy:focus {
+.n8ndispatch-json-box:hover .n8ndispatch-copy-status,
+.n8ndispatch-copy-status:focus,
+.n8ndispatch-copy-status.is-open {
     opacity: 1;
 }
 
-.n8ndispatch-json-copy svg {
-    width: 18px;
-    height: 18px;
+.n8ndispatch-badge--grow-left {
+    flex-direction: row-reverse;
+}
+
+.n8ndispatch-copy-status.is-open {
+    max-width: 140px;
+    box-shadow: rgba(0, 0, 0, 0.2) 0 1px 4px 0;
+}
+
+.n8ndispatch-copy-status > svg {
+    flex: 0 0 22px;
+    width: 22px;
+    height: 22px;
+    padding: 4px;
+    box-sizing: border-box;
+}
+
+.n8ndispatch-copy-status__done,
+.n8ndispatch-copy-status.is-open .n8ndispatch-copy-status__copy {
+    display: none;
+}
+
+.n8ndispatch-copy-status.is-open .n8ndispatch-copy-status__done {
+    display: block;
+}
+
+.n8ndispatch-copy-status__text {
+    padding: 0 0 0 10px;
+    opacity: 0;
+    transition: opacity 0.15s ease 0.05s;
+}
+
+.n8ndispatch-copy-status.is-open .n8ndispatch-copy-status__text {
+    opacity: 1;
 }
