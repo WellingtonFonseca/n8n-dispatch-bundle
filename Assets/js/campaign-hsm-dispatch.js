@@ -522,6 +522,7 @@
         var language = mQuery('input[name$="[templateLanguage]"]').val();
         var current  = name ? name + '|' + language : '';
         var found    = false;
+        var snapshot = {name: name, language: language, text: mQuery('textarea[name$="[text]"]').val()};
 
         // Saved before the language was kept (templateLanguage empty): matched by name, the language is filled in by applyTemplate().
         var byName   = name && !language ? findTemplateByName(name) : null;
@@ -553,7 +554,20 @@
 
         mQuery(select).trigger('chosen:updated');
         mQuery(select).off('change.n8ndispatchhsm').on('change.n8ndispatchhsm', function () {
-            applyTemplate(findTemplate(select.value), true);
+            var picked = findTemplate(select.value);
+
+            // Re-picking the saved '(not in the list)' option: its saved values come back instead of being wiped.
+            if (!picked && select.value && select.value === current) {
+                mQuery('input[name$="[hsmTemplate]"]').val(snapshot.name);
+                mQuery('input[name$="[templateLanguage]"]').val(snapshot.language);
+                mQuery('textarea[name$="[text]"]').val(snapshot.text);
+                renderUnsupported(null);
+                renderPreview(null);
+
+                return;
+            }
+
+            applyTemplate(picked, true);
         });
 
         // The page opens with the template already saved: keep its text in step with the list (not a rescan of a typed text).
@@ -582,6 +596,8 @@
         var number = numberSelect().val();
 
         if ('dialoghsm' !== providerValue() || !url || !number) {
+            // Invalidates a fetch still pending, so it cannot overwrite the manual fields afterwards.
+            ++loadCounter;
             showManual();
 
             return;
