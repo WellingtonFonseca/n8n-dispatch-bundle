@@ -791,12 +791,18 @@
             .then(function (response) { return response.ok ? response.json() : null; })
             .then(function (data) {
                 var found = null;
+                // A newer modal replaced this one while the list was loading: its answer must not fill the new one.
+                if (!$cfg.closest('body').length) {
+                    return;
+                }
+
+                var $root = $cfg.closest('.n8ndispatch-hsm-details');
                 var wantName = String($cfg.attr('data-template-name') || '');
                 var wantLanguage = String($cfg.attr('data-template-language') || '');
 
                 ((data && data.available && data.templates) || []).forEach(function (tpl) {
                     // Language empty (saved before it was kept): match by name only, as the edit page.
-                    if (tpl.name === wantName && (wantLanguage === '' || tpl.language === wantLanguage)) {
+                    if (!found && tpl.name === wantName && (wantLanguage === '' || tpl.language === wantLanguage)) {
                         found = tpl;
                     }
                 });
@@ -805,11 +811,11 @@
                     return;
                 }
 
-                mQuery('#n8ndispatch-hsm-json').text(JSON.stringify(found, null, 2));
-                mQuery('#hsm-json-tab').show();
+                $root.find('#n8ndispatch-hsm-json').text(JSON.stringify(found, null, 2));
+                $root.find('#hsm-json-tab').show();
 
-                if (window.DialogHsmPreview && window.DialogHsmPreview.render(document.getElementById('n8ndispatch-hsm-preview-body'), found, previewValuesOf($cfg.data('cards'), JSON.stringify($cfg.data('variables'))), {title: $cfg.data('preview-title')})) {
-                    mQuery('#n8ndispatch-hsm-preview').show();
+                if (window.DialogHsmPreview && window.DialogHsmPreview.render($root.find('#n8ndispatch-hsm-preview-body')[0], found, previewValuesOf($cfg.data('cards'), JSON.stringify($cfg.data('variables'))), {title: $cfg.data('preview-title')})) {
+                    $root.find('#n8ndispatch-hsm-preview').show();
                 }
             })
             .catch(function () {});
