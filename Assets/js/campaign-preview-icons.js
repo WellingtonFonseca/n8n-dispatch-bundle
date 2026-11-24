@@ -138,6 +138,15 @@
         requestBadges($needBadge);
     }
 
-    new MutationObserver(applyIcons).observe(document.body, {childList: true, subtree: true});
-    applyIcons();
+    function start() {
+        new MutationObserver(applyIcons).observe(document.body, {childList: true, subtree: true});
+        applyIcons();
+    }
+
+    // The script may be bundled into <head>, where document.body does not exist yet.
+    if (document.body) {
+        start();
+    } else {
+        document.addEventListener('DOMContentLoaded', start);
+    }
 })(window.mQuery);
