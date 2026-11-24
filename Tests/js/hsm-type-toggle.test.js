@@ -161,7 +161,8 @@ test('the image alert asks for the image, then checks the URL, and ignores the o
 test('the DialogHSM provider shows the number select and hides the router', () => {
     const {Mautic, shown} = load();
     Mautic.n8nDispatchOnHsmProviderChange({value: 'dialoghsm'});
-    assert.deepStrictEqual(shown, [
+    // Without a picked template the 360Dialog JSON tab is hidden as well (WEL-296): not part of this rule.
+    assert.deepStrictEqual(shown.filter((s) => '#hsm-json-tab' !== s.selector), [
         {selector: '#n8ndispatch-hsm-router-box', visible: false},
         {selector: '#n8ndispatch-hsm-number-box', visible: true},
     ]);
@@ -170,7 +171,7 @@ test('the DialogHSM provider shows the number select and hides the router', () =
 test('the n8n provider shows the router and hides the number select', () => {
     const {Mautic, shown} = load();
     Mautic.n8nDispatchOnHsmProviderChange({value: 'n8n'});
-    assert.deepStrictEqual(shown, [
+    assert.deepStrictEqual(shown.filter((s) => '#hsm-json-tab' !== s.selector), [
         {selector: '#n8ndispatch-hsm-router-box', visible: true},
         {selector: '#n8ndispatch-hsm-number-box', visible: false},
     ]);

@@ -1,4 +1,4 @@
-// Test-tags: areas=templates risks=FLUXO,REGRA
+// Test-tags: areas=templates risks=FLUXO
 // WEL-296: the 360Dialog JSON tab of the HSM form (only while a 360Dialog template is picked, read only, copy button) and
 // the card inputs that follow the number of cards of the picked template (hidden ones are emptied, all shown are required).
 //
