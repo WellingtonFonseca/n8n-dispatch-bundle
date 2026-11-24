@@ -12,7 +12,7 @@
     z-index: 1011;
     height: 22px;
     max-width: 22px;
-    border-radius: 11px;
+    border-radius: 15px;
     display: flex;
     align-items: center;
     color: #fff;
@@ -879,8 +879,8 @@ a[data-n8n-status-action]:hover * {
     display: inline-flex;
     align-items: center;
     justify-content: center;
-    height: 22px;
-    padding: 0 12px;
+    height: 29px;
+    padding: 0 16px;
     color: var(--n8ndispatch-json-btn-fg);
     background: var(--n8ndispatch-json-btn-bg);
     border: 1px solid var(--n8ndispatch-json-btn-border);
@@ -910,4 +910,9 @@ a[data-n8n-status-action]:hover * {
 .n8ndispatch-json-box:hover .n8ndispatch-json-copy,
 .n8ndispatch-json-copy:focus {
     opacity: 1;
+}
+
+.n8ndispatch-json-copy svg {
+    width: 18px;
+    height: 18px;
 }
