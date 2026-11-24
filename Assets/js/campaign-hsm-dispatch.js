@@ -394,8 +394,21 @@
             return;
         }
 
-        var ticket = ++loadCounter;
-        var select = document.getElementById('n8ndispatch-hsm-template-select');
+        var ticket  = ++loadCounter;
+        var select  = document.getElementById('n8ndispatch-hsm-template-select');
+        var $icon   = mQuery('#n8ndispatch-hsm-template-refresh i');
+        var started = Date.now();
+
+        // The refresh icon spins while the list loads, for at least 600 ms (a list from the cache answers faster than the eye).
+        $icon.addClass('n8ndispatch-spin');
+
+        var stopSpin = function () {
+            window.setTimeout(function () {
+                if (ticket === loadCounter) {
+                    $icon.removeClass('n8ndispatch-spin');
+                }
+            }, Math.max(0, 600 - (Date.now() - started)));
+        };
 
         select.innerHTML = '';
         select.appendChild(new Option(config.data('select-loading'), ''));
@@ -425,7 +438,7 @@
             if (ticket === loadCounter) {
                 showManual();
             }
-        });
+        }).then(stopSpin);
     }
 
     // data-onload-callback convention (see CoreBundle Assets/js/1a.content.js) —

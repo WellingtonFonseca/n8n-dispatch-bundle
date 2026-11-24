@@ -842,3 +842,15 @@ a[data-n8n-status-action]:hover * {
 #n8ndispatch-hsm-preview-body .dialoghsm-wa-carousel__button {
     color: var(--n8ndispatch-wa-link);
 }
+
+/* The refresh icon of the HSM template select (Assets/js/campaign-hsm-dispatch.js) turns while the list loads. */
+@keyframes n8ndispatch-spin {
+    to {
+        transform: rotate(360deg);
+    }
+}
+
+.n8ndispatch-spin {
+    display: inline-block;
+    animation: n8ndispatch-spin 0.8s linear infinite;
+}
