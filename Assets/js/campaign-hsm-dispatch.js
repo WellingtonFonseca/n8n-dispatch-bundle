@@ -286,7 +286,7 @@
         }
 
         mQuery('#n8ndispatch-hsm-template-manual, #n8ndispatch-hsm-text-row').show();
-        mQuery('#n8ndispatch-hsm-template-select-row, #n8ndispatch-hsm-preview, #n8ndispatch-hsm-unsupported').hide();
+        mQuery('#n8ndispatch-hsm-template-select-row, #n8ndispatch-hsm-preview, #n8ndispatch-hsm-json-row, #n8ndispatch-hsm-unsupported').hide();
     }
 
     function showSelect() {
