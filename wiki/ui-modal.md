@@ -11,3 +11,4 @@ regras:
 - Mautic.showConfirmation (CoreBundle/Assets/js/9.modals.js) is the confirmation: core's data-toggle='confirmation' auto-binding only wires <a> elements; call it from a button's onclick when the element must stay a <button>.
 
 Buttons: [ui-buttons.md](ui-buttons.md). Badges: [ui-badge-n8n.md](ui-badge-n8n.md).
+- The HSM details modal is as wide as the segment details modal (same width formula as mautic-patches contacts_modal_width, in n8ndispatch.css via `.modal-dialog:has(.n8ndispatch-hsm-details)`); keep both in step.

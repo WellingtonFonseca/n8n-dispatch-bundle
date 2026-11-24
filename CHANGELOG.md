@@ -3,6 +3,7 @@
 Um bloco por dia, do mais novo para o mais antigo. Formato fixo: `## AAAA-MM-DD` e uma linha `- ` por mudança (a tela do plugin lê este arquivo).
 
 ## 2026-11-24
+- Modal de detalhes do HSM: agora tem a mesma largura da modal de detalhes do segmento; para templates do DialogHSM, mostra a aba JSON 360Dialog (com botão Copiar) e a prévia do WhatsApp à direita de uma divisória na aba Template
 - Formulário do HSM: nova aba JSON 360Dialog (última aba, só com um template do 360dialog escolhido) mostrando o JSON do template em somente leitura, com botão Copiar; o JSON não é salvo com o template
 - Formulário do HSM: ao escolher um template do 360dialog, os campos de card ficam limitados à quantidade de cards do template, e o aviso pede o preenchimento de cada card
 - Formulário do HSM: com o 360dialog como ferramenta de disparo, o template é escolhido da lista do plugin DialogHSM (o idioma vem de lá) e a prévia no estilo WhatsApp aparece na coluna da direita, flutuando enquanto o formulário rola, com o fundo e os balões seguindo o tema do Mautic
