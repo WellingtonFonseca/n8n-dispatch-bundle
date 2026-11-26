@@ -22,7 +22,7 @@ use Symfony\Component\Validator\Constraints\Choice;
  * n8n_dispatch_email_variables. Assets/js/email-provider-field.js moves the row above the Subject, where core's
  * template has no extension point.
  *
- * The value is kept on the request here and written by EventListener/EmailProviderSaveSubscriber once the Email
+ * The value is kept on the request (per Email, by spl_object_id) here and written by EventListener/EmailProviderSaveSubscriber once the Email
  * is saved, so a brand-new Email (no id yet) gets it too. A request that does not send the field (an API call of
  * other fields) leaves the stored value alone (a new Email then reads as n8n).
  */
@@ -72,12 +72,26 @@ class EmailProviderExtension extends AbstractTypeExtension
             'constraints' => [new Choice(array_values($choices))],
         ]);
 
+        // Priority below the validator (0): only a fully valid form hands its value over.
         $builder->addEventListener(FormEvents::POST_SUBMIT, function (FormEvent $event): void {
-            $field = $event->getForm()->get(self::FIELD);
+            $form  = $event->getForm();
+            $email = $form->getData();
+            $field = $form->get(self::FIELD);
 
-            if ($field->isSubmitted() && $field->isValid() && is_string($field->getData()) && '' !== $field->getData()) {
-                $this->requestStack->getCurrentRequest()?->attributes->set(self::REQUEST_ATTRIBUTE, (string) $field->getData());
+            if (!$email instanceof Email || !$form->isValid() || !$field->isSubmitted() || !is_string($field->getData()) || '' === $field->getData()) {
+                return;
             }
-        });
+
+            $attributes = $this->requestStack->getCurrentRequest()?->attributes;
+
+            if (null === $attributes) {
+                return;
+            }
+
+            // Keyed by Email: a batch request saves several, each must get only its own value.
+            $byEmail                        = (array) $attributes->get(self::REQUEST_ATTRIBUTE, []);
+            $byEmail[spl_object_id($email)] = $field->getData();
+            $attributes->set(self::REQUEST_ATTRIBUTE, $byEmail);
+        }, -10);
     }
 }

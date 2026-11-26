@@ -36,15 +36,19 @@ class EmailProviderSaveSubscriber implements EventSubscriberInterface
     public function onEmailPostSave(EmailEvent $event): void
     {
         $attributes = $this->requestStack->getCurrentRequest()?->attributes;
-        $provider   = $attributes?->get(EmailProviderExtension::REQUEST_ATTRIBUTE);
+        $byEmail    = $attributes?->get(EmailProviderExtension::REQUEST_ATTRIBUTE);
+        $key        = spl_object_id($event->getEmail());
         $emailId    = $event->getEmail()->getId();
 
-        if (!is_string($provider) || null === $emailId) {
+        if (!is_array($byEmail) || !is_string($byEmail[$key] ?? null) || null === $emailId) {
             return;
         }
 
+        $provider = $byEmail[$key];
+
         // Used once: another Email saved in the same request (batch API, variant, translation) must not inherit it.
-        $attributes->remove(EmailProviderExtension::REQUEST_ATTRIBUTE);
+        unset($byEmail[$key]);
+        $attributes->set(EmailProviderExtension::REQUEST_ATTRIBUTE, $byEmail);
 
         $this->emailVariablesRepository->saveProviderForEmail((int) $emailId, $provider);
     }
