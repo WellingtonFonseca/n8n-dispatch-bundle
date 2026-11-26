@@ -18,7 +18,7 @@ The client sends email, HSM (WhatsApp template messages) and SMS through n8n. Th
 ```json
 {
   "Email save sync": "every Email save (UI or API) is posted to the webhook so Mirror registers/updates the template. Header email.save. The result is recorded and a job sends the out-of-sync Emails again: wiki/n8n-dispatch-mirror-resync.md.",
-  "Send via n8n (Email)": "Campaign Action. Picks a Mautic Email and maps its {{variables}}. Header email.send. On an instance whose 'Enviar o Email por' is Mautic it goes through Mautic's mailer instead: wiki/n8n-dispatch-email-direct.md.",
+  "Send via n8n (Email)": "Campaign Action. Picks a Mautic Email and maps its {{variables}}. Header email.send. For an Email whose 'Enviar por' is Mautic it goes through Mautic's mailer instead: wiki/n8n-dispatch-email-direct.md.",
   "Send via n8n (SMS)": "Campaign Action. Picks an SMS Template (main menu > N8N Dispatch > SMS). The text is resolved in Mautic and sent as 'message'. Header sms.send.",
   "Send via n8n (HSM)": "Campaign Action. Picks an HSM Template (main menu > N8N Dispatch > HSM) by 'hsmTemplateId'. Router, hsmTemplate (the WhatsApp-side template name), type and {{name}}-mapped variables live on the template and are read at send time. Header hsm.send.",
   "Dispatches screen": "main menu > N8N Dispatch > Disparos: every dispatch, with filters, details and Resend.",

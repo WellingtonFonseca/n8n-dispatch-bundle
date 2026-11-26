@@ -2,6 +2,10 @@
 
 Um bloco por dia, do mais novo para o mais antigo. Formato fixo: `## AAAA-MM-DD` e uma linha `- ` por mudança (a tela do plugin lê este arquivo).
 
+## 2026-11-25
+- E-mail > Editar: novo campo Enviar por (N8N ou Mautic), acima do Assunto; N8N é o padrão e envia pelo webhook, Mautic usa o envio interno do Mautic, e cada e-mail escolhe o seu
+- Removido o campo Enviar o Email por das configurações do plugin; quem o tinha em Mautic continua enviando os e-mails já existentes pelo Mautic
+
 ## 2026-11-24
 - Formulário do HSM: o campo Texto do HSM volta a aparecer com um template do 360dialog escolhido, em somente leitura (acompanha o template); com o preenchimento manual continua editável
 - Modal de detalhes do HSM: agora tem a mesma largura da modal de detalhes do segmento; para templates do DialogHSM, mostra a aba JSON 360Dialog (com botão Copiar) e a prévia do WhatsApp à direita de uma divisória na aba Template

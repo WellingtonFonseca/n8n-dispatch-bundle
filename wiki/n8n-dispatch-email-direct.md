@@ -1,15 +1,16 @@
 # n8n dispatch: Email through Mautic's own mailer (send mode)
 
-A per-instance switch makes the Email action send through Mautic's mailer instead of the n8n webhook. The plugin still resolves the `{{variables}}`; Mautic sends, tracks and keeps the result; the Dispatches screens read that result from Mautic. Updating the plugin never turns it on. SMS and HSM always go through n8n.
+A per-email select ('Enviar por') makes the Email action send through Mautic's mailer instead of the n8n webhook. The plugin still resolves the `{{variables}}`; Mautic sends, tracks and keeps the result; the Dispatches screens read that result from Mautic. A new Email is `n8n`. SMS and HSM always go through n8n.
 
 ## The switch
 
 ```json
 {
-  "where": "Settings > Plugins > N8N Dispatch > Habilitar/Autenticar, field 'Enviar o Email por', under the token. Saved with the keys of the connection (key `email_send_mode`). Integration/N8nDispatchIntegration::addEmailSendMode().",
-  "values": "`n8n` (default) | `mautic`. Only the exact value `mautic` turns it on (Service/EmailSendMode::fromArray); a missing or other value is `n8n`.",
-  "scope": "one Mautic instance (10 in production, turned one at a time). Every campaign, node, template and variable stays as it is.",
-  "back": "save `n8n` again. Logs already sent keep their own mode: the log's `n8ndispatch.mode` is `mautic` for the ones sent here."
+  "where": "Email > Edit, select 'Enviar por' above the Subject (Form/Extension/EmailProviderExtension, moved by Assets/js/email-provider-field.js). Not mapped to the Email: stored in n8n_dispatch_email_variables.provider, written on EMAIL_POST_SAVE by EventListener/EmailProviderSaveSubscriber (so a new Email gets it too). A request that does not send the field (API of other fields) keeps the stored value.",
+  "values": "`n8n` (default) | `mautic` (EmailVariables::PROVIDER_*). A missing row reads as `n8n`.",
+  "scope": "one Email. Campaign, node, template and variables stay as they are; the campaign step is still the n8n step.",
+  "upgrade": "N8nDispatchBundle::onPluginUpdate (0.17.0) adds the provider column (existing Emails = n8n). An instance whose old key `email_send_mode` was `mautic` gets every existing Email set to `mautic`, so it does not flip to n8n. The instance-wide setting and its field are gone.",
+  "back": "set the Email to `n8n` again. Logs already sent keep their own mode: the log's `n8ndispatch.mode` is `mautic` for the ones sent here."
 }
 ```
 
@@ -17,7 +18,7 @@ A per-instance switch makes the Email action send through Mautic's mailer instea
 
 ```json
 {
-  "branch": "EventListener/CampaignTriggerSubscriber::onEmailSend: after the Email is loaded, production status and direct mode -> Service/DirectEmailDispatch::dispatch() (the batch loop, the STOP_AFTER breaker and the log block; the subscriber only picks the way out). test / paused behave as before (payload on the Timeline, nothing sent). No webhook is read, so the integration may have none.",
+  "branch": "EventListener/CampaignTriggerSubscriber::onEmailSend: after the Email is loaded, production status and the Email's provider `mautic` -> Service/DirectEmailDispatch::dispatch() (the batch loop, the STOP_AFTER breaker and the log block; the subscriber only picks the way out). test / paused behave as before (payload on the Timeline, nothing sent). No webhook is read, so the integration may have none.",
   "sender": "Service/DirectEmailSender::send(): ONE contact per EmailModel::sendEmail() call (the `tokens` option is the same for everyone in a call). Options: source ['campaign.event', event id], email_type marketing (fixed: it makes Mautic respect Do Not Contact and bounce and add List-Unsubscribe one-click), return_errors, dnc_as_error, customHeaders X-EMAIL-ID, email_attempts 3, email_priority 2.",
   "tokens": "{{name}} => resolved value for every variable of the mapping (VariableResolver, unchanged), then {{n8ndispatch_unsubscribe_url}} => '{unsubscribe_url}' LAST: core replaces tokens in order, ours first, so the placeholder lands on core's own token and becomes the real link. The footer the plugin injects on save works the same.",
   "native tokens": "{contactfield=...} and the other core tokens work in the subject and the body as in any Mautic Email.",
@@ -84,9 +85,9 @@ The plugin treats the subject like the HTML for `{{n8n_...}}`: TemplateVariableS
 
 ```json
 {
-  "PHPUnit": "EmailSendModeTest, DirectEmailSenderTest, MauticEmailOutcomeTest, MauticOutcomeExtensionTest, DispatchResenderTest (direct), DispatchFiltersTest, CampaignTriggerSubscriberTest (direct, breaker, through the real DirectEmailDispatch and EmailDncGuard); database tests in Tests/Integration/Service (MauticEmailOutcomeDbTest, DispatchListReaderMauticDbTest) run in a rolled-back transaction.",
+  "PHPUnit": "DirectEmailSenderTest, MauticEmailOutcomeTest, MauticOutcomeExtensionTest, DispatchResenderTest (direct), DispatchFiltersTest, CampaignTriggerSubscriberTest (direct, breaker, through the real DirectEmailDispatch and EmailDncGuard); database tests in Tests/Integration/Service (MauticEmailOutcomeDbTest, DispatchListReaderMauticDbTest) run in a rolled-back transaction.",
   "live": "scripts/5/test-email-direct-send.sh (real campaign, the fake SMTP scripts/5/fake-smtp.py inside mautic_web: tokens, subject, click link, pixel, one-click unsubscribe, DNC, refused mailbox, resend, state read back), test-dispatch-end-to-end.sh still covers the n8n path.",
-  "browser": "scripts/5/e2e/tests/email-send-mode-setting.spec.js, dispatch-mautic-card.spec.js, email-subject-variables.spec.js (light and dark).",
+  "browser": "dispatch-mautic-card.spec.js, email-subject-variables.spec.js (light and dark).",
   "Infection": "`--filter=EventListener/CampaignTriggerSubscriber.php,Service/DirectEmailDispatch.php,Service/EmailDncGuard.php` Padrão: [tests.md](tests.md)."
 }
 ```

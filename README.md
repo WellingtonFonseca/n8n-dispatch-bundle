@@ -81,10 +81,10 @@ All calls go to the configured `webhook_url`; n8n tells them apart by the
 | **Dispatches** — every dispatch the three actions made, with filters, a Tipo column (Email, SMS, HSM), details and **Resend** for the ones in error. Every card has the same layout: status badges, the last error as an alert, and a Detalhes table (date, campaign, template, contact and the rows of its channel) | N8N Dispatch menu, with the n8n logo as its icon (needs Campaigns > Full) | — (resend: the original's) |
 | **Emails** (the screen of core) — the item moves from Channels into the N8N Dispatch menu (`EventListener/EmailMenuSubscriber.php`); the menu shows for any user who can open one of its items | N8N Dispatch menu | — |
 
-**Email send mode (per instance).** Settings > Plugins > N8N Dispatch >
-*Habilitar/Autenticar*, field **Enviar o Email por**, under the token: `n8n`
-(the default; updating the plugin never changes it) or `Mautic`. With `Mautic`
-the Email of a campaign step goes out through Mautic's mailer, as a marketing
+**Email send mode (per Email).** Email > Edit, select **Enviar por** above the
+Subject: `N8N` (the default) or `Mautic`. An instance that had the old
+instance-wide setting on `Mautic` gets its existing Emails set to `Mautic` on
+update. With `Mautic` the Email of a campaign step goes out through Mautic's mailer, as a marketing
 Email: Do Not Contact and bounce are respected, the unsubscribe link and the
 one-click header are Mautic's, and the Stat, the tracked links and the open
 pixel are core's. The plugin still resolves the `{{variables}}` and hands them
