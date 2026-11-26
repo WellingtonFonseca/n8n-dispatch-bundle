@@ -21,10 +21,15 @@ use Symfony\Contracts\Translation\TranslatorInterface;
 #[Group('risk:DADOS')]
 class EmailListProviderSubscriberTest extends TestCase
 {
-    private function subscriber(string $provider = 'n8n'): EmailListProviderSubscriber
+    /**
+     * @param int[] $mauticIds ids the repository reports as sent through Mautic
+     */
+    private function subscriber(array $mauticIds = [], ?EmailVariablesRepository $repository = null): EmailListProviderSubscriber
     {
-        $repository = $this->createStub(EmailVariablesRepository::class);
-        $repository->method('getProviderForEmail')->willReturn($provider);
+        if (null === $repository) {
+            $repository = $this->createStub(EmailVariablesRepository::class);
+            $repository->method('getMauticEmailIds')->willReturn(array_fill_keys($mauticIds, true));
+        }
         $translator = $this->createStub(TranslatorInterface::class);
         $translator->method('trans')->willReturnCallback(static fn (string $key): string => 'T:'.$key);
 
@@ -50,7 +55,7 @@ class EmailListProviderSubscriberTest extends TestCase
     {
         $event = new CustomContentEvent('some.view', 'email.name', ['item' => $this->email(5)]);
 
-        $this->subscriber('mautic')->injectViewCustomContent($event);
+        $this->subscriber([5])->injectViewCustomContent($event);
 
         $this->assertSame(
             ['<span class="n8ndispatch-email-provider" hidden data-provider="mautic" data-header="T:mautic.n8ndispatch.email.provider.label" data-label="T:mautic.n8ndispatch.email.provider.mautic"></span>'],
@@ -58,11 +63,11 @@ class EmailListProviderSubscriberTest extends TestCase
         );
     }
 
-    public function testAnEmailWithNoStoredValueReadsAsN8n(): void
+    public function testAnEmailOutsideTheMauticSetReadsAsN8n(): void
     {
         $event = new CustomContentEvent('some.view', 'email.name', ['item' => $this->email(5)]);
 
-        $this->subscriber('n8n')->injectViewCustomContent($event);
+        $this->subscriber([99])->injectViewCustomContent($event);
 
         $this->assertStringContainsString('data-provider="n8n"', implode('', $event->getContent()));
         $this->assertStringContainsString('T:mautic.n8ndispatch.email.provider.n8n', implode('', $event->getContent()));
@@ -81,5 +86,33 @@ class EmailListProviderSubscriberTest extends TestCase
             $subscriber->injectViewCustomContent($event);
             $this->assertSame([], $event->getContent());
         }
+    }
+
+    public function testAnEmptySetMakesEveryEmailN8n(): void
+    {
+        $subscriber = $this->subscriber([]);
+        foreach ([1, 5, 77] as $id) {
+            $event = new CustomContentEvent('some.view', 'email.name', ['item' => $this->email($id)]);
+            $subscriber->injectViewCustomContent($event);
+            $this->assertStringContainsString('data-provider="n8n"', implode('', $event->getContent()));
+        }
+    }
+
+    public function testManyRowsCostOneProviderQueryAndKeepTheirOwnProvider(): void
+    {
+        $repository = $this->createMock(EmailVariablesRepository::class);
+        $repository->expects($this->once())->method('getMauticEmailIds')->willReturn([2 => true, 4 => true]);
+        $repository->expects($this->never())->method('getProviderForEmail');
+        $subscriber = $this->subscriber([], $repository);
+
+        $seen = [];
+        foreach ([1, 2, 3, 4, 5] as $id) {
+            $event = new CustomContentEvent('some.view', 'email.name', ['item' => $this->email($id)]);
+            $subscriber->injectViewCustomContent($event);
+            preg_match('/data-provider="(\w+)"/', implode('', $event->getContent()), $m);
+            $seen[$id] = $m[1];
+        }
+
+        $this->assertSame([1 => 'n8n', 2 => 'mautic', 3 => 'n8n', 4 => 'mautic', 5 => 'n8n'], $seen);
     }
 }
