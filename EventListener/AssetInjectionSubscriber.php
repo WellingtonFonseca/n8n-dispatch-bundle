@@ -50,6 +50,7 @@ class AssetInjectionSubscriber implements EventSubscriberInterface
         $sharedJsRelativePath      = 'Assets/js/n8ndispatch-shared.js';
         $emailTabJsRelativePath    = 'Assets/js/email-tab-variables.js';
         $providerJsRelativePath    = 'Assets/js/email-provider-field.js';
+        $listProviderJsRelativePath = 'Assets/js/email-list-provider.js';
         $senderAlertJsRelativePath = 'Assets/js/email-sender-alert.js';
         $smsJsRelativePath         = 'Assets/js/campaign-sms-dispatch.js';
         $hsmJsRelativePath         = 'Assets/js/campaign-hsm-dispatch.js';
@@ -69,6 +70,7 @@ class AssetInjectionSubscriber implements EventSubscriberInterface
             '<script src="/plugins/N8nDispatchBundle/'.$sharedJsRelativePath.'?v='.$this->assetVersion($sharedJsRelativePath).'"></script>'
             .'<script src="/plugins/N8nDispatchBundle/'.$emailTabJsRelativePath.'?v='.$this->assetVersion($emailTabJsRelativePath).'"></script>'
             .'<script src="/plugins/N8nDispatchBundle/'.$providerJsRelativePath.'?v='.$this->assetVersion($providerJsRelativePath).'"></script>'
+            .'<script src="/plugins/N8nDispatchBundle/'.$listProviderJsRelativePath.'?v='.$this->assetVersion($listProviderJsRelativePath).'"></script>'
             .'<script src="/plugins/N8nDispatchBundle/'.$senderAlertJsRelativePath.'?v='.$this->assetVersion($senderAlertJsRelativePath).'"></script>'
             .'<script src="/plugins/N8nDispatchBundle/'.$smsJsRelativePath.'?v='.$this->assetVersion($smsJsRelativePath).'"></script>'
             .'<script src="/plugins/N8nDispatchBundle/'.$hsmJsRelativePath.'?v='.$this->assetVersion($hsmJsRelativePath).'"></script>'
