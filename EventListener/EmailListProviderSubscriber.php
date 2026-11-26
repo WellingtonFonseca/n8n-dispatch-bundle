@@ -7,6 +7,7 @@ namespace MauticPlugin\N8nDispatchBundle\EventListener;
 use Mautic\CoreBundle\CoreEvents;
 use Mautic\CoreBundle\Event\CustomContentEvent;
 use Mautic\EmailBundle\Entity\Email;
+use MauticPlugin\N8nDispatchBundle\Entity\EmailVariables;
 use MauticPlugin\N8nDispatchBundle\Entity\EmailVariablesRepository;
 use Symfony\Component\EventDispatcher\EventSubscriberInterface;
 use Symfony\Contracts\Translation\TranslatorInterface;
@@ -18,6 +19,13 @@ use Symfony\Contracts\Translation\TranslatorInterface;
  */
 class EmailListProviderSubscriber implements EventSubscriberInterface
 {
+    /**
+     * Ids of the Emails sent through Mautic, loaded once on the first row (one query per request, not per row).
+     *
+     * @var array<int, true>|null
+     */
+    private ?array $mauticEmailIds = null;
+
     public function __construct(
         private EmailVariablesRepository $emailVariablesRepository,
         private TranslatorInterface $translator,
@@ -36,7 +44,8 @@ class EmailListProviderSubscriber implements EventSubscriberInterface
             return;
         }
 
-        $provider = $this->emailVariablesRepository->getProviderForEmail((int) $item->getId());
+        $this->mauticEmailIds ??= $this->emailVariablesRepository->getMauticEmailIds();
+        $provider = isset($this->mauticEmailIds[(int) $item->getId()]) ? EmailVariables::PROVIDER_MAUTIC : EmailVariables::PROVIDER_N8N;
         $customContentEvent->addContent(sprintf(
             '<span class="n8ndispatch-email-provider" hidden data-provider="%s" data-header="%s" data-label="%s"></span>',
             htmlspecialchars($provider, ENT_QUOTES),

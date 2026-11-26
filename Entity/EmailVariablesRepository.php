@@ -64,6 +64,23 @@ class EmailVariablesRepository extends CommonRepository
     }
 
     /**
+     * One query for a whole list page: the ids of the Emails sent through Mautic. Any other Email is n8n.
+     *
+     * @return array<int, true> email id => true
+     */
+    public function getMauticEmailIds(): array
+    {
+        $rows = $this->createQueryBuilder('ev')
+            ->select('ev.emailId')
+            ->where('ev.provider = :provider')
+            ->setParameter('provider', EmailVariables::PROVIDER_MAUTIC)
+            ->getQuery()
+            ->getScalarResult();
+
+        return array_fill_keys(array_map('intval', array_column($rows, 'emailId')), true);
+    }
+
+    /**
      * Null means "no row for this Email at all" (its "Variables" tab was
      * never opened/saved) — distinct from a row that exists but was
      * deliberately cleared to '{}'. CampaignTriggerSubscriber uses that
