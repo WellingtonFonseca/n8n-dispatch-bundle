@@ -9,6 +9,7 @@ use Mautic\CampaignBundle\Entity\LeadEventLog;
 use Mautic\CampaignBundle\Event\PendingEvent;
 use Mautic\EmailBundle\Entity\Email;
 use Mautic\LeadBundle\Entity\Lead;
+use MauticPlugin\N8nDispatchBundle\Entity\EmailVariables;
 use MauticPlugin\N8nDispatchBundle\Resolver\VariableResolver;
 
 /**
@@ -31,11 +32,6 @@ class DirectEmailDispatch
         private DispatchFailureReasons $failureReasons,
         private EmailDncGuard $dncGuard,
     ) {
-    }
-
-    public function isOn(): bool
-    {
-        return $this->sender->isOn();
     }
 
     /**
@@ -116,7 +112,7 @@ class DirectEmailDispatch
     private function record(LeadEventLog $log, Lead $contact, int $emailId, string $status, string $language, array $variables, string $outcome, ?int $statId): void
     {
         $log->appendToMetadata(['n8ndispatch' => [
-            'mode'               => EmailSendMode::MAUTIC,
+            'mode'               => EmailVariables::PROVIDER_MAUTIC,
             'status'             => $status,
             'mautic_template_id' => $emailId,
             'contact_id'         => $contact->getId(),

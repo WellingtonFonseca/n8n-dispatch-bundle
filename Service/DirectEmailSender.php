@@ -14,7 +14,7 @@ use Psr\Log\LoggerInterface;
 use Symfony\Contracts\Translation\TranslatorInterface;
 
 /**
- * The Email of a campaign step sent straight through Mautic's own mailer (EmailSendMode 'mautic'), one contact at
+ * The Email of a campaign step sent straight through Mautic's own mailer (provider 'mautic'), one contact at
  * a time. The plugin still resolves the values of the {{variables}} (VariableResolver); here they only travel as the
  * tokens of the mailer, which swaps them in the subject and the HTML. Mautic does the rest: Do Not Contact and bounce,
  * the category the contact unsubscribed from, the frequency rules, the Stat, the tracking of opens and clicks and the
@@ -39,18 +39,12 @@ class DirectEmailSender
     public const SMTP_TIMEOUT = 20;
 
     public function __construct(
-        private EmailSendMode $mode,
         private EmailModel $emailModel,
         private LeadModel $leadModel,
         private DispatchFailureReasons $failureReasons,
         private TranslatorInterface $translator,
         private LoggerInterface $logger,
     ) {
-    }
-
-    public function isOn(): bool
-    {
-        return $this->mode->isDirect();
     }
 
     /**

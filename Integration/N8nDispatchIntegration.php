@@ -14,7 +14,6 @@ use MauticPlugin\N8nDispatchBundle\Form\Type\VisiblePasswordType;
 use MauticPlugin\N8nDispatchBundle\Service\Alert\AlertSettings;
 use MauticPlugin\N8nDispatchBundle\Service\Alert\AlertSettingsForm;
 use MauticPlugin\N8nDispatchBundle\Service\Changelog;
-use MauticPlugin\N8nDispatchBundle\Service\EmailSendMode;
 use MauticPlugin\N8nDispatchBundle\Service\LastRunReport;
 use MauticPlugin\N8nDispatchBundle\Service\MirrorResyncLogRows;
 use MauticPlugin\N8nDispatchBundle\Service\MirrorResyncSettings;
@@ -22,7 +21,6 @@ use MauticPlugin\N8nDispatchBundle\Service\MirrorSendSwitch;
 use MauticPlugin\N8nDispatchBundle\Service\MirrorSettingsForm;
 use MauticPlugin\N8nDispatchBundle\Service\SettingsFields;
 use MauticPlugin\N8nDispatchBundle\Service\StatusPollSettings;
-use Symfony\Component\Form\Extension\Core\Type\ChoiceType;
 use Symfony\Component\Validator\Constraints\Callback;
 use Symfony\Component\Validator\Context\ExecutionContextInterface;
 
@@ -143,7 +141,6 @@ class N8nDispatchIntegration extends AbstractIntegration
     {
         if ('keys' === $formArea) {
             $this->tokenAsPassword($builder, $data);
-            $this->addEmailSendMode($builder, $data);
 
             return;
         }
@@ -173,32 +170,6 @@ class N8nDispatchIntegration extends AbstractIntegration
         MirrorSettingsForm::addTo($builder, $sendOn, $resync, $this->translator->trans('mautic.n8ndispatch.settings.mirror.tab'));
 
         AlertSettingsForm::addTo($builder, AlertSettings::fromArray(is_array($data) ? $data : []), $this->translator->trans('mautic.n8ndispatch.settings.alerts.tab'));
-    }
-
-    /**
-     * Where the Email of a campaign step goes out, under the token (Habilitar/Autenticar tab): kept
-     * with the other settings of the connection, read by Service/EmailSendMode.php.
-     *
-     * @param \Symfony\Component\Form\FormBuilderInterface $builder
-     * @param array<string, mixed>|null                     $data    the saved keys, decrypted
-     */
-    private function addEmailSendMode($builder, $data): void
-    {
-        $builder->add(EmailSendMode::KEY, ChoiceType::class, [
-            'label'      => 'mautic.n8ndispatch.settings.email_send_mode',
-            'label_attr' => ['class' => 'control-label'],
-            'choices'    => [
-                'mautic.n8ndispatch.settings.email_send_mode.n8n'    => EmailSendMode::N8N,
-                'mautic.n8ndispatch.settings.email_send_mode.mautic' => EmailSendMode::MAUTIC,
-            ],
-            'expanded'   => false,
-            'multiple'   => false,
-            'data'       => EmailSendMode::fromArray(is_array($data) ? $data : []),
-            'attr'       => [
-                'class'   => 'form-control',
-                'tooltip' => 'mautic.n8ndispatch.settings.email_send_mode.tooltip',
-            ],
-        ]);
     }
 
     /**

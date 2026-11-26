@@ -7,9 +7,10 @@ namespace MauticPlugin\N8nDispatchBundle\Service;
 use Doctrine\DBAL\ArrayParameterType;
 use Doctrine\ORM\EntityManagerInterface;
 use Mautic\LeadBundle\Entity\DoNotContact;
+use MauticPlugin\N8nDispatchBundle\Entity\EmailVariables;
 
 /**
- * What Mautic itself knows about an Email that went out through its own mailer (EmailSendMode 'mautic'): the dispatch
+ * What Mautic itself knows about an Email that went out through its own mailer (provider "mautic"): the dispatch
  * screens read it here, at the moment they draw, instead of asking n8n. Nothing is copied: the Stat (sent, opened, failed),
  * the tracked clicks and the Do Not Contact list are core's tables.
  *
@@ -46,7 +47,7 @@ class MauticEmailOutcome
     {
         $n8n = $metadata['n8ndispatch'] ?? null;
 
-        return is_array($n8n) && EmailSendMode::MAUTIC === ($n8n['mode'] ?? null);
+        return is_array($n8n) && EmailVariables::PROVIDER_MAUTIC === ($n8n['mode'] ?? null);
     }
 
     /**

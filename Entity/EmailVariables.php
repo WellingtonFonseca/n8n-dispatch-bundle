@@ -30,11 +30,16 @@ class EmailVariables
 {
     public const TABLE_NAME = 'n8n_dispatch_email_variables';
 
+    public const PROVIDER_N8N    = 'n8n';
+    public const PROVIDER_MAUTIC = 'mautic';
+
     private ?int $id = null;
 
     private int $emailId;
 
     private ?string $variablesJson = null;
+
+    private string $provider = self::PROVIDER_N8N;
 
     /**
      * @param ORM\ClassMetadata<EmailVariables> $metadata
@@ -50,6 +55,12 @@ class EmailVariables
 
         $builder->addNamedField('emailId', 'integer', 'email_id');
         $builder->addNamedField('variablesJson', 'text', 'variables_json', true);
+
+        // Needs the 'default' column option so ALTER TABLE ADD COLUMN backfills the rows already saved with n8n.
+        $builder->createField('provider', 'string')
+            ->columnName('provider')
+            ->option('default', self::PROVIDER_N8N)
+            ->build();
 
         // Not a DB-level unique constraint — EmailVariablesRepository's
         // save() does its own findOneBy(['emailId' => ...]) load-then-write,
@@ -80,6 +91,18 @@ class EmailVariables
     public function getVariablesJson(): ?string
     {
         return $this->variablesJson;
+    }
+
+    public function getProvider(): string
+    {
+        return $this->provider;
+    }
+
+    public function setProvider(string $provider): self
+    {
+        $this->provider = $provider;
+
+        return $this;
     }
 
     public function setVariablesJson(?string $variablesJson): self

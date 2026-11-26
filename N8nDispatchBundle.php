@@ -87,6 +87,14 @@ class N8nDispatchBundle extends PluginBundleBase
             );
         }
 
+        // 0.17.0: how an Email of a campaign step is sent. Existing emails stay on n8n.
+        if ($installedSchema instanceof Schema && $installedSchema->hasTable(EmailVariables::TABLE_NAME) && !$installedSchema->getTable(EmailVariables::TABLE_NAME)->hasColumn('provider')) {
+            $factory->getDatabase()->executeQuery(
+                'ALTER TABLE '.EmailVariables::TABLE_NAME
+                ." ADD COLUMN provider VARCHAR(191) NOT NULL DEFAULT '".EmailVariables::PROVIDER_N8N."'"
+            );
+        }
+
         // 0.14.0: a run is a status poll or a Mirror resync. Existing rows are status polls.
         if ($installedSchema instanceof Schema && $installedSchema->hasTable(PollRun::TABLE_NAME) && !$installedSchema->getTable(PollRun::TABLE_NAME)->hasColumn('kind')) {
             $factory->getDatabase()->executeQuery(

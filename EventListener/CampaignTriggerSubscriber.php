@@ -15,6 +15,7 @@ use Mautic\EmailBundle\Helper\MailHashHelper;
 use Mautic\EmailBundle\Model\EmailModel;
 use Mautic\LeadBundle\Entity\Lead;
 use Mautic\PluginBundle\Helper\IntegrationHelper;
+use MauticPlugin\N8nDispatchBundle\Entity\EmailVariables;
 use MauticPlugin\N8nDispatchBundle\Entity\EmailVariablesRepository;
 use MauticPlugin\N8nDispatchBundle\Entity\DispatchTracking;
 use MauticPlugin\N8nDispatchBundle\N8nDispatchEvents;
@@ -132,7 +133,7 @@ class CampaignTriggerSubscriber implements EventSubscriberInterface
             return;
         }
 
-        if (null !== $this->direct && $this->direct->isOn()) {
+        if (null !== $this->direct && EmailVariables::PROVIDER_MAUTIC === $this->emailVariablesRepository->getProviderForEmail($emailId)) {
             $this->direct->dispatch($event, $campaign, $emailId, $email, $status, $variablesConfig, $language);
 
             return;
