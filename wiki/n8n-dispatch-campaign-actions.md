@@ -19,7 +19,7 @@ The Email / SMS / HSM campaign actions, their forms and the node name taken from
 
 ### Node name = communication name
 
-The contact's History reads `<event name> / <campaign>` (core CampaignBundle LeadSubscriber). A node dropped with a blank name is saved by core with the name of the action TYPE ("Enviar pelo n8n (Email)"), which says nothing. Here the communication's name says what it is (for example "Entrega de Trabalho, E 01"), so:
+The contact's History reads `<event name> / <campaign>` (core CampaignBundle LeadSubscriber). A node dropped with a blank name is saved by core with the name of the action TYPE ("Enviar Email (N8N)"), which says nothing. Here the communication's name says what it is (for example "Entrega de Trabalho, E 01"), so:
 
 ```json
 {

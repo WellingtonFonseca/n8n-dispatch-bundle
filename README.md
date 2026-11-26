@@ -70,9 +70,9 @@ All calls go to the configured `webhook_url`; n8n tells them apart by the
 | Feature | Where | `X-N8n-Dispatch-Action` |
 |---|---|---|
 | Sync an Email template to Mirror on every save (UI or API). The save never waits for a failure: the result is recorded, and the **Mirror resync** (Mirror tab, switch **Send Emails to Mirror**, on by default and off for no send at all, `n8ndispatch:mirror:resync`) sends the failed, never synced, changed and day-old Emails again, one call at a time. An Email with empty HTML is not sent. Details: `wiki/n8n-dispatch-mirror-resync.md` | automatic, and the job every 2 h | `email.save` |
-| **Send via n8n (Email)** — pick a Mautic Email, map its `{{variables}}` (in the body and in the subject). By default it calls the webhook; on an instance set to **Mautic** (below) it sends through Mautic's own mailer | Campaign Action | `email.send` |
-| **Send via n8n (SMS)** — pick an SMS Template | Campaign Action | `sms.send` |
-| **Send via n8n (HSM)** — pick an HSM Template | Campaign Action | `hsm.send` |
+| **Send Email (N8N)** — pick a Mautic Email, map its `{{variables}}` (in the body and in the subject). By default it calls the webhook; on an instance set to **Mautic** (below) it sends through Mautic's own mailer | Campaign Action | `email.send` |
+| **Send SMS (N8N)** — pick an SMS Template | Campaign Action | `sms.send` |
+| **Send HSM (N8N)** — pick an HSM Template | Campaign Action | `hsm.send` |
 | **SMS Templates (n8n)** — message text + variable mapping, reused by many campaigns. The name in the list opens a read-only details modal (a middle click on the name opens the same modal, not a new tab: `Assets/js/template-modal-middle-click.js`) (Active / Inactive badge, Template and Campaigns tabs, Close / Edit in the footer). In the list, the status is a badge (ATIVO / INATIVO) at the start of the name with Desativar / Ativar as the first item of the row menu, and the description is hidden | N8N Dispatch menu | — |
 | **HSM Templates (n8n)** — router, WhatsApp-side template reference, send type (Text, Image: one https image URL, or Image Carousel: 2 to 10 https image URLs; both sent as `cards`), and `{{variable}}` mapping, reused by many campaigns. The name in the list opens the same kind of read-only details modal; the list has the same status badge and menu item, and the Router and HSM Template columns after the name | N8N Dispatch menu | — |
 | **Send through the DialogHSM** — an SMS or HSM template has the select "Enviar por"; an HSM set to 360Dialog is handed to the DialogHSM plugin (optional: without it nothing changes, the gateway is null), the step ends at its answer (Sucesso / Falhou with the reason) and **Resend** works for what it refused. No n8n callback, History or poll for those. Details: `wiki/n8n-dispatch-provider.md` | Template forms, Dispatches, campaign step | `Service/Provider/`, `EventListener/HsmCampaignTriggerSubscriber.php` | — |
@@ -119,7 +119,7 @@ field of any other type is not changed.
 Both template screens split their edit page into a **Template** tab and a
 **Campaigns** tab listing every campaign using the template, and a template
 in use can't be deleted (singly or in a batch). The same holds for an Email
-that a "Send via n8n (Email)" step uses: the Email screens refuse it (a batch
+that a "Send Email (N8N)" step uses: the Email screens refuse it (a batch
 drops it) and the REST API answers 409.
 
 **Rules checked when a template is saved** (screen and API):
