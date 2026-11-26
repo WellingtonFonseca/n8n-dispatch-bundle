@@ -18,7 +18,7 @@ use Symfony\Component\HttpKernel\HttpKernelInterface;
 use Symfony\Component\HttpKernel\KernelEvents;
 
 /**
- * The guard that keeps an Email in use by a "Send via n8n (Email)" step from
+ * The guard that keeps an Email in use by a "Send Email (N8N)" step from
  * being deleted, on the screen (one and batch) and on the REST API.
  */
 #[Group('area:email')]
@@ -160,7 +160,7 @@ class EmailDeleteGuardSubscriberTest extends TestCase
         $this->assertInstanceOf(JsonResponse::class, $response);
         $this->assertSame(409, $response->getStatusCode());
         $this->assertSame(
-            ['errors' => [['code' => 409, 'message' => "The Email can't be deleted: a 'Send via n8n (Email)' step uses it.", 'type' => null]]],
+            ['errors' => [['code' => 409, 'message' => "The Email can't be deleted: a 'Send Email (N8N)' step uses it.", 'type' => null]]],
             json_decode((string) $response->getContent(), true)
         );
     }

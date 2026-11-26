@@ -89,7 +89,7 @@ class AssetInjectionSubscriberTest extends TestCase
 
         (new AssetInjectionSubscriber())->injectViewCustomContent($event);
 
-        $scripts = ['n8ndispatch-shared', 'email-tab-variables', 'email-sender-alert', 'campaign-sms-dispatch', 'campaign-hsm-dispatch', 'campaign-timeline-scheduled', 'campaign-preview-icons', 'status-poll-check-now', 'plugin-about-tab', 'plugin-changelog-tab', 'plugin-alerts-tab', 'plugin-mirror-tab', 'dispatch-resend', 'template-modal-middle-click', 'template-status-toggle'];
+        $scripts = ['n8ndispatch-shared', 'email-tab-variables', 'email-provider-field', 'email-list-provider', 'email-sender-alert', 'campaign-sms-dispatch', 'campaign-hsm-dispatch', 'campaign-timeline-scheduled', 'campaign-preview-icons', 'status-poll-check-now', 'plugin-about-tab', 'plugin-changelog-tab', 'plugin-alerts-tab', 'plugin-mirror-tab', 'dispatch-resend', 'template-modal-middle-click', 'template-status-toggle'];
         $expected = '';
         foreach ($scripts as $name) {
             $expected .= '<script src="/plugins/N8nDispatchBundle/Assets/js/'.$name.'.js?v='.filemtime(__DIR__.'/../../../Assets/js/'.$name.'.js').'"></script>';

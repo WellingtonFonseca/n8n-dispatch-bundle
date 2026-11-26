@@ -17,7 +17,7 @@ use Symfony\Component\HttpKernel\HttpKernelInterface;
 use Symfony\Component\HttpKernel\KernelEvents;
 
 /**
- * The guard that keeps the REST API from saving a "Send via n8n (Email)" step with no Email, or with an Email that
+ * The guard that keeps the REST API from saving a "Send Email (N8N)" step with no Email, or with an Email that
  * does not exist (the screen's form already requires one; the API does not look at the step's properties).
  */
 #[Group('area:dispatch-email')]
@@ -112,7 +112,7 @@ class CampaignEmailStepGuardSubscriberTest extends TestCase
 
         $this->subscriber([])->guard($event);
 
-        $this->assertSame("The 'Send via n8n (Email)' step 'Welcome' has no Email picked.", $this->refusal($event));
+        $this->assertSame("The 'Send Email (N8N)' step 'Welcome' has no Email picked.", $this->refusal($event));
     }
 
     /**
@@ -139,7 +139,7 @@ class CampaignEmailStepGuardSubscriberTest extends TestCase
 
         $this->subscriber([5])->guard($event);
 
-        $this->assertSame("The 'Send via n8n (Email)' step 'Welcome' has no Email picked.", $this->refusal($event));
+        $this->assertSame("The 'Send Email (N8N)' step 'Welcome' has no Email picked.", $this->refusal($event));
     }
 
     public function testAnEmailThatDoesNotExistIsRefusedWithItsNumber(): void
@@ -148,7 +148,7 @@ class CampaignEmailStepGuardSubscriberTest extends TestCase
 
         $this->subscriber([5])->guard($event);
 
-        $this->assertSame("The 'Send via n8n (Email)' step 'Welcome' points at Email #77, which does not exist.", $this->refusal($event));
+        $this->assertSame("The 'Send Email (N8N)' step 'Welcome' points at Email #77, which does not exist.", $this->refusal($event));
     }
 
     public function testAnExistingEmailGoesThroughAsNumberOrText(): void
@@ -172,7 +172,7 @@ class CampaignEmailStepGuardSubscriberTest extends TestCase
 
         $this->subscriber([5])->guard($event);
 
-        $this->assertSame("The 'Send via n8n (Email)' step '2' has no Email picked.", $this->refusal($event));
+        $this->assertSame("The 'Send Email (N8N)' step '2' has no Email picked.", $this->refusal($event));
     }
 
     public function testTheStepsAfterAnIgnoredOneAreStillChecked(): void
@@ -193,7 +193,7 @@ class CampaignEmailStepGuardSubscriberTest extends TestCase
 
         $this->subscriber([5])->guard($event);
 
-        $this->assertSame("The 'Send via n8n (Email)' step '2' has no Email picked.", $this->refusal($event));
+        $this->assertSame("The 'Send Email (N8N)' step '2' has no Email picked.", $this->refusal($event));
     }
 
     public function testEachEmailIsAskedOnceAsAListOfNumbersAndTheAnswerMayComeAsText(): void
@@ -288,7 +288,7 @@ class CampaignEmailStepGuardSubscriberTest extends TestCase
     {
         $event = $this->guarded(self::NEW, ['events' => [['type' => self::TYPE, 'name' => 'Welcome', 'properties' => 'x']]]);
 
-        $this->assertSame("The 'Send via n8n (Email)' step 'Welcome' has no Email picked.", $this->refusal($event));
+        $this->assertSame("The 'Send Email (N8N)' step 'Welcome' has no Email picked.", $this->refusal($event));
     }
 
     public function testOtherControllersAreNeverTouched(): void

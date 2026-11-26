@@ -13,7 +13,6 @@ use Mautic\LeadBundle\Entity\Lead;
 use Mautic\LeadBundle\Entity\LeadRepository;
 use Mautic\LeadBundle\Model\LeadModel;
 use MauticPlugin\N8nDispatchBundle\Service\DirectEmailSender;
-use MauticPlugin\N8nDispatchBundle\Service\EmailSendMode;
 use MauticPlugin\N8nDispatchBundle\Service\DispatchFailureReasons;
 use MauticPlugin\N8nDispatchBundle\Tests\Unit\EventListener\EnUsTranslator;
 use PHPUnit\Framework\Attributes\Group;
@@ -27,7 +26,6 @@ use Psr\Log\LoggerInterface;
 #[Group('risk:DADOS')]
 class DirectEmailSenderTest extends TestCase
 {
-    private EmailSendMode&MockObject $mode;
     private EmailModel&MockObject $emailModel;
     private LeadModel&MockObject $leadModel;
     private StatRepository&MockObject $stats;
@@ -36,7 +34,6 @@ class DirectEmailSenderTest extends TestCase
 
     protected function setUp(): void
     {
-        $this->mode       = $this->createMock(EmailSendMode::class);
         $this->emailModel = $this->createMock(EmailModel::class);
         $this->leadModel  = $this->createMock(LeadModel::class);
         $this->stats      = $this->createMock(StatRepository::class);
@@ -46,7 +43,6 @@ class DirectEmailSenderTest extends TestCase
         $this->leadModel->method('getUnsubscribedLeadCategoriesIds')->willReturn([]);
 
         $this->sender = new DirectEmailSender(
-            $this->mode,
             $this->emailModel,
             $this->leadModel,
             new DispatchFailureReasons(new EnUsTranslator()),
@@ -79,14 +75,6 @@ class DirectEmailSenderTest extends TestCase
         }
 
         return $contact;
-    }
-
-    public function testItIsOnWhenTheSendModeIsDirect(): void
-    {
-        $this->mode->method('isDirect')->willReturnOnConsecutiveCalls(true, false);
-
-        $this->assertTrue($this->sender->isOn());
-        $this->assertFalse($this->sender->isOn());
     }
 
     public function testTheEmailGoesThroughMauticsMailerAsMarketingFromTheCampaignStep(): void
@@ -217,7 +205,7 @@ class DirectEmailSenderTest extends TestCase
     {
         $leadModel = $this->createMock(LeadModel::class);
         $leadModel->method('getUnsubscribedLeadCategoriesIds')->willReturn([3, 8]);
-        $sender = new DirectEmailSender($this->mode, $this->emailModel, $leadModel, new DispatchFailureReasons(new EnUsTranslator()), new EnUsTranslator(), $this->logger);
+        $sender = new DirectEmailSender($this->emailModel, $leadModel, new DispatchFailureReasons(new EnUsTranslator()), new EnUsTranslator(), $this->logger);
         $this->emailModel->expects($this->never())->method('sendEmail');
 
         $result = $sender->send($this->contact(), $this->email(8), 77, []);
@@ -230,7 +218,7 @@ class DirectEmailSenderTest extends TestCase
     {
         $leadModel = $this->createMock(LeadModel::class);
         $leadModel->method('getUnsubscribedLeadCategoriesIds')->willReturn([3, 8]);
-        $sender = new DirectEmailSender($this->mode, $this->emailModel, $leadModel, new DispatchFailureReasons(new EnUsTranslator()), new EnUsTranslator(), $this->logger);
+        $sender = new DirectEmailSender($this->emailModel, $leadModel, new DispatchFailureReasons(new EnUsTranslator()), new EnUsTranslator(), $this->logger);
         $this->emailModel->expects($this->once())->method('sendEmail')->willReturn([]);
         $this->stats->method('findOneBy')->willReturn(null);
 

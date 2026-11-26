@@ -54,6 +54,7 @@ class EventNameSyncTest extends TestCase
             'blank'                          => [''],
             'spaces'                         => ['   '],
             'english type'                   => ['Send via n8n (Email)'],
+            'new english type'               => ['Send Email (N8N)'],
             'portuguese type'                => ['Enviar pelo n8n (Email)'],
             'typed'                          => ['Meu envio de entrega'],
             'another template'               => ['Entrega de Trabalho, E 02'],

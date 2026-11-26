@@ -23,6 +23,7 @@ use Mautic\LeadBundle\Entity\Lead;
 use Mautic\LeadBundle\Model\DoNotContact as DncModel;
 use Mautic\PluginBundle\Entity\Integration as IntegrationSettings;
 use Mautic\PluginBundle\Helper\IntegrationHelper;
+use MauticPlugin\N8nDispatchBundle\Entity\EmailVariables;
 use MauticPlugin\N8nDispatchBundle\Entity\EmailVariablesRepository;
 use MauticPlugin\N8nDispatchBundle\EventListener\CampaignTriggerSubscriber;
 use MauticPlugin\N8nDispatchBundle\Integration\N8nDispatchIntegration;
@@ -1150,7 +1151,7 @@ class CampaignTriggerSubscriberTest extends TestCase
     private function directSubscriber(array $answer = ['outcome' => 'sent', 'reason' => null, 'statId' => 4321], bool $on = true): array
     {
         $sender = $this->createMock(DirectEmailSender::class);
-        $sender->method('isOn')->willReturn($on);
+        $this->emailVariablesRepository->method('getProviderForEmail')->willReturn($on ? EmailVariables::PROVIDER_MAUTIC : EmailVariables::PROVIDER_N8N);
         $sender->method('send')->willReturn($answer + ['outcome' => 'sent', 'reason' => null, 'statId' => null]);
 
         $subscriber = $this->subscriberWith($this->dncModel, $sender);
@@ -1349,6 +1350,16 @@ class CampaignTriggerSubscriberTest extends TestCase
         $this->assertArrayHasKey('mautic_template_id', $event->getSuccessful()->first()->getMetadata()['n8ndispatch']);
     }
 
+    public function testTheProviderIsAskedForTheEmailOfTheStep(): void
+    {
+        [$subscriber] = $this->directSubscriber();
+        $event        = $this->buildPendingEvent(['email' => 1, 'status' => 'production']);
+        $this->emailModel->method('getEntity')->willReturn(new Email());
+        $this->emailVariablesRepository->expects($this->atLeastOnce())->method('getProviderForEmail')->with(1);
+
+        $subscriber->onEmailSend($event);
+    }
+
     public function testWithTheDirectSendOffTheEmailStillGoesToTheWebhook(): void
     {
         [$subscriber, $sender] = $this->directSubscriber(on: false);
@@ -1375,7 +1386,7 @@ class CampaignTriggerSubscriberTest extends TestCase
     private function directBatch(int $count, array $answers): array
     {
         $sender = $this->createMock(DirectEmailSender::class);
-        $sender->method('isOn')->willReturn(true);
+        $this->emailVariablesRepository->method('getProviderForEmail')->willReturn(EmailVariables::PROVIDER_MAUTIC);
         $sender->method('send')->willReturnOnConsecutiveCalls(...$answers);
 
         $subscriber = $this->subscriberWith($this->dncModel, $sender);
