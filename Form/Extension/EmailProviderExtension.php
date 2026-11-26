@@ -15,7 +15,6 @@ use Symfony\Component\Form\FormEvent;
 use Symfony\Component\Form\FormEvents;
 use Symfony\Component\HttpFoundation\RequestStack;
 use Symfony\Component\Validator\Constraints\Choice;
-use Symfony\Component\Validator\Constraints\NotBlank;
 
 /**
  * The "Enviar por" select of the Email edit page: how the Email of a campaign step goes out, through n8n (the
@@ -25,7 +24,7 @@ use Symfony\Component\Validator\Constraints\NotBlank;
  *
  * The value is kept on the request here and written by EventListener/EmailProviderSaveSubscriber once the Email
  * is saved, so a brand-new Email (no id yet) gets it too. A request that does not send the field (an API call of
- * other fields) leaves the stored value alone.
+ * other fields) leaves the stored value alone (a new Email then reads as n8n).
  */
 class EmailProviderExtension extends AbstractTypeExtension
 {
@@ -63,20 +62,20 @@ class EmailProviderExtension extends AbstractTypeExtension
             'label_attr'  => ['class' => 'control-label'],
             'choices'     => $choices,
             'mapped'      => false,
-            'required'    => true,
+            'required'    => false,
             'placeholder' => false,
             'data'        => null === $emailId ? EmailVariables::PROVIDER_N8N : $this->emailVariablesRepository->getProviderForEmail((int) $emailId),
             'attr'        => [
                 'class'                => 'form-control',
                 'data-onload-callback' => 'n8nDispatchMoveEmailProviderField',
             ],
-            'constraints' => [new NotBlank(), new Choice(array_values($choices))],
+            'constraints' => [new Choice(array_values($choices))],
         ]);
 
         $builder->addEventListener(FormEvents::POST_SUBMIT, function (FormEvent $event): void {
             $field = $event->getForm()->get(self::FIELD);
 
-            if ($field->isSubmitted() && $field->isValid()) {
+            if ($field->isSubmitted() && $field->isValid() && is_string($field->getData()) && '' !== $field->getData()) {
                 $this->requestStack->getCurrentRequest()?->attributes->set(self::REQUEST_ATTRIBUTE, (string) $field->getData());
             }
         });

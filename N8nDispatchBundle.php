@@ -17,6 +17,7 @@ use MauticPlugin\N8nDispatchBundle\Entity\MirrorSyncState;
 use MauticPlugin\N8nDispatchBundle\Entity\PollRun;
 use MauticPlugin\N8nDispatchBundle\Entity\SmsTemplate;
 use MauticPlugin\N8nDispatchBundle\Entity\StepFailure;
+use MauticPlugin\N8nDispatchBundle\Integration\N8nDispatchIntegration;
 use MauticPlugin\N8nDispatchBundle\Resolver\LocaleConventions;
 
 class N8nDispatchBundle extends PluginBundleBase
@@ -93,6 +94,24 @@ class N8nDispatchBundle extends PluginBundleBase
                 'ALTER TABLE '.EmailVariables::TABLE_NAME
                 ." ADD COLUMN provider VARCHAR(191) NOT NULL DEFAULT '".EmailVariables::PROVIDER_N8N."'"
             );
+
+            // The instance-wide 'email_send_mode' setting is gone. An instance that had it on 'mautic' keeps sending
+            // its existing emails through Mautic, instead of silently flipping them to n8n.
+            $integration = $factory->getHelper('integration')->getIntegrationObject(N8nDispatchIntegration::NAME);
+            $keys        = $integration ? $integration->getKeys() : [];
+
+            if (is_array($keys) && 'mautic' === ($keys['email_send_mode'] ?? null)) {
+                $connection = $factory->getDatabase();
+                $connection->executeStatement(
+                    'UPDATE '.EmailVariables::TABLE_NAME.' SET provider = :p',
+                    ['p' => EmailVariables::PROVIDER_MAUTIC]
+                );
+                $connection->executeStatement(
+                    'INSERT INTO '.EmailVariables::TABLE_NAME.' (email_id, provider) SELECT e.id, :p FROM '.MAUTIC_TABLE_PREFIX.'emails e'
+                    .' WHERE NOT EXISTS (SELECT 1 FROM '.EmailVariables::TABLE_NAME.' v WHERE v.email_id = e.id)',
+                    ['p' => EmailVariables::PROVIDER_MAUTIC]
+                );
+            }
         }
 
         // 0.14.0: a run is a status poll or a Mirror resync. Existing rows are status polls.
