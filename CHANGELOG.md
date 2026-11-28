@@ -2,7 +2,7 @@
 
 Um bloco por dia, do mais novo para o mais antigo. Formato fixo: `## AAAA-MM-DD` e uma linha `- ` por mudança (a tela do plugin lê este arquivo).
 
-## 2026-11-28
+## 2026-11-28 · v0.17.1
 - Plugins > n8n Dispatch > Sobre: o nome do plugin agora mostra a versão, no formato "N8N Dispatch • versão"
 
 ## 2026-11-26
