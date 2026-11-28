@@ -1,12 +1,12 @@
 {#
   The "Sobre" block: the plugin icon, its name and one sentence about the plugin, centered. Assets/js/plugin-about-tab.js moves it into the FIRST tab.
-  Needs: icon (the path of the plugin icon, as core's integration tile gets it).
+  Needs: icon (the path of the plugin icon, as core's integration tile gets it), version (Config/config.php 'version').
 #}
 
 <div class="n8ndispatch-about-block" data-tab-label="{{ 'mautic.n8ndispatch.settings.about'|trans }}" data-onload-callback="n8ndispatchAboutTab">
     <div class="n8ndispatch-about text-center">
         <img class="img img-responsive n8ndispatch-about__icon" src="{{ getAssetUrl(icon) }}" alt="" />
-        <h4 class="n8ndispatch-about__title">N8N Dispatch</h4>
+        <h4 class="n8ndispatch-about__title">N8N Dispatch{% if version %} • {{ version }}{% endif %}</h4>
         <p class="n8ndispatch-about__text text-muted">{{ 'mautic.n8ndispatch.settings.about.text'|trans }}</p>
     </div>
 </div>

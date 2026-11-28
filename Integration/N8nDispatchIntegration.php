@@ -59,6 +59,16 @@ class N8nDispatchIntegration extends AbstractIntegration
     }
 
     /**
+     * The installed plugin version: the 'version' of Config/config.php.
+     */
+    public static function version(): string
+    {
+        $config = require __DIR__.'/../Config/config.php';
+
+        return (string) ($config['version'] ?? '');
+    }
+
+    /**
      * The change log under the fields of the first tab (core draws the 'custom' note there).
      * Core asks for the other sections too, and wants its own [text, type] pair for them.
      *
@@ -73,7 +83,7 @@ class N8nDispatchIntegration extends AbstractIntegration
         return [
             'custom'     => true,
             'template'   => '@N8nDispatch/Integration/_notes.html.twig',
-            'parameters' => ['icon' => self::ICON, 'days' => Changelog::days(), 'alertLog' => $this->latestAlerts(), 'mirrorLog' => $this->latestMirrorRuns()],
+            'parameters' => ['icon' => self::ICON, 'version' => self::version(), 'days' => Changelog::days(), 'alertLog' => $this->latestAlerts(), 'mirrorLog' => $this->latestMirrorRuns()],
         ];
     }
 

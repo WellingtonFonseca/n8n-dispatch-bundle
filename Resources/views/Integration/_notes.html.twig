@@ -1,7 +1,7 @@
 {#
   The 'custom' note of the plugin's settings screen (Integration::getFormNotes('custom'), drawn under the fields of the
   first tab): the About block, the alert log, the Mirror resync log and the change log. Each block moves into its own tab by its own script.
-  Needs: icon (the path of the plugin icon), days (Service/Changelog::days()), alertLog (AlertLogEntryRepository::latest()), mirrorLog (N8nDispatchIntegration::latestMirrorRuns()).
+  Needs: icon (the path of the plugin icon), version (the plugin version), days (Service/Changelog::days()), alertLog (AlertLogEntryRepository::latest()), mirrorLog (N8nDispatchIntegration::latestMirrorRuns()).
 #}
 
 {% include '@N8nDispatch/Integration/_about.html.twig' %}
